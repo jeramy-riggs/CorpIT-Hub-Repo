@@ -1,0 +1,502 @@
+{# CHANGES - review and approve a change, and the history of past ones.
+   The open-change workspace is ported as-is from the previous console; only the frame around it is new. #}
+<section class="page wide cc-wrap" data-view="change"{% if cc_change %} data-cc-ref="{{ cc_change.ref }}"{% endif %} hidden hidden>
+  <div class="page-h">
+    <div><h2>Changes</h2>
+      <p>A change is checked automatically, then needs {{ cc_required_n if cc_change else 2 }} approvals before it can be deployed. Nothing here deploys anything yet — it records the decision.</p></div>
+  </div>
+  <div class="tabs" role="tablist" data-tabs="change">
+    <button class="tab" role="tab" data-tab="open" aria-selected="true">Open change{% if cc_blocked %} <span class="pill p-warn">blocked</span>{% endif %}</button>
+    <button class="tab" role="tab" data-tab="history" aria-selected="false">History{% if cc_ledger %} <span class="pill p-mut">{{ cc_ledger|length }}</span>{% endif %}</button>
+  </div>
+  <div data-tabpanel="open">
+{% if not cc_change %}
+      <div class="empty" style="padding:40px 18px"><b>No change is open.</b> A change shows up here when one is raised against a site, an access rule or a config file. Past changes are under <b>History</b>.</div>
+      {% else %}
+      {% set ch = cc_change %}
+
+      <!-- ---------- header ---------- -->
+      <header class="cc-head">
+        <div>
+          <div class="eyebrow">Change control{% if cc_is_seed %} &middot; example record{% endif %}</div>
+          <div class="id">
+            <h2>{{ ch.ref }}</h2>
+            <span class="subject">{{ ch.title }}</span>
+          </div>
+        </div>
+        <div class="cc-meta">
+        <div class="cc-facts">
+          <div class="f"><div class="k">Requested by</div><div class="v">{{ ch.requested_by }}</div></div>
+          <div class="f"><div class="k">Created</div><div class="v"><time datetime="{{ ch.created_at }}">{{ ch.created_at }}</time></div></div>
+          <div class="f"><div class="k">Environment</div><div class="v">{{ (ch.target_fqdn or '').split('.')[0] }} &middot; {{ ch.environment }}</div></div>
+        </div>
+        <div class="cc-actbar">
+          <details class="menu" data-menu>
+            <summary class="btn" role="button" aria-haspopup="menu">Actions
+              <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <div class="menu-pop" role="menu">
+              <button type="button" role="menuitem" data-cc-open="cc-preflight">View preflight report</button>
+              <button type="button" role="menuitem" data-cc-diff="split">Side-by-side diff</button>
+              <button type="button" role="menuitem" data-cc-diff="unified">Unified diff</button>
+              <div class="menu-sep"></div>
+              <button type="button" role="menuitem" data-goto="changelog">Open change history</button>
+              <button type="button" role="menuitem" data-goto="vhosts">Inspect {{ ch.target_fqdn }}</button>
+              <div class="menu-sep"></div>
+              <button type="button" role="menuitem" disabled aria-describedby="cc-norunner">Deploy now</button>
+              <p class="menu-note" id="cc-norunner">{% if cc_blocked %}Preflight is blocked. {% endif %}{{ cc_no_runner }}</p>
+            </div>
+          </details>
+          <div class="approval-action"><button type="button" class="btn pri" data-cc-open="cc-request"{% if cc_blocked or not cc_can_request or not can('change.request') %} disabled aria-describedby="approval-unavailable"{% endif %}>Request approval</button>{% if cc_blocked or not cc_can_request or not can('change.request') %}<p class="hint" id="approval-unavailable">{% if cc_blocked %}Resolve the preflight blockers first.{% elif not can('change.request') %}Your role cannot request approval.{% elif ch.approval_requested_at %}Approval has already been requested.{% else %}This change is not ready for approval.{% endif %}</p>{% endif %}</div>
+        </div>
+        </div>
+      </header>
+
+      <!-- ---------- lifecycle ---------- -->
+      <p class="hint change-readiness">Recorded stage: {{ ch.stage }}. Readiness below reflects current validation and recorded approvals.</p>
+      {% set ready_stage_i = 1 if cc_blocked and cc_stage_i > 1 else (2 if cc_approved_n < cc_required_n and cc_stage_i > 2 else cc_stage_i) %}
+      <ol class="cc-life" aria-label="Change readiness">
+        {% for key, label in cc_stages %}
+        {% set state = 'done' if loop.index0 < ready_stage_i else ('current' if loop.index0 == ready_stage_i else 'todo') %}
+        <li data-state="{{ state }}"{% if state == 'current' and not cc_blocked %} class="ok"{% endif %}
+            {% if state == 'current' %}aria-current="step"{% endif %}>
+          <span class="dot" aria-hidden="true">{{ loop.index }}</span>
+          <span class="stage-wrap">
+            <span class="lab">{{ label }}{% if state == 'done' %} <span class="stage-result">Complete</span>{% elif state == 'current' %} <span class="stage-result">Current</span>{% else %}<span class="stage-result">Pending</span>{% endif %}</span>
+            {% if state == 'current' and cc_blocked %}<span class="stage-flag">{{ label }} blocked</span>{% endif %}
+          </span>
+          {% if not loop.last %}<span class="bar" aria-hidden="true"></span>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+
+      <div class="cc-grid">
+        <div class="cc-main">
+
+          {% if cc_is_seed %}
+          <div class="cc-example">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+            <div><b>Seeded example.</b> Nobody has proposed this change &mdash; it is here so the workspace has a record to render until a change feed is attached. Everything it describes is read from this server: the vhost, the certificate on disk, the gate policy and the affected names. The preflight verdict below is computed live, not stored.</div>
+          </div>
+          {% endif %}
+
+          {% if cc_blocked %}
+          <div class="cc-blockbar" role="status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3l9 16H3z"/><path d="M12 9v4M12 16.5h.01"/></svg>
+            <div><b>Preflight blocked &mdash; deployment is not available.</b>
+              {{ cc_blockers|length }} of {{ cc_checks|length }} validation check{{ '' if cc_blockers|length == 1 else 's' }} failed:
+              {% for b in cc_blockers %}<b>{{ b.label }}</b>{{ ', ' if not loop.last }}{% endfor %}.
+              A change cannot leave preflight until every check passes.</div>
+            <div class="actions"><button type="button" class="btn sm" data-cc-open="cc-preflight">Why</button></div>
+          </div>
+          {% endif %}
+
+          <!-- ---------- diff ---------- -->
+          <div class="cc-diff">
+            <div class="cc-diff-h">
+              <div class="cc-side-h" data-cc-view="split">
+                <span class="t">Before</span>
+                <span class="cc-ver">{{ ch.before_version }}</span>
+                <time datetime="{{ ch.before_at }}">{{ ch.before_at }}</time>
+              </div>
+              <div class="cc-side-h" data-cc-view="split">
+                <span class="t">After</span>
+                <span class="cc-ver">{{ ch.after_version }}</span>
+                <time datetime="{{ ch.after_at }}">{{ ch.after_at }}</time>
+              </div>
+              <div class="cc-side-h" data-cc-view="unified" hidden>
+                <span class="t">Change</span>
+                <span class="cc-ver">{{ ch.before_version }}</span>
+                <span aria-hidden="true" style="color:var(--ink-3)">&rarr;</span>
+                <span class="cc-ver">{{ ch.after_version }}</span>
+                <time datetime="{{ ch.after_at }}">{{ ch.after_at }}</time>
+              </div>
+              <div class="cc-diffsel" role="group" aria-label="Diff view">
+                <button type="button" data-cc-diff="split" aria-pressed="true">Side by side</button>
+                <button type="button" data-cc-diff="unified" aria-pressed="false">Unified</button>
+              </div>
+            </div>
+
+            <div class="cc-code" data-cc-view="split" tabindex="0" role="region"
+                 aria-label="Side-by-side configuration diff for {{ ch.config_path }}">
+              <table class="cc-lines">
+                <colgroup><col class="c-gut"><col class="c-sig"><col><col class="c-gut"><col class="c-sig"><col></colgroup>
+                <caption class="sr-only">{{ ch.config_path }}: {{ ch.before_version }} on the left, {{ ch.after_version }} on the right. {{ cc_removed }} lines removed, {{ cc_added }} added.</caption>
+                <tbody>
+                {% for left, right in cc_split %}
+                <tr>
+                  {% if left %}
+                  <td class="gut {{ left.k }}">{{ left.n }}</td><td class="sig {{ left.k }}">{{ '-' if left.k == 'del' }}</td><td class="src {{ left.k }}">{{ left.t }}</td>
+                  {% else %}
+                  <td class="gut pad"></td><td class="sig pad"></td><td class="src pad"></td>
+                  {% endif %}
+                  {% if right %}
+                  <td class="gut mid {{ right.k }}">{{ right.n }}</td><td class="sig {{ right.k }}">{{ '+' if right.k == 'add' }}</td><td class="src {{ right.k }}">{{ right.t }}</td>
+                  {% else %}
+                  <td class="gut mid pad"></td><td class="sig pad"></td><td class="src pad"></td>
+                  {% endif %}
+                </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="cc-code" data-cc-view="unified" hidden tabindex="0" role="region"
+                 aria-label="Unified configuration diff for {{ ch.config_path }}">
+              <table class="cc-lines">
+                <colgroup><col class="c-gut"><col class="c-gut"><col class="c-sig"><col></colgroup>
+                <caption class="sr-only">{{ ch.config_path }}, unified diff: {{ cc_removed }} lines removed, {{ cc_added }} added.</caption>
+                <tbody>
+                {% for u in cc_unified %}
+                <tr class="{{ u.k }}">
+                  <td class="gut">{{ u.ln or '' }}</td>
+                  <td class="gut">{{ u.rn or '' }}</td>
+                  <td class="sig">{{ '+' if u.k == 'add' else ('-' if u.k == 'del' else '') }}</td>
+                  <td class="src">{{ u.t }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="cc-diff-f">
+              <span class="mono">{{ ch.config_path }}</span>
+              <span class="adds">+{{ cc_added }}</span>
+              <span class="dels">&minus;{{ cc_removed }}</span>
+              <span>{{ ch.before_version }} &rarr; {{ ch.after_version }}</span>
+            </div>
+          </div>
+
+          <!-- ---------- blast radius ---------- -->
+          <div class="cc-blast">
+            <div class="lab">Blast radius</div>
+
+            <details>
+              <summary>
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.3"/><path d="M15 19a4.6 4.6 0 0 1 5.5-4"/></svg>
+                <span><span class="v">{{ cc_users|length }} user{{ '' if cc_users|length == 1 else 's' }}</span><span class="n">Directly affected</span></span>
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+              </summary>
+              <div class="body">
+                {% if cc_users %}
+                <ul>{% for u in cc_users %}<li><span class="q">&bull;</span>{{ u }}</li>{% endfor %}</ul>
+                <p>Accounts that have signed in to this estate in the last 90 days, from the console's own audit trail.</p>
+                {% else %}
+                <p>No sign-ins recorded in the last 90 days, so no user can be shown as affected. That is an absence of evidence, not a guarantee that nobody is.</p>
+                {% endif %}
+              </div>
+            </details>
+
+            <details>
+              <summary>
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="9" r="2.6"/><circle cx="16" cy="9" r="2.6"/><path d="M3 18a5 5 0 0 1 10 0M13 18a5 5 0 0 1 8-3.6"/></svg>
+                <span><span class="v">{{ cc_groups|length }} group{{ '' if cc_groups|length == 1 else 's' }}</span><span class="n">Directly affected</span></span>
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+              </summary>
+              <div class="body">
+                {% if cc_groups %}
+                <ul>{% for g in cc_groups %}<li><span class="q">&bull;</span>{{ g }}</li>{% endfor %}</ul>
+                <p>Directory groups the sign-in gate admits to {{ ch.target_fqdn }} today. This change does not alter them &mdash; see the access-policy check.</p>
+                {% elif cc_access %}
+                <p>No group list: the gate policy for this site is <span class="mono">{{ cc_access.mode }}</span>{% if cc_access.inherited %} (inherited from the default policy){% endif %}, which does not name groups.</p>
+                {% else %}
+                <p>The gate policy could not be read, so the affected groups are unknown.</p>
+                {% endif %}
+              </div>
+            </details>
+
+            <details>
+              <summary>
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4.5" width="18" height="12" rx="1.6"/><path d="M8 20h8M12 16.5V20"/></svg>
+                <span><span class="v">{{ 1 if cc_vhost else 0 }} virtual host</span><span class="n">Directly affected</span></span>
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>
+              </summary>
+              <div class="body">
+                {% if cc_vhost %}
+                <ul>
+                  <li><span class="q">file</span>{{ cc_vhost.file }}</li>
+                  <li><span class="q">names</span>{{ cc_vhost.server_name }}</li>
+                  <li><span class="q">gate</span>{{ 'auth_request enforced' if cc_vhost.gated else 'no auth_request on this vhost' }}</li>
+                </ul>
+                <p>The other {{ cc_subs|length - 1 if cc_subs|length else 0 }} name{{ '' if (cc_subs|length - 1) == 1 else 's' }} on this server are served by their own vhosts and are not touched by this diff.</p>
+                {% else %}
+                <p>No enabled nginx site matched {{ ch.target_fqdn }} when this page was rendered.</p>
+                {% endif %}
+              </div>
+            </details>
+          </div>
+
+          <!-- ---------- affected resources ---------- -->
+          <div class="card" style="padding:0;margin-bottom:16px">
+            <div style="padding:14px 16px 10px"><div class="rail-h" style="margin:0">Affected virtual host</div></div>
+            <div class="tblwrap">
+              <table>
+                <thead><tr>
+                  <th scope="col">Virtual host</th><th scope="col">Names served</th>
+                  <th scope="col">IP / port</th><th scope="col">Config path</th>
+                  <th scope="col">Current version</th><th scope="col">Change</th>
+                </tr></thead>
+                <tbody>
+                <tr>
+                  <td><span class="st {{ 'good' if cc_vhost else 'mut' }}"><i></i></span> <span class="mono">{{ ch.target_fqdn }}</span></td>
+                  <td class="mono" style="font-size:11.5px">{{ cc_vhost.server_name if cc_vhost else '&mdash;'|safe }}</td>
+                  <td class="mono">{{ host_ip }}:443</td>
+                  <td class="mono" style="font-size:11.5px">{{ ch.config_path }}</td>
+                  <td class="mono">{{ ch.before_version }}</td>
+                  <td><button type="button" class="linkbtn" data-cc-diff="split" data-cc-focus="1">View diff</button></td>
+                </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="cc-summary">
+            <div class="rail-h">Change summary</div>
+            <p>{{ ch.summary }}</p>
+          </div>
+        </div>
+
+        <!-- ---------- the safety rail ---------- -->
+        <aside class="cc-rail" aria-label="Approval and safety">
+
+          <div class="rail-card">
+            <h3>{{ cc_approved_n }} of {{ cc_required_n }} approvals</h3>
+            <div class="meter {{ 'none' if cc_approved_n == 0 else ('full' if cc_approved_n >= cc_required_n else '') }}"
+                 role="img" aria-label="{{ cc_approved_n }} of {{ cc_required_n }} approvals recorded">
+              <i style="width:{{ (100 * cc_approved_n / cc_required_n)|round|int if cc_required_n else 0 }}%"></i>
+            </div>
+            <p style="margin:8px 0 0;font-family:var(--mono);font-size:10.5px;color:var(--ink-3)">
+              {% if ch.outcome == 'rejected' %}Rejected &mdash; returned to preflight
+              {% elif not ch.approval_requested_at %}Not yet requested
+              {% else %}Requested {{ ch.approval_requested_at }}{% endif %}
+            </p>
+
+            <div class="rail-h" style="margin:16px 0 3px">Approvers</div>
+            {% for a in cc_approvers %}
+            <div class="appr">
+              <span class="av" aria-hidden="true">{{ a.label[:2]|upper }}</span>
+              <span class="who">
+                <b>{{ a.label }}</b>
+                <small>{{ a.who }}</small>
+                {% if a.by %}<small>{{ a.decision }} by {{ a.by }} &middot; {{ a.at }}</small>{% endif %}
+              </span>
+              {% if a.decision == 'approved' %}
+              <span class="stt ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>Approved</span>
+              {% elif a.decision == 'rejected' %}
+              <span class="stt no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>Rejected</span>
+              {% elif not a.resolvable %}
+              <span class="stt pend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Unfilled</span>
+              {% else %}
+              <span class="stt pend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>Pending</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+
+            {% set actionable = cc_approvers|selectattr('can_act')|list %}
+            {% if ch.stage == 'approval' and actionable and can('change.approve') %}
+            <div class="rail-foot">
+              {% for a in actionable %}
+              <form method="post" action="/change/{{ ch.ref }}/decide" style="display:flex;gap:7px;flex-wrap:wrap">
+                <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+                <input type="hidden" name="_back" value="/console#change">
+                <input type="hidden" name="slot" value="{{ a.slot }}">
+                <button class="btn pri sm" name="decision" value="approved">Approve as {{ a.label|lower }}</button>
+                <button class="btn sm" name="decision" value="rejected"
+                        data-confirm="Reject {{ ch.ref }}? It returns to preflight and any approval already given is cleared.">Reject</button>
+              </form>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="rail-foot">
+              <div class="rail-row" style="border:0;padding:0">
+                <span class="t" style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3)">Approval policy</span>
+                <span class="res mut">{{ cc_required_n }} of {{ cc_required_n }} required</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rail-card">
+            <div class="rail-h">Validation checklist</div>
+            <div class="rail-list">
+              {% for c in cc_checks %}
+              <div class="rail-row">
+                <span class="t">{{ c.label }}</span>
+                <span class="res {{ c.level }}">
+                  {% if c.status == 'passed' %}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>Passed
+                  {% elif c.status == 'failed' %}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>Failed
+                  {% elif c.status == 'warning' %}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 16H3z"/><path d="M12 9v4M12 16.5h.01"/></svg>Warning
+                  {% else %}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Not run
+                  {% endif %}
+                </span>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="rail-foot">
+              <button type="button" class="linkbtn" data-cc-open="cc-preflight">View preflight report</button>
+            </div>
+          </div>
+
+          <div class="rail-card">
+            <div class="rail-h">Execution window</div>
+            <div class="rail-kv">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+              <span class="k">Scheduled</span>
+              <span class="v">{% if ch.window_start %}<time datetime="{{ ch.window_start }}">{{ ch.window_start[:10] }}</time>{% else %}Not scheduled{% endif %}</span>
+            </div>
+            <div class="rail-kv">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+              <span class="k">Window</span>
+              <span class="v">{% if ch.window_start and ch.window_end %}{{ ch.window_start[11:16] }} &ndash; {{ ch.window_end[11:16] }} UTC{% else %}&mdash;{% endif %}</span>
+            </div>
+            <div class="rail-kv">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v4M12 21v-2M3 12h4M21 12h-2"/><circle cx="12" cy="12" r="4"/></svg>
+              <span class="k">Estimated duration</span>
+              <span class="v">{{ ch.duration_estimate }}</span>
+            </div>
+          </div>
+
+          <div class="rail-card rb">
+            <div class="rail-h">Rollback plan</div>
+            <h3>Rollback {{ ch.rollback_version }}</h3>
+            <p class="rb-note">Revert to version {{ ch.before_version }}.
+              {% if cc_blocked %}Rollback is part of the deploy step, which this change has not reached.{% else %}Available from the deploy step.{% endif %}</p>
+            <details class="drawer" style="border-top:1px solid var(--border-2);margin-top:11px">
+              <summary style="padding:9px 0"><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>Rollback detail</summary>
+              <div style="padding:2px 0 10px">
+                <div class="rail-kv"><span class="k">Restores</span><span class="v">{{ (ch.config_path or '').split('/')[-1] or '—' }}</span></div>
+                <div class="rail-kv"><span class="k">To version</span><span class="v">{{ ch.before_version }}</span></div>
+                {% if cc_is_seed %}<div class="rail-kv"><span class="k">Certificate</span><span class="v">unchanged pair</span></div>{% endif %}
+                <p style="margin:8px 0 0;font-size:12px;color:var(--ink-2);line-height:1.6">{% if cc_is_seed %}Reverting restores the previous certificate paths and removes the network allowlist, returning the vhost to unrestricted reachability behind the sign-in gate. {% endif %}{{ cc_no_runner }}</p>
+              </div>
+            </details>
+            <div class="rail-foot">
+              <div class="rail-row" style="border:0;padding:0">
+                <span class="t" style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3)">Last tested {{ ch.rollback_tested_at }}</span>
+                {% if ch.rollback_tested_ok %}
+                <span class="res good"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>Successful</span>
+                {% else %}
+                <span class="res crit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>Failed</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- ---------- preflight report ---------- -->
+      <dialog class="sheet" id="cc-preflight" aria-labelledby="cc-preflight-t">
+        <div class="sheet-h">
+          <div style="flex:1">
+            <h3 id="cc-preflight-t">Preflight report</h3>
+            <div class="sub">{{ ch.ref }} &middot; {{ ch.target_fqdn }} &middot; re-run at page load</div>
+          </div>
+          <button type="button" class="iconbtn" data-cc-close aria-label="Close preflight report">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="sheet-b">
+          {% for c in cc_checks %}
+          <div class="chk {{ 'failed' if c.status == 'failed' }}">
+            <div class="chk-h">
+              <b>{{ c.label }}</b>
+              <span class="pill {{ 'p-good' if c.status == 'passed' else ('p-crit' if c.status == 'failed' else ('p-warn' if c.status == 'warning' else 'p-mut')) }}">{{ c.status }}</span>
+            </div>
+            <p>{{ c.detail }}</p>
+            {% if c.evidence %}<div class="ev">{{ c.evidence }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div class="sheet-f">
+          <span class="why">{% if cc_blocked %}{% if cc_blockers|length == 1 %}1 failing check blocks this change.{% else %}{{ cc_blockers|length }} failing checks block this change.{% endif %}{% else %}No check is blocking this change.{% endif %}</span>
+          <button type="button" class="btn" data-cc-close>Close</button>
+        </div>
+      </dialog>
+
+      <!-- ---------- approval request flow ---------- -->
+      <dialog class="sheet" id="cc-request" aria-labelledby="cc-request-t">
+        <form method="post" action="/change/{{ ch.ref }}/request">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <input type="hidden" name="_back" value="/console#change">
+          <div class="sheet-h">
+            <div style="flex:1">
+              <h3 id="cc-request-t">Request approval</h3>
+              <div class="sub">{{ ch.ref }} &middot; {{ cc_required_n }} approvals required</div>
+            </div>
+            <button type="button" class="iconbtn" data-cc-close aria-label="Close approval request">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+          <div class="sheet-b">
+            {% if cc_blocked %}
+            <div class="cc-blockbar" style="margin:0 0 14px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3l9 16H3z"/><path d="M12 9v4M12 16.5h.01"/></svg>
+              <div><b>This change cannot be sent for approval.</b> Preflight has to pass first, and it does not:
+                <ul style="margin:8px 0 0;padding-left:18px">
+                  {% for b in cc_blockers %}<li style="margin-bottom:5px">{{ b.label }} &mdash; {{ b.detail }}</li>{% endfor %}
+                </ul>
+              </div>
+            </div>
+            {% elif not can('change.request') %}
+            <p style="margin:0 0 14px;font-size:13px;color:var(--ink-2)">You do not hold the change-request capability. It is granted to Active Directory groups under Identity &amp; Access.</p>
+            {% elif ch.approval_requested_at %}
+            <p style="margin:0 0 14px;font-size:13px;color:var(--ink-2)">Approval was already requested on {{ ch.approval_requested_at }}.</p>
+            {% endif %}
+            <div class="rail-h">Who will be asked</div>
+            <div class="rail-list">
+              {% for a in cc_approvers %}
+              <div class="rail-row"><span class="t">{{ a.label }}<br><small class="mono" style="color:var(--ink-3);font-size:10.5px">{{ a.who }}</small></span>
+                <span class="res {{ 'mut' if a.resolvable else 'warn' }}">{{ 'Will be notified' if a.resolvable else 'No one holds this slot' }}</span></div>
+              {% endfor %}
+            </div>
+            <p style="margin:14px 0 0;font-size:12.5px;color:var(--ink-2);line-height:1.6">
+              Requesting approval moves {{ ch.ref }} from Preflight to Approval and records who asked. It does not deploy anything. {{ cc_no_runner }}</p>
+          </div>
+          <div class="sheet-f">
+            <span class="why">{% if cc_blocked %}Blocked by preflight.{% else %}Recorded in the audit trail.{% endif %}</span>
+            <button type="button" class="btn" data-cc-close>Cancel</button>
+            <button class="btn pri" type="submit"
+              {% if cc_blocked or not cc_can_request or not can('change.request') %}disabled{% endif %}>Send for approval</button>
+          </div>
+        </form>
+      </dialog>
+      {% endif %}
+  </div>
+  <div data-tabpanel="history" hidden>
+
+      <div class="card" style="padding:0">
+        <div class="tblwrap">
+          <table>
+            <thead><tr>
+              <th scope="col">Reference</th><th scope="col">Change</th><th scope="col">Target</th>
+              <th scope="col">Stage</th><th scope="col">State</th><th scope="col">Raised</th><th scope="col"></th>
+            </tr></thead>
+            <tbody data-collection="Change history" data-filter-column="4">
+            {% for c in cc_ledger %}
+            <tr data-collection-row>
+              <td class="mono">{{ c.ref }}</td>
+              <td>{{ c.title }}{% if c.origin == 'seed' %} <span class="pill p-mut">example</span>{% endif %}</td>
+              <td class="mono" style="font-size:11.5px">{{ c.target_fqdn }}</td>
+              <td class="mono">{{ c.stage }}</td>
+              <td>
+                {% if c.outcome == 'rejected' %}<span class="st crit"><i></i>rejected</span>
+                {% elif c.outcome == 'deployed' %}<span class="st good"><i></i>deployed</span>
+                {% else %}<span class="st warn"><i></i>open</span>{% endif %}
+              </td>
+              <td class="mono" style="font-size:11.5px">{{ c.created_at }}</td>
+              <td><button type="button" class="linkbtn" data-goto="change">Open</button></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="color:var(--ink-3);padding:24px 14px">No changes have been raised.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    
+  </div>
+</section>

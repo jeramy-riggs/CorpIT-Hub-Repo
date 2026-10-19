@@ -1,0 +1,67 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Access not granted &middot; CorpIT</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{
+    --bg:#f7f7f5; --panel:#ffffff; --ink:#16181d; --muted:#5c6270;
+    --line:#e3e4e8; --accent:#8a5a2b; --accent-soft:#fbf3ea;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#111216; --panel:#191b21; --ink:#eceef2; --muted:#9aa1af;
+      --line:#282b34; --accent:#d9a066; --accent-soft:#241d14;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; display:grid; place-items:center; padding:2rem;
+    background:var(--bg); color:var(--ink);
+    font:15px/1.55 "IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  .card{
+    max-width:34rem; width:100%; background:var(--panel);
+    border:1px solid var(--line); border-radius:10px; padding:2rem 2.25rem;
+  }
+  .tag{
+    display:inline-block; font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+    font-weight:600; color:var(--accent); background:var(--accent-soft);
+    border-radius:3px; padding:.25rem .5rem; margin-bottom:1.1rem;
+  }
+  h1{font-size:1.4rem; line-height:1.25; margin:0 0 .75rem; text-wrap:balance;}
+  p{margin:0 0 1rem; color:var(--muted);}
+  .who{
+    font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:13px; color:var(--ink); background:var(--bg);
+    border:1px solid var(--line); border-radius:6px; padding:.6rem .75rem;
+    margin:0 0 1.25rem; word-break:break-all;
+  }
+  .reason{
+    border-left:2px solid var(--line); padding-left:.9rem; font-size:13.5px;
+    color:var(--muted); margin:0 0 1.5rem;
+  }
+  form{margin:0}
+  button{
+    font:inherit; font-weight:500; color:var(--ink); background:transparent;
+    border:1px solid var(--line); border-radius:6px; padding:.55rem 1rem;
+    cursor:pointer; transition:transform 160ms cubic-bezier(.23,1,.32,1), border-color 160ms ease;
+  }
+  button:hover{border-color:var(--accent);}
+  button:active{transform:scale(.97);}
+  button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  @media (prefers-reduced-motion:reduce){button{transition:none} button:active{transform:none}}
+</style>
+<div class="card">
+  <span class="tag">Access not granted</span>
+  <h1>You are signed in, but this console is not open to your account.</h1>
+  <p>Authentication succeeded. Authorization did not: console access is granted by
+     Active Directory group membership, and your account is not in one of them.</p>
+  <p class="who">{{ email }}</p>
+  <p class="reason">{{ reason }}</p>
+  <p>Ask the platform owner to add you to the appropriate
+     <strong>SaaS-ITH</strong> role group, then sign in again.</p>
+  <form method="post" action="/api/gate/logout">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button type="submit">Sign out</button>
+  </form>
+</div>

@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<!-- CorpIT Hub. NOT a port: written here on 2026-09-07.
+
+     The Operations Hub tile "Okta Dashboard" pointed at
+     https://itam.nrpi.local/helpdesk/okta, a route inside the helpdesk SPA on
+     ITAM's :3002. There is no ITAM *page* to port -- and this host already
+     holds the live Okta mirrors that view wanted, so the tile is repointed at
+     a CorpIT page reading corpit_hub directly.
+
+     Two defects were found while building it and are fixed rather than
+     inherited:
+
+       * okta_apps had not advanced since 2026-08-27, the day corpit_hub was
+         seeded from ITAM. okta-sync.js is only driven by an in-process
+         scheduler that fires if a 60s setInterval tick lands inside the single
+         minute 04:00; syncs-worker is restarted on every platform deploy, so on
+         this host it never fired. The collector now runs from cron
+         (okta-apps-sync-job.js, 04:40) and OKTA_SYNC_ENABLED=false stops the
+         two ever double-running.
+       * okta_apps was in no freshness registry, so nothing anywhere reported
+         that. All three Okta tables are registered now, and this page states
+         each table's age beside the numbers drawn from it -- a mirror that
+         stops advancing keeps answering, and every count it returns stays
+         plausible.
+
+     Read-only: /api/okta serves SELECTs against corpit_hub. No Okta API call
+     from the browser, no write path, no credential in page code. Every asset
+     and API path is host-relative and resolves against corpit.nrpi.local.
+     Nothing on ITAM was read or changed for this page. -->
+<html lang="en" data-theme="dark">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Okta Dashboard — CorpIT</title>
+<style>
+  /* ---------- Design tokens (Deep Ocean, as cert-watchtower / identity-diag) ---------- */
+  :root {
+    --bg: #0b1020;
+    --bg-card: #121830;
+    --bg-card-hover: #161e3d;
+    --border: #1e2745;
+    --border-strong: #2a3458;
+    --text: #e6e9f5;
+    --text-dim: #8a93b3;
+    --text-faint: #5a6388;
+    --accent: #5b8cff;
+    --accent-soft: rgba(91, 140, 255, 0.12);
+    --ok: #2dd4a7;
+    --info: #5b8cff;
+    --warning: #f5b544;
+    --critical: #f56b6b;
+    --unknown: #a78bfa;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --on-accent: #0b1020;
+    --accent-hover: #7aa1ff;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  /* ---------- Light mode ----------
+     Accent tokens are deliberately absent: it-theme.js writes --accent as an
+     INLINE style on :root, which outranks this block, and it-theme-toggle.js
+     re-asserts a darkened twin of the user's accent family per mode. */
+  [data-theme="light"] {
+    --bg: #eef1f6;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f7f9fc;
+    --border: #dde3ec;
+    --border-strong: #cbd5e3;
+    --text: #0f1b2d;
+    --text-dim: #41526b;
+    --text-faint: #586a80;
+    --accent-soft: rgba(37, 99, 235, 0.10);
+    --ok: #0c6b46;
+    --info: #175fbd;
+    --warning: #8f5106;
+    --critical: #c01640;
+    --unknown: #6d28d9;
+    --shadow: 0 1px 0 rgba(0,0,0,.02), 0 12px 30px -16px rgba(20,40,80,.25);
+    --on-accent: #ffffff;
+    --accent-hover: #1d4ed8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans); font-size: 14px; line-height: 1.5;
+    color: var(--text); background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  .container { max-width: 1320px; margin: 0 auto; padding: 22px 26px 72px; }
+
+  /* ---------- Head ---------- */
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
+  .breadcrumb { font-size: 12px; color: var(--text-faint); margin-bottom: 4px; }
+  .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--accent); text-decoration: underline; }
+  h1 { font-size: 24px; font-weight: 650; letter-spacing: -0.2px; }
+  .head-right { display: flex; align-items: center; gap: 10px; }
+
+  .btn {
+    font: inherit; font-size: 13px; cursor: pointer; border-radius: 8px;
+    padding: 7px 13px; border: 1px solid var(--border-strong);
+    background: var(--bg-card); color: var(--text);
+  }
+  .btn:hover { background: var(--bg-card-hover); border-color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-ghost { background: transparent; }
+
+  /* ---------- Source strip ----------
+     Every number on this page comes from a mirror. The strip says how old each
+     mirror is, so a frozen table cannot be read as the current state of Okta. */
+  .source-strip { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+  .src {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    border: 1px solid var(--border); border-radius: 9px;
+    background: var(--bg-card); padding: 8px 12px; font-size: 12px;
+  }
+  .src b { font-weight: 600; font-size: 12.5px; }
+  .src .src-meta { color: var(--text-faint); font-family: var(--mono); font-size: 11px; }
+  .src-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: 0 0 auto; }
+  .src-dot.ok { background: var(--ok); }
+  .src-dot.stale { background: var(--warning); }
+  .src-dot.never { background: var(--unknown); }
+  .src-dot.unknown { background: var(--text-faint); }
+  .src.stale { border-color: var(--warning); }
+  .src.never { border-color: var(--unknown); }
+
+  /* ---------- KPIs ---------- */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi { border: 1px solid var(--border); border-radius: 11px; background: var(--bg-card); padding: 14px 16px; }
+  .kpi .k-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); }
+  .kpi .k-value { font-size: 27px; font-weight: 650; line-height: 1.15; margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .kpi .k-sub { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+  .kpi .k-value.muted { color: var(--text-faint); font-size: 19px; font-weight: 550; }
+  .kpi.attn { border-color: var(--warning); }
+
+  /* ---------- Tabs ---------- */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; flex-wrap: wrap; }
+  .tab {
+    font: inherit; font-size: 13.5px; cursor: pointer; background: none; border: none;
+    color: var(--text-dim); padding: 9px 14px; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; display: flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .badge {
+    font-size: 11px; font-family: var(--mono); background: var(--accent-soft);
+    color: var(--accent); border-radius: 20px; padding: 1px 8px; font-variant-numeric: tabular-nums;
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ---------- Cards / breakdowns ---------- */
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .card { border: 1px solid var(--border); border-radius: 11px; background: var(--bg-card); }
+  .card > h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-dim);
+    font-weight: 600; padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  }
+  .card > h2 .h2-note { text-transform: none; letter-spacing: 0; color: var(--text-faint); font-size: 11px; font-weight: 400; }
+  .card-body { padding: 12px 16px 15px; }
+
+  .bars { display: flex; flex-direction: column; gap: 9px; }
+  .bar-row { display: grid; grid-template-columns: minmax(96px, 34%) 1fr auto; gap: 10px; align-items: center; font-size: 12.5px; }
+  .bar-label { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
+  .bar-fill { display: block; height: 100%; border-radius: 4px; background: var(--accent); transition: width .35s cubic-bezier(0.23,1,0.32,1); }
+  @media (prefers-reduced-motion: reduce) { .bar-fill { transition: none; } }
+  .bar-n { font-family: var(--mono); font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .search {
+    font: inherit; font-size: 13px; flex: 1 1 240px; min-width: 0;
+    background: var(--bg-card); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: 8px; padding: 7px 11px;
+  }
+  .search:focus { outline: none; border-color: var(--accent); }
+  .pill-set { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  .pill-set > .set-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); margin-right: 3px; }
+  .pill {
+    font: inherit; font-size: 12.5px; cursor: pointer; border-radius: 20px;
+    padding: 4px 12px; border: 1px solid var(--border-strong);
+    background: transparent; color: var(--text-dim);
+  }
+  .pill:hover { color: var(--text); border-color: var(--accent); }
+  .pill.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Table ---------- */
+  /* overflow-x is scoped to widths that need it. A scroll container on this
+     wrapper at ANY width makes `position:sticky` on <th> resolve against a box
+     that never scrolls vertically, so the header silently never sticks -- a
+     rule that reads as a feature and does nothing. Above the breakpoint the
+     five columns fit, the wrapper creates no scroll container, and the header
+     sticks against the viewport as intended. */
+  .table-wrap { border: 1px solid var(--border); border-radius: 11px; background: var(--bg-card); }
+  @media (max-width: 1100px) { .table-wrap { overflow-x: auto; } }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-faint); font-weight: 600; white-space: nowrap;
+    position: sticky; top: 0; background: var(--bg-card); z-index: 2;
+    box-shadow: inset 0 -1px 0 var(--border);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--bg-card-hover); }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  td.dim { color: var(--text-dim); }
+  .cell-main { font-weight: 550; }
+  .cell-sub { color: var(--text-faint); font-size: 11.5px; }
+  .mono { font-family: var(--mono); font-size: 12px; }
+
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .03em;
+    border-radius: 5px; padding: 2px 7px; border: 1px solid currentColor;
+  }
+  .tag.ok { color: var(--ok); }
+  .tag.warn { color: var(--warning); }
+  .tag.crit { color: var(--critical); }
+  .tag.dim { color: var(--text-faint); }
+  .tag.info { color: var(--info); }
+
+  .table-foot {
+    display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    font-size: 12px; color: var(--text-faint); padding: 9px 3px 0;
+  }
+  .table-foot .warn { color: var(--warning); }
+
+  .state { padding: 34px 16px; text-align: center; color: var(--text-dim); font-size: 13px; }
+  .state.err { color: var(--critical); }
+  .skeleton {
+    display: inline-block; height: 11px; border-radius: 4px;
+    background: linear-gradient(90deg, var(--border) 25%, var(--border-strong) 50%, var(--border) 75%);
+    background-size: 200% 100%; animation: sk 1.3s ease-in-out infinite;
+  }
+  @keyframes sk { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+  @media (max-width: 640px) {
+    .container { padding: 16px 14px 60px; }
+    h1 { font-size: 20px; }
+    .bar-row { grid-template-columns: minmax(80px, 42%) 1fr auto; }
+  }
+</style>
+</head>
+<body data-dp="okta-dashboard">
+<div class="container">
+  <header class="page-head">
+    <div>
+      <div class="breadcrumb"><a href="/landing.html">CorpIT Hub</a> &nbsp;/&nbsp; Identity</div>
+      <h1>Okta Dashboard</h1>
+    </div>
+    <div class="head-right">
+      <div id="it-topbar"></div>
+      <button class="btn btn-ghost" id="btn-refresh" title="Reload every panel">&#8635; Refresh</button>
+    </div>
+  </header>
+
+  <section class="source-strip" id="source-strip" aria-label="Data sources and their age">
+    <span class="src"><span class="skeleton" style="width:150px"></span></span>
+    <span class="src"><span class="skeleton" style="width:170px"></span></span>
+    <span class="src"><span class="skeleton" style="width:160px"></span></span>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="Headline figures"></section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="users" role="tab" aria-selected="true" aria-controls="panel-users">
+      People <span class="badge" id="tab-count-users">&ndash;</span>
+    </button>
+    <button class="tab" data-tab="apps" role="tab" aria-selected="false" aria-controls="panel-apps">
+      Applications <span class="badge" id="tab-count-apps">&ndash;</span>
+    </button>
+  </nav>
+
+  <!-- ================= PEOPLE ================= -->
+  <section class="panel active" id="panel-users" role="tabpanel">
+    <div class="grid-2">
+      <div class="card">
+        <h2>MFA factors in use <span class="h2-note" id="factor-note"></span></h2>
+        <div class="card-body"><div class="bars" id="factor-bars"><div class="state">Loading&hellip;</div></div></div>
+      </div>
+      <div class="card">
+        <h2>Last sign-in <span class="h2-note">active accounts</span></h2>
+        <div class="card-body"><div class="bars" id="recency-bars"><div class="state">Loading&hellip;</div></div></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input type="search" class="search" id="user-search" placeholder="Search name, email or login&hellip;" aria-label="Search people">
+      <div class="pill-set" id="user-status-pills">
+        <span class="set-label">Status</span>
+        <button class="pill active" data-status="ACTIVE">Active</button>
+        <button class="pill" data-status="DEPROVISIONED">Deprovisioned</button>
+        <button class="pill" data-status="ALL">All</button>
+      </div>
+      <div class="pill-set" id="user-mfa-pills">
+        <span class="set-label">MFA</span>
+        <button class="pill active" data-mfa="">Any</button>
+        <button class="pill" data-mfa="enrolled">Enrolled</button>
+        <button class="pill" data-mfa="none">No factor</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="user-table">
+        <colgroup>
+          <col style="width:26%"><col style="width:26%"><col style="width:13%">
+          <col style="width:20%"><col style="width:15%">
+        </colgroup>
+        <thead><tr>
+          <th scope="col">Person</th><th scope="col">Login</th><th scope="col">Status</th>
+          <th scope="col">MFA</th><th scope="col">Last sign-in</th>
+        </tr></thead>
+        <tbody id="user-rows"><tr><td colspan="5"><div class="state">Loading&hellip;</div></td></tr></tbody>
+      </table>
+    </div>
+    <div class="table-foot" id="user-foot"></div>
+  </section>
+
+  <!-- ================= APPLICATIONS ================= -->
+  <section class="panel" id="panel-apps" role="tabpanel">
+    <div class="grid-2">
+      <div class="card">
+        <h2>Applications by status</h2>
+        <div class="card-body"><div class="bars" id="app-status-bars"><div class="state">Loading&hellip;</div></div></div>
+      </div>
+      <div class="card">
+        <h2>Sign-on mode</h2>
+        <div class="card-body"><div class="bars" id="app-mode-bars"><div class="state">Loading&hellip;</div></div></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <input type="search" class="search" id="app-search" placeholder="Search application name or label&hellip;" aria-label="Search applications">
+      <div class="pill-set" id="app-status-pills">
+        <span class="set-label">Status</span>
+        <button class="pill active" data-status="ACTIVE">Active</button>
+        <button class="pill" data-status="INACTIVE">Inactive</button>
+        <button class="pill" data-status="ALL">All</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="app-table">
+        <colgroup>
+          <col style="width:36%"><col style="width:12%"><col style="width:22%">
+          <col style="width:15%"><col style="width:15%">
+        </colgroup>
+        <thead><tr>
+          <th scope="col">Application</th><th scope="col">Status</th><th scope="col">Sign-on mode</th>
+          <th scope="col">Users</th><th scope="col">Groups</th>
+        </tr></thead>
+        <tbody id="app-rows"><tr><td colspan="5"><div class="state">Loading&hellip;</div></td></tr></tbody>
+      </table>
+    </div>
+    <div class="table-foot" id="app-foot"></div>
+  </section>
+</div>
+
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="okta-dashboard"></script>
+<script>
+'use strict';
+(function () {
+
+  // ---------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+  // Escapes for BOTH text and attribute contexts: " and ' are included, so the
+  // same helper is safe wherever a value is interpolated.
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function num(n) { return (n == null || isNaN(n)) ? '–' : Number(n).toLocaleString(); }
+
+  function ago(iso) {
+    if (!iso) return null;
+    var ms = Date.now() - new Date(iso).getTime();
+    if (isNaN(ms)) return null;
+    var h = ms / 3600000;
+    if (h < 1) return Math.max(1, Math.round(h * 60)) + ' min ago';
+    if (h < 48) return Math.round(h) + ' hours ago';
+    return Math.round(h / 24) + ' days ago';
+  }
+
+  function dateOnly(v) {
+    if (!v) return null;
+    var d = new Date(v);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0, 10);
+  }
+
+  // rbac-client.js seeds and refreshes the bearer token; the session cookie
+  // alone is also accepted by the API. Both are sent, and neither is read or
+  // stored by this page.
+  function api(path, signal) {
+    var opts = { credentials: 'same-origin', headers: {}, signal: signal };
+    var t = (window.RBAC && window.RBAC.token) ? window.RBAC.token() : null;
+    if (t) opts.headers.Authorization = 'Bearer ' + t;
+    return fetch(path, opts).then(function (r) {
+      if (r.status === 401) throw new Error('Your session has expired. Reload the page to sign in again.');
+      if (r.status === 403) throw new Error('You do not have access to the Okta Dashboard.');
+      if (!r.ok) throw new Error('Request failed (HTTP ' + r.status + ').');
+      return r.json();
+    });
+  }
+
+  function stateRow(cols, msg, isErr) {
+    return '<tr><td colspan="' + cols + '"><div class="state' + (isErr ? ' err' : '') + '">'
+      + esc(msg) + '</div></td></tr>';
+  }
+
+  // ---------------------------------------------------------------------
+  // Source strip
+  //
+  // Three states, never two. `fresh:null` means the table carries no timestamp
+  // at all -- nothing has ever collected into it on this host -- which is a
+  // different fact from "collected, but a while ago", and must not be drawn as
+  // either a healthy or a merely-late feed.
+  // ---------------------------------------------------------------------
+  var SRC_LABEL = {
+    okta_users: 'People',
+    okta_user_factors: 'MFA factors',
+    okta_apps: 'Applications',
+  };
+
+  function srcChip(key, f) {
+    var label = SRC_LABEL[key] || key;
+    var cls, dot, meta;
+    if (!f) {
+      cls = 'unknown'; dot = 'unknown'; meta = 'age not measured';
+    } else if (f.fresh === null) {
+      cls = 'never'; dot = 'never';
+      meta = f.rows ? f.rows.toLocaleString() + ' rows, never dated' : 'never collected here';
+    } else if (f.fresh === false) {
+      cls = 'stale'; dot = 'stale';
+      meta = 'STALE — ' + (ago(f.syncedAt) || 'unknown age')
+        + ', expected every ' + f.maxAgeHours + 'h';
+    } else {
+      cls = 'ok'; dot = 'ok';
+      meta = (ago(f.syncedAt) || 'just now') + ' · ' + num(f.rows) + ' rows';
+    }
+    return '<span class="src ' + cls + '"><span class="src-dot ' + dot + '"></span>'
+      + '<b>' + esc(label) + '</b><span class="src-meta">' + esc(meta) + '</span></span>';
+  }
+
+  function paintSources(fresh) {
+    var order = ['okta_users', 'okta_user_factors', 'okta_apps'];
+    $('#source-strip').innerHTML = order.map(function (k) {
+      return srcChip(k, fresh && fresh[k]);
+    }).join('');
+  }
+
+  // ---------------------------------------------------------------------
+  // Bar lists
+  // ---------------------------------------------------------------------
+  function paintBars(el, items, opts) {
+    opts = opts || {};
+    if (!items.length) {
+      el.innerHTML = '<div class="state">' + esc(opts.empty || 'Nothing to show.') + '</div>';
+      return;
+    }
+    // Bars are scaled to the largest value in THIS list, so they compare rows
+    // against each other -- they are not percentages of any population, and the
+    // number beside each row is the figure to read.
+    var max = items.reduce(function (m, i) { return Math.max(m, i.n); }, 0) || 1;
+    el.innerHTML = items.map(function (i) {
+      var bg = i.colour ? ' style="background:' + esc(i.colour) + '"' : '';
+      return '<div class="bar-row">'
+        + '<span class="bar-label" title="' + esc(i.label) + '">' + esc(i.label) + '</span>'
+        + '<span class="bar-track"><span class="bar-fill"' + bg + '></span></span>'
+        + '<span class="bar-n">' + num(i.n) + '</span>'
+        + '</div>';
+    }).join('');
+    // Width is set here rather than in the markup so it cannot be swallowed by
+    // the inline background above.
+    //
+    // The floor applies only to non-zero values. Rounding alone would draw a
+    // count of 1 against a max of 635 as nothing at all, which reads as absent
+    // rather than rare; a floor applied to zero would do the opposite and draw
+    // a sliver where there is nothing to see. Zero gets no bar.
+    $$('.bar-fill', el).forEach(function (fill, idx) {
+      var n = items[idx].n;
+      fill.style.width = n > 0 ? Math.max(1.5, (n / max) * 100) + '%' : '0';
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Summary
+  // ---------------------------------------------------------------------
+  var summary = null;
+
+  function kpi(label, value, sub, attn, muted) {
+    return '<div class="kpi' + (attn ? ' attn' : '') + '">'
+      + '<div class="k-label">' + esc(label) + '</div>'
+      + '<div class="k-value' + (muted ? ' muted' : '') + '">' + esc(value) + '</div>'
+      + '<div class="k-sub">' + esc(sub) + '</div></div>';
+  }
+
+  function paintSummary(d) {
+    summary = d;
+    paintSources(d.freshness);
+
+    var active = (d.users.byStatus.filter(function (s) { return s.status === 'ACTIVE'; })[0] || { n: 0 }).n;
+    var appsActive = (d.apps.byStatus.filter(function (s) { return s.status === 'ACTIVE'; })[0] || { n: 0 }).n;
+    var appsStale = d.freshness.okta_apps && d.freshness.okta_apps.fresh === false;
+
+    var cov = d.mfa.coveragePct;
+    var kpis = [
+      kpi('Active accounts', num(active),
+        num(d.users.total) + ' accounts in the mirror'),
+      // A null coverage means there are no active users to measure. Rendering
+      // that as 0% would raise an alarm about a population that does not exist.
+      cov === null
+        ? kpi('MFA coverage', 'not measurable', 'no active accounts to measure', false, true)
+        : kpi('MFA coverage', cov + '%',
+          num(d.mfa.enrolled) + ' of ' + num(d.mfa.activeUsers) + ' active accounts enrolled'),
+      kpi('Active, no MFA factor', num(d.mfa.notEnrolled),
+        d.mfa.pendingOnly
+          ? num(d.mfa.pendingOnly) + ' of them started enrolment and did not finish'
+          : 'no active factor of any type',
+        d.mfa.notEnrolled > 0),
+      kpi('Applications', num(appsActive) + ' active',
+        appsStale
+          ? 'of ' + num(d.apps.total) + ' — from a STALE mirror, see above'
+          : 'of ' + num(d.apps.total) + ' in the inventory',
+        appsStale),
+    ];
+    $('#kpis').innerHTML = kpis.join('');
+
+    // Factor mix. PENDING_ACTIVATION is kept visible and labelled rather than
+    // folded into the totals: a half-finished enrolment protects nobody.
+    var fm = d.mfa.factorTypes.map(function (f) {
+      var pending = f.status !== 'ACTIVE';
+      return {
+        label: f.factorType + ' (' + f.provider + ')' + (pending ? ' — ' + f.status.toLowerCase().replace(/_/g, ' ') : ''),
+        n: f.users,
+        colour: pending ? 'var(--warning)' : null,
+      };
+    });
+    paintBars($('#factor-bars'), fm, { empty: 'No factors recorded for active accounts.' });
+    $('#factor-note').textContent = 'active accounts, by factor';
+
+    var r = d.recency;
+    paintBars($('#recency-bars'), [
+      { label: 'Last 7 days', n: r.d7, colour: 'var(--ok)' },
+      { label: '8–30 days', n: r.d30 },
+      { label: '31–90 days', n: r.d90, colour: 'var(--warning)' },
+      { label: 'Over 90 days', n: r.older, colour: 'var(--critical)' },
+      { label: 'Never signed in', n: r.never, colour: 'var(--unknown)' },
+    ], { empty: 'No active accounts.' });
+
+    paintBars($('#app-status-bars'), d.apps.byStatus.map(function (s) {
+      return { label: s.status, n: s.n, colour: s.status === 'ACTIVE' ? 'var(--ok)' : null };
+    }), { empty: 'The application inventory is empty.' });
+
+    paintBars($('#app-mode-bars'), d.apps.bySignOnMode.map(function (m) {
+      return { label: m.mode, n: m.n };
+    }), { empty: 'The application inventory is empty.' });
+
+    $('#tab-count-users').textContent = num(d.users.total);
+    $('#tab-count-apps').textContent = num(d.apps.total);
+  }
+
+  function summaryFailed(msg) {
+    try{ if(window.ITObserve&&typeof ITObserve.degraded==='function') ITObserve.degraded('okta-summary','Summary unavailable',String(msg)); }catch(_){}
+    $('#source-strip').innerHTML = '<span class="src unknown"><span class="src-dot unknown"></span>'
+      + '<b>Sources</b><span class="src-meta">could not be checked</span></span>';
+    $('#kpis').innerHTML = '<div class="kpi"><div class="k-label">Summary</div>'
+      + '<div class="k-value muted">unavailable</div><div class="k-sub">' + esc(msg) + '</div></div>';
+    ['#factor-bars', '#recency-bars', '#app-status-bars', '#app-mode-bars'].forEach(function (s) {
+      $(s).innerHTML = '<div class="state err">' + esc(msg) + '</div>';
+    });
+  }
+
+  function loadSummary() {
+    return api('/api/okta/summary').then(paintSummary).catch(function (e) {
+      summaryFailed(e.message);
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // People
+  // ---------------------------------------------------------------------
+  var userFilter = { status: 'ACTIVE', mfa: '', q: '' };
+  var userAbort = null;
+
+  function mfaCell(r) {
+    if (r.activeFactors > 0) {
+      var types = r.factorTypes.map(function (t) { return t.replace(/^token:/, ''); }).join(', ');
+      return '<span class="tag ok">' + r.activeFactors + ' active</span>'
+        + (types ? ' <span class="cell-sub">' + esc(types) + '</span>' : '');
+    }
+    if (r.otherFactors > 0) {
+      return '<span class="tag warn">enrolment unfinished</span>';
+    }
+    return '<span class="tag crit">none</span>';
+  }
+
+  function statusTag(s) {
+    var cls = s === 'ACTIVE' ? 'ok'
+      : s === 'DEPROVISIONED' ? 'dim'
+        : s === 'PASSWORD_EXPIRED' || s === 'RECOVERY' ? 'warn' : 'info';
+    return '<span class="tag ' + cls + '">' + esc(s || 'unknown') + '</span>';
+  }
+
+  function paintUsers(d) {
+    var tb = $('#user-rows');
+    if (!d.rows.length) {
+      tb.innerHTML = stateRow(5, 'No accounts match these filters.');
+    } else {
+      tb.innerHTML = d.rows.map(function (r) {
+        var name = [r.firstName, r.lastName].filter(Boolean).join(' ') || r.login || r.oktaId;
+        var last = dateOnly(r.lastLogin);
+        return '<tr>'
+          + '<td><div class="cell-main">' + esc(name) + '</div>'
+          + (r.email ? '<div class="cell-sub">' + esc(r.email) + '</div>' : '') + '</td>'
+          + '<td class="dim mono">' + esc(r.login || '–') + '</td>'
+          + '<td>' + statusTag(r.status) + '</td>'
+          + '<td>' + mfaCell(r) + '</td>'
+          + '<td class="dim mono">' + (last ? esc(last) : '<span class="tag dim">never</span>') + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    // The count shown is the count matched, never the count rendered. A page
+    // that prints its own length as the total is how dropped rows disappear.
+    var foot = 'Showing ' + num(d.returned) + ' of ' + num(d.total) + ' matching account'
+      + (d.total === 1 ? '' : 's') + '.';
+    if (d.truncated) {
+      foot += ' <span class="warn">' + num(d.total - d.returned)
+        + ' more are not listed — narrow the search or filters to see them.</span>';
+    }
+    var f = d.freshness && d.freshness.okta_users;
+    var right = f && f.fresh === false
+      ? '<span class="warn">People mirror is stale (' + esc(ago(f.syncedAt) || 'unknown age') + ')</span>'
+      : (f && f.syncedAt ? 'People mirror synced ' + esc(ago(f.syncedAt)) : '');
+    $('#user-foot').innerHTML = '<span>' + foot + '</span><span>' + right + '</span>';
+  }
+
+  function loadUsers() {
+    if (userAbort) userAbort.abort();
+    userAbort = new AbortController();
+    var p = new URLSearchParams();
+    if (userFilter.status) p.set('status', userFilter.status);
+    if (userFilter.mfa) p.set('mfa', userFilter.mfa);
+    if (userFilter.q) p.set('q', userFilter.q);
+    p.set('limit', '200');
+    $('#user-foot').innerHTML = '';
+    $('#user-rows').innerHTML = stateRow(5, 'Loading…');
+    return api('/api/okta/users?' + p.toString(), userAbort.signal)
+      .then(paintUsers)
+      .catch(function (e) {
+        if (e.name === 'AbortError') return;
+        $('#user-rows').innerHTML = stateRow(5, e.message, true);
+        try{ if(window.ITObserve&&typeof ITObserve.degraded==='function') ITObserve.degraded('okta-users','User list unavailable',e.message); }catch(_){}
+      });
+  }
+
+  // ---------------------------------------------------------------------
+  // Applications
+  // ---------------------------------------------------------------------
+  var appFilter = { status: 'ACTIVE', q: '' };
+  var appAbort = null;
+
+  function paintApps(d) {
+    var tb = $('#app-rows');
+    if (!d.rows.length) {
+      tb.innerHTML = stateRow(5, 'No applications match these filters.');
+    } else {
+      tb.innerHTML = d.rows.map(function (r) {
+        var label = r.label || r.name || r.oktaId;
+        var sub = (r.name && r.label && r.name !== r.label) ? r.name : null;
+        return '<tr>'
+          + '<td><div class="cell-main">' + esc(label) + '</div>'
+          + (sub ? '<div class="cell-sub mono">' + esc(sub) + '</div>' : '') + '</td>'
+          + '<td>' + statusTag(r.status) + '</td>'
+          + '<td class="dim mono">' + esc(r.signOnMode || '–') + '</td>'
+          + '<td class="num">' + num(r.assignedUsers) + '</td>'
+          + '<td class="num">' + num(r.assignedGroups) + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    var foot = 'Showing ' + num(d.returned) + ' of ' + num(d.total) + ' matching application'
+      + (d.total === 1 ? '' : 's') + '.';
+    var f = d.freshness && d.freshness.okta_apps;
+    var right;
+    if (f && f.fresh === false) {
+      right = '<span class="warn">Application mirror is stale — last synced '
+        + esc(ago(f.syncedAt) || 'unknown') + '. These rows describe Okta as it was then.</span>';
+    } else if (f && f.fresh === null) {
+      right = '<span class="warn">Application mirror has never been dated on this host.</span>';
+    } else if (f && f.syncedAt) {
+      right = 'Application mirror synced ' + esc(ago(f.syncedAt));
+    } else {
+      right = '';
+    }
+    $('#app-foot').innerHTML = '<span>' + foot + '</span><span>' + right + '</span>';
+  }
+
+  function loadApps() {
+    if (appAbort) appAbort.abort();
+    appAbort = new AbortController();
+    var p = new URLSearchParams();
+    if (appFilter.status) p.set('status', appFilter.status);
+    if (appFilter.q) p.set('q', appFilter.q);
+    $('#app-foot').innerHTML = '';
+    $('#app-rows').innerHTML = stateRow(5, 'Loading…');
+    return api('/api/okta/apps?' + p.toString(), appAbort.signal)
+      .then(paintApps)
+      .catch(function (e) {
+        if (e.name === 'AbortError') return;
+        $('#app-rows').innerHTML = stateRow(5, e.message, true);
+        try{ if(window.ITObserve&&typeof ITObserve.degraded==='function') ITObserve.degraded('okta-apps','Application list unavailable',e.message); }catch(_){}
+      });
+  }
+
+  // ---------------------------------------------------------------------
+  // Wiring
+  // ---------------------------------------------------------------------
+  function pillGroup(container, attr, onPick) {
+    $$('.pill', container).forEach(function (b) {
+      b.addEventListener('click', function () {
+        $$('.pill', container).forEach(function (o) { o.classList.remove('active'); });
+        b.classList.add('active');
+        onPick(b.getAttribute(attr) || '');
+      });
+    });
+  }
+
+  function debounce(fn, ms) {
+    var t;
+    return function () {
+      var args = arguments, self = this;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(self, args); }, ms);
+    };
+  }
+
+  function showTab(name) {
+    $$('.tab').forEach(function (t) {
+      var on = t.getAttribute('data-tab') === name;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    $$('.panel').forEach(function (p) {
+      p.classList.toggle('active', p.id === 'panel-' + name);
+    });
+    if (location.hash.slice(1) !== name) history.replaceState(null, '', '#' + name);
+  }
+
+  $$('.tab').forEach(function (t) {
+    t.addEventListener('click', function () { showTab(t.getAttribute('data-tab')); });
+  });
+  window.addEventListener('hashchange', function () {
+    var h = location.hash.slice(1);
+    if (h === 'users' || h === 'apps') showTab(h);
+  });
+
+  pillGroup($('#user-status-pills'), 'data-status', function (v) {
+    userFilter.status = v; loadUsers();
+  });
+  pillGroup($('#user-mfa-pills'), 'data-mfa', function (v) {
+    userFilter.mfa = v; loadUsers();
+  });
+  pillGroup($('#app-status-pills'), 'data-status', function (v) {
+    appFilter.status = v; loadApps();
+  });
+
+  $('#user-search').addEventListener('input', debounce(function (e) {
+    userFilter.q = e.target.value.trim(); loadUsers();
+  }, 280));
+  $('#app-search').addEventListener('input', debounce(function (e) {
+    appFilter.q = e.target.value.trim(); loadApps();
+  }, 280));
+
+  $('#btn-refresh').addEventListener('click', function () {
+    loadSummary(); loadUsers(); loadApps();
+  });
+
+  var h0 = location.hash.slice(1);
+  if (h0 === 'users' || h0 === 'apps') showTab(h0);
+
+  loadSummary();
+  loadUsers();
+  loadApps();
+})();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/feed-freshness.js" data-page="okta-dashboard" defer></script>
+<script src="/it-version.js" data-app-key="okta-dashboard" defer></script>
+</body>
+</html>

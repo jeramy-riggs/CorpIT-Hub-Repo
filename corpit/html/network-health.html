@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en" data-version="3.0.0">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOC Overview — IT Command</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<link href="/it-unifi.css" rel="stylesheet">
+<link href="/it-command.css" rel="stylesheet">
+<link href="/it-noc.css" rel="stylesheet">
+<style>
+/* page-local only — everything structural lives in it-noc.css */
+.sitebar{display:flex;align-items:center;gap:8px}
+.sitebar .nmeter{flex:1;margin:0}
+.fwgauge{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 14px;margin-top:9px}
+.fwg .k{font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--o-faint)}
+.fwg .v{font-size:15px;font-weight:640;font-variant-numeric:tabular-nums}
+.owner{display:inline-flex;align-items:center;gap:4px;font-family:var(--n-mono);font-size:10px;
+  font-weight:600;color:var(--o-sig);background:color-mix(in srgb,var(--o-sig) 12%,transparent);
+  border-radius:5px;padding:2px 6px;border:0;cursor:pointer}
+.claim{font-family:var(--n-mono);font-size:10px;font-weight:600;color:var(--o-dim);
+  background:var(--o-panel2);border:1px solid var(--o-line);border-radius:5px;padding:2px 7px;cursor:pointer}
+.claim:hover{border-color:var(--o-mint);color:var(--o-mint)}
+/* .fbtn now lives in it-noc.css — three pages use it */
+</style>
+</head>
+<body class="u cmd noc">
+<!-- the old icon rail is retired: the NOC sidebar in it-noc.js is the navigation now -->
+<div id="nocContent">
+  <div class="ngrid" id="kpis">
+    <div class="c2"><div class="nkpi"><span class="k">loading</span><span class="v">—</span></div></div>
+  </div>
+
+  <div class="ngrid" style="margin-top:10px">
+    <section class="ncard c8">
+      <div class="nch">
+        <h2 id="fqIcon">Fault queue</h2>
+        <div class="tools">
+          <div class="nseg" id="fFilter"></div>
+          <button class="nbtn" id="fExport" title="Download the current view as CSV">CSV</button>
+        </div>
+      </div>
+      <div class="ncb flush"><div class="ntw" id="faults"></div></div>
+      <div class="ncf" id="fFoot"></div>
+    </section>
+
+    <section class="ncard c4">
+      <div class="nch"><h2>Sites</h2><div class="tools"><span class="sev info" id="siteN">—</span></div></div>
+      <div class="ncb flush"><div class="nlist" id="sites"></div></div>
+    </section>
+  </div>
+
+  <div class="ngrid" style="margin-top:10px">
+    <section class="ncard c8">
+      <div class="nch"><h2>Ports developing errors</h2>
+        <div class="tools"><div class="nseg" id="tRange"></div></div></div>
+      <div class="ncb"><div id="trend"><div class="nskel" style="height:118px"></div></div></div>
+      <div class="ncf" id="tFoot"></div>
+    </section>
+
+    <section class="ncard c4">
+      <div class="nch"><h2>Firewalls</h2></div>
+      <div class="ncb" id="fw"><div class="nskel" style="height:96px"></div></div>
+    </section>
+  </div>
+
+  <div class="ngrid" style="margin-top:10px">
+    <section class="ncard c6">
+      <div class="nch"><h2>Wireless</h2>
+        <div class="tools"><a class="nbtn" href="/network-observatory.html">Live building</a></div></div>
+      <div class="ncb" id="wifi"><div class="nskel" style="height:70px"></div></div>
+    </section>
+    <section class="ncard c6">
+      <div class="nch"><h2>Watch list</h2>
+        <div class="tools"><span class="sev" id="watchN">—</span></div></div>
+      <div class="ncb flush" id="watch"><div class="nskel" style="height:70px;margin:13px"></div></div>
+    </section>
+  </div>
+</div>
+
+<script src="/it-netnav.js"></script>
+<script src="/it-noc.js"></script>
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="network-health"></script>
+<script>
+NOC.mount({page:'health', title:'NOC overview', sub:'NRPI · all sites'});
+NOC.act('<button class="nbtn rel icon" id="nAlerts" aria-label="Faults needing action">'+
+  NOC.icon('bell')+'<span class="badge" id="alertN" hidden>0</span></button>'+
+  '<button class="nbtn" id="nRefresh">'+NOC.icon('refresh')+'Refresh</button>');
+
+var esc=NOC.esc, ago=NOC.ago;
+var S={issues:[],devices:[],counts:null,sum:{},meta:{},noc:null,claims:{},cleared:0,
+       filter:'all',range:7,fw:null,watch:[]};
+
+async function jget(u){
+  var r=await fetch(u,{credentials:'include'});
+  if(r.status===401)throw Object.assign(new Error('sign-in required'),{code:401});
+  return await r.json().catch(function(){return {ok:false};});
+}
+
+/* ── issue helpers: the diagnosis is authored by the collector, not here ── */
+var KIND={crc:'Physical layer',errors:'Port errors',inerr:'Port errors',outerr:'Port errors',
+          discards:'Congestion',halfduplex:'Duplex',duplex:'Duplex',flapping:'Flapping',
+          unplugged:'Unplugged',down:'Link down'};
+function diagOf(i){try{return typeof i.diag==='string'?JSON.parse(i.diag):(i.diag||{});}catch(e){return {};}}
+function titleOf(i){return diagOf(i).title||KIND[i.kind]||'Port issue';}
+function causeOf(i){
+  var d=diagOf(i),c=d.cause||i.detail||'',t=d.title||'';
+  if(t&&c.indexOf(t)===0)c=c.slice(t.length).replace(/^[\s—–:-]+/,'');
+  return c;}
+function refOf(i){return i.switch_ip+':'+i.port;}
+function ini(n){n=String(n||'').split('@')[0];var w=n.split(/[._\- ]+/).filter(Boolean);
+  return ((w[0]||'?')[0]+(w[1]?w[1][0]:'')).toUpperCase();}
+
+/* ── KPI strip ──────────────────────────────────────────────────────────── */
+function kpi(o){
+  return '<div class="'+(o.span||'c2')+'">'+
+    '<'+(o.href?'button':'div')+' class="nkpi'+(o.tone?' '+o.tone:'')+'"'+
+      (o.href?' data-go="'+esc(o.href)+'"':'')+'>'+
+    '<span class="k">'+(o.icon?NOC.icon(o.icon):'')+esc(o.k)+'</span>'+
+    '<span class="v">'+o.v+'</span>'+
+    (o.s?'<span class="s">'+o.s+'</span>':'')+
+    (o.meter!=null?'<span class="nmeter"><i class="'+(o.mtone||'')+'" style="width:'+
+      Math.max(0,Math.min(100,o.meter))+'%"></i></span>':'')+
+    '</'+(o.href?'button':'div')+'></div>';
+}
+function renderKpis(){
+  var s=S.sum, n=(S.noc&&S.noc.summary)||{};
+  var crit=sevTotal('critical');
+  var warn=sevTotal('warn');
+  var pPct=s.ports?Math.round(s.ports_up/s.ports*100):0;
+  var swPct=s.switches?Math.round(s.switches_up/s.switches*100):0;
+  var apTot=(n.totalOnline||0)+(n.totalOffline||0);
+  document.getElementById('kpis').innerHTML=
+    kpi({k:'Critical',v:crit,tone:crit?'bad':'good',icon:'pulse',
+         s:crit?'needs action now':'nothing critical',href:'critical'})+
+    kpi({k:'Warnings',v:warn,tone:warn?'warn':'good',
+         s:warn?'watch these':'all clear',href:'warn'})+
+    kpi({k:'Switches',v:s.switches_up+'<small>/'+s.switches+'</small>',
+         tone:s.switches_down?'bad':'good',s:s.switches_down?s.switches_down+' not responding':'all responding',
+         meter:swPct,mtone:s.switches_down?'bad':'good'})+
+    kpi({k:'Ports active',v:Number(s.ports_up||0).toLocaleString()+'<small>/'+
+         Number(s.ports||0).toLocaleString()+'</small>',s:pPct+'% of the fabric in use',
+         meter:pPct,mtone:''})+
+    kpi({k:'Access points',v:apTot?(n.totalOnline+'<small>/'+apTot+'</small>'):'—',
+         tone:n.totalOffline?'warn':'good',
+         s:apTot?(n.totalOffline?n.totalOffline+' offline':'all online'):'Meraki unavailable',
+         meter:apTot?Math.round(n.totalOnline/apTot*100):null,mtone:n.totalOffline?'warn':'good'})+
+    kpi({k:'Clients',v:n.totalClients!=null?Number(n.totalClients).toLocaleString():'—',
+         tone:'info',s:'connected right now'});
+  document.querySelectorAll('#kpis [data-go]').forEach(function(b){
+    b.addEventListener('click',function(){S.filter=b.dataset.go;renderFaults();
+      document.getElementById('faults').scrollIntoView({block:'center',behavior:'smooth'});});});
+}
+
+/* ── vitals strip ───────────────────────────────────────────────────────── */
+function renderVitals(){
+  var s=S.sum,n=(S.noc&&S.noc.summary)||{};
+  var crit=sevTotal('critical'), open=queueTotal();
+  NOC.vitals([
+    {k:'Scan',v:ago(S.meta.age_seconds||s.scan_age)},
+    {k:'Switches',v:s.switches_up+'/'+s.switches,cls:s.switches_down?'bad':'good'},
+    {k:'Ports up',v:Number(s.ports_up||0).toLocaleString()},
+    {k:'APs',v:(n.totalOnline!=null?n.totalOnline+'/'+((n.totalOnline||0)+(n.totalOffline||0)):'—'),
+     cls:n.totalOffline?'warn':'good'},
+    {k:'Clients',v:n.totalClients!=null?Number(n.totalClients).toLocaleString():'—'},
+    {k:'Open faults',v:open.toLocaleString(),cls:crit?'bad':(open?'warn':'good')},
+    {k:'Cleared 7d',v:S.cleared||0,cls:'good'}
+  ]);
+  NOC.badge('health',crit||open,crit?'bad':'warn');
+  var a=document.getElementById('alertN');
+  if(a){ if(crit){a.hidden=false;a.textContent=crit;} else a.hidden=true; }
+  NOC.stamp('scanned '+ago(S.meta.age_seconds||s.scan_age),(S.meta.age_seconds||0)>7200);
+}
+
+/* ── fault queue ────────────────────────────────────────────────────────── */
+var SEV={critical:'crit',warn:'warn',info:'info'};
+// How many faults of this severity EXIST -- not how many arrived in the page.
+function sevTotal(k){
+  if(S.counts&&S.counts[k]!=null)return S.counts[k];
+  return S.issues.filter(function(i){return i.severity===k;}).length;
+}
+function queueTotal(){
+  return (S.counts&&S.counts.total!=null)?S.counts.total:S.issues.length;
+}
+function renderFaults(){
+  var all=S.issues, f=S.filter;
+  var list=(f==='all')?all:all.filter(function(i){return i.severity===f;});
+  var cnt=sevTotal;
+  document.getElementById('fFilter').innerHTML=
+    [['all','All',queueTotal()],['critical','Critical',cnt('critical')],
+     ['warn','Warnings',cnt('warn')],['info','Info',cnt('info')]]
+    .filter(function(x){return x[0]==='all'||x[2];})
+    .map(function(x){return '<button data-f="'+x[0]+'" aria-pressed="'+(f===x[0])+'">'+
+      x[1]+' '+x[2]+'</button>';}).join('');
+  document.querySelectorAll('#fFilter [data-f]').forEach(function(b){
+    b.addEventListener('click',function(){S.filter=b.dataset.f;renderFaults();});});
+
+  var el=document.getElementById('faults');
+  // The tabs above count the queue; this list is what the server sent. When
+  // those differ the reader is looking at a slice, and has to be told which.
+  var shownFor=(f==='all')?queueTotal():cnt(f);
+  var capNote=(shownFor>list.length)
+    ? '<div class="pnote">Showing '+list.length.toLocaleString()+' of '+
+      shownFor.toLocaleString()+' — the server returns the most severe first. '+
+      'Narrow by switch or severity to reach the rest.</div>'
+    : '';
+  if(!list.length){
+    el.innerHTML='<div class="nempty">'+NOC.icon('pulse')+
+      '<b>'+(shownFor?'None of these arrived in this page':
+             (f==='all'?'No open faults':'Nothing at this severity'))+'</b>'+
+      (shownFor?shownFor.toLocaleString()+' fault'+(shownFor===1?'':'s')+
+                ' of this severity are open, but none were in the slice the '+
+                'server returned. Narrow by switch to reach them.'
+              :(f==='all'?'Every port the last scan touched came back clean.'
+                        :'Try another filter to see the rest of the queue.'))+'</div>';
+  }else{
+    var rows=list.slice().sort(function(a,b){
+      var o={critical:0,warn:1,info:2};
+      return (o[a.severity]-o[b.severity])||String(a.switch).localeCompare(String(b.switch));
+    }).map(function(i){
+      var ref=refOf(i), c=S.claims[ref];
+      return '<tr class="click" data-ref="'+esc(ref)+'" data-ifx="'+esc(i.ifindex||'')+
+        '" data-sw="'+esc(i.switch||'')+'" data-ip="'+esc(i.switch_ip||'')+
+        '" data-pt="'+esc(i.port||'')+'">'+
+        '<td data-sort="'+({critical:0,warn:1,info:2}[i.severity])+'">'+
+          '<span class="sev '+(SEV[i.severity]||'')+'">'+esc(i.severity||'')+'</span></td>'+
+        /* a real button inside the cell, not role="button" on the <tr>: the row
+           stays a row for screen readers, and the fault is still tab-reachable */
+        '<td class="grow"><button class="fbtn" type="button" '+
+          'aria-label="Open '+esc(titleOf(i))+' on '+esc(i.switch||'')+' '+esc(i.port||'')+'">'+
+          '<span class="t">'+esc(titleOf(i))+'</span>'+
+          '<span class="s">'+esc(causeOf(i))+'</span></button></td>'+
+        '<td class="mono">'+esc(i.switch||'')+'</td>'+
+        '<td class="mono">'+esc(i.port||'')+'</td>'+
+        '<td class="grow"><span class="s" title="'+esc(i.descr||'')+'">'+esc(i.descr||'—')+'</span></td>'+
+        '<td>'+(c?'<button class="owner" data-cid="'+c.id+'" title="Claimed by '+esc(c.claimed_by)+
+            ' — click to release">'+esc(ini(c.claimed_by))+'</button>'
+          :'<button class="claim" data-cref="'+esc(ref)+'" data-ctitle="'+esc(titleOf(i))+
+            '">Claim</button>')+'</td>'+
+        '</tr>';
+    }).join('');
+    el.innerHTML='<table class="nt">'+
+      '<colgroup><col style="width:88px"><col class="wide"><col style="width:150px">'+
+      '<col style="width:88px"><col class="mid"><col style="width:74px"></colgroup>'+
+      '<thead><tr>'+
+      '<th data-key="sev" data-type="num">Sev</th><th data-key="t">Fault</th>'+
+      '<th data-key="sw">Switch</th><th data-key="p">Port</th>'+
+      '<th data-key="d">Description</th><th>Owner</th></tr></thead><tbody>'+rows+'</tbody></table>'+capNote;
+    NOC.sortable(el.querySelector('table'));
+    el.querySelectorAll('tr.click').forEach(function(tr){
+      var open=function(){ITDrill.portDetail(tr.dataset.ip,tr.dataset.sw,tr.dataset.ifx,tr.dataset.pt);};
+      tr.addEventListener('click',function(e){
+        if(e.target.closest('.claim,.owner,.fbtn'))return;   // those handle themselves
+        open();
+      });
+      var fb=tr.querySelector('.fbtn');
+      if(fb) fb.addEventListener('click',function(e){e.stopPropagation();open();});
+    });
+    el.querySelectorAll('.claim').forEach(function(b){
+      b.addEventListener('click',function(){claim(b.dataset.cref,b.dataset.ctitle);});});
+    el.querySelectorAll('.owner').forEach(function(b){
+      b.addEventListener('click',function(){release(b.dataset.cid);});});
+  }
+  var crit=cnt('critical');
+  document.getElementById('fFoot').innerHTML=
+    '<span><b>'+list.length+'</b> shown</span>'+
+    '<span><b>'+crit+'</b> critical</span>'+
+    '<span><b>'+(S.cleared||0)+'</b> cleared this week</span>'+
+    '<span style="margin-left:auto;color:var(--o-faint)">Click a row for port history and evidence</span>';
+}
+
+async function claim(ref,title){
+  try{ await fetch('/api/netswitch/claims',{method:'POST',credentials:'include',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({ref:ref,title:title})});
+  }catch(e){}
+  await reloadClaims();
+}
+async function release(id){
+  if(!confirm('Release this issue so someone else can pick it up?'))return;
+  try{ await fetch('/api/netswitch/claims/'+id,{method:'DELETE',credentials:'include'}); }catch(e){}
+  await reloadClaims();
+}
+async function reloadClaims(){
+  try{
+    var cl=await jget('/api/netswitch/claims');
+    S.claims={}; S.cleared=0;
+    if(cl&&cl.ok){(cl.claims||[]).forEach(function(c){S.claims[c.ref]=c;});
+      S.cleared=cl.cleared_week||0;}
+  }catch(e){}
+  renderFaults(); renderVitals();
+}
+
+/* ── sites ──────────────────────────────────────────────────────────────── */
+function renderSites(){
+  var by={};
+  S.devices.forEach(function(d){
+    var s=by[d.site]||(by[d.site]={site:d.site,sw:0,up:0,pu:0,pt:0,faults:0});
+    s.sw++; if(d.reachable)s.up++; s.pu+=d.if_up||0; s.pt+=d.if_total||0;
+  });
+  S.issues.forEach(function(i){
+    var d=S.devices.filter(function(x){return x.ip===i.switch_ip;})[0];
+    if(d&&by[d.site])by[d.site].faults++;
+  });
+  var list=Object.keys(by).sort().map(function(k){return by[k];});
+  document.getElementById('siteN').textContent=list.length+' sites';
+  document.getElementById('sites').innerHTML=list.map(function(s){
+    var pct=s.pt?Math.round(s.pu/s.pt*100):0;
+    var tone=(s.up<s.sw)?'bad':(s.faults?'warn':'ok');
+    return '<a class="nrow" href="/network-switches.html?site='+encodeURIComponent(s.site)+'">'+
+      '<span class="ic '+tone+'">'+NOC.icon('pin')+'</span>'+
+      '<span class="bd"><span class="t">'+esc(s.site)+'</span>'+
+      '<span class="s">'+s.up+'/'+s.sw+' switches · '+s.pu.toLocaleString()+' ports up</span>'+
+      '<span class="nmeter" style="margin-top:5px"><i class="'+(tone==='bad'?'bad':'')+
+        '" style="width:'+pct+'%"></i></span></span>'+
+      '<span class="rt">'+(s.faults?'<span class="sev warn">'+s.faults+'</span>':
+        '<span class="sev ok">ok</span>')+'</span></a>';
+  }).join('')||'<div class="nempty"><b>No switches</b>Nothing in the inventory yet.</div>';
+}
+
+/* ── trend ──────────────────────────────────────────────────────────────── */
+async function renderTrend(){
+  document.getElementById('tRange').innerHTML=[[1,'24h'],[7,'7d'],[30,'30d']]
+    .map(function(x){return '<button data-r="'+x[0]+'" aria-pressed="'+(S.range===x[0])+'">'+
+      x[1]+'</button>';}).join('');
+  document.querySelectorAll('#tRange [data-r]').forEach(function(b){
+    b.addEventListener('click',function(){S.range=+b.dataset.r;renderTrend();});});
+  var el=document.getElementById('trend');
+  el.innerHTML='<div class="nskel" style="height:118px"></div>';
+  try{
+    var d=await jget('/api/netswitch/trend?days='+S.range);
+    var ser=(d&&d.series)||[];
+    var fmt=function(ts){
+      var dt=new Date(ts*1000);
+      return S.range<=1?String(dt.getHours()).padStart(2,'0')+':00'
+        :(dt.getMonth()+1)+'/'+dt.getDate();};
+    NOC.area(el,ser.map(function(p){return {t:fmt(p.ts),v:p.errors};}),
+      {tone:'bad',unit:'ports',label:'Ports whose error counters rose',
+       emptyHint:'The collector keeps 30 days of counters; this fills in as it samples.'});
+    var tot=ser.reduce(function(a,p){return a+p.errors;},0);
+    var peak=ser.reduce(function(a,p){return Math.max(a,p.errors);},0);
+    document.getElementById('tFoot').innerHTML=
+      '<span>Each point counts <b>distinct ports</b> whose error counters rose in that window</span>'+
+      '<span style="margin-left:auto"><b>'+peak+'</b> peak · <b>'+tot+'</b> total</span>';
+  }catch(e){
+    el.innerHTML='<div class="nempty"><b>Trend unavailable</b>'+esc(e.message)+'</div>';
+  }
+}
+
+/* ── firewalls + wireless + watch ───────────────────────────────────────── */
+async function renderFw(){
+  var el=document.getElementById('fw');
+  try{
+    var d=await jget('/api/netswitch/fw-health');
+    if(!d||d.ok===false)throw new Error((d&&(d.detail||d.error))||'firewall reader unavailable');
+    var fws=(d&&d.firewalls)||[];
+    if(!fws.length)throw new Error('no firewalls reported');
+    el.innerHTML=fws.map(function(f){
+      if(f.reachable===null){ try{ if(window.ITObserve&&typeof ITObserve.degraded==='function') ITObserve.degraded('fw:'+f.key,'Firewall "'+f.name+'" could not be read',f.error||'all probes failed'); }catch(_){} }
+      return '<div style="margin-bottom:12px">'+
+        '<div style="display:flex;align-items:center;gap:7px">'+
+        '<span class="sev '+(f.reachable===null?'info':f.reachable?'ok':'crit')+'"'+(f.error?' title="'+esc(typeof f.error==='string'?f.error:JSON.stringify(f.error))+'"':'')+'>'+(f.reachable===null?'unknown':f.reachable?'up':'no data')+'</span>'+
+        '<b style="font-size:12.5px">'+esc(f.name)+'</b>'+
+        '<span class="s" style="font-family:var(--n-mono);font-size:10.5px;color:var(--o-faint);margin-left:auto">'+
+          esc(f.host)+'</span></div>'+
+        '<div class="fwgauge">'+
+          '<div class="fwg"><div class="k">CPU</div><div class="v">'+(f.cpu!=null?f.cpu+'%':'—')+
+            '</div><span class="nmeter"><i class="'+(f.cpu>80?'bad':f.cpu>60?'warn':'')+
+            '" style="width:'+(f.cpu||0)+'%"></i></span></div>'+
+          '<div class="fwg"><div class="k">Memory</div><div class="v">'+(f.mem!=null?f.mem+'%':'—')+
+            '</div><span class="nmeter"><i class="'+(f.mem>85?'bad':f.mem>70?'warn':'')+
+            '" style="width:'+(f.mem||0)+'%"></i></span></div>'+
+          '<div class="fwg"><div class="k">Sessions</div><div class="v">'+
+            (f.sessions!=null?Number(f.sessions).toLocaleString():'—')+'</div></div>'+
+          '<div class="fwg"><div class="k">Tunnels</div><div class="v'+
+            (f.tunnels_total!=null&&f.tunnels_up<f.tunnels_total?'" style="color:var(--o-slow)':'"')+'>'+
+            (f.tunnels_total==null?'\u2014':f.tunnels_up+'/'+f.tunnels_total)+'</div></div>'+
+        '</div></div>';
+    }).join('');
+  }catch(e){
+    el.innerHTML='<div class="nempty">'+NOC.icon('shield')+'<b>Firewall data unavailable</b>'+
+      esc(e.message)+'</div>';
+    try{ if(window.ITObserve&&typeof ITObserve.degraded==='function') ITObserve.degraded('fw','Firewall data unavailable',e.message); }catch(_){}
+  }
+}
+function renderWifi(){
+  var n=(S.noc&&S.noc.summary)||{};
+  var el=document.getElementById('wifi');
+  if(n.totalAps==null){
+    el.innerHTML='<div class="nempty">'+NOC.icon('wifi')+'<b>Meraki unavailable</b>'+
+      'The wireless summary could not be read.</div>';return;}
+  var apTot=(n.totalOnline||0)+(n.totalOffline||0);
+  el.innerHTML='<div class="fwgauge" style="margin-top:0">'+
+    '<div class="fwg"><div class="k">Access points</div><div class="v">'+n.totalOnline+
+      ' <span style="font-size:12px;color:var(--o-faint)">/ '+apTot+'</span></div>'+
+      '<span class="nmeter"><i class="'+(n.totalOffline?'warn':'good')+'" style="width:'+
+      (apTot?Math.round(n.totalOnline/apTot*100):0)+'%"></i></span></div>'+
+    '<div class="fwg"><div class="k">Clients</div><div class="v">'+
+      Number(n.totalClients||0).toLocaleString()+'</div></div>'+
+    '<div class="fwg"><div class="k">Offline</div><div class="v" style="color:'+
+      (n.totalOffline?'var(--o-slow)':'var(--o-sig)')+'">'+(n.totalOffline||0)+'</div></div>'+
+    '<div class="fwg"><div class="k">Avg clients / AP</div><div class="v">'+
+      (n.totalOnline?Math.round((n.totalClients||0)/n.totalOnline*10)/10:'—')+'</div></div>'+
+  '</div>';
+}
+async function renderWatch(){
+  var el=document.getElementById('watch');
+  try{
+    var d=await jget('/api/netswitch/watch');
+    var items=(d&&d.items)||[];
+    document.getElementById('watchN').textContent=items.length||'none';
+    if(!items.length){
+      el.innerHTML='<div class="nempty">'+NOC.icon('pin')+'<b>Nothing on watch</b>'+
+        'Open any port or device and choose <b>Watch this</b> — watched items are sampled '+
+        'every 5 minutes and kept for 120 days.</div>';return;}
+    el.innerHTML='<div class="nlist">'+items.map(function(it){
+      var last=it.last||{}, dg=last.diag||null, sev=dg&&dg.severity;
+      var tone=sev==='critical'?'bad':(sev==='warn'?'warn':'ok');
+      var state=it.kind==='port'
+        ? (last.oper?('link '+last.oper):'no sample yet')+(last.speed?' · '+last.speed+' Mbps':'')
+        : (it.kind==='device'?((last.reach||{}).alive?'responding':'no reply'):'—');
+      return '<button class="nrow" data-w="'+esc(it.ref||'')+'">'+
+        '<span class="ic '+tone+'">'+NOC.icon(it.kind==='ap'?'wifi':'switchd')+'</span>'+
+        '<span class="bd"><span class="t">'+esc(it.label||it.ref||'')+'</span>'+
+        '<span class="s">'+esc(state)+'</span></span>'+
+        '<span class="rt">'+esc(it.kind||'')+'</span></button>';
+    }).join('')+'</div>';
+  }catch(e){
+    el.innerHTML='<div class="nempty"><b>Watch list unavailable</b>'+esc(e.message)+'</div>';
+  }
+}
+
+/* ── CSV export of exactly what is on screen ────────────────────────────── */
+document.getElementById('fExport').addEventListener('click',function(){
+  var list=(S.filter==='all')?S.issues:S.issues.filter(function(i){return i.severity===S.filter;});
+  var q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
+  var csv=['severity,fault,switch,switch_ip,port,description,detail,owner'].concat(
+    list.map(function(i){var c=S.claims[refOf(i)];
+      return [i.severity,titleOf(i),i.switch,i.switch_ip,i.port,i.descr,causeOf(i),
+              c?c.claimed_by:''].map(q).join(',');})).join('\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='nrpi-faults.csv'; a.click(); URL.revokeObjectURL(a.href);
+});
+
+/* ── load ───────────────────────────────────────────────────────────────── */
+async function load(){
+  try{
+    var res=await Promise.all([
+      jget('/api/netswitch/overview'),
+      jget('/api/meraki/noc').catch(function(){return null;}),
+      jget('/api/netswitch/claims').catch(function(){return null;})]);
+    var ov=res[0], noc=res[1], cl=res[2];
+    if(!ov||ov.ok===false)throw new Error((ov&&ov.detail)||'overview unavailable');
+    S.issues=ov.issues||[]; S.devices=ov.devices||[];
+    // counts are read from the table; ov.issues is a capped page of it
+    S.counts=ov.counts||null;
+    S.sum=ov.summary||{}; S.meta=ov.meta||{}; S.noc=noc;
+    S.claims={}; S.cleared=0;
+    if(cl&&cl.ok){(cl.claims||[]).forEach(function(c){S.claims[c.ref]=c;});
+      S.cleared=cl.cleared_week||0;}
+    renderVitals(); renderKpis(); renderFaults(); renderSites(); renderWifi();
+    renderTrend(); renderFw(); renderWatch();
+  }catch(e){
+    var m=(e.code===401)?'Your session expired. <a href="/login.html">Sign in</a> to continue.':esc(e.message);
+    document.getElementById('kpis').innerHTML=
+      '<div class="c12"><div class="ncard"><div class="ncb"><div class="nempty">'+
+      NOC.icon('pulse')+'<b>Couldn’t load network health</b>'+m+'</div></div></div></div>';
+  }
+}
+document.getElementById('nRefresh').addEventListener('click',load);
+document.getElementById('nAlerts').addEventListener('click',function(){
+  S.filter='critical'; renderFaults();
+  document.getElementById('faults').scrollIntoView({block:'center',behavior:'smooth'});});
+load();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/it-version.js" data-app-key="network-health" defer></script>
+</body>
+</html>

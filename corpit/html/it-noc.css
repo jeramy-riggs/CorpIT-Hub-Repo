@@ -1,0 +1,337 @@
+/* it-noc.css — the NOC console shell.
+   A dense operations dashboard: persistent sidebar, always-visible vitals strip,
+   12-column widget grid, compact tables. Layers on the tokens in it-command.css,
+   which also owns the SVG faceplates — those are unchanged by this file.
+
+   Density targets (Data-Dense Dashboard): 10px grid gap, 12px card padding,
+   34px table rows, 240px sidebar, 56px header, 12-13px base data type. */
+
+body.noc{
+  /* structure */
+  --n-side:238px; --n-top:54px; --n-vit:36px;
+  --n-gap:10px; --n-pad:13px; --n-r:10px;
+  --n-row:34px;
+  /* type: IBM Plex is self-hosted and is an infrastructure-console typeface */
+  --n-sans:'IBM Plex Sans','Inter',system-ui,-apple-system,sans-serif;
+  --n-mono:'IBM Plex Mono','JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  /* status chips carry their own solid ink/ground pairs rather than tinting the
+     status hue with color-mix(). A translucent tint composites differently over
+     a hovered row than over a card, so the contrast it measures is not the
+     contrast the reader gets. Every pair below is >=5.8:1 (verified, not eyeballed). */
+  --chip-crit-bg:#fdeaec; --chip-crit-ink:#9d141f;
+  --chip-warn-bg:#fbf2e3; --chip-warn-ink:#845308;
+  --chip-ok-bg:#e6f4ec;   --chip-ok-ink:#0b6b40;
+  --chip-info-bg:#e8f1fe; --chip-info-ink:#0b4fae;
+  margin:0; background:var(--o-bg); color:var(--o-ink);
+  font-family:var(--n-sans); font-size:13px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+body.noc *,body.noc *::before,body.noc *::after{box-sizing:border-box}
+
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) body.noc{
+  --chip-crit-bg:#392b3b; --chip-crit-ink:#ffa3ac;
+  --chip-warn-bg:#373631; --chip-warn-ink:#f5c877;
+  --chip-ok-bg:#16373a;   --chip-ok-ink:#63dda4;
+  --chip-info-bg:#1f3551; --chip-info-ink:#9ccbff;
+}}
+:root[data-theme="dark"] body.noc{
+  --chip-crit-bg:#392b3b; --chip-crit-ink:#ffa3ac;
+  --chip-warn-bg:#373631; --chip-warn-ink:#f5c877;
+  --chip-ok-bg:#16373a;   --chip-ok-ink:#63dda4;
+  --chip-info-bg:#1f3551; --chip-info-ink:#9ccbff;
+}
+
+/* ═══ shell ═══════════════════════════════════════════════════════════════ */
+.nshell{display:grid;grid-template-columns:var(--n-side) minmax(0,1fr);min-height:100vh}
+
+/* ── sidebar: primary navigation, always visible above 1100px ───────────── */
+.nside{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;
+  background:var(--o-panel);border-right:1px solid var(--o-line);z-index:30}
+.nbrand{display:flex;align-items:center;gap:9px;height:var(--n-top);flex:none;
+  padding:0 14px;border-bottom:1px solid var(--o-hair)}
+.nbrand .mk{width:26px;height:26px;flex:none;border-radius:7px;display:grid;place-items:center;
+  background:var(--o-mint);color:var(--o-btn-ink)}
+.nbrand .mk svg{width:15px;height:15px}
+.nbrand b{font-size:13.5px;font-weight:650;letter-spacing:-.01em;line-height:1.1}
+.nbrand span{display:block;font-family:var(--n-mono);font-size:9.5px;font-weight:500;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--o-faint);margin-top:1px}
+.nnav{flex:1;overflow-y:auto;padding:10px 8px 14px;scrollbar-width:thin}
+.ngroup{font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--o-faint);padding:12px 8px 5px}
+.ngroup:first-child{padding-top:2px}
+.nitem{display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border-radius:8px;
+  border:0;background:none;font:inherit;font-size:12.5px;font-weight:520;color:var(--o-dim);
+  text-decoration:none;cursor:pointer;text-align:left;
+  transition:background .14s ease,color .14s ease}
+.nitem svg{width:15px;height:15px;flex:none;stroke-width:1.8}
+.nitem .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nitem:hover{background:var(--o-panel2);color:var(--o-ink)}
+.nitem[aria-current="page"]{background:var(--o-mint-wash);color:var(--o-mint);font-weight:640}
+.nitem .n{font-family:var(--n-mono);font-size:10px;font-weight:600;padding:1px 6px;border-radius:99px;
+  background:var(--o-panel2);color:var(--o-dim);flex:none;font-variant-numeric:tabular-nums}
+.nitem .n.bad{background:var(--chip-crit-bg);color:var(--chip-crit-ink)}
+.nitem .n.warn{background:var(--chip-warn-bg);color:var(--chip-warn-ink)}
+.nfoot{flex:none;border-top:1px solid var(--o-hair);padding:9px 12px;
+  font-family:var(--n-mono);font-size:10.5px;color:var(--o-faint);
+  display:flex;align-items:center;gap:7px}
+.nfoot .dot{width:6px;height:6px;border-radius:50%;background:var(--o-sig);flex:none;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--o-sig) 20%,transparent)}
+.nfoot .dot.stale{background:var(--o-slow);box-shadow:0 0 0 3px color-mix(in srgb,var(--o-slow) 20%,transparent)}
+
+/* ── main column ────────────────────────────────────────────────────────── */
+.nmain{min-width:0;display:flex;flex-direction:column}
+.ntop{position:sticky;top:0;z-index:25;height:var(--n-top);flex:none;display:flex;
+  align-items:center;gap:12px;padding:0 16px;background:var(--o-panel);
+  border-bottom:1px solid var(--o-line)}
+.nburger{display:none;width:34px;height:34px;border-radius:8px;border:1px solid var(--o-line);
+  background:var(--o-panel2);color:var(--o-dim);cursor:pointer;place-items:center}
+.nburger svg{width:16px;height:16px}
+.ncrumb{display:flex;align-items:baseline;gap:8px;min-width:0}
+.ncrumb h1{margin:0;font-size:15px;font-weight:650;letter-spacing:-.015em;white-space:nowrap}
+.ncrumb .sub{font-family:var(--n-mono);font-size:11px;color:var(--o-faint);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.nsearch{margin-left:auto;position:relative;flex:0 1 300px;min-width:0}
+.nsearch svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;color:var(--o-faint);pointer-events:none}
+.nsearch input{width:100%;height:32px;border-radius:8px;border:1px solid var(--o-line);
+  background:var(--o-panel2);color:var(--o-ink);font:inherit;font-size:12.5px;
+  padding:0 46px 0 30px;transition:border-color .14s ease,background .14s ease}
+.nsearch input::placeholder{color:var(--o-faint)}
+.nsearch input:focus{outline:none;border-color:var(--o-mint);background:var(--o-panel)}
+.nsearch kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  font-family:var(--n-mono);font-size:10px;color:var(--o-faint);border:1px solid var(--o-line);
+  border-radius:5px;padding:1px 5px;background:var(--o-panel);pointer-events:none}
+.ntop .act{display:flex;align-items:center;gap:7px;flex:none}
+.nbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;
+  min-width:32px;padding:0 11px;border-radius:8px;border:1px solid var(--o-line);
+  background:var(--o-panel2);color:var(--o-dim);font:inherit;font-size:12px;font-weight:560;
+  cursor:pointer;transition:background .14s ease,color .14s ease,border-color .14s ease}
+.nbtn svg{width:15px;height:15px;stroke-width:1.9}
+.nbtn:hover{background:var(--o-panel);color:var(--o-ink);border-color:var(--o-mint)}
+.nbtn.pri{background:var(--o-mint);border-color:var(--o-mint);color:var(--o-btn-ink)}
+.nbtn.pri:hover{background:var(--o-mint-bright);color:var(--o-btn-ink)}
+.nbtn.icon{padding:0;width:32px}
+.nbtn .badge{position:absolute;top:-4px;right:-4px;min-width:15px;height:15px;border-radius:99px;
+  background:var(--o-fault);color:#fff;font-family:var(--n-mono);font-size:9px;font-weight:700;
+  display:grid;place-items:center;padding:0 3px;border:2px solid var(--o-panel)}
+.nbtn.rel{position:relative;overflow:visible}
+
+/* ── vitals strip: the numbers a NOC keeps in peripheral vision ─────────── */
+.nvit{position:sticky;top:var(--n-top);z-index:24;flex:none;display:flex;align-items:center;
+  gap:0;min-height:var(--n-vit);padding:0 16px;overflow-x:auto;scrollbar-width:none;
+  background:var(--o-panel2);border-bottom:1px solid var(--o-line)}
+.nvit::-webkit-scrollbar{display:none}
+.nv{display:flex;align-items:baseline;gap:6px;padding:0 15px;white-space:nowrap;
+  border-right:1px solid var(--o-hair);flex:none}
+.nv:first-child{padding-left:0}
+.nv:last-child{border-right:0}
+.nv .k{font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--o-faint)}
+.nv .v{font-family:var(--n-mono);font-size:12.5px;font-weight:600;color:var(--o-ink);
+  font-variant-numeric:tabular-nums}
+.nv .v.good{color:var(--o-sig)} .nv .v.warn{color:var(--o-slow)} .nv .v.bad{color:var(--o-fault)}
+.nv .s{font-size:11px;color:var(--o-faint)}
+
+/* ── content canvas ─────────────────────────────────────────────────────── */
+.nbody{flex:1;padding:var(--n-gap) 16px 22px;min-width:0}
+.ngrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--n-gap);
+  align-items:start}
+.c1{grid-column:span 1}   .c2{grid-column:span 2}   .c3{grid-column:span 3}
+.c4{grid-column:span 4}   .c5{grid-column:span 5}   .c6{grid-column:span 6}
+.c7{grid-column:span 7}   .c8{grid-column:span 8}   .c9{grid-column:span 9}
+.c12{grid-column:span 12}
+
+/* ── card ───────────────────────────────────────────────────────────────── */
+.ncard{background:var(--o-panel);border:1px solid var(--o-line);border-radius:var(--n-r);
+  box-shadow:var(--o-shadow);min-width:0;overflow:hidden}
+.nch{display:flex;align-items:center;gap:9px;padding:9px var(--n-pad);
+  border-bottom:1px solid var(--o-hair);min-height:38px}
+.nch h2{margin:0;font-size:12.5px;font-weight:650;letter-spacing:-.005em;
+  display:flex;align-items:center;gap:7px}
+.nch h2 svg{width:14px;height:14px;color:var(--o-faint);stroke-width:1.9}
+.nch .tools{margin-left:auto;display:flex;align-items:center;gap:6px}
+.ncb{padding:var(--n-pad)}
+.ncb.flush{padding:0}
+.ncf{padding:8px var(--n-pad);border-top:1px solid var(--o-hair);
+  font-size:11.5px;color:var(--o-dim);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+
+/* ── KPI ────────────────────────────────────────────────────────────────── */
+.nkpi{background:var(--o-panel);border:1px solid var(--o-line);border-radius:var(--n-r);
+  padding:11px 13px 12px;box-shadow:var(--o-shadow);position:relative;overflow:hidden;
+  display:flex;flex-direction:column;gap:2px;min-width:0}
+.nkpi::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--o-line)}
+.nkpi.good::before{background:var(--o-sig)}
+.nkpi.warn::before{background:var(--o-slow)}
+.nkpi.bad::before{background:var(--o-fault)}
+.nkpi.info::before{background:var(--o-mint)}
+.nkpi .k{font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--o-faint);display:flex;align-items:center;gap:6px}
+.nkpi .k svg{width:12px;height:12px;stroke-width:2}
+.nkpi .v{font-size:25px;font-weight:660;letter-spacing:-.03em;line-height:1.12;
+  font-variant-numeric:tabular-nums}
+.nkpi .v small{font-size:13px;font-weight:560;color:var(--o-faint);letter-spacing:0}
+.nkpi.good .v{color:var(--o-sig)} .nkpi.warn .v{color:var(--o-slow)}
+.nkpi.bad .v{color:var(--o-fault)}
+.nkpi .s{font-size:11px;color:var(--o-dim);line-height:1.35}
+button.nkpi{text-align:left;font:inherit;cursor:pointer;
+  transition:border-color .14s ease,transform .14s ease}
+button.nkpi:hover{border-color:var(--o-mint);transform:translateY(-1px)}
+
+/* meter shared by KPIs and rows */
+.nmeter{display:block;height:4px;border-radius:99px;background:var(--o-panel2);overflow:hidden;margin-top:6px}
+.nmeter i{display:block;height:100%;border-radius:99px;background:var(--o-mint);
+  transition:width .4s cubic-bezier(.4,0,.2,1)}
+.nmeter i.good{background:var(--o-sig)} .nmeter i.warn{background:var(--o-slow)}
+.nmeter i.bad{background:var(--o-fault)}
+
+/* ── dense table ────────────────────────────────────────────────────────── */
+.ntw{overflow-x:auto;scrollbar-width:thin}
+/* a long inventory scrolls inside its own card so the widgets below it stay
+   reachable; the sticky header keeps the columns labelled while it does */
+.ntw.cap{max-height:var(--nt-cap,420px);overflow-y:auto;overscroll-behavior:contain}
+table.nt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.nt th{position:sticky;top:0;z-index:2;background:var(--o-panel2);
+  font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--o-faint);text-align:left;
+  padding:7px var(--n-pad);white-space:nowrap;border-bottom:1px solid var(--o-line);
+  user-select:none}
+table.nt th.srt{cursor:pointer}
+table.nt th.srt:hover{color:var(--o-ink)}
+table.nt th .ar{opacity:0;margin-left:4px;font-size:9px}
+table.nt th[aria-sort] .ar{opacity:1;color:var(--o-mint)}
+table.nt td{padding:0 var(--n-pad);height:var(--n-row);border-bottom:1px solid var(--o-hair);
+  vertical-align:middle;white-space:nowrap}
+table.nt tbody tr:last-child td{border-bottom:0}
+table.nt tbody tr.click{cursor:pointer}
+table.nt tbody tr.click:hover td{background:var(--o-panel2)}
+table.nt tbody tr[aria-selected="true"] td{background:var(--o-mint-wash)}
+table.nt .num{text-align:right;font-family:var(--n-mono);font-variant-numeric:tabular-nums}
+table.nt .mono{font-family:var(--n-mono);font-size:11.5px}
+/* A clickable table row needs a real focusable control, but role="button" on a
+   <tr> destroys table semantics — so the first cell holds a button that looks
+   like plain text and carries the keyboard affordance. */
+.fbtn{display:block;width:100%;min-width:0;text-align:left;border:0;background:none;
+  padding:0;font:inherit;color:inherit;cursor:pointer}
+.fbtn .t,.fbtn .s{pointer-events:none}
+.fbtn:focus-visible{outline:2px solid var(--o-focus);outline-offset:2px;border-radius:5px}
+
+table.nt .grow{max-width:0}          /* let the column take the slack, then clip */
+table.nt .t,table.nt .s{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.nt .t{font-weight:590;line-height:1.3}
+table.nt .s{font-size:11px;color:var(--o-faint);font-family:var(--n-mono);line-height:1.3}
+table.nt td:has(.t){height:auto;padding-top:5px;padding-bottom:5px}
+table.nt col.wide{width:38%} table.nt col.mid{width:20%}
+
+/* ── severity + status chips ────────────────────────────────────────────── */
+.sev{display:inline-flex;align-items:center;gap:5px;font-family:var(--n-mono);font-size:10px;
+  font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:5px;
+  background:var(--o-panel2);color:var(--o-dim);border:1px solid transparent}
+.sev::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex:none}
+.sev.crit{background:var(--chip-crit-bg);color:var(--chip-crit-ink)}
+.sev.warn{background:var(--chip-warn-bg);color:var(--chip-warn-ink)}
+.sev.ok{background:var(--chip-ok-bg);color:var(--chip-ok-ink)}
+.sev.info{background:var(--chip-info-bg);color:var(--chip-info-ink)}
+
+/* ── segmented control / filter pills ───────────────────────────────────── */
+.nseg{display:inline-flex;padding:2px;border-radius:8px;background:var(--o-panel2);
+  border:1px solid var(--o-line);gap:2px}
+.nseg button{border:0;background:none;font:inherit;font-size:11.5px;font-weight:570;
+  color:var(--o-dim);padding:3px 9px;border-radius:6px;cursor:pointer;white-space:nowrap;
+  transition:background .14s ease,color .14s ease}
+.nseg button:hover{color:var(--o-ink)}
+.nseg button[aria-pressed="true"]{background:var(--o-panel);color:var(--o-mint);
+  box-shadow:0 1px 2px rgba(15,28,45,.08)}
+
+/* ── list rows (sites, devices, anything scannable) ─────────────────────── */
+.nlist{display:flex;flex-direction:column}
+.nrow{display:flex;align-items:center;gap:10px;padding:8px var(--n-pad);
+  border-bottom:1px solid var(--o-hair);min-height:40px;text-decoration:none;color:inherit;
+  border-left:2px solid transparent;width:100%;text-align:left;font:inherit;background:none;
+  border-right:0;border-top:0;cursor:pointer;transition:background .14s ease}
+.nrow:last-child{border-bottom:0}
+.nrow:hover{background:var(--o-panel2)}
+.nrow[aria-current="true"]{background:var(--o-mint-wash);border-left-color:var(--o-mint)}
+.nrow .ic{width:26px;height:26px;flex:none;border-radius:7px;display:grid;place-items:center;
+  background:var(--o-panel2);color:var(--o-dim)}
+.nrow .ic svg{width:14px;height:14px;stroke-width:1.9}
+.nrow .ic.bad{background:var(--chip-crit-bg);color:var(--chip-crit-ink)}
+.nrow .ic.warn{background:var(--chip-warn-bg);color:var(--chip-warn-ink)}
+.nrow .ic.ok{background:var(--chip-ok-bg);color:var(--chip-ok-ink)}
+.nrow .bd{flex:1;min-width:0}
+.nrow .bd .t{display:block;font-size:12.5px;font-weight:590;line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nrow .bd .s{display:block;font-family:var(--n-mono);font-size:10.5px;color:var(--o-faint);
+  margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nrow .rt{flex:none;text-align:right;font-family:var(--n-mono);font-size:11.5px;
+  font-weight:600;color:var(--o-dim);font-variant-numeric:tabular-nums}
+
+/* ── empty / loading ────────────────────────────────────────────────────── */
+.nempty{padding:26px var(--n-pad);text-align:center;color:var(--o-dim);font-size:12.5px}
+.nempty svg{width:22px;height:22px;color:var(--o-faint);margin-bottom:7px;stroke-width:1.7}
+.nempty b{display:block;color:var(--o-ink);font-size:13px;margin-bottom:3px}
+.nskel{background:linear-gradient(90deg,var(--o-panel2) 25%,var(--o-hair) 37%,var(--o-panel2) 63%);
+  background-size:400% 100%;animation:nsk 1.3s ease-in-out infinite;border-radius:5px;height:11px}
+@keyframes nsk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+
+/* ── chart primitives (inline SVG, no library) ──────────────────────────── */
+.nchart{display:block;width:100%;height:auto;overflow:visible}
+.nchart .grid{stroke:var(--o-hair);stroke-width:1}
+.nchart .axis{fill:var(--o-faint);font-family:var(--n-mono);font-size:9px}
+.nchart .ln{fill:none;stroke:var(--o-mint);stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.nchart .ar{fill:var(--o-mint);opacity:.13}
+.nchart .ln.bad{stroke:var(--o-fault)} .nchart .ar.bad{fill:var(--o-fault)}
+.nchart .ln.warn{stroke:var(--o-slow)} .nchart .ar.warn{fill:var(--o-slow)}
+.nchart .pt{fill:var(--o-panel);stroke:var(--o-mint);stroke-width:2}
+.nchart .bar{fill:var(--o-mint)}
+.nchart .bar.bad{fill:var(--o-fault)} .nchart .bar.warn{fill:var(--o-slow)}
+.nchart .hit{fill:transparent;cursor:crosshair}
+.nchart .hit:hover{fill:var(--o-mint);opacity:.07}
+
+/* ── drawer scrim for mobile sidebar ────────────────────────────────────── */
+.nscrim{position:fixed;inset:0;background:var(--o-scrim);opacity:0;pointer-events:none;
+  transition:opacity .18s ease;z-index:29}
+body.nav-open .nscrim{opacity:1;pointer-events:auto}
+
+/* ═══ responsive ══════════════════════════════════════════════════════════ */
+@media (max-width:1420px){
+  .c3{grid-column:span 4} .c9{grid-column:span 8}
+}
+@media (max-width:1180px){
+  .nshell{grid-template-columns:1fr}
+  .nside{position:fixed;left:0;top:0;width:var(--n-side);transform:translateX(-100%);
+    transition:transform .2s cubic-bezier(.4,0,.2,1);box-shadow:var(--o-shadow)}
+  body.nav-open .nside{transform:none}
+  .nburger{display:grid}
+  .c4,.c5{grid-column:span 6} .c7,.c8{grid-column:span 12}
+}
+@media (max-width:820px){
+  .nbody{padding:var(--n-gap) 11px 20px}
+  .c2,.c3,.c4,.c5,.c6{grid-column:span 6}
+  .nsearch{flex-basis:auto;width:38px}
+  .nsearch input{padding-right:8px;color:transparent}
+  .nsearch input:focus{position:absolute;right:0;width:260px;color:var(--o-ink);z-index:5}
+  .nsearch kbd{display:none}
+  .ncrumb .sub{display:none}
+}
+@media (max-width:560px){
+  .c1,.c2,.c3,.c4,.c5,.c6,.c7,.c8,.c9{grid-column:span 12}
+}
+@media (prefers-reduced-motion:reduce){
+  body.noc *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+
+/* ═══ touch ═══════════════════════════════════════════════════════════════
+   This is a workstation console first, so the default density is tuned for a
+   mouse. On a touch device the same controls get a 44px hit area without the
+   layout growing: the padding is pushed outside the visual box. */
+@media (pointer:coarse){
+  .nseg button{padding:11px 13px}
+  .claim,.owner{padding:11px 12px;position:relative}
+  .nbtn{height:40px;min-width:40px}
+  .nbtn.icon{width:40px}
+  .fbtn{padding:6px 0}
+  .nitem{padding:11px 9px}
+  table.nt td{height:44px}
+  .nrow{min-height:48px}
+  table.nt th{padding-top:12px;padding-bottom:12px}
+}

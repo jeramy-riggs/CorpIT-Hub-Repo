@@ -1,0 +1,6 @@
+<section class="page wide health-console-page" data-view="health" hidden>
+  {% if is_platform_owner() %}
+  <iframe id="health-workspace" title="Health, settings and user activity" data-health-src="/health/workspace" class="health-console-frame"></iframe>
+  <noscript><p><a href="/health/workspace">Open Health &amp; settings</a>. JavaScript is needed to load the live checks.</p></noscript>
+  {% else %}<div class="empty"><h2>Health &amp; settings is for super-admins</h2><p>Your existing access to individual tools has not changed. Ask a platform owner if you need this consolidated view.</p></div>{% endif %}
+</section>

@@ -1,0 +1,150 @@
+/* portal-theme.css v6 */
+
+/* ═══ HERO — unscoped, wins over inline shorthand ═══ */
+.hero, .page-hero, [style*="auction-hq-banner"]{
+  position:relative!important;
+  background-image:
+    linear-gradient(100deg,rgba(6,14,24,.93) 0%,rgba(6,14,24,.76) 30%,rgba(6,14,24,.42) 58%,rgba(6,14,24,.12) 82%),
+    linear-gradient(to bottom,rgba(6,14,24,.32) 0%,rgba(6,14,24,0) 38%,rgba(20,114,153,.32) 100%),
+    url('/auction-hq-banner.png?v=2')!important;
+  background-image:
+    linear-gradient(100deg,rgba(6,14,24,.93) 0%,rgba(6,14,24,.76) 30%,rgba(6,14,24,.42) 58%,rgba(6,14,24,.12) 82%),
+    linear-gradient(to bottom,rgba(6,14,24,.32) 0%,rgba(6,14,24,0) 38%,rgba(20,114,153,.32) 100%),
+    image-set(url('/auction-hq-banner.webp?v=20261001') type('image/webp'), url('/auction-hq-banner.png?v=2') type('image/png'))!important;
+  background-size:cover!important;background-position:center 42%!important;
+  background-repeat:no-repeat!important;background-color:#071520!important;filter:none!important}
+.hero::after,.page-hero::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:#41B6E6;z-index:4}
+.hero h1,.hero h2,.hero p,.page-hero h1,.page-hero h2,.page-hero p,
+[style*="auction-hq-banner"] h1,[style*="auction-hq-banner"] h2,
+[style*="auction-hq-banner"] p,[style*="auction-hq-banner"] div,
+[style*="auction-hq-banner"] span{color:#EBF1F6!important;text-shadow:0 1px 8px rgba(0,0,0,.6)!important}
+.hero button,.page-hero button{text-shadow:none!important}
+.hero-badge{color:#9BD64A!important;text-shadow:none!important}
+
+/* ═══ TOGGLE ═══ */
+.pt-toggle{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;
+  border:1px solid rgba(140,155,168,.45);background:rgba(255,255,255,.12);color:#F5C542;
+  font-size:15px;line-height:1;cursor:pointer;padding:0;margin:0 8px;flex:0 0 34px;
+  transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+.pt-toggle:hover{transform:scale(1.08)}
+
+/* ═══ APV4 DARK — backgrounds AND text, so nothing half-applies ═══ */
+[data-theme="dark"] #apv4-root{background:#071520!important;color:#C2CCD4!important}
+[data-theme="dark"] #apv4-sidebar-inner{background:#0B1925!important}
+[data-theme="dark"] .apv4-role-tile,[data-theme="dark"] .apv4-stat-card,
+[data-theme="dark"] .apv4-req-tile,[data-theme="dark"] .apv4-row-tile,
+[data-theme="dark"] .apv4-modal-box{background:#142533!important;border-color:#2A3D4D!important}
+[data-theme="dark"] #apv4-root h1,[data-theme="dark"] #apv4-root h2,
+[data-theme="dark"] #apv4-root h3,[data-theme="dark"] #apv4-root h4,
+[data-theme="dark"] #apv4-root b,[data-theme="dark"] #apv4-root strong{color:#EBF1F6!important}
+[data-theme="dark"] .apv4-role-tile div:not(.v4band):not([style*="border-radius:999"]),
+[data-theme="dark"] .apv4-stat-card div,[data-theme="dark"] .apv4-req-tile div{color:#C2CCD4!important}
+[data-theme="dark"] .apv4-role-tile .v4band,
+[data-theme="dark"] .apv4-role-tile .v4band *{color:inherit!important}
+[data-theme="dark"] .apv4-tbl th{color:#86939D!important;border-bottom-color:#2A3D4D!important}
+[data-theme="dark"] .apv4-tbl td{color:#C2CCD4!important;border-bottom-color:#22323F!important}
+[data-theme="dark"] .apv4-field input,[data-theme="dark"] .apv4-field textarea{
+  background:#0E1D2A!important;border-color:#2A3D4D!important;color:#EBF1F6!important}
+#apv4-root .apv4-tab-btn{padding:6px 11px!important;white-space:nowrap!important}
+
+/* ═══ apv4 hero scrim — applyFadeLight() repaints an overlay div on an interval.
+       Hook it by the rgba literals it writes; !important beats its plain inline. ═══ */
+div[style*="rgba(243,244,246"],div[style*="rgba(243, 244, 246"],
+div[style*="rgba(17,24,39"],div[style*="rgba(17, 24, 39"]{
+  background:linear-gradient(100deg,rgba(6,14,24,.90) 0%,rgba(6,14,24,.70) 34%,
+             rgba(6,14,24,.32) 66%,rgba(6,14,24,.06) 88%)!important}
+
+/* ═══ apv4 page surfaces — role-screen/dash-screen carry their own inline bg ═══ */
+[data-theme="dark"] #apv4-root,[data-theme="dark"] #apv4-role-screen,
+[data-theme="dark"] #apv4-dash-screen,[data-theme="dark"] [id^="apv4-page-"]{
+  background:#071520!important}
+[data-theme="dark"] #apv4-root [style*="background:#f9fafb"],
+[data-theme="dark"] #apv4-root [style*="background:#fff"]{background:#142533!important}
+
+/* ═══ toggle — fixed, never injected into apv4's DOM so re-renders can't kill it ═══ */
+.pt-toggle.pt-fixed{position:fixed!important;bottom:20px;right:20px;z-index:2147483000;
+  width:42px;height:42px;background:#142533!important;color:#F5C542!important;
+  border:1px solid rgba(140,160,178,.5)!important;box-shadow:0 3px 14px -3px rgba(0,0,0,.6)!important}
+[data-theme="light"] .pt-toggle.pt-fixed{background:#FFFFFF!important;color:#27455C!important;
+  border-color:rgba(38,50,56,.25)!important;box-shadow:0 3px 14px -4px rgba(38,50,56,.4)!important}
+
+/* ═══ HERO — fade into the page like the main page does. Done as a background
+       LAYER, not mask-image: apv4 puts its greeting at the bottom of the hero
+       and a mask would fade the text with it. ═══ */
+[style*="auction-hq-banner"]{
+  background-image:
+    linear-gradient(to bottom,rgba(240,242,244,0) 70%,rgba(240,242,244,.55) 88%,#F0F2F4 100%),
+    linear-gradient(100deg,rgba(6,14,24,.93) 0%,rgba(6,14,24,.76) 30%,rgba(6,14,24,.42) 58%,rgba(6,14,24,.12) 82%),
+    linear-gradient(to bottom,rgba(6,14,24,.32) 0%,rgba(6,14,24,0) 38%,rgba(20,114,153,.32) 100%),
+    url('/auction-hq-banner.png?v=2')!important;
+  background-image:
+    linear-gradient(to bottom,rgba(240,242,244,0) 70%,rgba(240,242,244,.55) 88%,#F0F2F4 100%),
+    linear-gradient(100deg,rgba(6,14,24,.93) 0%,rgba(6,14,24,.76) 30%,rgba(6,14,24,.42) 58%,rgba(6,14,24,.12) 82%),
+    linear-gradient(to bottom,rgba(6,14,24,.32) 0%,rgba(6,14,24,0) 38%,rgba(20,114,153,.32) 100%),
+    image-set(url('/auction-hq-banner.webp?v=20261001') type('image/webp'), url('/auction-hq-banner.png?v=2') type('image/png'))!important}
+[data-theme="dark"] [style*="auction-hq-banner"]{
+  background-image:
+    linear-gradient(to bottom,rgba(7,21,32,0) 70%,rgba(7,21,32,.55) 88%,#071520 100%),
+    linear-gradient(100deg,rgba(6,14,24,.93) 0%,rgba(6,14,24,.76) 30%,rgba(6,14,24,.42) 58%,rgba(6,14,24,.12) 82%),
+    linear-gradient(to bottom,rgba(6,14,24,.32) 0%,rgba(6,14,24,0) 38%,rgba(20,114,153,.32) 100%),
+    url('/auction-hq-banner.png?v=2')!important;
+  background-image:
+    linear-gradient(to bottom,rgba(7,21,32,0) 70%,rgba(7,21,32,.55) 88%,#071520 100%),
+    linear-gradient(100deg,rgba(6,14,24,.93) 0%,rgba(6,14,24,.76) 30%,rgba(6,14,24,.42) 58%,rgba(6,14,24,.12) 82%),
+    linear-gradient(to bottom,rgba(6,14,24,.32) 0%,rgba(6,14,24,0) 38%,rgba(20,114,153,.32) 100%),
+    image-set(url('/auction-hq-banner.webp?v=20261001') type('image/webp'), url('/auction-hq-banner.png?v=2') type('image/png'))!important}
+
+/* ═══ REQUEST CARDS — landscape: banner left, content right ═══ */
+@media (min-width:900px){
+  .rtype-card.pt-has-banner{flex-direction:row!important;align-items:stretch!important}
+  .rtype-card.pt-has-banner .pt-card-banner{
+    width:196px!important;min-width:196px!important;flex:0 0 196px!important;
+    height:auto!important;padding-left:14px!important;align-items:center!important}
+  .rtype-card.pt-has-banner .pt-card-banner svg{width:100%!important;height:auto!important;max-height:104px}
+  .rtype-card.pt-has-banner .rtype-body{flex:1 1 auto!important;padding:15px 18px!important;min-width:0}
+}
+
+/* landscape cards need a wider track — 300px minus a 196px banner left ~90px of text */
+@media (min-width:900px){
+  .rtype-grid{grid-template-columns:repeat(auto-fill,minmax(470px,1fr))!important}
+}
+
+/* ═══ HERO BOTTOM FADE — inset shadow, not a background layer.
+       Paints above the image, below text, and can't lose a background-image fight. ═══ */
+[data-theme="dark"] .hero,[data-theme="dark"] .page-hero,
+
+/* ═══ APPROVER ROLE TILES — landscape, matching the main page cards ═══ */
+html body #apv4-role-grid{
+  grid-template-columns:repeat(auto-fill,minmax(430px,1fr))!important;
+  justify-content:stretch!important}
+@media (min-width:900px){
+  .apv4-role-tile.v4art{flex-direction:row!important;align-items:stretch!important}
+  .apv4-role-tile.v4art .v4band{
+    width:158px!important;min-width:158px!important;flex:0 0 158px!important;
+    height:auto!important;padding-left:12px!important;align-items:center!important}
+  .apv4-role-tile.v4art .v4band svg{width:100%!important;height:auto!important;max-height:88px}
+  .apv4-role-tile.v4art > *:not(.v4band){flex:1 1 auto!important;min-width:0}
+}
+
+/* ═══ HERO FADE — target by CLASS. The visible hero has no auction-hq-banner in its
+       inline style; it's painted by new-image-2-override (approver.html:1078). The
+       inline-style match only ever hit a hidden h=0 hero from a dead generation. ═══ */
+.apn-dash-hero,.apn-login-hero,.apn-hero,.ap-hero,.apn-header-hero,
+[data-theme="dark"] .apn-dash-hero,[data-theme="dark"] .apn-login-hero,
+[data-theme="dark"] .apn-hero,[data-theme="dark"] .ap-hero,
+[data-theme="dark"] .apn-header-hero,[data-theme="dark"] [class*="dash-hero"],
+[data-theme="dark"] [class*="login-hero"],[data-theme="dark"] [class*="portal-hero"],
+
+
+
+/* dark-mode hero fade — (1,2,2) outranks the in-page light rule's (1,1,2) */
+html[data-theme="dark"] body #apv4-root [style*="auction-hq-banner"]{
+  background-image:
+    linear-gradient(to bottom,rgba(7,21,32,0) 56%,rgba(7,21,32,.72) 86%,#071520 100%),
+    linear-gradient(100deg,rgba(6,14,24,.88) 0%,rgba(6,14,24,.58) 40%,rgba(6,14,24,.14) 78%),
+    url('/auction-hq-banner.png?v=1')!important;
+  background-image:
+    linear-gradient(to bottom,rgba(7,21,32,0) 56%,rgba(7,21,32,.72) 86%,#071520 100%),
+    linear-gradient(100deg,rgba(6,14,24,.88) 0%,rgba(6,14,24,.58) 40%,rgba(6,14,24,.14) 78%),
+    image-set(url('/auction-hq-banner.webp?v=20261001') type('image/webp'), url('/auction-hq-banner.png?v=1') type('image/png'))!important}

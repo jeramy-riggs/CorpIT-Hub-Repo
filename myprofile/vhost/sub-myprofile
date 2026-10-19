@@ -1,0 +1,202 @@
+# myprofile.nrpi.local -- My Profile as its OWN gated site (2026-09-23).
+# Was a vanity 302 to reporting/my-profile.html. Converted so access could be set for
+# THIS host alone (site-access.json scopes per host; a redirect to reporting would have
+# needed reporting access too). Since 2026-10-07 it is open to every signed-in account:
+# site-access mode "authenticated", sign-in through its own Entra app (MP-SIGNIN below).
+# The old SaaS-Corpit-MyProfile group is retired and deleted. Who may open it is set in
+# /etc/corpit/shared/site-access.json, not here.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name myprofile.nrpi.local;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name myprofile.nrpi.local;
+
+    ssl_certificate         /etc/ssl/corpit-ha/myprofile.nrpi.local/fullchain.pem;
+    ssl_certificate_key     /etc/ssl/corpit-ha/myprofile.nrpi.local/server.key;
+    ssl_trusted_certificate /etc/ssl/corpit-ha/myprofile.nrpi.local/nrpi-ca-chain.pem;
+    ssl_protocols           TLSv1.2 TLSv1.3;
+    ssl_session_cache       shared:SSL:10m;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy no-referrer always;
+
+    access_log /var/log/nginx/myprofile.access.log;
+    # One JSON line per request beside the access log above (log_format evjson: conf.d/corpit-evidence-log.conf).
+    # A server block that sets its own access_log does not inherit the http-level one, so it is named here too.
+    access_log /var/log/nginx/corpit-events.log evjson;
+
+    # [CORPIT-HUB-SSO] gate, sign-in front door, break-glass, auth handoff.
+    # /login.html on this host resolves to /var/www/myprofile/login.html via the
+    # $corpit_login_page map (conf.d/corpit-login-page.conf).
+    include snippets/corpit-hub-sso.conf;
+
+    # Own web root. Every file in it is a symlink to corpit's copy, so there is still one
+    # my-profile.html / my-profile.js to fix; only login.html is this host's own.
+    root /var/www/myprofile;
+
+    # Sign-in page hero: the same auction HQ photo as my-profile's greeting banner,
+    # re-encoded small. Anonymous for the same reason login.html is -- it is part of
+    # what you see with no session. Exact match outranks the gated 'location /'.
+    location = /signin-hero.jpg {
+        expires 30d;
+        try_files /signin-hero.jpg =404;
+    }
+    location = /signin-hero.webp {
+        expires 30d;
+        try_files /signin-hero.webp =404;
+    }
+
+    # The bare host IS the app. Served (not redirected) so the gate runs: a 'return'
+    # here would execute before auth_request and serve anonymously.
+    location = / {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;          # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy no-referrer always;
+        try_files /my-profile.html =404;
+    }
+
+    location / {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;          # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        error_page 404 @gate_notfound;   # nginx's own "no such file" -> our page, status stays 404
+        try_files $uri =404;
+    }
+
+    # Same cache rules as reporting. auth_request is NOT inherited and a location-level
+    # add_header REPLACES the server set, so both are repeated. Anchored to root-level
+    # names so they cannot outrank the /api/ prefix blocks below.
+    location ~* ^/[^/]+\.(js|css)$ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;          # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        add_header Cache-Control "no-cache, must-revalidate";
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy no-referrer always;
+        try_files $uri =404;
+    }
+    location ~* ^/[^/]+\.html$ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;          # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy no-referrer always;
+        try_files $uri =404;
+    }
+
+    # --- APIs: ONLY what my-profile + its shared scripts call -------------------------
+    # No auth_request, matching corpit and reporting: these routers enforce identity
+    # in-process (profile-routes: needUser() + who(req), scoped to the signed-in user).
+    # 'Host $host' is required by the CSRF guard in server.js.
+    location /api/profile/ {
+        proxy_pass http://127.0.0.1:3001/api/profile/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+    location /api/rbac/ {
+        proxy_pass http://127.0.0.1:3001/api/rbac/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+    # Session refresh/state. Exact-match logout/federated-logout/landing in the SSO
+    # snippet still win over this prefix.
+    location /api/gate/ {
+        proxy_pass http://127.0.0.1:3002/api/gate/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+    location /api/photo {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+    location /api/weather {
+        proxy_pass http://127.0.0.1:3001/api/weather;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # MP-SIGNIN (2026-10-07): My Profile is for every active AD account, so it signs
+    # people in through its OWN Entra app (assignment not required) and callback, on
+    # this host, instead of the Hub front door on corpit.nrpi.local (assignment
+    # required). The exact match outranks the snippet's ^~ /api/auth/ prefix, so the
+    # shared login.html/login.js keep calling /api/auth/login unchanged. The session
+    # it mints is scoped to this host only (mp-signin.js, session-auth.js).
+    location = /api/auth/login {
+        limit_req zone=sso_auth burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:3001/api/mpauth/login$is_args$args;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store, private" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy no-referrer always;
+        proxy_read_timeout 30s;
+    }
+    location ^~ /api/mpauth/ {
+        limit_req zone=sso_auth burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:3001/api/mpauth/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-store, private" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy no-referrer always;
+        proxy_read_timeout 30s;
+    }
+
+    # Everything else under /api/ is NOT this site's business. Without this, the
+    # 'location /' gate would still refuse most of it, but a site scoped to one page
+    # should not be a second front door to the rest of the hub API at all.
+    location /api/ {
+        return 404;
+    }
+}

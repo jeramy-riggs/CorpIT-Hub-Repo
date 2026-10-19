@@ -1,0 +1,32 @@
+# /etc/systemd/system/helpdesk-dashboard.service
+# Install: sudo cp config/helpdesk-dashboard.service /etc/systemd/system/
+# Enable:  sudo systemctl daemon-reload && sudo systemctl enable --now helpdesk-dashboard
+
+[Unit]
+Description=ITAM HelpDesk Dashboard
+Documentation=https://github.com/yourorg/helpdesk-dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=helpdesk
+Group=helpdesk
+WorkingDirectory=/opt/helpdesk-dashboard
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=helpdesk-dashboard
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/helpdesk-dashboard/data /opt/helpdesk-dashboard/logs
+PrivateTmp=true
+
+# Environment
+EnvironmentFile=/opt/helpdesk-dashboard/.env
+
+[Install]
+WantedBy=multi-user.target

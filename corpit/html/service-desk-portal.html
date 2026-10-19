@@ -1,0 +1,2268 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<!-- CorpIT Hub deployment. Ported from itam.nrpi.local/service-desk-portal.html
+     (source md5 39fbcca4df19a2b5fc00b755392bd7e2) on 2026-09-07. ITAM copy untouched and still live.
+     Unbundled here: the ITAM file is a dc-runtime build artifact whose inline
+     unpacker gunzipped its assets to blob: URLs and then called
+     document.documentElement.replaceWith(). That workaround exists to survive
+     file:// and a strict artifact-host CSP; neither applies on this doc root,
+     and it was what discarded the <head> -- so the ITAM page has no <title>
+     and /it-theme.js was inert on it. React, ReactDOM and the runtime are now
+     ordinary vendored scripts. React/ReactDOM bytes verified against the
+     sha384 SRI hashes hardcoded in the runtime before vendoring. -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Desk Operations — IT Command</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<script src="/rbac-client.js"></script>
+<!-- React first: the runtime's loadReactUmd() short-circuits on
+     window.React && window.ReactDOM, so its unpkg.com fallback is never
+     reached. corpit CSP is default-src 'self'; nothing loads off-box. -->
+<script src="/vendor/react-18.3.1.umd.min.js"></script>
+<script src="/vendor/react-dom-18.3.1.umd.min.js"></script>
+<script src="/vendor/dc-runtime.js"></script>
+<style>
+  /* Room for the shared CorpIT topbar. it-topbar.js docks its cluster at
+     position:fixed/right:14px when a page has no bar it recognises; this
+     page's own header controls sit at the same edge. Scoped to :has() so the
+     reservation exists only while a docked cluster does, and expressed as the
+     custom property the header's inline padding reads, so no !important. */
+  body:has(.ittb-fixed) { --sdops-hdr-pr: 214px; }
+</style>
+
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  html, body { margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #0B5CD8; text-decoration: none; }
+  a:hover { color: #0847A6; text-decoration: underline; }
+  input, select, button { font-family: inherit; }
+  input:focus, select:focus { outline: 2px solid rgba(11,92,216,.35); outline-offset: 1px; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media print { .no-print { display: none !important; } }
+
+  /* Narrow viewports. position is !important because the sidebar carries an
+     inline position:sticky, which a stylesheet rule cannot otherwise beat. */
+  .sdops-navtoggle { display: none; background: none; border: 0; padding: 0; }
+  /* navStyle() supplies display, padding and colour; a button still needs its
+     own chrome stripped and a focus ring that reads on the dark sidebar. */
+  .sdops-navitem { border: 0; width: 100%; text-align: left; font-family: inherit; }
+  .sdops-navitem:focus-visible, .sdops-navtoggle:focus-visible {
+    outline: 2px solid #7FB5FF; outline-offset: 2px;
+  }
+  .sdops-scrim { display: none; }
+  @media (max-width: 900px) {
+    .sdops-nav {
+      position: fixed !important; left: 0; top: 0; z-index: 60;
+      transform: translateX(-100%); visibility: hidden;
+      transition: transform .18s ease, visibility 0s linear .18s;
+    }
+    body.sdops-nav-open .sdops-nav {
+      transform: none; visibility: visible;
+      transition: transform .18s ease, visibility 0s linear 0s;
+    }
+    .sdops-navtoggle {
+      display: flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; flex: none; margin-left: -6px;
+      border-radius: 8px; cursor: pointer; color: var(--sub, #5E6C84);
+    }
+    .sdops-navtoggle:hover { background: var(--bg, #F2F4F7); }
+    body.sdops-nav-open .sdops-scrim {
+      display: block; position: fixed; inset: 0; z-index: 50;
+      background: rgba(0, 0, 0, .42);
+    }
+
+    /* The header wraps to two rows: controls, then search + freshness stamp.
+       !important throughout because the header carries an inline style. */
+    .sdops-hdr {
+      flex-wrap: wrap; height: auto !important; min-height: 56px;
+      padding-top: 8px !important; padding-bottom: 8px !important;
+      padding-left: 12px !important; gap: 8px !important;
+    }
+    .sdops-hdr > .sdops-crumb {
+      margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* 100% basis, so the search always gets a row of its own rather than
+       being shrunk to a 42px stub by the items sharing its line. !important
+       because the wrapper carries an inline flex:1, which is 1 1 0% and wins
+       over a plain stylesheet declaration. */
+    .sdops-hdr > .sdops-search {
+      order: 5; flex: 1 1 100% !important; min-width: 0;
+      max-width: none !important; margin-left: 0 !important;
+    }
+    .sdops-hdr > .sdops-fresh {
+      order: 4; flex: 0 1 auto; min-width: 0;
+      white-space: normal !important; text-align: right;
+    }
+  }
+
+  /* The topbar cluster is fixed at y 10-42 against the right edge. Below
+     560px the header stops trying to share that band, starts underneath it,
+     and reclaims the 214px it was reserving. */
+  @media (max-width: 560px) {
+    body:has(.ittb-fixed) { --sdops-hdr-pr: 12px; }
+    body:has(.ittb-fixed) .sdops-hdr { padding-top: 46px !important; }
+    /* That band is empty apart from the cluster at its right edge, so the
+       freshness stamp sits in it instead of costing the header a third row. */
+    body:has(.ittb-fixed) .sdops-hdr > .sdops-fresh {
+      position: absolute; top: 12px; left: 12px; right: 110px; text-align: left;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sdops-nav { transition: none !important; }
+  }
+</style>
+</helmet>
+
+<div style="display:flex; min-height:100vh; background:var(--bg, #F2F4F7); color:var(--txt, #1B2733); font-size:14px;">
+
+  <!-- ============ SIDEBAR ============ -->
+  <nav class="no-print sdops-nav" style="width:236px; flex-shrink:0; background:#0F1725; color:#96A3B8; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto;">
+    <div style="display:flex; align-items:center; gap:10px; padding:18px 16px 16px 16px; border-bottom:1px solid #1C2739;">
+      <div style="width:34px; height:34px; border-radius:8px; background:var(--accent, #0B5CD8); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:17px;">S</div>
+      <div>
+        <div style="color:#EDF2F9; font-weight:600; font-size:14px; line-height:1.2;">Service Desk Operations</div>
+      </div>
+    </div>
+
+    <div style="padding:14px 10px 6px 10px; flex:1;">
+      <div style="font-size:10.5px; font-weight:700; letter-spacing:.08em; color:#7A8AA6; padding:4px 8px 6px 8px;">OVERVIEW</div>
+      <button type="button" class="sdops-navitem" sc-camel-on-click="{{ goDashboard }}" style="{{ dashNavStyle }}" style-hover="background:#1B2536; color:#E8EDF4;">{{ homeIcon }}<span>Dashboard</span></button>
+
+      <sc-if value="{{ hasFavs }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:10.5px; font-weight:700; letter-spacing:.08em; color:#7A8AA6; padding:14px 8px 6px 8px;">FAVORITES</div>
+        <sc-for list="{{ favItems }}" as="it" hint-placeholder-count="1">
+          <button type="button" class="sdops-navitem" sc-camel-on-click="{{ it.onClick }}" style="{{ it.style }}" style-hover="background:#1B2536; color:#E8EDF4;">{{ it.iconEl }}<span>{{ it.label }}</span></button>
+        </sc-for>
+      </sc-if>
+
+      <sc-for list="{{ navItems }}" as="it" hint-placeholder-count="8">
+        <sc-if value="{{ it.isHeader }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ it.style }}"><span>{{ it.label }}</span></div>
+        </sc-if>
+        <sc-if value="{{ it.notHeader }}" hint-placeholder-val="{{ true }}">
+          <button type="button" class="sdops-navitem" sc-camel-on-click="{{ it.onClick }}" style="{{ it.style }}" style-hover="background:#1B2536; color:#E8EDF4;">{{ it.iconEl }}<span>{{ it.label }}</span></button>
+        </sc-if>
+      </sc-for>
+    </div>
+
+      </nav>
+
+  <div class="sdops-scrim no-print" sc-camel-on-click="{{ onNavToggle }}"></div>
+
+  <!-- ============ MAIN ============ -->
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+
+    <!-- TOPBAR -->
+    <header class="no-print sdops-hdr" style="height:56px; flex-shrink:0; background:var(--panel, #FFFFFF); border-bottom:1px solid var(--line, #E4E9F0); display:flex; align-items:center; gap:16px; padding:0 var(--sdops-hdr-pr, 24px) 0 24px; position:sticky; top:0; z-index:20;">
+      <button type="button" class="sdops-navtoggle no-print" sc-camel-on-click="{{ onNavToggle }}" aria-label="Open navigation">{{ navToggleIcon }}</button>
+      <div class="sdops-crumb" style="font-size:13px; color:var(--sub, #5E6C84); white-space:nowrap;"><a href="/landing.html" class="crumb-home" style="color:inherit;">Home</a>{{ crumb }}</div>
+
+      <div class="sdops-search" style="flex:1; max-width:460px; margin-left:auto; position:relative;">
+        <div style="position:absolute; left:10px; top:8px; opacity:.55;">{{ searchIcon }}</div>
+        <input value="{{ globalQ }}" sc-camel-on-change="{{ onGlobalSearch }}" sc-camel-on-blur="{{ onGlobalBlur }}" placeholder="Search tickets, people, modules…" style="width:100%; box-sizing:border-box; padding:8px 12px 8px 34px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel2, #F7F9FC); color:var(--txt, #1B2733); font-size:13px;">
+        <sc-if value="{{ searchOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; top:42px; left:0; right:0; background:var(--panel, #fff); border:1px solid var(--line, #E4E9F0); border-radius:10px; box-shadow:0 8px 24px rgba(16,24,40,.14); overflow:hidden; z-index:50;">
+            <sc-for list="{{ searchResults }}" as="r" hint-placeholder-count="2">
+              <div sc-camel-on-mouse-down="{{ r.onClick }}" style="padding:10px 14px; cursor:pointer; display:flex; flex-direction:column; gap:2px; border-bottom:1px solid var(--line, #E4E9F0);" style-hover="background:var(--panel2, #F7F9FC);">
+                <span style="font-size:13px; font-weight:600;">{{ r.label }}</span>
+                <span style="font-size:12px; color:var(--sub, #5E6C84);">{{ r.sub }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <div class="sdops-fresh" style="font-size:12px; color:var(--sub, #5E6C84); white-space:nowrap;">{{ refreshedText }}</div>
+      <button sc-camel-on-click="{{ onRefresh }}" title="Refresh" style="display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); cursor:pointer; color:var(--sub, #5E6C84);" style-hover="background:var(--panel2, #F7F9FC);">{{ refreshIcon }}</button>
+      <button sc-camel-on-click="{{ onToggleTheme }}" title="Toggle dark mode" style="display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); cursor:pointer; color:var(--sub, #5E6C84);" style-hover="background:var(--panel2, #F7F9FC);">{{ themeIcon }}</button>
+
+      <div style="position:relative;">
+        <button sc-camel-on-click="{{ onToggleNotif }}" title="Notifications" style="display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); cursor:pointer; color:var(--sub, #5E6C84); position:relative;" style-hover="background:var(--panel2, #F7F9FC);">
+          {{ bellIcon }}
+          <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; top:5px; right:6px; width:8px; height:8px; border-radius:50%; background:#E5484D; border:1.5px solid var(--panel, #fff);"></span></sc-if>
+        </button>
+        <sc-if value="{{ notifOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; top:42px; right:0; width:340px; background:var(--panel, #fff); border:1px solid var(--line, #E4E9F0); border-radius:12px; box-shadow:0 8px 24px rgba(16,24,40,.14); z-index:50; overflow:hidden;">
+            <div style="padding:12px 16px; font-weight:600; font-size:13px; border-bottom:1px solid var(--line, #E4E9F0);">Notifications</div>
+            <sc-for list="{{ notifications }}" as="n" hint-placeholder-count="3">
+              <div style="padding:12px 16px; border-bottom:1px solid var(--line, #E4E9F0); display:flex; gap:10px; align-items:flex-start;">
+                <span style="{{ n.dotStyle }}"></span>
+                <div>
+                  <div style="font-size:13px; font-weight:600;">{{ n.title }}</div>
+                  <div style="font-size:12px; color:var(--sub, #5E6C84); margin-top:2px;">{{ n.sub }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </header>
+
+    <!-- ============ DASHBOARD ============ -->
+    <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+      <main data-screen-label="Dashboard" style="padding:24px 28px 40px 28px; animation:fadeUp .25s ease;">
+        <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px; flex-wrap:wrap;">
+          <div>
+            <h1 style="margin:0; font-size:21px; font-weight:650;">Operations Dashboard</h1>
+            <div style="font-size:13px; color:var(--sub, #5E6C84); margin-top:3px;">{{ todayLabel }} · Real-time service desk overview</div>
+          </div>
+          <div style="margin-left:auto; display:flex; border:1px solid var(--line, #E4E9F0); border-radius:9px; overflow:hidden;">
+            <button sc-camel-on-click="{{ onLayoutTiles }}" style="{{ tilesBtnStyle }}">Detailed View</button>
+            <button sc-camel-on-click="{{ onLayoutCommand }}" style="{{ commandBtnStyle }}">Executive Summary</button>
+          </div>
+        </div>
+
+        <!-- Layout B hero strip -->
+        <sc-if value="{{ isCommand }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px; margin-bottom:18px;">
+            <sc-for list="{{ heroCards }}" as="h" hint-placeholder-count="4">
+              <div sc-camel-on-click="{{ h.onClick }}" style="background:var(--panel, #fff); border:1px solid var(--line, #E4E9F0); border-radius:12px; padding:16px 18px; cursor:pointer; border-top:3px solid; border-top-color:{{ h.color }};" style-hover="box-shadow:0 4px 14px rgba(16,24,40,.10);">
+                <div style="font-size:12px; font-weight:600; color:var(--sub, #5E6C84); text-transform:uppercase; letter-spacing:.05em;">{{ h.label }}</div>
+                <div style="font-size:30px; font-weight:700; margin-top:6px; line-height:1;">{{ h.value }}</div>
+                <div style="font-size:12px; color:var(--sub, #5E6C84); margin-top:6px;">{{ h.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+                <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+          <div style="background:var(--panel, #fff); border:1px solid var(--line, #E4E9F0); border-radius:12px; padding:18px 20px; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:600; font-size:14px;">Top Request Types</div>
+                <div style="font-size:12px; color:var(--sub, #5E6C84); margin-top:2px;">{{ topCatSub }}</div>
+              </div>
+              <div style="margin-left:auto; display:flex; border:1px solid var(--line, #E4E9F0); border-radius:8px; overflow:hidden;">
+                <sc-for list="{{ topCatWindows }}" as="w" hint-placeholder-count="4">
+                  <button sc-camel-on-click="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <sc-if value="{{ topCatEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px; color:var(--sub, #5E6C84); padding:10px 0;">{{ topCatEmptyText }}</div>
+            </sc-if>
+            <sc-if value="{{ topCatHasData }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <sc-for list="{{ topCatBars }}" as="c" hint-placeholder-count="8">
+                  <div sc-camel-on-click="{{ c.onClick }}" style="{{ c.rowStyle }}" style-hover="opacity:.8;">
+                    <div style="width:190px; font-size:13px; color:var(--txt, #1B2733); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ c.label }}">{{ c.label }}</div>
+                    <div style="flex:1; background:var(--panel2, #F7F9FC); border-radius:6px; height:22px; overflow:hidden;">
+                      <div style="{{ c.barStyle }}"></div>
+                    </div>
+                    <div style="width:46px; font-size:14px; font-weight:700; text-align:right;">{{ c.count }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+                <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+          <div style="background:var(--panel, #fff); border:1px solid var(--line, #E4E9F0); border-radius:12px; padding:18px 20px; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+              <div>
+                <div style="font-weight:600; font-size:14px;">Request Volume</div>
+                <div style="font-size:12px; color:var(--sub, #5E6C84); margin-top:2px;">{{ trendSub }}</div>
+              </div>
+              <div style="margin-left:auto; display:flex; border:1px solid var(--line, #E4E9F0); border-radius:8px; overflow:hidden;">
+                <sc-for list="{{ trendWindows }}" as="w" hint-placeholder-count="4">
+                  <button sc-camel-on-click="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <sc-if value="{{ trendHasData }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <div style="display:flex; align-items:flex-end; gap:4px; height:150px;">
+                  <sc-for list="{{ trendBars }}" as="bar" hint-placeholder-count="12">
+                    <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end;" title="{{ bar.tip }}">
+                      <div style="font-size:10px; color:var(--sub, #5E6C84); font-weight:600; height:13px; flex:none;">{{ bar.valueText }}</div>
+                      <div style="{{ bar.barStyle }}"></div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex; gap:4px; margin-top:6px;">
+                  <sc-for list="{{ trendBars }}" as="bar" hint-placeholder-count="12">
+                    <div style="flex:1; text-align:center; font-size:10px; color:var(--sub, #5E6C84); overflow:hidden; white-space:nowrap;">{{ bar.labelText }}</div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ trendEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px; color:var(--sub, #5E6C84); padding:10px 0;">{{ trendEmptyText }}</div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <div style="{{ tileGridStyle }}">
+          <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="8">
+            <article sc-camel-on-click="{{ t.onClick }}" style="background:var(--panel, #fff); border:1px solid var(--line, #E4E9F0); border-radius:12px; padding:18px; cursor:pointer; display:flex; flex-direction:column; gap:12px; transition:box-shadow .15s ease, transform .15s ease;" style-hover="box-shadow:0 6px 18px rgba(16,24,40,.12); transform:translateY(-2px);">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="{{ t.iconBoxStyle }}">{{ t.iconEl }}</div>
+                <div style="font-weight:600; font-size:14px;">{{ t.title }}</div>
+                <div style="margin-left:auto; color:var(--sub, #5E6C84);">{{ arrowIcon }}</div>
+              </div>
+              <div style="display:flex; align-items:flex-end; gap:12px;">
+                <div>
+                  <div style="font-size:34px; font-weight:700; line-height:1;">{{ t.big }}</div>
+                  <div style="font-size:12px; color:var(--sub, #5E6C84); margin-top:5px;">{{ t.bigLabel }}</div>
+                </div>
+                <sc-if value="{{ isCommand }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; align-items:flex-end; gap:3px; height:40px; margin-left:auto;">
+                    <sc-for list="{{ t.spark }}" as="b" hint-placeholder-count="10">
+                      <div style="{{ b.style }}"></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ isTiles }}" hint-placeholder-val="{{ true }}">
+                <div style="border-top:1px solid var(--line, #E4E9F0); padding-top:10px; display:flex; flex-direction:column; gap:7px;">
+                  <sc-for list="{{ t.stats }}" as="s" hint-placeholder-count="3">
+                    <div style="display:flex; justify-content:space-between; font-size:13px;">
+                      <span style="color:var(--sub, #5E6C84);">{{ s.label }}</span>
+                      <span style="{{ s.style }}">{{ s.value }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ t.hasNote }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:11.5px; color:var(--sub, #5E6C84); border-top:1px solid var(--line, #E4E9F0); padding-top:9px;">{{ t.note }}</div>
+              </sc-if>
+            </article>
+          </sc-for>
+        </div>
+      </main>
+    </sc-if>
+
+    <!-- ============ DETAIL PAGE ============ -->
+    <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+      <main data-screen-label="{{ pageTitle }}" style="padding:24px 28px 40px 28px; animation:fadeUp .25s ease;">
+
+        <div style="display:flex; align-items:flex-start; gap:14px; margin-bottom:18px; flex-wrap:wrap;">
+          <div>
+            <h1 style="margin:0; font-size:21px; font-weight:650; display:flex; align-items:center; gap:10px;">{{ pageTitle }}
+              <button sc-camel-on-click="{{ onToggleFav }}" title="Favorite" style="border:none; background:none; cursor:pointer; padding:2px; color:var(--sub, #5E6C84); display:flex;" class="no-print">{{ starIcon }}</button>
+            </h1>
+            <div style="font-size:13px; color:var(--sub, #5E6C84); margin-top:3px;">{{ pageSub }}</div>
+          </div>
+          <div class="no-print" style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
+            <button sc-camel-on-click="{{ onRefresh }}" style="display:flex; align-items:center; gap:7px; padding:8px 13px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); color:var(--txt, #1B2733); font-size:13px; font-weight:600; cursor:pointer;" style-hover="background:var(--panel2, #F7F9FC);">{{ refreshIcon }}Refresh</button>
+            <button sc-camel-on-click="{{ onExportCsv }}" style="display:flex; align-items:center; gap:7px; padding:8px 13px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); color:var(--txt, #1B2733); font-size:13px; font-weight:600; cursor:pointer;" style-hover="background:var(--panel2, #F7F9FC);">{{ downloadIcon }}CSV</button>
+            <button sc-camel-on-click="{{ onExportXls }}" style="display:flex; align-items:center; gap:7px; padding:8px 13px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); color:var(--txt, #1B2733); font-size:13px; font-weight:600; cursor:pointer;" style-hover="background:var(--panel2, #F7F9FC);">{{ downloadIcon2 }}Excel</button>
+            <button sc-camel-on-click="{{ onPrint }}" style="display:flex; align-items:center; gap:7px; padding:8px 13px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); color:var(--txt, #1B2733); font-size:13px; font-weight:600; cursor:pointer;" style-hover="background:var(--panel2, #F7F9FC);">{{ printIcon }}Print</button>
+            <sc-if value="{{ showImport }}" hint-placeholder-val="{{ false }}"><button sc-camel-on-click="{{ onImportPdf }}" style="display:flex; align-items:center; gap:7px; padding:8px 13px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--accent, #0B5CD8); color:#fff; font-size:13px; font-weight:600; cursor:pointer;">Import PDF</button></sc-if>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+          <sc-for list="{{ pageKpis }}" as="k" hint-placeholder-count="4">
+            <div sc-camel-on-click="{{ k.onClick }}" style="{{ k.style }}" style-hover="{{ k.hoverStyle }}">
+              <div style="font-size:12px; color:var(--sub, #5E6C84); font-weight:600;">{{ k.label }}</div>
+              <div style="font-size:22px; font-weight:700; margin-top:4px;">{{ k.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ hasKpiNote }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px; color:var(--sub, #5E6C84); margin:-4px 0 16px;">{{ kpiNote }}</div>
+        </sc-if>
+
+        <sc-if value="{{ hasChart }}" hint-placeholder-val="{{ false }}">
+          <div style="background:var(--panel, #fff); border:1px solid var(--line, #E4E9F0); border-radius:12px; padding:18px 20px; margin-bottom:18px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;"><div style="font-weight:600; font-size:14px;">{{ chartTitle }}</div><sc-if value="{{ chartHasPeriods }}" hint-placeholder-val="{{ false }}"><div class="no-print" style="display:flex; border:1px solid var(--line, #E4E9F0); border-radius:8px; overflow:hidden;"><sc-for list="{{ chartPeriodBtns }}" as="p" hint-placeholder-count="4"><button sc-camel-on-click="{{ p.onClick }}" style="{{ p.style }}">{{ p.label }}</button></sc-for></div></sc-if></div>
+            <sc-if value="{{ chartEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px; color:var(--sub, #5E6C84); padding:10px 0;">{{ chartEmptyText }}</div>
+            </sc-if>
+            <sc-if value="{{ chartHasBars }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex; align-items:flex-end; gap:8px; height:130px;">
+                <sc-for list="{{ chartBars }}" as="bar" hint-placeholder-count="10">
+                  <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; height:100%; justify-content:flex-end;" title="{{ bar.tip }}">
+                    <div style="font-size:11px; color:var(--sub, #5E6C84); font-weight:600; flex:none;">{{ bar.value }}</div>
+                    <div style="{{ bar.style }}"></div>
+                    <div style="font-size:11px; color:var(--sub, #5E6C84); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; flex:none;">{{ bar.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasTechStats }}" hint-placeholder-val="{{ false }}">
+          <div style="background:var(--panel, #fff); border:1px solid var(--line, #E4E9F0); border-radius:12px; padding:18px 20px; margin-bottom:18px;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+              <div style="font-weight:600; font-size:14px;">Requests closed by technician</div>
+              <div class="no-print" style="margin-left:auto; display:flex; border:1px solid var(--line, #E4E9F0); border-radius:8px; overflow:hidden;">
+                <sc-for list="{{ periodBtns }}" as="p" hint-placeholder-count="4">
+                  <button sc-camel-on-click="{{ p.onClick }}" style="{{ p.style }}">{{ p.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <sc-for list="{{ techClosed }}" as="tc" hint-placeholder-count="6">
+                <div style="display:grid; grid-template-columns:150px 1fr 48px; align-items:center; gap:12px;">
+                  <div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tc.name }}</div>
+                  <div style="height:10px; border-radius:5px; background:var(--panel2, #F7F9FC); overflow:hidden;"><div style="{{ tc.barStyle }}"></div></div>
+                  <div style="font-size:13px; font-weight:700; text-align:right;">{{ tc.count }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ hasTechNote }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:11.5px; color:var(--sub, #5E6C84); border-top:1px solid var(--line, #E4E9F0); margin-top:12px; padding-top:9px;">{{ techNote }}</div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <div style="background:var(--panel, #fff); border:1px solid var(--line, #E4E9F0); border-radius:12px; overflow:hidden;">
+          <div class="no-print" style="display:flex; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line, #E4E9F0); flex-wrap:wrap; align-items:center;">
+            <div style="position:relative; flex:1; min-width:220px; max-width:340px;">
+              <div style="position:absolute; left:10px; top:8px; opacity:.55;">{{ searchIcon2 }}</div>
+              <input value="{{ pageSearch }}" sc-camel-on-change="{{ onPageSearch }}" placeholder="Search…" style="width:100%; box-sizing:border-box; padding:8px 12px 8px 34px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel2, #F7F9FC); color:var(--txt, #1B2733); font-size:13px;">
+            </div>
+            <sc-for list="{{ pageFilters }}" as="f" hint-placeholder-count="2">
+              <sc-raw-select value="{{ f.value }}" sc-camel-on-change="{{ f.onChange }}" style="padding:8px 10px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); color:var(--txt, #1B2733); font-size:13px; cursor:pointer;">
+                <sc-for list="{{ f.options }}" as="opt" hint-placeholder-count="3">
+                  <option value="{{ opt }}">{{ opt }}</option>
+                </sc-for>
+              </sc-raw-select>
+            </sc-for>
+            <div style="margin-left:auto; font-size:12.5px; color:var(--sub, #5E6C84);">{{ resultCount }}</div>
+          </div>
+
+          <div style="overflow-x:auto;">
+            <sc-raw-table style="width:100%; border-collapse:collapse; min-width:760px;">
+              <sc-raw-thead>
+                <sc-raw-tr>
+                  <sc-for list="{{ pageCols }}" as="col" hint-placeholder-count="6">
+                    <sc-raw-th sc-camel-on-click="{{ col.onSort }}" style="text-align:left; padding:11px 16px; font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--sub, #5E6C84); background:var(--thead, #F7F9FC); border-bottom:1px solid var(--line, #E4E9F0); cursor:pointer; white-space:nowrap; user-select:none;">{{ col.hLabel }}</sc-raw-th>
+                  </sc-for>
+                </sc-raw-tr>
+              </sc-raw-thead>
+              <sc-raw-tbody>
+                <sc-for list="{{ pageRows }}" as="row" hint-placeholder-count="8">
+                  <sc-raw-tr style="border-bottom:1px solid var(--line, #E4E9F0);" style-hover="background:var(--panel2, #F7F9FC);">
+                    <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="6">
+                      <sc-raw-td sc-camel-on-click="{{ cell.onClick }}" style="padding:11px 16px; font-size:13px; white-space:nowrap;"><span style="{{ cell.style }}">{{ cell.text }}</span></sc-raw-td>
+                    </sc-for>
+                  </sc-raw-tr>
+                </sc-for>
+              </sc-raw-tbody>
+            </sc-raw-table>
+          </div>
+
+          <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:36px; text-align:center; color:var(--sub, #5E6C84); font-size:13.5px;">
+              {{ noRowsText }}
+              <sc-if value="{{ noRowsCanClear }}" hint-placeholder-val="{{ false }}">
+                <button sc-camel-on-click="{{ onClearFilters }}" style="border:none; background:none; color:var(--accent, #0B5CD8); font-size:13.5px; cursor:pointer; font-weight:600;">Clear filters</button>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <div class="no-print" style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-top:1px solid var(--line, #E4E9F0);">
+            <span style="font-size:12.5px; color:var(--sub, #5E6C84);">{{ pageInfo }}</span>
+            <div style="margin-left:auto; display:flex; gap:6px;">
+              <button sc-camel-on-click="{{ onPrevPage }}" style="{{ prevBtnStyle }}">‹ Prev</button>
+              <button sc-camel-on-click="{{ onNextPage }}" style="{{ nextBtnStyle }}">Next ›</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </sc-if>
+
+  </div>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#1B2733; color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; box-shadow:0 8px 24px rgba(16,24,40,.3); z-index:100; animation:fadeUp .2s ease;">{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;homeLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;tiles&quot;,&quot;command&quot;],&quot;default&quot;:&quot;tiles&quot;,&quot;tsType&quot;:&quot;'tiles' | 'command'&quot;,&quot;section&quot;:&quot;Dashboard&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;#0B5CD8&quot;,&quot;#0E9F8A&quot;,&quot;#6554C0&quot;,&quot;#C2410C&quot;],&quot;default&quot;:&quot;#0E9F8A&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
+
+// One reading of a row's facet value, shared by the option list and the
+// matcher. String(null) is "null" and String(undefined) is "undefined"; both
+// used to reach the dropdown verbatim. false and 0 are real values and are
+// left alone.
+const FACET_NONE = '(none)';
+function facetValue(v) {
+  return (v === null || v === undefined || String(v).trim() === '') ? FACET_NONE : String(v);
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { route: 'dashboard', theme: null, layout: null, searches: {}, filters: {}, sorts: {}, pageNums: {}, favs: ['requests'], notifOpen: false, globalQ: '', toast: '', refreshedAt: new Date(), dataAsOf: null, dataStatus: 'unknown', liveRequestsLoaded: false, liveRequestsError: null, topCat: null, topCatWindow: 'week', topCatLoaded: false, trend: null, trendWindow: 'week', trendLoaded: false, dateFrom: {} };
+    this.buildData();
+    this.loadLiveRequests();
+    this.loadLiveStale();
+    this.loadLiveCalls();
+    this.loadLiveEmployees();
+    this.loadLiveNewHires();
+    this.loadLiveTerminations();
+    this.loadLiveLockouts();
+    this.loadLiveLockoutTicketAudit();
+    // Account Lockouts only: keep this page's data fresh automatically, since there is
+    // no page-wide auto-refresh and a technician may leave this view open.
+    setInterval(() => {
+      // This polled a table nothing writes to, once a minute, for ~20 days.
+      // While the feed is not ok, drop to roughly one attempt every 10 min so
+      // it still recovers on its own once the collector is scheduled.
+      const _lf = (this.feedFresh || {}).lockouts;
+      if (_lf && _lf.status !== 'ok') {
+        this._lockoutBackoff = (this._lockoutBackoff || 0) + 1;
+        if (this._lockoutBackoff % 10 !== 0) return;
+      } else {
+        this._lockoutBackoff = 0;
+      }
+      this.loadLiveLockouts();
+      this.loadLiveLockoutTicketAudit();
+    }, 60000);
+    this.loadLiveResets();
+    this.loadLiveHomeOffice();
+    this.loadLiveTeamsRequests();
+    this.loadLiveEmailActivity();
+    this.loadLiveManualContent();
+    this.loadLiveTopCategories();
+    this.loadLiveTrend();
+  }
+
+  // ---------- theme ----------
+  theme() { return this.state.theme ?? this.props.defaultTheme ?? 'light'; }
+  layout() { return this.state.layout ?? this.props.homeLayout ?? 'tiles'; }
+
+  // Which tile numbers are counts over a window ending "now", and are therefore
+  // only meaningful when the feed behind them was collected recently. 'big'
+  // marks the headline number; 'stats' lists the window-scoped rows, or '*'
+  // when every row on that tile is scoped to the same window. Anything not
+  // listed is a snapshot -- honestly "as of" the collection time the tile's
+  // note names -- and stays visible.
+  //
+  // This is an explicit table rather than a regex over the labels because the
+  // labels are written by eleven different loaders and change with the data.
+  windowedFields(id) {
+    const W = {
+      requests:     { big: false, stats: ['Created Today', 'Created This Week'] },
+      teams:        { big: true,  stats: ['Today', 'Last 7 days', 'Open'] },
+      homeoffice:   { big: true,  stats: '*' },
+      email:        { big: true,  stats: '*' },
+      calls:        { big: true,  stats: ['Last 7 days'] },
+      newhires:     { big: true,  stats: '*' },
+      terminations: { big: true,  stats: '*' },
+      resets:       { big: true,  stats: ['Today', 'Last 30 days', 'Open'] },
+      stale:        { big: false, stats: [] },
+      employees:    { big: false, stats: [] },
+      lockouts:     { big: true,  stats: ['AD', 'Okta', 'No ticket'] }
+    };
+    return W[id] || { big: false, stats: [] };
+  }
+
+  // The route KPI strips, same rule as windowedFields() but keyed by the labels
+  // those strips render. They differ from the tile labels because each loader
+  // rewrites its strip once live data lands, so both label sets are listed.
+  // Anything absent is a snapshot and stays visible.
+  windowedKpis(route) {
+    const K = {
+      requests:     ['Created Today', 'Created This Week', 'Closed Today \u2013 SLA Missed', 'Created by Technician'],
+      teams:        ['Today', 'Last 7 Days', 'Last 30 Days', 'Open'],
+      email:        ['Emails Today', 'Avg First Response'],
+      calls:        ['Calls Today', 'This Week', 'Last 7 Days'],
+      newhires:     ['Starting Today', 'This Week', 'This Month', 'Last 7 Days', 'Last 30 Days'],
+      terminations: ['Today', 'This Week', 'This Month', 'Last 7 Days', 'Last 30 Days', 'Last 90 Days'],
+      resets:       ['Resets Today', 'Today', 'Last 7 Days', 'Last 30 Days', 'Open'],
+      // Every figure in the Lockouts strip is COUNT() over the episodes the
+      // collector wrote, so an unrun collector makes all of them unmeasured,
+      // windowed or not. The ticket-audit tiles appended to that strip come
+      // from another feed -- see kpiFeed().
+      lockouts:     '*',
+      // homeoffice gates its own two office counts against the same feed at
+      // the point it computes them; stale and employees are snapshots whose
+      // rows are on screen beside them.
+      homeoffice:   [], stale: [], employees: []
+    };
+    return K[route] || [];
+  }
+
+  // Which collector governs a given KPI label. null means the figure does not
+  // depend on one. Most labels belong to their own route's feed; the map below
+  // is for strips that merge figures from a second endpoint.
+  kpiFeed(route, label) {
+    const OTHER = {
+      lockouts: {
+        'Lockout Tickets (30d)': 'lockoutAudit', 'Confirmed by AD/Okta': 'lockoutAudit',
+        'No Matching Episode': 'lockoutAudit', 'Ticket Only': 'lockoutAudit'
+      }
+    };
+    const o = OTHER[route];
+    if (o && o[label]) return o[label];
+    const w = this.windowedKpis(route);
+    return (w === '*' || w.indexOf(label) !== -1) ? route : null;
+  }
+
+  feedOk(id) {
+    const f = (this.feedFresh || {})[id];
+    return !!f && f.status === 'ok';
+  }
+
+  // Hero cards show stored KPI rows; when the feed behind a route is not current the
+  // figure is still shown but labelled, never passed off as live. Short suffix only --
+  // feedNote(record) below writes the full sentence for empty states.
+  feedTag(route) {
+    const f = (this.feedFresh || {})[route];
+    if (!f) return ' · freshness unknown';
+    return f.status === 'ok' ? '' : ' · feed ' + f.status;
+  }
+
+  // Record what an endpoint said about its own feed. Absent fields mean the
+  // endpoint does not report freshness, which is 'unknown' -- never 'ok'.
+  noteFeed(id, payload) {
+    if (!this.feedFresh) this.feedFresh = {};
+    const p = payload || {};
+    this.feedFresh[id] = {
+      status: p.collectorStatus || 'unknown',
+      at: p.collectedAt || p.generatedAt || null
+    };
+  }
+
+  feedNote(f) {
+    const when = f && f.at ? new Date(f.at) : null;
+    const stamp = when && !isNaN(when.getTime())
+      ? when.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : null;
+    const st = f ? f.status : 'unknown';
+    if (st === 'stale') return stamp ? 'Not collected since ' + stamp : 'Collector has not run recently';
+    if (st === 'failed') return stamp ? 'Collector failed \u2014 last good ' + stamp : 'Collector failed';
+    return 'Freshness unknown \u2014 this feed does not report when it last ran';
+  }
+
+  freshnessText() {
+    const S = this.state;
+    // dataAsOf/dataStatus are written only by loadLiveRequests(), so the chip
+    // described the ServiceDesk Plus collector on every route -- it read
+    // "Stale — collected Sep 16, 10:23 AM" on Phone Calls while that module's
+    // own data was from Aug 27. Prefer the current route's own feed record.
+    const _rk = (S.route && S.route !== 'dashboard') ? S.route : 'requests';
+    const _rf = (this.feedFresh || {})[_rk] || null;
+    const _st = _rf ? _rf.status : S.dataStatus;
+    const when = (_rf && _rf.at) ? new Date(_rf.at)
+                                 : (S.dataAsOf ? new Date(S.dataAsOf) : null);
+    const stamp = when && !isNaN(when.getTime())
+      ? when.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : null;
+    if (_st === 'ok' && stamp) return 'Data as of ' + stamp;
+    if (_st === 'stale') return stamp ? 'Stale \u2014 collected ' + stamp : 'Stale \u2014 collector run time unknown';
+    if (_st === 'failed') return stamp ? 'Collector failed \u2014 last good ' + stamp : 'Collector failed';
+    return 'Freshness unknown';
+  }
+
+  applyTheme() {
+    const el = document.documentElement;
+    const dark = this.theme() === 'dark';
+    const vars = dark ? {
+      '--bg': '#0E141B', '--panel': '#161D27', '--panel2': '#1D2632', '--line': '#28313E',
+      '--txt': '#E7EDF5', '--sub': '#94A3B8', '--thead': '#1A2230', '--accent': '#4C9AFF'
+    } : {
+      '--bg': '#F2F4F7', '--panel': '#FFFFFF', '--panel2': '#F7F9FC', '--line': '#E4E9F0',
+      '--txt': '#1B2733', '--sub': '#5E6C84', '--thead': '#F7F9FC', '--accent': '#0B5CD8'
+    };
+    if (this.props.accent) vars['--accent'] = this.props.accent;
+    Object.keys(vars).forEach(k => el.style.setProperty(k, vars[k]));
+  }
+  componentDidMount() { this.applyTheme(); this.applyDeepLink(); window.addEventListener('hashchange', this.applyDeepLink); }
+  componentWillUnmount() { window.removeEventListener('hashchange', this.applyDeepLink); }
+  componentDidUpdate() { this.applyTheme(); }
+
+  // ---------- icons ----------
+  icon(name, size, color) {
+    const P = {
+      menu: ['M3 6h18', 'M3 12h18', 'M3 18h18'],
+      ticket: ['M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z', 'M13 5v2', 'M13 11v2', 'M13 17v2'],
+      clock: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 7v5l3 2'],
+      mail: ['M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z', 'm3 7 9 6 9-6'],
+      phone: ['M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z'],
+      users: ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'M23 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75'],
+      userPlus: ['M12 21v-2a4 4 0 0 0-4-4H4a4 4 0 0 0-4 4v2', 'M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'M19 8v6', 'M16 11h6'],
+      userMinus: ['M12 21v-2a4 4 0 0 0-4-4H4a4 4 0 0 0-4 4v2', 'M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'M16 11h6'],
+      lock: ['M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z', 'M7 11V7a5 5 0 0 1 10 0v4'],
+      key: ['M12 15.5A4.5 4.5 0 1 1 7.5 11', 'M21 2l-9.6 9.6', 'M15.5 7.5l3 3'],
+      home: ['m3 10.5 9-7.5 9 7.5', 'M5 10v10h14V10'],
+      search: ['M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z', 'm21 21-4.3-4.3'],
+      bell: ['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9', 'M10.3 21a1.94 1.94 0 0 0 3.4 0'],
+      sun: ['M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'M12 2v2', 'M12 20v2', 'M4.93 4.93l1.41 1.41', 'M17.66 17.66l1.41 1.41', 'M2 12h2', 'M20 12h2', 'M6.34 17.66l-1.41 1.41', 'M19.07 4.93l-1.41 1.41'],
+      moon: ['M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z'],
+      refresh: ['M3 12a9 9 0 0 1 15-6.7L21 8', 'M21 3v5h-5', 'M21 12a9 9 0 0 1-15 6.7L3 16', 'M3 21v-5h5'],
+      download: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M7 10l5 5 5-5', 'M12 15V3'],
+      printer: ['M6 9V2h12v7', 'M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2', 'M6 14h12v8H6z'],
+      star: ['M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'],
+      plus: ['M12 5v14', 'M5 12h14'],
+      arrow: ['M5 12h14', 'm13 6 6 6-6 6']
+    };
+    const paths = P[name];
+    // An unknown name used to render an empty <svg>. Inside a bordered button
+    // that reads as a broken control, not as a missing asset, and nothing in
+    // the console said otherwise.
+    if (!paths) {
+      this._iconMisses = this._iconMisses || {};
+      if (!this._iconMisses[name]) { this._iconMisses[name] = 1; console.error('[sdops] no icon named ' + name); }
+    }
+    return React.createElement('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
+      (paths || []).map((d, i) => React.createElement('path', { d, key: i })));
+  }
+
+  // ---------- data ----------
+  buildData() {
+
+    // badge styles
+    const badge = (fg, bg) => ({ display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: bg, color: fg });
+    const PRI = { Critical: badge('#E5484D', 'rgba(229,72,77,.13)'), High: badge('#DD7011', 'rgba(224,112,0,.14)'), Medium: badge('#3B82F6', 'rgba(59,130,246,.13)'), Low: badge('#7B8AA0', 'rgba(123,138,160,.15)') };
+    const PRIRANK = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+    const STATUS = { 'Open': badge('#3B82F6', 'rgba(59,130,246,.13)'), 'In Progress': badge('#8B5CF6', 'rgba(139,92,246,.13)'), 'Waiting on User': badge('#D97706', 'rgba(217,119,6,.13)'), 'On Hold': badge('#7B8AA0', 'rgba(123,138,160,.15)'), 'Resolved': badge('#16A34A', 'rgba(22,163,74,.13)') };
+    const yes = badge('#16A34A', 'rgba(22,163,74,.13)'), no = badge('#E5484D', 'rgba(229,72,77,.13)'), pend = badge('#D97706', 'rgba(217,119,6,.13)');
+    const ageBadge = d => d >= 10 ? badge('#E5484D', 'rgba(229,72,77,.13)') : d >= 6 ? badge('#DD7011', 'rgba(224,112,0,.14)') : badge('#C29008', 'rgba(217,164,6,.16)');
+    this._plain = {};
+
+    // KPI-tile click filters. Each entry maps a KPI tile's index to a
+    // predicate over that page's rows; null = "clear" (no filter).
+    this.kpiFilterDefs = {
+      homeoffice: [
+        r => r.office && r.office.toLowerCase().includes('irvine'),
+        r => r.office && r.office.toLowerCase().includes('plano')
+      ],
+      resets: [
+        r => r.ts >= new Date().setHours(0,0,0,0),
+        r => r.ts >= Date.now() - 7 * 86400000,
+        r => r.ts >= Date.now() - 30 * 86400000,
+        r => r.status !== 'Resolved' && r.status !== 'Closed'
+      ],
+      teams: [
+        r => r.createdTs >= new Date().setHours(0,0,0,0),
+        r => r.createdTs >= Date.now() - 7 * 86400000,
+        r => r.createdTs >= Date.now() - 30 * 86400000,
+        r => r.status !== 'Resolved' && r.status !== 'Closed'
+      ],
+      lockouts: [
+        r => r.currentlyLocked,
+        r => r.adLocked,
+        r => r.oktaLocked
+      ],
+      stale: [
+        'clear',
+        r => r.days <= 5,
+        r => r.days > 5 && r.days < 10,
+        r => r.days >= 10
+      ],
+      requests: [
+        r => { const PT=-7*3600000; const n=Date.now(); const p=new Date(n+PT); const t0=Date.UTC(p.getUTCFullYear(),p.getUTCMonth(),p.getUTCDate())-PT; return r.createdTs != null && r.createdTs >= t0; },
+        r => { const PT=-7*3600000; const n=Date.now(); const p=new Date(n+PT); const t0=Date.UTC(p.getUTCFullYear(),p.getUTCMonth(),p.getUTCDate())-PT; const t7=t0-6*86400000; return r.createdTs != null && r.createdTs >= t7; },
+        r => r.status !== 'Resolved' && r.status !== 'Closed' && r.status !== 'Canceled',
+        r => r.status === 'Waiting on User',
+        r => !!r.overdue && r.status !== 'Resolved' && r.status !== 'Closed',
+        r => !!r.closedMissTodays,
+        r => { const PT=-7*3600000; const n=Date.now(); const p=new Date(n+PT); const t0=Date.UTC(p.getUTCFullYear(),p.getUTCMonth(),p.getUTCDate())-PT; return r.createdTs != null && r.createdTs >= t0 && !!r.createdByTechnician; }
+      ],
+      email: [
+        'clear',
+        r => r.assigned === 'Unassigned',
+        r => r.state === 'Converted',
+        r => r.state === 'No Ticket Found'
+      ],
+      calls: [
+        r => r._dt && r._dt.toDateString() === new Date().toDateString(),
+        r => r._dt && r._dt >= new Date(Date.now() - 7 * 24 * 3600 * 1000),
+        undefined,
+        r => r.outcome === 'Abandoned',
+        r => r.outcome === 'Voicemail',
+        r => r.outcome === 'Hang Up'
+      ],
+      employees: [
+        'clear',
+        r => !!r.neverLogged,
+        r => !!r.stale30,
+        undefined
+      ],
+      terminations: [
+        r => r.termTs >= Date.now() - 7 * 86400000,
+        r => r.termTs >= Date.now() - 30 * 86400000,
+        'clear',
+        r => !!r.stillActiveOkta
+      ],
+      newhires: [
+        r => r.createdTs >= Date.now() - 7 * 86400000,
+        'clear',
+        r => r.entraActive === 'Yes',
+        r => r.oktaActive === 'Yes'
+      ]
+    };
+
+
+
+    // No seed data. Every row on this page arrives from a live loader; until
+    // one resolves these stay empty and the view says why. The generator that
+    // used to fill them produced plausible names, ticket IDs and timestamps
+    // that rendered identically to real records whenever a loader failed.
+    const reqRows = [], staleRows = [], emailRows = [], callRows = [],
+          hireRows = [], termRows = [], lockRows = [], resetRows = [], open = [];
+
+    const txt = t => ({ text: t }); const bd = (t, s) => ({ text: t, style: s });
+
+    this.defs = {
+      requests: {
+        title: 'Service Desk Requests', sub: 'All ServiceDesk Plus requests with technician, priority, and aging', icon: 'ticket', color: '#0B5CD8',
+        kpis: [{ label: 'Created Today', value: '\u2014' }, { label: 'Created This Week', value: '\u2014' }, { label: 'Open Requests', value: '\u2014' }, { label: 'Waiting on User', value: '\u2014' }, { label: 'Overdue', value: '\u2014' }],
+        columns: [{ key: 'id', label: 'Request' }, { key: 'subject', label: 'Subject' }, { key: 'requester', label: 'Requester' }, { key: 'technician', label: 'Technician' }, { key: 'priority', label: 'Priority', sortKey: 'priRank' }, { key: 'status', label: 'Status' }, { key: 'aging', label: 'Age' }],
+        filterKeys: [{ key: 'priority', label: 'Priority' }, { key: 'status', label: 'Status' }, { key: 'technician', label: 'Technician' }, { key: 'category', label: 'Category' }, { key: 'subcategory', label: 'Subcategory' }],
+        rows: reqRows, defaultSort: { key: 'aging', dir: 1 },
+        cellFor: r => [bd(r.id, { color: 'var(--accent, #0B5CD8)', fontWeight: 600 }), txt(r.subject), txt(r.requester), txt(r.technician), bd(r.priority, PRI[r.priority]), bd(r.status, STATUS[r.status]), r.overdue ? bd(r.aging + 'd · overdue', badge('#E5484D', 'rgba(229,72,77,.13)')) : txt(r.aging + 'd')]
+      },
+      stale: {
+        title: 'Stale Requests', sub: 'Open requests 3+ days old, regardless of recent activity', icon: 'clock', color: '#DD7011',
+        kpis: [{ label: 'Total Stale', value: '\u2014' }, { label: '3–5 Days', value: '\u2014' }, { label: '6–10 Days', value: '\u2014' }, { label: '10+ Days', value: '\u2014' }],
+        columns: [{ key: 'id', label: 'Request' }, { key: 'requester', label: 'Requester' }, { key: 'technician', label: 'Assigned Technician' }, { key: 'days', label: 'Days Open' }, { key: 'created', label: 'Created' }, { key: 'priority', label: 'Priority', sortKey: 'priRank' }, { key: 'status', label: 'Status' }],
+        filterKeys: [{ key: 'priority', label: 'Priority' }, { key: 'technician', label: 'Technician' }],
+        rows: staleRows, defaultSort: { key: 'days', dir: 1 },
+        cellFor: r => [bd(r.id, { color: 'var(--accent, #0B5CD8)', fontWeight: 600 }), txt(r.requester), txt(r.technician), bd(r.days + ' days', ageBadge(r.days)), txt(r.created), bd(r.priority, PRI[r.priority]), bd(r.status, STATUS[r.status])]
+      },
+      email: {
+        title: 'Service Desk Email Requests', sub: 'Inbound mail to helpdesk@auction.com', icon: 'mail', color: '#6554C0',
+        kpis: [{ label: 'Emails Today', value: '\u2014' }, { label: 'Unassigned', value: '\u2014' }, { label: 'Avg First Response', value: '\u2014' }, { label: 'Converted to Tickets', value: '\u2014' }],
+        columns: [{ key: 'time', label: 'Received' }, { key: 'sender', label: 'Sender' }, { key: 'subject', label: 'Subject' }, { key: 'assigned', label: 'Assigned To' }, { key: 'state', label: 'State' }],
+        filterKeys: [{ key: 'assigned', label: 'Assigned' }, { key: 'state', label: 'State' }],
+        rows: emailRows, defaultSort: null,
+        cellFor: r => [txt(r.time), bd(r.sender, { color: 'var(--accent, #0B5CD8)' }), txt(r.subject), r.assigned === 'Unassigned' ? bd('Unassigned', pend) : txt(r.assigned), bd(r.state, r.state === 'New' ? STATUS['Open'] : r.state === 'Replied' ? STATUS['Resolved'] : STATUS['In Progress'])]
+      },
+      calls: {
+        title: 'Phone Calls', sub: 'Service Desk toll-free line (800) 501-8675', icon: 'phone', color: '#16A34A',
+        kpis: [{ label: 'Calls Today', value: '\u2014' }, { label: 'This Week', value: '\u2014' }, { label: 'Avg Wait', value: '\u2014' }, { label: 'Missed', value: '\u2014' }, { label: 'Abandoned', value: '\u2014' }],
+        columns: [{ key: 'time', label: 'Time Answered' }, { key: 'caller', label: 'Caller' }, { key: 'agent', label: 'Agent' }, { key: 'waitTxt', label: 'Wait', sortKey: 'wait' }, { key: 'durTxt', label: 'Duration' }, { key: 'outcome', label: 'Outcome' }],
+        filterKeys: [{ key: 'agent', label: 'Agent' }, { key: 'outcome', label: 'Outcome' }],
+        rows: callRows, defaultSort: null,
+        cellFor: r => [txt(r.time), txt(r.caller), txt(r.agent), txt(r.waitTxt), txt(r.durTxt), bd(r.outcome, r.outcome === 'Answered' ? yes : r.outcome === 'Voicemail' ? pend : no)]
+      },
+      newhires: {
+        title: 'New Hires', sub: 'Onboarding pipeline — equipment, accounts, and provisioning', icon: 'userPlus', color: '#0E9F8A',
+        kpis: [{ label: 'Starting Today', value: '\u2014' }, { label: 'This Week', value: '\u2014' }, { label: 'This Month', value: '\u2014' }, { label: 'Provisioning Incomplete', value: '\u2014' }],
+        columns: [{ key: 'employee', label: 'Employee' }, { key: 'dept', label: 'Department' }, { key: 'start', label: 'Start Date' }, { key: 'manager', label: 'Manager' }, { key: 'equipment', label: 'Equipment' }, { key: 'account', label: 'Account' }, { key: 'provisioning', label: 'Provisioning' }],
+        filterKeys: [{ key: 'dept', label: 'Department' }, { key: 'provisioning', label: 'Provisioning' }],
+        rows: hireRows, defaultSort: null,
+        cellFor: r => [bd(r.employee, { fontWeight: 600 }), txt(r.dept), txt(r.start), txt(r.manager), bd(r.equipment, r.equipment === 'Ready' ? yes : pend), bd(r.account, r.account === 'Created' ? yes : pend), bd(r.provisioning, r.provisioning === 'Complete' ? yes : r.provisioning === 'In Progress' ? pend : no)]
+      },
+      terminations: {
+        title: 'Terminations', sub: 'Offboarding — account disablement, equipment return, remaining tasks', icon: 'userMinus', color: '#B4552D',
+        kpis: [{ label: 'Today', value: '\u2014' }, { label: 'This Week', value: '\u2014' }, { label: 'This Month', value: '\u2014' }, { label: 'Open Tasks', value: '\u2014' }],
+        columns: [{ key: 'employee', label: 'Employee' }, { key: 'dept', label: 'Department' }, { key: 'termDate', label: 'Termination Date' }, { key: 'disabled', label: 'Account Disabled' }, { key: 'equipment', label: 'Equipment' }, { key: 'tasks', label: 'Remaining Tasks' }],
+        filterKeys: [{ key: 'dept', label: 'Department' }, { key: 'disabled', label: 'Account Disabled' }],
+        rows: termRows, defaultSort: { key: 'tasks', dir: 1 },
+        cellFor: r => [bd(r.employee, { fontWeight: 600 }), txt(r.dept), txt(r.termDate), bd(r.disabled, r.disabled === 'Yes' ? yes : no), bd(r.equipment, r.equipment === 'Returned' ? yes : pend), r.tasks === 0 ? txt('—') : bd(r.tasks + ' open', pend)]
+      },
+      employees: {
+        title: 'Active Employees', sub: 'Enabled member accounts from Entra ID', icon: 'users', color: '#0E9F8A',
+        kpis: [{ label: 'Total Active', value: '\u2014' }, { label: 'Never Logged In', value: '\u2014' }, { label: 'Stale Login 30d+', value: '\u2014' }, { label: 'Departments', value: '\u2014' }],
+        columns: [{ key: 'name', label: 'Name' }, { key: 'title', label: 'Title' }, { key: 'department', label: 'Department' }, { key: 'manager', label: 'Manager' }, { key: 'office', label: 'Office' }, { key: 'lastLoginTxt', label: 'Last Login', sortKey: 'lastLoginTs' }],
+        filterKeys: [{ key: 'department', label: 'Department' }, { key: 'office', label: 'Office' }],
+        rows: [], defaultSort: null,
+        cellFor: r => [{ text: r.name, style: { fontWeight: 600 } }, { text: r.title || '' }, { text: r.department || '' }, { text: r.manager || '' }, { text: r.office || '' }, r.neverLogged ? { text: 'Never', style: { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(229,72,77,.13)', color: '#E5484D' } } : r.stale30 ? { text: r.lastLoginTxt, style: { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(217,119,6,.13)', color: '#D97706' } } : { text: r.lastLoginTxt }]
+      },
+      lockouts: {
+        title: 'Account Lockouts', sub: 'Live AD and Okta lockout status, cross-referenced with Service Desk tickets', icon: 'lock', color: '#E5484D',
+        kpis: [{ label: 'Currently Locked Out', value: '\u2014' }, { label: 'AD Lockouts', value: '\u2014' }, { label: 'Okta Lockouts', value: '\u2014' }, { label: 'Multi-System', value: '\u2014' }, { label: 'No Ticket', value: '\u2014' }, { label: 'Has Ticket', value: '\u2014' }],
+        columns: [{ key: 'statusLabel', label: 'Status' }, { key: 'displayName', label: 'Employee' }, { key: 'upn', label: 'Username' }, { key: 'department', label: 'Department' }, { key: 'adLabel', label: 'AD' }, { key: 'oktaLabel', label: 'Okta' }, { key: 'ticketLabel', label: 'Ticket' }, { key: 'resolutionLabel', label: 'Resolution' }, { key: 'lastCheckedTxt', label: 'Last Checked' }, { key: 'technicianSignalLabel', label: 'Tech-Engaged Ticket' }],
+        filterKeys: [{ key: 'statusLabel', label: 'Status' }, { key: 'department', label: 'Department' }],
+        rows: [], defaultSort: { key: 'bucketRank', dir: -1 },
+        cellFor: r => [bd(r.statusLabel, { fontWeight: 600 }), bd(r.displayName, { fontWeight: 600 }), txt(r.upn), txt(r.department), txt(r.adLabel), txt(r.oktaLabel), txt(r.ticketLabel), txt(r.resolutionLabel), txt(r.lastCheckedTxt), txt(r.technicianSignalLabel)]
+      },
+      homeoffice: {
+        title: 'Office Location Dashboard', sub: '', icon: 'home', color: '#0B5CD8',
+        kpis: [{ label: 'To Irvine', value: '\u2014' }, { label: 'To Plano', value: '\u2014' }],
+        columns: [{ key: 'id', label: 'Request' }, { key: 'requester', label: 'Requester' }, { key: 'office', label: 'Home Office' }, { key: 'status', label: 'Status' }],
+        filterKeys: [{ key: 'status', label: 'Status' }],
+        rows: [], defaultSort: null,
+        chart: { title: 'Requests by home office', labels: [], values: [], color: '#0B5CD8', periods: { week: { title: 'Requests by home office — this week', labels: [], values: [], color: '#0B5CD8' }, month: { title: 'Requests by home office — this month', labels: [], values: [], color: '#0B5CD8' }, quarter: { title: 'Requests by home office — this quarter', labels: [], values: [], color: '#0B5CD8' }, year: { title: 'Requests by home office — this year', labels: [], values: [], color: '#0B5CD8' } } },
+        cellFor: r => [bd(r.id, { color: 'var(--accent, #0B5CD8)', fontWeight: 600 }), txt(r.requester), txt(r.office), bd(r.status, STATUS[r.status])]
+      },
+      resets: {
+        title: 'Password Resets', sub: 'Resets performed today — self-service vs technician-assisted', icon: 'key', color: '#8B5CF6',
+        kpis: [{ label: 'Resets Today', value: '\u2014' }, { label: 'Self-Service', value: '\u2014' }, { label: 'Technician', value: '\u2014' }, { label: 'Self-Service Rate', value: '\u2014' }],
+        columns: [{ key: 'user', label: 'User' }, { key: 'technician', label: 'Performed By' }, { key: 'time', label: 'Time' }, { key: 'method', label: 'Reset Method' }, { key: 'type', label: 'Type' }, { key: 'dept', label: 'Department' }],
+        filterKeys: [{ key: 'type', label: 'Type' }, { key: 'dept', label: 'Department' }],
+        rows: resetRows, defaultSort: null,
+        cellFor: r => [bd(r.user, { fontWeight: 600 }), txt(r.technician), txt(r.time), txt(r.method), bd(r.type, r.type === 'Self-Service' ? yes : STATUS['In Progress']), txt(r.dept)]
+      },
+      teams: {
+        title: 'MS Teams Requests', sub: 'ServiceDesk Plus tickets related to Microsoft Teams', icon: 'mail', color: '#DB2777',
+        kpis: [{ label: 'Today', value: '\u2014' }, { label: 'Last 7 Days', value: '\u2014' }, { label: 'Last 30 Days', value: '\u2014' }, { label: 'Open', value: '\u2014' }],
+        columns: [{ key: 'id', label: 'Ticket' }, { key: 'requester', label: 'Requester' }, { key: 'technician', label: 'Technician' }, { key: 'created', label: 'Created', sortKey: 'createdTs' }, { key: 'subject', label: 'Subject' }, { key: 'status', label: 'Status' }],
+        filterKeys: [{ key: 'technician', label: 'Technician' }, { key: 'status', label: 'Status' }],
+        rows: [], defaultSort: { key: 'created', dir: 1 },
+        cellFor: r => [r.sdpUrl ? { text: r.id, style: { color: 'var(--accent, #0B5CD8)', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }, onClick: () => window.open(r.sdpUrl, '_blank', 'noopener,noreferrer') } : { text: r.id, style: { fontWeight: 600 } }, { text: r.requester }, { text: r.technician }, { text: r.created }, { text: r.subject }, { text: r.status }]
+      }
+    };
+
+    const spark = () => [];
+    this.tileDefs = [
+      { id: 'requests', big: '\u2014', bigLabel: 'Open Requests', stats: [['Created Today', '\u2014'], ['Created This Week', '\u2014'], ['Waiting on User', '\u2014'], ['Overdue', '\u2014', no]], spark: spark() },
+      { id: 'teams', big: '\u2014', bigLabel: 'MS Teams requests (30d)', stats: [['Today', '\u2014'], ['Last 7 days', '\u2014'], ['Open', '\u2014']], spark: spark() },
+      { id: 'homeoffice', big: '\u2014', bigLabel: 'Home offices active this week', stats: [['Irvine, CA', '\u2014'], ['Plano, TX', '\u2014']], spark: spark() },
+      { id: 'stale', big: '\u2014', bigLabel: 'Requests with 3+ days old', stats: [['3–5 days', '\u2014', badge('#C29008', 'rgba(217,164,6,.16)')], ['6–10 days', '\u2014', badge('#DD7011', 'rgba(224,112,0,.14)')], ['10+ days', '\u2014', no]], spark: spark() },
+      { id: 'email', big: '\u2014', bigLabel: 'Emails to helpdesk@ today', stats: [['Unassigned', '\u2014', pend], ['Avg first response', '\u2014'], ['Converted to tickets', '\u2014']], spark: spark() },
+      { id: 'calls', big: '\u2014', bigLabel: 'Calls today', stats: [['This week', '\u2014'], ['Avg wait', '\u2014'], ['Missed', '\u2014', no], ['Abandoned', '\u2014']], spark: spark() },
+      { id: 'newhires', big: '\u2014', bigLabel: 'Starting this week', stats: [['Today', '\u2014'], ['This month', '\u2014'], ['Provisioning incomplete', '\u2014', pend]], spark: spark() },
+      { id: 'terminations', big: '\u2014', bigLabel: 'This week', stats: [['Today', '\u2014'], ['This month', '\u2014'], ['Open offboarding tasks', '\u2014', pend]], spark: spark() },
+      { id: 'employees', big: '\u2014', bigLabel: 'Active employees', stats: [['Never logged in', '\u2014'], ['Stale login 30d+', '\u2014'], ['Departments', '\u2014']], spark: spark() },
+      { id: 'lockouts', big: '\u2014', bigLabel: 'Currently locked out', stats: [['AD', '\u2014'], ['Okta', '\u2014'], ['No ticket', '\u2014']], spark: spark() },
+      { id: 'resets', big: '\u2014', bigLabel: 'Resets today', stats: [['Self-service', '\u2014'], ['Technician-assisted', '\u2014'], ['Self-service rate', '\u2014', yes]], spark: spark() }
+    ];
+
+    // requests closed by technician per period (cumulative: week ≤ month ≤ quarter ≤ year)
+    // Populated by loadLiveRequests from summary.closedByTechnician.
+    this.techClosed = [];
+
+    this.notifs = []; // no fabricated seed data: an empty tray is honest, invented alerts are not
+  }
+
+  // ---------- live data (Service Desk Requests) ----------
+  async loadLiveRequests() {
+    try {
+      const headers = {}; /* corpit: rbac-client.js attaches the bearer token */
+
+      const [summaryRes, listRes] = await Promise.all([
+        fetch('/api/sdops/requests/summary', { headers }),
+        fetch('/api/sdops/requests?pageSize=10000&includeClosed=1', { headers })
+      ]);
+      if (!summaryRes.ok || !listRes.ok) {
+        throw new Error('sdops API error: ' + summaryRes.status + '/' + listRes.status);
+      }
+      const summary = await summaryRes.json();
+      this.noteFeed('requests', summary);
+      const list = await listRes.json();
+      // Freshness comes from the collector, never from this browser's clock.
+      // Three rungs: ok / stale / unknown. 'unknown' is a real state -- a feed
+      // we could not measure is not the same as a feed measured and healthy.
+      this.setState({
+        dataAsOf: summary.collectedAt || summary.generatedAt || null,
+        dataStatus: summary.collectorStatus
+          || (summary.stale === true ? 'stale' : (summary.stale === false ? 'ok' : 'unknown'))
+      });
+      this.serverTotals = Object.assign({}, this.serverTotals, {
+        requests: (typeof list.total === 'number') ? list.total : null
+      });
+
+      const PRIRANK = { Critical: 4, High: 3, Medium: 2, Low: 1, None: 0 };
+      const rows = (list.data || []).map(r => ({
+        id: r.id,
+        subject: r.subject,
+        requester: r.requester,
+        technician: r.technician || 'Unassigned',
+        priority: r.priority || 'None',
+        priRank: PRIRANK[r.priority] ?? 0,
+        status: r.status,
+        category: r.category || null,
+        subcategory: r.subcategory || null,
+        createdByTechnician: !!r.createdByTechnician,
+        aging: r.agingDays ?? 0,
+        createdTs: r.createdAt ? new Date(r.createdAt).getTime() : null,
+        created: r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+        overdue: !!r.overdue,
+        closedMissTodays: !!r.overdue && (r.status === 'Resolved' || r.status === 'Closed') && r.lastUpdatedAt && new Date(r.lastUpdatedAt).toDateString() === new Date().toDateString(),
+        sdpUrl: r.sdpUrl
+      }));
+      const open = rows.filter(r => r.status !== 'Resolved' && r.status !== 'Closed');
+
+      this.defs.requests.rows = rows;
+      // Requests created per day over the last 7 days, counted from the rows
+      // this loader already fetched -- no extra request and no invented
+      // series. Day boundaries use the same Pacific offset the KPI filters
+      // use, so the chart and "Created Today" agree on where a day starts.
+      const _srvTotal = this.serverTotals ? this.serverTotals.requests : null;
+      if (typeof _srvTotal === 'number' && _srvTotal > rows.length) {
+        // A histogram over a truncated page understates every bar and says
+        // nothing about it. Better no chart than a quietly wrong one.
+        this.defs.requests.chart = null;
+      } else {
+        const PT = -7 * 3600000;
+        const _p = new Date(Date.now() + PT);
+        const _t0 = Date.UTC(_p.getUTCFullYear(), _p.getUTCMonth(), _p.getUTCDate()) - PT;
+        const _labels = [], _values = [];
+        for (let d = 6; d >= 0; d--) {
+          const from = _t0 - d * 86400000, to = from + 86400000;
+          _labels.push(new Date(from + PT).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }));
+          _values.push(rows.filter(r => r.createdTs != null && r.createdTs >= from && r.createdTs < to).length);
+        }
+        this.defs.requests.chart = { title: 'Requests created \u2014 last 7 days', labels: _labels, values: _values, color: '#0B5CD8' };
+      }
+      const origCellForRequests = this.defs.requests.cellFor;
+      this.defs.requests.cellFor = r => {
+        const cells = origCellForRequests(r);
+        if (r.sdpUrl) {
+          cells[0] = { ...cells[0], style: { ...cells[0].style, cursor: 'pointer', textDecoration: 'underline' }, onClick: () => window.open(r.sdpUrl, '_blank', 'noopener,noreferrer') };
+        }
+        return cells;
+      };
+      this.defs.requests.kpis = [
+        { label: 'Created Today', value: summary.createdToday || 0 },
+        { label: 'Created This Week', value: summary.createdThisWeek || 0 },
+        { label: 'Open Requests', value: summary.open || 0 },
+        { label: 'Waiting on User', value: open.filter(r => r.status === 'Waiting on User').length },
+        { label: 'SLA Missed (Open)', value: summary.openOverdue || 0 },
+        { label: 'Closed Today \u2013 SLA Missed', value: summary.closedTodayOverdue || 0 },
+        { label: 'Created by Technician', value: summary.createdByTechnicianToday || 0 }
+      ];
+
+      if (Array.isArray(summary.closedByTechnician)) {
+        this.techClosed = summary.closedByTechnician.map(t => ({
+          name: t.technician, week: t.week || 0, month: t.month || 0, quarter: t.month || 0, year: t.total || 0
+        }));
+      }
+
+      const tile = this.tileDefs.find(t => t.id === 'requests');
+      if (tile) {
+        tile.big = summary.open || 0;
+        tile.stats = [
+          ['Created Today', summary.createdToday || 0],
+          ['Created This Week', summary.createdThisWeek || 0],
+          ['Waiting on User', open.filter(r => r.status === 'Waiting on User').length]
+        ];
+      }
+
+      const ki = this.state.kpiFilterIdx || {};
+      this.healthScore = summary.healthScore;
+      const nextKi = ki.requests == null ? { ...ki, requests: 2 } : ki;
+      this.setState({ liveRequestsLoaded: true, liveRequestsError: null, kpiFilterIdx: nextKi });
+    } catch (e) {
+      console.error('[sdops] live requests fetch failed:', e.message);
+      this.setState({ liveRequestsLoaded: true, liveRequestsError: e.message });
+    }
+  }
+
+  async loadLiveHomeOffice() {
+    try {
+      const headers = {}; /* corpit: rbac-client.js attaches the bearer token */
+      const resp = await fetch('/api/sdops/homeoffice/review', { headers });
+      const payload = await resp.json();
+      this.noteFeed('homeoffice', payload);
+      // /homeoffice/review returns the mis-sited subset, all-time, with
+      // current/target site columns this table does not declare. It was being
+      // written to defs.homeoffice.rows and then overwritten by the windowed
+      // list on every render, so it only ever surfaced through the ordering
+      // bug above. Its value is the summary, published as the page subtitle.
+      try {
+        const volResp = await fetch('/api/sdops/homeoffice/volume-periods', { headers });
+        const listResp = await fetch('/api/sdops/homeoffice/list-periods', { headers });
+        const listPayload = await listResp.json();
+        this.defs.homeoffice.listPeriods = listPayload.periods || {};
+        const volPayload = await volResp.json();
+        const per = volPayload.periods || {};
+        const toChart = (arr, label) => ({ title: 'Requests by home office — ' + label, labels: (arr || []).map(v => v.office), values: (arr || []).map(v => v.count), color: '#0B5CD8' });
+        this.defs.homeoffice.chart = {
+          title: 'Requests by home office',
+          labels: (per.week || []).map(v => v.office),
+          values: (per.week || []).map(v => v.count),
+          color: '#0B5CD8',
+          periods: {
+            week: toChart(per.week, 'this week'),
+            month: toChart(per.month, 'this month'),
+            quarter: toChart(per.quarter, 'this quarter'),
+            year: toChart(per.year, 'this year')
+          }
+        };
+      } catch (e) {
+        // The table, the chart and the tile are all backed by these two calls.
+        // Swallowing the failure left the page showing an empty week and no
+        // reason for it.
+        this.homeofficeListError = e.message;
+        console.error('[sdops] homeoffice volume fetch failed:', e.message);
+      }
+      const c = payload.counts || {};
+      this.defs.homeoffice.sub = (typeof c.total === 'number')
+        ? ('Site vs Entra office: ' + (c.needsCorrection || 0) + ' of ' + c.total
+           + ' requests are filed against a site that disagrees with the requester\u2019s office ('
+           + (c.toIrvine || 0) + ' Irvine, ' + (c.toPlano || 0) + ' Plano, ' + (c.toRemote || 0)
+           + ' Remote) \u00b7 ' + (c.alreadyCorrect || 0) + ' already correct \u00b7 '
+           + (c.noMatch || 0) + ' have no usable office on the requester.')
+        : '';
+      const origCellForHO = this.defs.homeoffice.cellFor;
+      this.defs.homeoffice.cellFor = r => {
+        const cells = origCellForHO(r);
+        if (r.sdpUrl) cells[0] = { ...cells[0], style: { ...cells[0].style, cursor: 'pointer', textDecoration: 'underline' }, onClick: () => window.open(r.sdpUrl, '_blank', 'noopener,noreferrer') };
+        return cells;
+      };
+      const tile = this.tileDefs.find(t => t.id === 'homeoffice');
+      if (tile) {
+        const weekList = (this.defs.homeoffice.listPeriods && this.defs.homeoffice.listPeriods.week) || [];
+        const officeCounts = {};
+        weekList.forEach(r => { officeCounts[r.office] = (officeCounts[r.office] || 0) + 1; });
+        const topOffices = Object.entries(officeCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        // listPeriods is only present once /homeoffice/list-periods answered.
+        // Without it weekList is [] and the tile used to read a confident 0.
+        const loaded = !!this.defs.homeoffice.listPeriods
+          && Object.keys(this.defs.homeoffice.listPeriods).length > 0;
+        tile.big = loaded ? weekList.length : '\u2014';
+        tile.bigLabel = 'Requests this week';
+        tile.stats = topOffices.length
+          ? topOffices.map(([office, count]) => [office, count])
+          : [['Irvine, CA', '\u2014'], ['Plano, TX', '\u2014']];
+      }
+      this.setState({ liveHomeOfficeLoaded: true });
+    } catch (e) { console.error('[sdops] homeoffice fetch failed:', e.message); }
+  }
+
+  async loadLiveStale() {
+    try {
+      const headers = {}; /* corpit: rbac-client.js attaches the bearer token */
+
+      const res = await fetch('/api/sdops/stale', { headers });
+      if (!res.ok) throw new Error('sdops stale API error: ' + res.status);
+      const payload = await res.json();
+      this.noteFeed('stale', payload);
+
+      const PRIRANK = { Critical: 4, High: 3, Medium: 2, Low: 1, None: 0 };
+      const rows = (payload.data || []).map(r => ({
+        id: r.id,
+        requester: r.requester,
+        technician: r.technician || 'Unassigned',
+        days: r.daysOpen ?? 0,
+        created: r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+        priority: r.priority || 'None',
+        priRank: PRIRANK[r.priority] ?? 0,
+        status: r.status,
+        sdpUrl: r.sdpUrl
+      }));
+
+      this.defs.stale.rows = rows;
+      const origCellForStale = this.defs.stale.cellFor;
+      this.defs.stale.cellFor = r => {
+        const cells = origCellForStale(r);
+        if (r.sdpUrl) {
+          cells[0] = { ...cells[0], style: { ...cells[0].style, cursor: 'pointer', textDecoration: 'underline' }, onClick: () => window.open(r.sdpUrl, '_blank', 'noopener,noreferrer') };
+        }
+        return cells;
+      };
+      this.defs.stale.kpis = [
+        { label: 'Total Stale', value: rows.length },
+        { label: '3–5 Days', value: rows.filter(r => r.days <= 5).length },
+        { label: '6–10 Days', value: rows.filter(r => r.days > 5 && r.days < 10).length },
+        { label: '10+ Days', value: rows.filter(r => r.days >= 10).length }
+      ];
+
+      const tile = this.tileDefs.find(t => t.id === 'stale');
+      if (tile) {
+        tile.big = rows.length;
+        tile.stats = [
+          ['3–5 days', rows.filter(r => r.days <= 5).length],
+          ['6–10 days', rows.filter(r => r.days > 5 && r.days < 10).length],
+          ['10+ days', rows.filter(r => r.days >= 10).length]
+        ];
+      }
+
+      this.setState({ liveStaleLoaded: true, liveStaleError: null });
+    } catch (e) {
+      console.error('[sdops] live stale fetch failed:', e.message);
+      this.setState({ liveStaleLoaded: true, liveStaleError: e.message });
+    }
+  }
+
+  async loadLiveCalls() {
+    try {
+      const headers = {}; /* corpit: rbac-client.js attaches the bearer token */
+      // The PDF importer needs a server-side script that is not present on every host;
+      // the button only appears when the API says it can actually run.
+      if (this.callImportAvailable === undefined) {
+        try { const ir = await fetch('/api/sdops/calls/import/status', { headers }); const ij = ir.ok ? await ir.json() : null; this.callImportAvailable = !!(ij && ij.available); }
+        catch (e) { this.callImportAvailable = false; }
+      }
+
+      const res = await fetch('/api/sdops/calls', { headers });
+      if (!res.ok) throw new Error('sdops calls API error: ' + res.status);
+      const payload = await res.json();
+      this.noteFeed('calls', payload);
+      if (payload.pendingIntegration) { this.setState({ liveCallsLoaded: true }); return; }
+
+      const fmtT = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      const rows = (payload.data || []).map(r => {
+        const d = r.startedAt ? new Date(r.startedAt) : null;
+        return {
+          time: d ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '',
+          caller: r.fromNumber || 'Unknown',
+          agent: r.agent || String.fromCharCode(8212),
+          wait: r.waitTimeSec || 0,
+          waitTxt: fmtT(r.waitTimeSec || 0),
+          durTxt: r.talkTimeSec ? fmtT(r.talkTimeSec) : String.fromCharCode(8212),
+          outcome: (r.disposition === 'Abandoned' && (r.waitTimeSec || 0) < 20) ? 'Hang Up' : r.disposition,
+          _dt: d
+        };
+      });
+      const now = new Date();
+      const isToday = d => d && d.toDateString() === now.toDateString();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+      const avgWait = rows.length ? Math.round(rows.reduce((a, r) => a + r.wait, 0) / rows.length) : 0;
+
+      this.defs.calls.rows = rows;
+      this.defs.calls.kpis = [
+        { label: 'Calls Today', value: rows.filter(r => isToday(r._dt)).length },
+        { label: 'Last 7 Days', value: rows.filter(r => r._dt && r._dt >= weekAgo).length },
+        { label: 'Avg Wait', value: fmtT(avgWait) },
+        { label: 'Abandoned', value: rows.filter(r => r.outcome === 'Abandoned').length },
+        { label: 'Voicemail', value: rows.filter(r => r.outcome === 'Voicemail').length },
+        { label: 'Hang Up', value: rows.filter(r => r.outcome === 'Hang Up').length }
+      ];
+      const ac = {}; rows.forEach(r => { if (r.agent && r.agent !== String.fromCharCode(8212)) ac[r.agent] = (ac[r.agent] || 0) + 1; });
+      const topAgents = Object.entries(ac).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      this.defs.calls.chart = { title: 'Answered Calls by Agent', labels: topAgents.map(c => c[0]), values: topAgents.map(c => c[1]), color: '#16A34A' };
+      const tile = this.tileDefs.find(t => t.id === 'calls');
+      if (tile) {
+        tile.big = rows.filter(r => isToday(r._dt)).length;
+        tile.bigLabel = 'Calls today';
+        tile.stats = [
+          ['Last 7 days', rows.filter(r => r._dt && r._dt >= weekAgo).length],
+          ['Avg wait', fmtT(avgWait)],
+          ['Abandoned', rows.filter(r => r.outcome === 'Abandoned').length],
+          ['Voicemail', rows.filter(r => r.outcome === 'Voicemail').length]
+        ];
+      }
+      this.setState({ liveCallsLoaded: true, liveCallsError: null });
+    } catch (e) {
+      console.error('[sdops] live calls fetch failed:', e.message);
+      this.setState({ liveCallsLoaded: true, liveCallsError: e.message });
+    }
+  }
+
+  _hrHeaders() {
+    /* corpit: rbac-client.js wraps window.fetch and attaches the real user's
+       bearer token to every /api/ request, so the page carries none itself. */
+    return {};
+  }
+  _fmtD(v) { return v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
+
+  async loadLiveEmployees() {
+    try {
+      const res = await fetch('/api/sdops/employees', { headers: this._hrHeaders() });
+      if (!res.ok) throw new Error('employees API ' + res.status);
+      const p = await res.json();
+      this.noteFeed('employees', p);
+      const now = Date.now();
+      const OKTA_ACTIVE = ['ACTIVE', 'PASSWORD_EXPIRED', 'RECOVERY', 'LOCKED_OUT'];
+      const yes = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(22,163,74,.13)', color: '#16A34A' };
+      const pend = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(217,119,6,.13)', color: '#D97706' };
+      const rows = (p.data || []).map(r => {
+        const ts = r.lastLogin ? new Date(r.lastLogin).getTime() : 0;
+        return { name: r.name, title: r.title, department: r.department || '(none)',
+          manager: (r.manager || '').split('@')[0], office: r.office || '',
+          lastLoginTs: ts, lastLoginTxt: ts ? this._fmtD(r.lastLogin) : 'Never',
+          neverLogged: !ts, stale30: !!ts && (now - ts) > 30 * 86400000,
+          oktaActive: r.oktaStatus ? (OKTA_ACTIVE.includes(r.oktaStatus) ? 'Yes' : 'Suspended') : 'No Account' };
+      });
+      this.defs.employees.columns = [{ key: 'name', label: 'Name' }, { key: 'title', label: 'Title' }, { key: 'department', label: 'Department' }, { key: 'manager', label: 'Manager' }, { key: 'office', label: 'Office' }, { key: 'lastLoginTxt', label: 'Last Login', sortKey: 'lastLoginTs' }, { key: 'oktaActive', label: 'Active in Okta' }];
+      this.defs.employees.filterKeys = [{ key: 'department', label: 'Department' }, { key: 'office', label: 'Office' }, { key: 'oktaActive', label: 'Active in Okta' }];
+      this.defs.employees.cellFor = r => [{ text: r.name, style: { fontWeight: 600 } }, { text: r.title || '' }, { text: r.department || '' }, { text: r.manager || '' }, { text: r.office || '' }, r.neverLogged ? { text: r.lastLoginTxt, style: { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(229,72,77,.13)', color: '#E5484D' } } : r.stale30 ? { text: r.lastLoginTxt, style: { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(217,119,6,.13)', color: '#D97706' } } : { text: r.lastLoginTxt }, { text: r.oktaActive, style: r.oktaActive === 'Yes' ? yes : pend }];
+      this.defs.employees.rows = rows;
+      this.defs.employees.kpis = [
+        { label: 'Total Active', value: p.total || rows.length },
+        { label: 'Never Logged In', value: p.neverLoggedIn || 0 },
+        { label: 'Stale Login 30d+', value: p.staleLogins30d || 0 },
+        { label: 'Departments', value: (p.byDepartment || []).length }
+      ];
+      const tile = this.tileDefs.find(t => t.id === 'employees');
+      if (tile) {
+        tile.big = p.total || rows.length;
+        tile.stats = [['Never logged in', p.neverLoggedIn || 0], ['Stale login 30d+', p.staleLogins30d || 0], ['Departments', (p.byDepartment || []).length]];
+      }
+      this.setState({ liveEmpLoaded: true });
+    } catch (e) { console.error('[sdops] employees fetch failed:', e.message); }
+  }
+
+  async loadLiveNewHires() {
+    try {
+      const res = await fetch('/api/sdops/newhires?days=30', { headers: this._hrHeaders() });
+      if (!res.ok) throw new Error('newhires API ' + res.status);
+      const p = await res.json();
+      this.noteFeed('newhires', p);
+      const yes = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(22,163,74,.13)', color: '#16A34A' };
+      const pend = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(217,119,6,.13)', color: '#D97706' };
+      const OKTA_ACTIVE = ['ACTIVE', 'PASSWORD_EXPIRED', 'RECOVERY', 'LOCKED_OUT'];
+      const rows = (p.data || []).map(r => ({ employee: r.name, title: r.title || '', dept: r.department || '(none)',
+        manager: (r.manager || '').split('@')[0], created: this._fmtD(r.createdAt), createdTs: r.createdAt ? new Date(r.createdAt).getTime() : 0,
+        entraActive: r.accountEnabled ? 'Yes' : 'Disabled',
+        oktaActive: r.oktaStatus ? (OKTA_ACTIVE.includes(r.oktaStatus) ? 'Yes' : 'Pending') : 'No Account',
+        loggedIn: r.lastLogin ? 'Yes' : 'No' }));
+      this.defs.newhires.sub = 'Entra accounts created in the last 30 days, cross-referenced with Okta';
+      this.defs.newhires.columns = [{ key: 'employee', label: 'Employee' }, { key: 'title', label: 'Title' }, { key: 'dept', label: 'Department' }, { key: 'manager', label: 'Manager' }, { key: 'created', label: 'Account Created', sortKey: 'createdTs' }, { key: 'entraActive', label: 'Active in Entra/Azure' }, { key: 'oktaActive', label: 'Active in Okta' }, { key: 'loggedIn', label: 'Logged In' }];
+      this.defs.newhires.filterKeys = [{ key: 'dept', label: 'Department' }, { key: 'entraActive', label: 'Active in Entra/Azure' }, { key: 'oktaActive', label: 'Active in Okta' }];
+      this.defs.newhires.rows = rows;
+      this.defs.newhires.defaultSort = { key: 'created', dir: 1 };
+      this.defs.newhires.cellFor = r => [{ text: r.employee, style: { fontWeight: 600 } }, { text: r.title }, { text: r.dept }, { text: r.manager }, { text: r.created }, { text: r.entraActive, style: r.entraActive === 'Yes' ? yes : pend }, { text: r.oktaActive, style: r.oktaActive === 'Yes' ? yes : pend }, { text: r.loggedIn, style: r.loggedIn === 'Yes' ? yes : pend }];
+      const wk = Date.now() - 7 * 86400000;
+      this.defs.newhires.kpis = [
+        { label: 'Last 7 Days', value: rows.filter(r => r.createdTs >= wk).length },
+        { label: 'Last 30 Days', value: rows.length },
+        { label: 'Active in Entra/Azure', value: rows.filter(r => r.entraActive === 'Yes').length },
+        { label: 'Active in Okta', value: rows.filter(r => r.oktaActive === 'Yes').length }
+      ];
+      const tile = this.tileDefs.find(t => t.id === 'newhires');
+      if (tile) {
+        tile.big = rows.filter(r => r.createdTs >= wk).length;
+        tile.bigLabel = 'Created this week';
+        tile.stats = [['Last 30 days', rows.length], ['Active in Entra/Azure', rows.filter(r => r.entraActive === 'Yes').length], ['Active in Okta', rows.filter(r => r.oktaActive === 'Yes').length]];
+      }
+      this.setState({ liveNhLoaded: true });
+    } catch (e) { console.error('[sdops] newhires fetch failed:', e.message); }
+  }
+
+  async loadLiveTerminations() {
+    try {
+      const res = await fetch('/api/sdops/terminations?days=90', { headers: this._hrHeaders() });
+      if (!res.ok) throw new Error('terminations API ' + res.status);
+      const p = await res.json();
+      this.noteFeed('terminations', p);
+      const OKTA_ACTIVE = ['ACTIVE', 'PASSWORD_EXPIRED', 'RECOVERY', 'LOCKED_OUT'];
+      const rows = (p.data || []).map(r => {
+        const stillActive = !!(r.oktaStatus && OKTA_ACTIVE.includes(r.oktaStatus));
+        return { employee: r.name, title: r.title || '', dept: r.department || '(none)',
+          manager: (r.manager || '').split('@')[0], termDate: this._fmtD(r.disabledAt),
+          termTs: r.disabledAt ? new Date(r.disabledAt).getTime() : 0, daysSince: r.daysSince ?? 0,
+          oktaActive: r.oktaStatus ? (stillActive ? 'Yes' : 'No') : 'No Account',
+          stillActiveOkta: stillActive };
+      });
+      this.defs.terminations.sub = 'Entra accounts disabled in the last 90 days, cross-referenced with Okta';
+      this.defs.terminations.columns = [{ key: 'employee', label: 'Employee' }, { key: 'title', label: 'Title' }, { key: 'dept', label: 'Department' }, { key: 'manager', label: 'Manager' }, { key: 'termDate', label: 'Disabled On', sortKey: 'termTs' }, { key: 'daysSince', label: 'Days Since' }, { key: 'oktaActive', label: 'Active in Okta' }];
+      this.defs.terminations.filterKeys = [{ key: 'dept', label: 'Department' }, { key: 'oktaActive', label: 'Active in Okta' }];
+      this.defs.terminations.rows = rows;
+      this.defs.terminations.defaultSort = { key: 'termDate', dir: 1 };
+      const gapBadge = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, background: 'rgba(229,72,77,.15)', color: '#E5484D' };
+      const okBadge = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(123,138,160,.15)', color: '#7B8AA0' };
+      this.defs.terminations.cellFor = r => [{ text: r.employee, style: { fontWeight: 600 } }, { text: r.title }, { text: r.dept }, { text: r.manager }, { text: r.termDate }, { text: r.daysSince + 'd' }, { text: r.oktaActive, style: r.stillActiveOkta ? gapBadge : okBadge }];
+      const wk = Date.now() - 7 * 86400000, mo = Date.now() - 30 * 86400000;
+      const gapCount = rows.filter(r => r.stillActiveOkta).length;
+      this.defs.terminations.kpis = [
+        { label: 'Last 7 Days', value: rows.filter(r => r.termTs >= wk).length },
+        { label: 'Last 30 Days', value: rows.filter(r => r.termTs >= mo).length },
+        { label: 'Last 90 Days', value: rows.length },
+        { label: 'Still Active in Okta', value: gapCount }
+      ];
+      const tile = this.tileDefs.find(t => t.id === 'terminations');
+      if (tile) {
+        tile.big = rows.filter(r => r.termTs >= wk).length;
+        tile.bigLabel = 'Disabled this week';
+        tile.stats = [['Last 30 days', rows.filter(r => r.termTs >= mo).length], ['Last 90 days', rows.length], ['Still active in Okta', gapCount]];
+      }
+      this.setState({ liveTermLoaded: true });
+    } catch (e) { console.error('[sdops] terminations fetch failed:', e.message); }
+  }
+
+    async loadLiveLockouts() {
+    try {
+      const res = await fetch('/api/sdops/lockouts/state', { headers: this._hrHeaders() });
+      if (!res.ok) throw new Error('lockouts/state API ' + res.status);
+      const p = await res.json();
+      this.noteFeed('lockouts', p);
+      const no = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(229,72,77,.13)', color: '#E5484D' };
+      const warn = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(217,119,6,.13)', color: '#D97706' };
+      const yes = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(22,163,74,.13)', color: '#16A34A' };
+      const fmtT = (v) => v ? new Date(v).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+      const rows = (p.rows || []).map(r => {
+        const adLocked = !!(r.ad && r.ad.currentlyLocked);
+        const oktaLocked = !!(r.okta && r.okta.currentlyLocked);
+        const currentlyLocked = adLocked || oktaLocked;
+        const multiSystem = adLocked && oktaLocked;
+        const hasTicket = !!r.ticket;
+        const bucketRank = currentlyLocked ? (hasTicket ? 1 : 0) : 2;
+        const statusLabel = !currentlyLocked ? 'Resolved' : (adLocked && oktaLocked) ? 'AD + Okta Lockout' : adLocked ? 'AD Lockout' : 'Okta Lockout';
+        const lastSeenTimes = [r.ad && r.ad.lastSeenLockedAt, r.okta && r.okta.lastSeenLockedAt].filter(Boolean).sort();
+        const lastSeen = lastSeenTimes.length ? lastSeenTimes[lastSeenTimes.length - 1] : null;
+        return {
+          upn: r.upn, displayName: r.displayName || r.upn, department: r.department || '(none)',
+          adLocked, oktaLocked, currentlyLocked, multiSystem, hasTicket, bucketRank, statusLabel,
+          adLabel: r.ad ? (adLocked ? 'Locked' : 'Cleared') : 'Clear',
+          oktaLabel: r.okta ? (oktaLocked ? 'Locked' : 'Cleared') : 'Clear',
+          ticketLabel: r.ticket ? ('#' + r.ticket.id + ' (' + r.ticket.status + ')') : 'None',
+          sdpUrl: r.ticket ? r.ticket.sdpUrl : null,
+          lastCheckedTxt: fmtT(lastSeen),
+          // ADDITIVE: technician-engaged ticket signal, does not affect hasTicket/bucketRank/statusLabel above
+          hasTechnicianTicket: !!r.technicianTicket,
+          technicianSignalLabel: !r.ticket ? 'N/A' : (r.technicianTicket ? 'Yes' : 'No (self-service/other)'),
+          resolutionMethod: (r.ad && r.ad.resolutionMethod) || (r.okta && r.okta.resolutionMethod) || null,
+          resolutionLabel: (() => {
+            if (currentlyLocked) return '—';
+            const mMap = { admin_unlock: 'Technician', auto_expired: 'Auto-Expired', self_service: 'Self-Service', unknown: 'Unknown' };
+            const adM = r.ad && r.ad.resolutionMethod ? mMap[r.ad.resolutionMethod] || r.ad.resolutionMethod : null;
+            const adBy = r.ad && r.ad.resolvedBy ? r.ad.resolvedBy.split('@')[0] : null;
+            const oktaM = r.okta && r.okta.resolutionMethod ? mMap[r.okta.resolutionMethod] || r.okta.resolutionMethod : null;
+            const oktaBy = r.okta && r.okta.resolvedBy ? r.okta.resolvedBy.split('@')[0] : null;
+            const parts = [];
+            if (adM) parts.push('AD: ' + adM + (adBy ? ' (' + adBy + ')' : ''));
+            if (oktaM) parts.push('Okta: ' + oktaM + (oktaBy ? ' (' + oktaBy + ')' : ''));
+            return parts.length ? parts.join(' · ') : 'Unknown';
+          })()
+        };
+      });
+      this.defs.lockouts.rows = rows;
+      const origCellForLock = this.defs.lockouts.cellFor;
+      this.defs.lockouts.cellFor = r => {
+        const cells = origCellForLock(r);
+        // Status: locked=red, resolved=green
+        cells[0] = { ...cells[0], style: r.currentlyLocked ? no : yes };
+        // Ticket at index 6: SDP link (unchanged)
+        if (r.sdpUrl) cells[6] = { ...cells[6], style: { ...cells[6].style, cursor: 'pointer', textDecoration: 'underline' }, onClick: () => window.open(r.sdpUrl, '_blank', 'noopener,noreferrer') };
+        // Resolution at index 7: color-coded by method
+        if (!r.currentlyLocked && r.resolutionMethod) {
+          const _rStyleMap = {
+            admin_unlock:  yes,
+            self_service:  { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(59,130,246,.13)', color: '#3B82F6' },
+            auto_expired:  { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(123,138,160,.15)', color: '#7B8AA0' },
+            unknown:       { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(123,138,160,.15)', color: '#7B8AA0' }
+          };
+          cells[7] = { ...cells[7], style: _rStyleMap[r.resolutionMethod] || cells[7].style };
+        }
+        // Technician-signal: still last index
+        const techIdx = cells.length - 1;
+        cells[techIdx] = { ...cells[techIdx], style: r.hasTechnicianTicket ? yes : (r.hasTicket ? warn : cells[techIdx].style) };
+        return cells;
+      };
+      const c = p.counts || {};
+      this.defs.lockouts.kpis = [
+        { label: 'Currently Locked Out', value: c.currentlyLocked || 0 },
+        { label: 'AD Lockouts', value: c.adLocked || 0 },
+        { label: 'Okta Lockouts', value: c.oktaLocked || 0 },
+        { label: 'Multi-System', value: c.multiSystem || 0, color: (c.multiSystem || 0) > 0 ? '#D97706' : undefined },
+        { label: 'No Ticket', value: c.noTicket || 0, color: (c.noTicket || 0) > 0 ? '#E5484D' : undefined },
+        { label: 'Has Ticket', value: c.withTicket || 0 },
+        // ADDITIVE comparison tiles — does not replace the six tiles above
+        { label: 'Tech-Engaged Ticket', value: c.withTechnicianTicket || 0, color: '#16A34A' },
+        { label: 'Ticket, Not Tech-Engaged', value: c.ticketButNotTechnician || 0, color: '#D97706' },
+        // ADDITIVE: resolution method tiles (24h window, closed episodes with resolution data)
+        { label: 'Self-Service', value: rows.filter(r => !r.currentlyLocked && r.resolutionMethod === 'self_service').length, color: '#3B82F6' },
+        { label: 'Admin Unlock', value: rows.filter(r => !r.currentlyLocked && r.resolutionMethod === 'admin_unlock').length, color: '#16A34A' },
+        { label: 'Auto-Expired', value: rows.filter(r => !r.currentlyLocked && r.resolutionMethod === 'auto_expired').length }
+      ];
+      const adChecked = p.lastCheckedAd ? fmtT(p.lastCheckedAd) : (p.lastCheckedAdError ? 'error: ' + p.lastCheckedAdError : 'unavailable');
+      const oktaChecked = p.lastCheckedOkta ? fmtT(p.lastCheckedOkta) : (p.lastCheckedOktaError ? 'error: ' + p.lastCheckedOktaError : 'unavailable');
+      // Never stamp 'now' on data the collector did not stamp: the page-open time is not a measurement.
+      const lastAt = p.collectedAt || p.generatedAt || p.lastCheckedAd || p.lastCheckedOkta || null;
+      const lastUpdatedTxt = lastAt ? fmtT(lastAt) : 'unknown';
+      this.defs.lockouts.sub = 'Data as of: ' + lastUpdatedTxt + ' · Live AD and Okta lockout status, cross-referenced with Service Desk tickets. AD last checked: ' + adChecked + ' · Okta last checked: ' + oktaChecked;
+      const tile = this.tileDefs.find(t => t.id === 'lockouts');
+      if (tile) {
+        tile.big = c.currentlyLocked || 0;
+        tile.bigLabel = 'Currently locked out';
+        tile.stats = [['AD', c.adLocked || 0], ['Okta', c.oktaLocked || 0], ['No ticket', c.noTicket || 0, (c.noTicket || 0) > 0 ? warn : undefined]];
+      }
+      this.setState({ liveLockLoaded: true });
+    } catch (e) {
+      console.error('[sdops] lockouts fetch failed:', e.message);
+      this.defs.lockouts.sub = 'Live AD and Okta lockout status — unable to reach the API right now.';
+      this.setState({ liveLockLoaded: true });
+    }
+  }
+
+  async loadLiveLockoutTicketAudit() {
+    // ADDITIVE, self-contained: does not touch defs.lockouts.kpis directly (avoids a
+    // race with loadLiveLockouts — combined at render time instead, see renderVals()).
+    try {
+      const res = await fetch('/api/sdops/lockouts/ticket-audit', { headers: this._hrHeaders() });
+      if (!res.ok) throw new Error('ticket-audit API ' + res.status);
+      const p = await res.json();
+      this.noteFeed('lockoutAudit', p);
+      this.lockoutTicketAudit = p.counts ? { ...p.counts, preTrackingTickets: (p.rows || []).filter(r => r.preTracking) } : null;
+      this.setState({ liveLockoutAuditLoaded: true });
+    } catch (e) {
+      console.error('[sdops] lockout ticket-audit fetch failed:', e.message);
+      this.noteFeed('lockoutAudit', null);
+      this.lockoutTicketAudit = null;
+      this.setState({ liveLockoutAuditLoaded: true });
+    }
+  }
+
+  async loadLiveResets() {
+    try {
+      const res = await fetch('/api/sdops/resets?days=90', { headers: this._hrHeaders() });
+      if (!res.ok) throw new Error('resets API ' + res.status);
+      const p = await res.json();
+      this.noteFeed('resets', p);
+      const STATUS = {
+        'Open': { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(59,130,246,.13)', color: '#3B82F6' },
+        'In Progress': { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(139,92,246,.13)', color: '#8B5CF6' },
+        'Resolved': { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(22,163,74,.13)', color: '#16A34A' },
+        'Closed': { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(123,138,160,.15)', color: '#7B8AA0' }
+      };
+      const defaultBadge = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(217,119,6,.13)', color: '#D97706' };
+      const rows = (p.data || []).map(r => {
+        const d = r.createdAt ? new Date(r.createdAt) : null;
+        return { id: r.id, user: r.requester || r.requesterEmail || '', tech: r.technician || 'Unassigned',
+          time: d ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '',
+          ts: d ? d.getTime() : 0,
+          subject: r.subject || '', status: r.status || '',
+          dept: r.department || '(none)',
+          oktaStatusTxt: r.oktaStatus || 'No Account',
+          sdpUrl: r.sdpUrl || null,
+          ticketLabel: r.id ? ('#' + r.id + (r.status ? ' (' + r.status + ')' : '')) : 'None' };
+      });
+      const mo = Date.now() - 30 * 86400000;
+      const tc = {}; rows.forEach(r => { if (r.ts >= mo) tc[r.tech] = (tc[r.tech] || 0) + 1; });
+      const top = Object.entries(tc).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      this.defs.resets.sub = 'Helpdesk password and unlock tickets from ServiceDesk Plus, last 90 days';
+      this.defs.resets.columns = [{ key: 'ticketLabel', label: 'Ticket' }, { key: 'user', label: 'Requester' }, { key: 'tech', label: 'Performed By' }, { key: 'time', label: 'Created', sortKey: 'ts' }, { key: 'subject', label: 'Subject' }, { key: 'status', label: 'Status' }, { key: 'dept', label: 'Department' }, { key: 'oktaStatusTxt', label: 'Okta Status' }];
+      this.defs.resets.filterKeys = [{ key: 'tech', label: 'Technician' }, { key: 'status', label: 'Status' }, { key: 'dept', label: 'Department' }];
+      this.defs.resets.rows = rows;
+      this.defs.resets.defaultSort = { key: 'time', dir: 1 };
+      this.defs.resets.chart = { title: 'Resets by technician (30d)', labels: top.map(c => c[0]), values: top.map(c => c[1]), color: '#8B5CF6' };
+      this.defs.resets.cellFor = r => {
+        const ticketCell = r.sdpUrl
+          ? { text: r.ticketLabel, style: { color: 'var(--accent, #0B5CD8)', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }, onClick: () => window.open(r.sdpUrl, '_blank', 'noopener,noreferrer') }
+          : { text: r.ticketLabel || 'None', style: { color: 'var(--sub, #5E6C84)' } };
+        return [ticketCell, { text: r.user, style: { fontWeight: 600 } }, { text: r.tech }, { text: r.time }, { text: r.subject }, { text: r.status, style: STATUS[r.status] || defaultBadge }, { text: r.dept }, { text: r.oktaStatusTxt }];
+      };
+      const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+      const wk = Date.now() - 7 * 86400000;
+      this.defs.resets.kpis = [
+        { label: 'Today', value: rows.filter(r => r.ts >= dayStart.getTime()).length },
+        { label: 'Last 7 Days', value: rows.filter(r => r.ts >= wk).length },
+        { label: 'Last 30 Days', value: rows.filter(r => r.ts >= mo).length },
+        { label: 'Open', value: rows.filter(r => r.status !== 'Resolved' && r.status !== 'Closed').length }
+      ];
+      const tile = this.tileDefs.find(t => t.id === 'resets');
+      if (tile) {
+        tile.big = rows.filter(r => r.ts >= wk).length;
+        tile.bigLabel = 'Resets last 7 days';
+        tile.stats = [['Today', rows.filter(r => r.ts >= dayStart.getTime()).length], ['Last 30 days', rows.filter(r => r.ts >= mo).length], ['Open', rows.filter(r => r.status !== 'Resolved' && r.status !== 'Closed').length]];
+      }
+      this.setState({ liveResetsLoaded: true });
+    } catch (e) { console.error('[sdops] resets fetch failed:', e.message); }
+  }
+
+  async loadLiveTeamsRequests() {
+    try {
+      const res = await fetch('/api/sdops/teams-requests?days=90', { headers: this._hrHeaders() });
+      if (!res.ok) throw new Error('teams-requests API ' + res.status);
+      const p = await res.json();
+      this.noteFeed('teams', p);
+      const rows = (p.data || []).map(r => {
+        const d = r.createdAt ? new Date(r.createdAt) : null;
+        return { id: r.id, requester: r.requester || r.requesterEmail || '',
+          technician: r.technician || 'Unassigned',
+          created: d ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '',
+          createdTs: d ? d.getTime() : 0,
+          subject: r.subject || '', status: r.status || '' };
+      });
+      const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+      const wk = Date.now() - 7 * 86400000;
+      const mo = Date.now() - 30 * 86400000;
+      this.defs.teams.rows = rows;
+      this.defs.teams.kpis = [
+        { label: 'Today', value: rows.filter(r => r.createdTs >= dayStart.getTime()).length },
+        { label: 'Last 7 Days', value: rows.filter(r => r.createdTs >= wk).length },
+        { label: 'Last 30 Days', value: rows.filter(r => r.createdTs >= mo).length },
+        { label: 'Open', value: rows.filter(r => r.status !== 'Resolved' && r.status !== 'Closed').length }
+      ];
+      const tile = this.tileDefs.find(t => t.id === 'teams');
+      if (tile) {
+        tile.big = rows.filter(r => r.createdTs >= mo).length;
+        tile.bigLabel = 'MS Teams requests (30d)';
+        tile.stats = [['Today', rows.filter(r => r.createdTs >= dayStart.getTime()).length], ['Last 7 days', rows.filter(r => r.createdTs >= wk).length], ['Open', rows.filter(r => r.status !== 'Resolved' && r.status !== 'Closed').length]];
+      }
+      this.setState({ liveTeamsLoaded: true });
+    } catch (e) { console.error('[sdops] teams-requests fetch failed:', e.message); }
+  }
+
+  async loadLiveEmailActivity() {
+    try {
+      const res = await fetch('/api/sdops/email-activity?days=1', { headers: this._hrHeaders() });
+      if (!res.ok) throw new Error('email-activity API ' + res.status);
+      const p = await res.json();
+      this.noteFeed('email', p);
+      const STATE_LABEL = { converted: 'Converted', reply_logged: 'Reply Logged', no_ticket: 'No Ticket Found' };
+      const yes = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(22,163,74,.13)', color: '#16A34A' };
+      const info = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(59,130,246,.13)', color: '#3B82F6' };
+      const warn = { display: 'inline-block', padding: '2px 9px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: 'rgba(217,119,6,.13)', color: '#D97706' };
+      const rows = (p.data || []).map(r => {
+        const d = r.receivedAt ? new Date(r.receivedAt) : null;
+        return { time: d ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '',
+          receivedTs: d ? d.getTime() : 0,
+          sender: r.fromEmail || r.fromName || '',
+          subject: r.subject || '',
+          assigned: r.technician || 'Unassigned',
+          state: STATE_LABEL[r.matchType] || 'No Ticket Found' };
+      });
+      this.defs.email.sub = 'Inbound mail to helpdesk@auction.com, matched against ServiceDesk Plus tickets';
+      this.defs.email.columns = [{ key: 'time', label: 'Received', sortKey: 'receivedTs' }, { key: 'sender', label: 'Sender' }, { key: 'subject', label: 'Subject' }, { key: 'assigned', label: 'Assigned To' }, { key: 'state', label: 'State' }];
+      this.defs.email.filterKeys = [{ key: 'assigned', label: 'Assigned' }, { key: 'state', label: 'State' }];
+      this.defs.email.rows = rows;
+      this.defs.email.defaultSort = { key: 'time', dir: 1 };
+      const stateCounts = { Converted: 0, 'Reply Logged': 0, 'No Ticket Found': 0 };
+      rows.forEach(r => { stateCounts[r.state] = (stateCounts[r.state] || 0) + 1; });
+      this.defs.email.chart = { title: 'Emails by state', labels: Object.keys(stateCounts), values: Object.values(stateCounts), color: '#6554C0' };
+      this.defs.email.cellFor = r => [{ text: r.time }, { text: r.sender, style: { color: 'var(--accent, #0B5CD8)' } }, { text: r.subject }, { text: r.assigned }, { text: r.state, style: r.state === 'Converted' ? yes : r.state === 'Reply Logged' ? info : warn }];
+      const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+      const convertedCount = rows.filter(r => r.state === 'Converted').length;
+      this.defs.email.kpis = [
+        { label: 'Emails Today', value: rows.filter(r => r.receivedTs >= dayStart.getTime()).length },
+        { label: 'Unassigned', value: p.unassigned || 0 },
+        { label: 'Converted', value: convertedCount },
+        { label: 'No Ticket Found', value: p.noTicket || 0 }
+      ];
+      const tile = this.tileDefs.find(t => t.id === 'email');
+      if (tile) {
+        tile.big = rows.filter(r => r.receivedTs >= dayStart.getTime()).length;
+        tile.bigLabel = 'Emails to helpdesk@ today';
+        tile.stats = [['Unassigned', p.unassigned || 0, warn], ['Converted', convertedCount, yes], ['No ticket found', p.noTicket || 0, warn]];
+      }
+      this.setState({ liveEmailLoaded: true });
+    } catch (e) { console.error('[sdops] email-activity fetch failed:', e.message); }
+  }
+
+  async loadLiveManualContent() {
+    try {
+      const [mcRes, dykRes] = await Promise.all([
+        fetch('/api/sdops/manual-content', { headers: this._hrHeaders() }),
+        fetch('/api/sdops/did-you-know', { headers: this._hrHeaders() })
+      ]);
+      const notifs = [];
+      if (mcRes.ok) {
+        const mc = await mcRes.json();
+        const d = mc.data || {};
+        if (d.change_freeze && d.change_freeze.value) {
+          notifs.push({ title: 'Change freeze in effect', sub: (d.change_freeze_note && d.change_freeze_note.value) || 'No changes should be made until freeze is lifted.', color: '#E5484D' });
+        }
+        const maint = (d.upcoming_maintenance && d.upcoming_maintenance.value) || [];
+        maint.forEach(m => notifs.push({ title: m.title || 'Upcoming maintenance', sub: m.detail || '', color: '#3B82F6' }));
+        const highlights = (d.team_highlights && d.team_highlights.value) || [];
+        highlights.forEach(h => notifs.push({ title: h.title || 'Team highlight', sub: h.detail || '', color: '#16A34A' }));
+      }
+      if (dykRes.ok) {
+        const dyk = await dykRes.json();
+        if (dyk.stat) {
+          const sav = dyk.automationSavings;
+          const savLine = sav && sav.dollarsSaved > 0 ? ` (~$${sav.dollarsSaved} in technician time saved today)` : '';
+          notifs.push({ title: 'Did you know?', sub: dyk.stat + savLine, color: '#8B5CF6' });
+        }
+      }
+      if (notifs.length) this.notifs = notifs;
+      this.setState({ liveManualContentLoaded: true });
+    } catch (e) { console.error('[sdops] manual-content fetch failed:', e.message); }
+  }
+
+// ---------- actions ----------
+  go = id => {
+    document.body.classList.remove('sdops-nav-open');
+    this.setState({ route: id, notifOpen: false, globalQ: '' });
+  };
+
+  /* [LANDING-DEEPLINK 2026-09-08] The Operations Hub overview links here with a
+     route in the hash and, for the unassigned count, a filter in the query
+     string. Without this the tile opened the dashboard and the tech had to
+     re-find the view the number came from. Unknown routes/filters are ignored so
+     an old link never blanks the page. */
+  applyDeepLink = () => {
+    var route = (location.hash || '').replace(/^#/, '').split('?')[0];
+    if (!route || !/^[a-z]+$/.test(route)) return;
+    if (route !== 'dashboard' && !this.defs[route]) return;   // unknown view: leave the page as it is
+    var next = { route: route, notifOpen: false, globalQ: '' };
+    var pg = this.defs[route];
+    if (pg && pg.filterKeys) {
+      var qs = new URLSearchParams(location.search), applied = {};
+      pg.filterKeys.forEach(function (fk) {
+        var v = qs.get(fk.key);
+        if (v) applied[fk.key] = v;
+      });
+      if (Object.keys(applied).length) {
+        next.filters = Object.assign({}, this.state.filters, (function (o, r, a) { o[r] = a; return o; })({}, route, applied));
+        next.pageNums = Object.assign({}, this.state.pageNums, (function (o, r) { o[r] = 0; return o; })({}, route));
+      }
+    }
+    this.setState(next);
+  };
+  showToast(msg) { clearTimeout(this._tt); this.setState({ toast: msg }); this._tt = setTimeout(() => this.setState({ toast: '' }), 2400); }
+  setFilter(route, key, val) { const f = { ...this.state.filters }; f[route] = { ...(f[route] || {}), [key]: val }; this.setState({ filters: f, pageNums: { ...this.state.pageNums, [route]: 0 } }); }
+  sortBy(route, key) {
+    const cur = this.state.sorts[route] || this.defs[route].defaultSort;
+    const dir = cur && cur.key === key ? -cur.dir : 1;
+    this.setState({ sorts: { ...this.state.sorts, [route]: { key, dir } } });
+  }
+  exportCsv(ext) {
+    const route = this.state.route, pg = this.defs[route];
+    const rows = this.filteredRows(route, pg);
+    const esc = v => '"' + String(v).replace(/"/g, '""') + '"';
+    const lines = [pg.columns.map(c => esc(c.label)).join(',')];
+    rows.forEach(r => lines.push(pg.cellFor(r).map(c => esc(c.text)).join(',')));
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = pg.title.replace(/\s+/g, '_') + '.' + ext;
+    a.click();
+    this.showToast('Exported ' + rows.length + ' rows to ' + ext.toUpperCase());
+  }
+  filteredRows(route, pg) {
+    let rows = pg.rows.slice();
+    const q = (this.state.searches[route] || '').toLowerCase();
+    if (q) rows = rows.filter(r => Object.values(r).join(' ').toLowerCase().includes(q));
+    const kpiDefs = this.kpiFilterDefs[route];
+    const activeIdx = (this.state.kpiFilterIdx && this.state.kpiFilterIdx[route] != null) ? this.state.kpiFilterIdx[route] : null;
+    if (kpiDefs && activeIdx !== null) {
+      const entry = kpiDefs[activeIdx];
+      if (typeof entry === 'function') rows = rows.filter(entry);
+    }
+    const fs = this.state.filters[route] || {};
+    pg.filterKeys.forEach(fk => { const v = fs[fk.key]; if (v && v !== 'All') rows = rows.filter(r => facetValue(r[fk.key]) === v); });
+    const dFrom = (this.state.dateFrom && this.state.dateFrom[route]) || null;
+    if (dFrom) rows = rows.filter(r => r.createdTs == null || r.createdTs >= dFrom);
+    const sort = this.state.sorts[route] || pg.defaultSort;
+    if (sort) {
+      const col = pg.columns.find(c => c.key === sort.key);
+      const sk = (col && col.sortKey) || sort.key;
+      rows.sort((a, b) => { const x = a[sk], y = b[sk]; const c = typeof x === 'number' && typeof y === 'number' ? y - x : String(x).localeCompare(String(y)); return c * sort.dir; });
+    }
+    return rows;
+  }
+
+  // ---------- render ----------
+  async loadLiveTopCategories(win) {
+    const w = win || this.state.topCatWindow || 'week';
+    try {
+      const headers = {}; /* corpit: rbac-client.js attaches the bearer token */
+      const res = await fetch('/api/sdops/categories/top?group=subcategory&window=' + w, { headers });
+      if (!res.ok) throw new Error('topcat ' + res.status);
+      const data = await res.json();
+      this.noteFeed('topcat', data);
+      this.setState({ topCat: data, topCatWindow: w, topCatLoaded: true });
+    } catch (e) {
+      // Was a bare catch: no log, no observability, and topCat left intact --
+      // so a failed window switch redrew the OLD window's bars under the NEW
+      // window's label. Clear the data and say so.
+      console.error('[sdops] top categories fetch failed:', e && e.message);
+      if (window.ITObserve && window.ITObserve.degraded) {
+        window.ITObserve.degraded('topcat', 'Top Request Types unavailable',
+          'window=' + w + ' err=' + (e && e.message));
+      }
+      this.noteFeed('topcat', null);
+      this.setState({ topCat: null, topCatWindow: w, topCatLoaded: true });
+    }
+  }
+
+  async loadLiveTrend(win) {
+    const w = win || this.state.trendWindow || 'week';
+    try {
+      const headers = {}; /* corpit: rbac-client.js attaches the bearer token */
+      const res = await fetch('/api/sdops/requests/trend?window=' + w, { headers });
+      if (!res.ok) throw new Error('trend ' + res.status);
+      const data = await res.json();
+      this.noteFeed('trend', data);
+      this.setState({ trend: data, trendWindow: w, trendLoaded: true });
+    } catch (e) {
+      console.error('[sdops] request trend fetch failed:', e && e.message);
+      if (window.ITObserve && window.ITObserve.degraded) {
+        window.ITObserve.degraded('trend', 'Request Volume unavailable',
+          'window=' + w + ' err=' + (e && e.message));
+      }
+      this.noteFeed('trend', null);
+      this.setState({ trend: null, trendWindow: w, trendLoaded: true });
+    }
+  }
+
+  renderVals() {
+    // Both dashboard widgets below read the same collected table the
+    // summary reports on, so the summary's collector rung applies to them.
+    // Anything other than 'ok' means the number in front of you was not
+    // measured for the window it is labelled with.
+    const _measured = this.state.dataStatus === 'ok';
+    // ---- Request Volume trend (dashboard) ----
+    const _tr = this.state.trend;
+    const _trWin = this.state.trendWindow || 'week';
+    const _trWinLabel = ({ day: 'Today (hourly)', week: 'Last 7 Days', month: 'Last 30 Days', year: 'Last 12 Months' })[_trWin] || 'Last 7 Days';
+    const _trB = (_tr && _tr.buckets) ? _tr.buckets : [];
+    const _trMax = _trB.length ? Math.max.apply(null, _trB.map(b => Number(b.count)).concat([1])) : 1;
+    const _trTotal = _trB.reduce((a, b) => a + Number(b.count), 0);
+    const _trN = _trB.length;
+    const _trStep = _trN <= 12 ? 1 : Math.ceil(_trN / 8);
+    const _trTop = _trN <= 14;
+    const trendBars = _trB.map((b, i) => ({
+      valueText: _trTop ? String(b.count) : '',
+      labelText: ((i % _trStep === 0) || (i === _trN - 1)) ? b.label : '',
+      tip: b.label + ': ' + b.count,
+      // 132px plot inside the 150px row: 13px value label + 4px gap = 17px reserved.
+      barStyle: { width: '100%', height: (Number(b.count) > 0 ? Math.max(1, Math.round(Number(b.count) / _trMax * 132)) : 0) + 'px', flex: 'none', background: 'var(--accent, #0B5CD8)', borderRadius: '4px 4px 0 0' }
+    }));
+    const _trSeg = (w) => ({ padding: '5px 13px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: 'none', background: _trWin === w ? 'var(--accent, #0B5CD8)' : 'transparent', color: _trWin === w ? '#fff' : 'var(--sub, #5E6C84)' });
+    const trendWindows = [['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['year', 'Year']].map(p => ({ label: p[1], onClick: () => this.loadLiveTrend(p[0]), style: _trSeg(p[0]) }));
+    const _trZero = !!this.state.trendLoaded && _trTotal === 0;
+    // The staleness note used to be gated on a ZERO total, so a stale
+    // non-zero figure printed bare -- "Last 7 Days · 101 requests" while every
+    // card below it said "Not collected since ...". Label it either way.
+    const _trFeed = (this.feedFresh || {}).trend || null;
+    const _trOk = !!_trFeed && _trFeed.status === 'ok';
+    const trendSub = _trWinLabel + (this.state.trendLoaded
+      ? ((_trZero && !_measured)
+          ? ' · no data — ' + this.freshnessText()
+          : ' · ' + _trTotal + ' requests' + (_trOk ? '' : ' · ' + this.feedNote(_trFeed)))
+      : ' · loading…');
+    // A row of zero-height bars under a window label reads as "we measured
+    // this period and it was empty". Do not draw it when the zero came from
+    // a collector that is not ok.
+    const trendEmpty = _trZero && !_measured;
+    const trendEmptyText = 'Nothing to show for this period — ' + this.freshnessText()
+      + '. That is a gap in collection, not a measured zero.';
+    const trendHasData = trendBars.length > 0 && !trendEmpty;
+
+    // ---- Top Categories (dashboard) ----
+    const _tc = this.state.topCat;
+    const _tcWin = this.state.topCatWindow || 'week';
+    const _tcWinDays = ({ day: 0, week: 6, month: 29, year: 364 })[_tcWin] ?? 6;
+    const _tcFrom = _tcWinDays === 0 ? new Date().setHours(0,0,0,0) : (Date.now() - _tcWinDays * 86400000);
+    const _winLabel = ({ day: 'Today', week: 'This Week', month: 'This Month', year: 'This Year' })[_tcWin] || 'This Week';
+    let _tcRows = (_tc && (_tc.items || _tc.categories)) ? (_tc.items || _tc.categories).slice() : [];
+    const _tcMax = _tcRows.length ? Math.max.apply(null, _tcRows.map(r => Number(r.count)).concat([1])) : 1;
+    const _tcTotal = _tcRows.reduce((a, r) => a + Number(r.count), 0);
+    const _tcPalette = ['#0B5CD8', '#00875A', '#8B5CF6', '#E8710A', '#D64545', '#2AA3B8', '#B0308E', '#5E6C84'];
+    const topCatBars = _tcRows.slice(0, 8).map((r, i) => ({
+      label: r.label || r.category, count: r.count,
+      barStyle: { height: '100%', borderRadius: '6px', background: _tcPalette[i % _tcPalette.length], width: (Number(r.count) > 0 ? Math.max(0.15, Number(r.count) / _tcMax * 100) : 0) + '%' },
+      rowStyle: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px', cursor: 'pointer' },
+      onClick: () => { try { this.setState({ kpiFilterIdx: { ...this.state.kpiFilterIdx, requests: null }, filters: { ...this.state.filters, requests: { subcategory: r.label || r.category } }, dateFrom: { ...this.state.dateFrom, requests: _tcFrom }, pageNums: { ...this.state.pageNums, requests: 0 } }); this.go('requests'); } catch (e) { console.error('topcat click error', e); } }
+    }));
+    const _tcSeg = (w) => ({ padding: '5px 13px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', border: 'none', background: _tcWin === w ? 'var(--accent, #0B5CD8)' : 'transparent', color: _tcWin === w ? '#fff' : 'var(--sub, #5E6C84)' });
+    const topCatWindows = [['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['year', 'Year']].map(p => ({ label: p[1], onClick: () => this.loadLiveTopCategories(p[0]), style: _tcSeg(p[0]) }));
+    const _tcFeed = (this.feedFresh || {}).topcat || null;
+    const _tcOk = !!_tcFeed && _tcFeed.status === 'ok';
+    const topCatSub = _winLabel + (this.state.topCatLoaded
+      ? ((_tcTotal === 0 && !_measured)
+          ? ' · no data — ' + this.freshnessText()
+          : ' · ' + _tcTotal + ' categorized requests (excl. system alerts)'
+              + (_tcOk ? '' : ' · ' + this.feedNote(_tcFeed)))
+      : ' · loading…');
+    const topCatHasData = topCatBars.length > 0;
+    const topCatEmpty = !!this.state.topCatLoaded && topCatBars.length === 0;
+    const topCatEmptyText = _measured
+      ? 'No categorized requests in this period yet.'
+      : 'Nothing to show for this period — ' + this.freshnessText()
+        + '. That is a gap in collection, not a measured zero.';
+
+    const S = this.state, route = S.route, isDash = route === 'dashboard';
+    const pg = this.defs[route];
+    const theme = this.theme(), layout = this.layout();
+    const ic = (n, s, c) => this.icon(n, s, c);
+
+    const navStyle = active => ({ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: active ? 600 : 400, color: active ? '#E8EDF4' : '#96A3B8', background: active ? 'rgba(76,154,255,.16)' : 'transparent', marginBottom: '2px' });
+    const navSections = [
+      { label: 'SERVICE DESK OPS', ids: ['requests','stale','email','teams','calls'] },
+      { label: 'IDENTITY & ACCESS', ids: ['lockouts','resets','homeoffice'] },
+      { label: 'WORKFORCE', ids: ['newhires','terminations','employees'] }
+    ];
+    const navHeaderStyle = { fontSize: '10.5px', fontWeight: 700, letterSpacing: '.08em', color: '#7A8AA6', padding: '14px 8px 6px 8px', cursor: 'default' };
+    const navItems = [];
+    navSections.forEach((sec, si) => {
+      navItems.push({ id: 'hdr-' + si, label: sec.label, iconEl: null, style: navHeaderStyle, isHeader: true, notHeader: false });
+      sec.ids.filter(id => this.defs[id]).forEach(id => {
+        navItems.push({ id, label: this.defs[id].title, iconEl: ic(this.defs[id].icon, 17, route === id ? '#7FB5FF' : '#7B8AA0'), style: navStyle(route === id), isHeader: false, notHeader: true, onClick: () => this.go(id) });
+      });
+    });
+    const favItems = S.favs.map(id => ({ id, label: this.defs[id].title, iconEl: ic('star', 15, '#D9A406'), style: navStyle(false), onClick: () => this.go(id) }));
+
+    const segBtn = active => ({ padding: '7px 14px', fontSize: '12.5px', fontWeight: 600, border: 'none', cursor: 'pointer', background: active ? 'var(--accent, #0B5CD8)' : 'var(--panel, #fff)', color: active ? '#fff' : 'var(--sub, #5E6C84)' });
+
+    const tiles = this.tileDefs.map(t => {
+      const d = this.defs[t.id];
+      const max = Math.max(...t.spark);
+      const fresh = (this.feedFresh || {})[t.id] || null;
+      const measured = !!fresh && fresh.status === 'ok';
+      const win = this.windowedFields(t.id);
+      const blankAll = !measured && win.stats === '*';
+      const blanked = (label) => !measured && win.stats !== '*' && win.stats.indexOf(label) !== -1;
+      const statRows = blankAll ? [] : t.stats;
+      return {
+        title: d.title,
+        big: (!measured && win.big) ? '\u2014' : t.big,
+        bigLabel: t.bigLabel, onClick: () => this.go(t.id),
+        iconEl: ic(d.icon, 18, d.color),
+        iconBoxStyle: { width: '34px', height: '34px', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: d.color + '1F' },
+        stats: statRows.map(s => ({ label: s[0], value: blanked(s[0]) ? '\u2014' : s[1], style: blanked(s[0]) ? { fontWeight: 600, color: 'var(--sub, #5E6C84)' } : (s[2] || { fontWeight: 600 }) })),
+        hasNote: !measured,
+        note: measured ? '' : this.feedNote(fresh),
+        spark: t.spark.map(v => ({ style: { width: '5px', height: Math.round(v / max * 100) + '%', borderRadius: '2px', background: d.color, opacity: .75 } }))
+      };
+    });
+
+    const heroCards = [
+      { label: 'Open Requests', value: this.defs.requests.kpis[2].value, sub: this.defs.requests.kpis[4].value + ' overdue · ' + this.defs.requests.kpis[3].value + ' waiting on user' + this.feedTag('requests'), color: '#0B5CD8', onClick: () => this.go('requests') },
+      { label: 'Ticket Handling Score', value: (this.healthScore != null ? this.healthScore + '/100' : '\u2014'), sub: 'On-time, backlog, and reopens combined', color: '#16A34A', onClick: () => this.go('requests') },
+      { label: 'Stale Requests', value: this.defs.stale.kpis[0].value, sub: 'No activity in 3+ days' + this.feedTag('stale'), color: '#DD7011', onClick: () => this.go('stale') },
+      { label: 'Avg Call Wait', value: this.defs.calls.kpis[2].value, sub: this.defs.calls.kpis[0].value + ' calls today · ' + this.defs.calls.kpis[3].value + ' abandoned' + this.feedTag('calls'), color: '#8B5CF6', onClick: () => this.go('calls') }
+    ];
+
+    // ---- detail page vals ----
+    let detail = {};
+    if (pg) {
+      // The window switch has to run BEFORE filteredRows() reads pg.rows. It
+      // used to run after, so the table rendered the all-time review rows while
+      // the KPIs and the record count described the windowed list, and the two
+      // disagreed on screen. One dataset backs every number on this page.
+      if (route === 'homeoffice') {
+        const win = S.chartWindow || 'week';
+        const list = (this.defs.homeoffice.listPeriods && this.defs.homeoffice.listPeriods[win]) || [];
+        // r.office is the city/state the server normalises to; r.officeRaw is
+        // the Entra office_location string, a postal address with the state and
+        // country run together ("Plano, TXUS, 75093"). Show the normalised
+        // value; keep the raw one only where normalisation gave up, so an
+        // unrecognised office is still identifiable.
+        pg.rows = list.map(r => ({
+          id: r.id, requester: r.requester, status: r.status, sdpUrl: r.sdpUrl,
+          office: (r.office === 'Other' && r.officeRaw) ? ('Other \u2014 ' + r.officeRaw) : (r.office || '')
+        }));
+        const countOf = (office) => list.filter(r => r.office === office).length;
+        const hoFeed = (this.feedFresh || {}).homeoffice || null;
+        // An empty window over a feed that has not run is not "zero requests
+        // from Irvine" -- it is no measurement at all.
+        const hoKnown = list.length > 0 || (!!hoFeed && hoFeed.status === 'ok');
+        pg.kpis = [
+          { label: 'Irvine, CA', value: hoKnown ? countOf('Irvine, CA') : '\u2014' },
+          { label: 'Plano, TX', value: hoKnown ? countOf('Plano, TX') : '\u2014' }
+        ];
+      }
+      const filtered = this.filteredRows(route, pg);
+      const pageSize = 10;
+      const num = Math.min(S.pageNums[route] || 0, Math.max(0, Math.ceil(filtered.length / pageSize) - 1));
+      const slice = filtered.slice(num * pageSize, num * pageSize + pageSize);
+      const sort = S.sorts[route] || pg.defaultSort;
+      const fs = S.filters[route] || {};
+      const isFav = S.favs.includes(route);
+      const pgBtn = enabled => ({ padding: '7px 14px', borderRadius: '8px', border: '1px solid var(--line, #E4E9F0)', background: 'var(--panel, #fff)', color: enabled ? 'var(--txt, #1B2733)' : 'var(--sub, #5E6C84)', fontSize: '13px', fontWeight: 600, cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : .5 });
+      let chart = pg.chart;
+      if (chart && chart.periods) {
+        const win = S.chartWindow || 'week';
+        chart = chart.periods[win] || { title: chart.title, labels: [], values: [], color: chart.color };
+      }
+      const chartHasPeriods = !!(pg.chart && pg.chart.periods);
+      const chartPeriodBtns = chartHasPeriods ? ['week','month','quarter','year'].map(p => {
+        const active = (S.chartWindow || 'week') === p;
+        return { label: 'This ' + p.charAt(0).toUpperCase() + p.slice(1), onClick: () => this.setState({ chartWindow: p }), style: { padding: '6px 12px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', background: active ? 'var(--accent, #0B5CD8)' : 'var(--panel, #fff)', color: active ? '#fff' : 'var(--sub, #5E6C84)' } };
+      }) : [];
+      if (route === 'calls') {
+        const kpiIdx = (S.kpiFilterIdx && S.kpiFilterIdx.calls != null) ? S.kpiFilterIdx.calls : null;
+        const suffixMap = { 0: 'Today', 1: 'Last 7 Days', 3: 'Abandoned', 4: 'Voicemail', 5: 'Hang Up' };
+        const suffix = kpiIdx != null && suffixMap[kpiIdx] ? ' — ' + suffixMap[kpiIdx] : '';
+        const ac2 = {}; filtered.forEach(r => { if (r.agent && r.agent !== String.fromCharCode(8212)) ac2[r.agent] = (ac2[r.agent] || 0) + 1; });
+        const topAgents2 = Object.entries(ac2).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        chart = { title: 'Answered Calls by Agent' + suffix, labels: topAgents2.map(c => c[0]), values: topAgents2.map(c => c[1]), color: '#16A34A' };
+      }
+      const maxV = chart ? Math.max(...chart.values, 1) : 1;
+      // Same rung the tiles and the dashboard charts use: 'ok' means a
+      // collector reported a successful run, not merely that a fetch returned.
+      const _routeFeed = (this.feedFresh || {})[route] || null;
+      const _routeMeasured = !!_routeFeed && _routeFeed.status === 'ok';
+      // Two distinct empties. No series at all (the window holds nothing), and
+      // a series of zeros over a feed nobody has run. Both suppress the bars;
+      // only the second needs the collection-gap wording.
+      const _chartNoSeries = !!chart && chart.values.length === 0;
+      const _chartZeros = !!chart && chart.values.length > 0
+        && !_routeMeasured && chart.values.every(v => !v);
+      const _chartEmpty = _chartNoSeries || _chartZeros;
+      // A figure computed from rows the reader can see is measured even over a
+      // stale feed -- it describes exactly what is on screen, and the header
+      // already dates it. A figure over an EMPTY set from a collector that
+      // never ran is not: that is an absence wearing a zero.
+      const _routeEmptyUnmeasured = pg.rows.length === 0 && !_routeMeasured;
+      const _kpiBlank = (label) => {
+        const f = this.kpiFeed(route, label);
+        if (f !== null && !this.feedOk(f)) return true;
+        return _routeEmptyUnmeasured && (f === null || f === route);
+      };
+      const kpisForDisplay = (() => {
+        if (route !== 'lockouts' || !this.lockoutTicketAudit) return pg.kpis;
+        const a = this.lockoutTicketAudit;
+        return [...pg.kpis,
+          { label: 'Lockout Tickets (30d)', value: a.total || 0 },
+          { label: 'Confirmed by AD/Okta', value: a.confirmed || 0, color: '#16A34A' },
+          { label: 'No Matching Episode', value: a.noEpisode || 0, color: (a.noEpisode || 0) > 0 ? '#E5484D' : undefined },
+          { label: 'Ticket Only', value: a.preTracking || 0, color: '#7B8AA0',
+            onClick: () => {
+              const existing = document.getElementById('_sdops_pt_modal');
+              if (existing) { existing.remove(); return; }
+              const tickets = a.preTrackingTickets || [];
+              const overlay = document.createElement('div');
+              overlay.id = '_sdops_pt_modal';
+              overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+              const box = document.createElement('div');
+              box.style.cssText = 'background:var(--panel,#fff);border-radius:14px;padding:24px 28px;min-width:380px;max-width:580px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);';
+              const esc = v => String(v == null ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+              // Only http(s) may reach an href. A javascript: or data: sdpUrl from
+              // upstream ticket data would otherwise execute on click.
+              const safeUrl = u => {
+                try { const p = new URL(u, window.location.origin);
+                      return (p.protocol === 'http:' || p.protocol === 'https:') ? p.href : null; }
+                catch (e) { return null; }
+              };
+              const rows = tickets.map(t => {
+                const d = t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '';
+                const href = t.sdpUrl ? safeUrl(t.sdpUrl) : null;
+                const link = href
+                  ? '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer" style="color:#0B5CD8;font-weight:600;text-decoration:none;">#' + esc(t.id) + '</a>'
+                  : '#' + esc(t.id);
+                return '<div style="padding:10px 0;border-bottom:1px solid var(--line,#E4E9F0);">' +
+                  link + ' &nbsp;<span style="color:var(--sub,#5E6C84);font-size:12px;">' +
+                  esc(t.requesterEmail || '') + (d ? ' &nbsp;·&nbsp; ' + esc(d) : '') + '</span></div>';
+              }).join('');
+              box.innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
+                  '<span style="font-weight:700;font-size:15px;">Ticket Only — Pre-System Tickets</span>' +
+                  '<span id="_sdops_pt_close" style="cursor:pointer;font-size:18px;line-height:1;color:var(--sub,#5E6C84);">×</span>' +
+                '</div>' +
+                (rows || '<div style="color:var(--sub,#5E6C84);font-size:13px;">No tickets found.</div>');
+              overlay.appendChild(box);
+              document.body.appendChild(overlay);
+              document.getElementById('_sdops_pt_close').onclick = () => overlay.remove();
+              overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+            }
+          }
+        ];
+      })();
+      const _kpiBlankFeeds = Array.from(new Set(kpisForDisplay
+        .map(k => this.kpiFeed(route, k.label))
+        .filter(f => f !== null && !this.feedOk(f))));
+      const _kpiAllBlank = kpisForDisplay.length > 0 && kpisForDisplay.every(k => _kpiBlank(k.label));
+      const _kpiBlankNote = _kpiBlankFeeds
+        .map(f => this.feedNote((this.feedFresh || {})[f] || null))
+        .join('; ');
+      detail = {
+        hasKpiNote: _kpiBlankFeeds.length > 0,
+        kpiNote: (_kpiAllBlank
+          ? 'No figures can be shown for this view \u2014 ' + _kpiBlankNote
+            + '. Nothing here has been measured since then.'
+          : 'Counts scoped to a period are not shown \u2014 ' + _kpiBlankNote
+            + '. The remaining figures are a snapshot as of that collection.'),
+        pageTitle: pg.title, pageSub: pg.sub,
+        pageKpis: kpisForDisplay.map((k, i) => {
+          const blankKpi = _kpiBlank(k.label);
+          const defs = this.kpiFilterDefs[route];
+          const entry = defs ? defs[i] : undefined;
+          const clickable = entry !== undefined;
+          const isClear = entry === 'clear';
+          const activeIdx = (S.kpiFilterIdx && S.kpiFilterIdx[route] != null) ? S.kpiFilterIdx[route] : null;
+          const active = clickable && !isClear && activeIdx === i;
+          return {
+            label: k.label, value: blankKpi ? '\u2014' : k.value,
+            onClick: () => {
+              if (!clickable) { if (k.onClick) k.onClick(); return; }
+              if (isClear) {
+                this.setState({ kpiFilterIdx: { ...(S.kpiFilterIdx || {}), [route]: null }, filters: { ...S.filters, [route]: {} }, dateFrom: { ...(S.dateFrom || {}), [route]: null }, pageNums: { ...S.pageNums, [route]: 0 } });
+                return;
+              }
+              const cur = (S.kpiFilterIdx && S.kpiFilterIdx[route] != null) ? S.kpiFilterIdx[route] : null;
+              const next = cur === i ? null : i;
+              this.setState({ kpiFilterIdx: { ...(S.kpiFilterIdx || {}), [route]: next }, filters: { ...S.filters, [route]: {} }, dateFrom: { ...(S.dateFrom || {}), [route]: null }, pageNums: { ...S.pageNums, [route]: 0 } });
+            },
+            style: {
+              background: active ? (k.color ? k.color + '14' : 'rgba(11,92,216,.08)') : 'var(--panel, #fff)',
+              border: '1px solid ' + (active ? (k.color || 'var(--accent, #0B5CD8)') : 'var(--line, #E4E9F0)'),
+              borderRadius: '10px', padding: '12px 18px', minWidth: '140px',
+              cursor: clickable ? 'pointer' : 'default',
+              color: k.color || 'var(--txt, #1B2733)'
+            },
+            hoverStyle: clickable ? { borderColor: k.color || 'var(--accent, #0B5CD8)' } : {}
+          };
+        }),
+        // Render the panel for an empty series too when the chart carries a
+        // period selector: that selector is the only way to reach a window
+        // that HAS data, and hiding it with the bars made it unreachable
+        // exactly when the current window was empty.
+        hasChart: !!chart && (chart.values.length > 0 || chartHasPeriods),
+        chartHasBars: !!chart && chart.values.length > 0 && !_chartEmpty,
+        chartEmpty: _chartEmpty,
+        chartEmptyText: !_chartEmpty ? ''
+          : (_chartNoSeries && _routeMeasured
+              ? 'Nothing in this period. Try a wider window.'
+              : 'Nothing to show for this period \u2014 ' + this.feedNote(_routeFeed)
+                + '. That is a gap in collection, not a measured zero.'),
+        chartHasPeriods,
+        chartPeriodBtns,
+        chartTitle: chart ? chart.title : '',
+        chartBars: chart ? chart.values.map((v, i) => ({ value: v, label: chart.labels[i], tip: chart.labels[i] + ': ' + v, style: { width: '100%', maxWidth: '44px', height: (v > 0 ? Math.max(1, Math.round(v / maxV * 90)) : 0) + 'px', flex: 'none', borderRadius: '5px 5px 2px 2px', background: chart.color, opacity: .8 } })) : [],
+        pageSearch: S.searches[route] || '',
+        onPageSearch: e => this.setState({ searches: { ...S.searches, [route]: e.target.value }, pageNums: { ...S.pageNums, [route]: 0 } }),
+        pageFilters: pg.filterKeys.map(fk => {
+          // One entry per label declared in a filterKeys array. The old
+          // fallback of label + 's' shipped "All Categorys",
+          // "All Assigneds" and "All Account Disableds" to live routes.
+          const PLURALS = {
+            Priority: 'Priorities', Status: 'Statuses', Category: 'Categories',
+            Subcategory: 'Subcategories', Technician: 'Technicians', Assigned: 'Assignees',
+            State: 'States', Agent: 'Agents', Outcome: 'Outcomes', Department: 'Departments',
+            Provisioning: 'Provisioning States', Office: 'Offices', Type: 'Types',
+            'Account Disabled': 'Account States'
+          };
+          const opts = ['All ' + (PLURALS[fk.label] || fk.label + 's'), ...Array.from(new Set(pg.rows.map(r => facetValue(r[fk.key])))).sort()];
+          const cur = fs[fk.key] && fs[fk.key] !== 'All' ? fs[fk.key] : opts[0];
+          return { value: cur, options: opts, onChange: e => this.setFilter(route, fk.key, e.target.value.startsWith('All ') ? 'All' : e.target.value) };
+        }),
+        pageCols: pg.columns.map(c => ({ hLabel: c.label + (sort && sort.key === c.key ? (sort.dir === 1 ? ' ▼' : ' ▲') : ''), onSort: () => this.sortBy(route, c.key) })),
+        pageRows: slice.map(r => ({ cells: pg.cellFor(r).map(c => ({ text: c.text, style: c.style || {}, onClick: c.onClick || (() => {}) })) })),
+        noRows: filtered.length === 0,
+        noRowsCanClear: filtered.length === 0 && pg.rows.length > 0,
+        noRowsText: (() => {
+          // Three different reasons a table is empty. Saying the wrong one
+          // sends the reader to fix a filter that is not the problem.
+          if (pg.rows.length > 0) return 'No records match your filters.';
+          if (route === 'homeoffice' && this.homeofficeListError) {
+            return 'Could not load the office breakdown \u2014 ' + this.homeofficeListError + '.';
+          }
+          const f = (this.feedFresh || {})[route] || null;
+          if (!f) return 'Loading\u2026';
+          if (f.status === 'ok') {
+            // This table is windowed, so "nothing here" is a statement about
+            // the selected period, not about the dataset.
+            return route === 'homeoffice'
+              ? 'No requests from any office in this period. Try a wider window.'
+              : 'No records in this view.';
+          }
+          return 'No data loaded \u2014 ' + this.feedNote(f)
+            + '. That is a gap in collection, not a measured zero.';
+        })(),
+        resultCount: (() => {
+          const loaded = pg.rows.length;
+          const srv = this.serverTotals ? this.serverTotals[route] : null;
+          let t = filtered.length + ' of ' + loaded + ' records';
+          if (typeof srv === 'number' && srv > loaded) {
+            t += ' \u2014 server returned the first ' + loaded + ' of ' + srv + '; narrow the filters to see the rest';
+          }
+          return t;
+        })(),
+        pageInfo: filtered.length === 0 ? 'No records' : ('Showing ' + (num * pageSize + 1) + '–' + Math.min(filtered.length, (num + 1) * pageSize) + ' of ' + filtered.length),
+        onPrevPage: () => { if (num > 0) this.setState({ pageNums: { ...S.pageNums, [route]: num - 1 } }); },
+        onNextPage: () => { if ((num + 1) * pageSize < filtered.length) this.setState({ pageNums: { ...S.pageNums, [route]: num + 1 } }); },
+        prevBtnStyle: pgBtn(num > 0), nextBtnStyle: pgBtn((num + 1) * pageSize < filtered.length),
+        onClearFilters: () => { const f = { ...S.filters }; delete f[route]; const s = { ...S.searches }; delete s[route]; this.setState({ filters: f, searches: s }); },
+        starIcon: React.createElement('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: isFav ? '#D9A406' : 'none', stroke: isFav ? '#D9A406' : 'currentColor', strokeWidth: 1.8, strokeLinejoin: 'round' }, React.createElement('path', { d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' })),
+        onToggleFav: () => { const favs = isFav ? S.favs.filter(x => x !== route) : [...S.favs, route]; this.setState({ favs }); this.showToast(isFav ? 'Removed from favorites' : 'Added to favorites'); },
+        hasTechStats: route === 'requests' && this.techClosed.length > 0,
+        hasTechNote: route === 'requests' && this.techClosed.length > 0 && !_routeMeasured,
+        techNote: _routeMeasured ? '' : ('These counts are only as current as the feed \u2014 '
+          + this.feedNote(_routeFeed) + '.'),
+        
+        periodBtns: ['week', 'month', 'quarter', 'year'].map(p => {
+          const active = (S.closedPeriod || 'week') === p;
+          return { label: 'This ' + p.charAt(0).toUpperCase() + p.slice(1), onClick: () => this.setState({ closedPeriod: p }), style: { padding: '6px 12px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', background: active ? 'var(--accent, #0B5CD8)' : 'var(--panel, #fff)', color: active ? '#fff' : 'var(--sub, #5E6C84)' } };
+        }),
+        techClosed: (() => {
+          const p = S.closedPeriod || 'week';
+          const sorted = this.techClosed.slice().sort((a, b) => b[p] - a[p]);
+          // Math.max() of [] is -Infinity, and value/0 is NaN. Both produce an
+          // invalid width the browser drops, which renders a FULL bar for a
+          // zero -- the most misleading value a bar can take.
+          const max = sorted.length ? Math.max(...sorted.map(t => t[p])) : 0;
+          return sorted.map(t => ({ name: t.name, count: t[p], barStyle: { width: (max > 0 ? Math.round(t[p] / max * 100) : 0) + '%', height: '100%', borderRadius: '5px', background: pg.color, opacity: .8 } }));
+        })(),
+        onRefresh: async () => { try { const rt = this.state.route; const map = { requests: 'loadLiveRequests', stale: 'loadLiveStale', calls: 'loadLiveCalls', employees: 'loadLiveEmployees', newhires: 'loadLiveNewHires', terminations: 'loadLiveTerminations', lockouts: 'loadLiveLockouts', resets: 'loadLiveResets', homeoffice: 'loadLiveHomeOffice', teams: 'loadLiveTeamsRequests', email: 'loadLiveEmailActivity' }; const fn = map[rt]; this.setState({ refreshing: true }); let syncNote = ''; try { const headers = {}; /* corpit: rbac-client.js attaches the bearer token */ if (rt === 'requests' || rt === 'stale') { const sr = await fetch('/api/sdops/requests/sync', { method: 'POST', headers }); if (sr.status === 403) syncNote = ' (live sync needs admin access — showing stored data)'; else if (!sr.ok) { let sj = null; try { sj = await sr.json(); } catch (_) {} syncNote = ' (sync failed: ' + ((sj && (sj.error || sj.detail)) || ('HTTP ' + sr.status)) + ')'; } } } catch (e) { console.error('sync error', e); syncNote = ' (sync failed: ' + ((e && e.message) || e) + ')'; } let reloaded = false; try { if (fn && typeof this[fn] === 'function') { await Promise.resolve(this[fn]()); reloaded = true; } } catch (e) { console.error('reload error', e); reloaded = false; } this.setState({ refreshing: false, refreshTick: (this.state.refreshTick || 0) + 1 }); // Only requests/stale have a server-side sync. Everywhere else this
+        // handler just re-reads the same stored table, so "Data refreshed" was
+        // a false confirmation on every dead-collector route.
+        this.showToast((reloaded
+          ? ((rt === 'requests' || rt === 'stale')
+              ? 'Data refreshed'
+              : 'Re-read stored data — no live sync for this view')
+          : 'Nothing to refresh on this view') + syncNote); } catch (e) { console.error('refresh error', e); this.setState({ refreshing: false }); } },
+        // 'refresh' is the name in icon()'s map; 'refresh-cw' was not, and
+        // drew an empty svg. Note this key also shadows the top-level
+        // refreshIcon while a route page is open -- both buttons render
+        // whatever this line produces.
+        refreshIcon: ic('refresh', 15, 'currentColor'),
+        onExportCsv: () => this.exportCsv('csv'),
+        onExportXls: () => this.exportCsv('xls'),
+        onPrint: () => window.print(),
+        showImport: route === 'calls' && this.callImportAvailable === true,
+        onImportPdf: () => {
+          const inp = document.createElement('input');
+          inp.type = 'file'; inp.accept = 'application/pdf';
+          inp.onchange = async () => {
+            const f = inp.files[0]; if (!f) return;
+            this.showToast('Uploading ' + f.name + ' ...');
+            try {
+              const b64 = await new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result.split(',')[1]);
+                r.onerror = () => rej(new Error('read failed'));
+                r.readAsDataURL(f);
+              });
+              /* corpit: bearer token attached by rbac-client.js */
+              const hdrs = { 'Content-Type': 'application/json' };
+              const resp = await fetch('/api/sdops/calls/import', { method: 'POST', headers: hdrs, body: JSON.stringify({ filename: f.name, data: b64 }) });
+              const out = await resp.json();
+              if (!resp.ok) throw new Error((out.error || resp.status) + (out.detail ? ': ' + out.detail : ''));
+              this.showToast('Imported ' + out.imported + ' calls');
+              this.loadLiveCalls();
+            } catch (e) { this.showToast('Import failed: ' + e.message); }
+          };
+          inp.click();
+        }
+      };
+    }
+
+    // ---- global search ----
+    const q = S.globalQ.trim().toLowerCase();
+    let searchResults = [];
+    if (q.length >= 2) {
+      Object.keys(this.defs).forEach(id => { if (this.defs[id].title.toLowerCase().includes(q)) searchResults.push({ label: this.defs[id].title, sub: 'Module', onClick: () => this.go(id) }); });
+      this.defs.requests.rows.filter(r => (r.subject + ' ' + r.id + ' ' + r.requester).toLowerCase().includes(q)).slice(0, 5).forEach(r => searchResults.push({ label: r.id + ' — ' + r.subject, sub: r.requester + ' · ' + r.status, onClick: () => { this.setState({ route: 'requests', globalQ: '', searches: { ...S.searches, requests: q } }); } }));
+      searchResults = searchResults.slice(0, 7);
+      if (!searchResults.length) searchResults.push({ label: 'No results for “' + S.globalQ + '”', sub: 'Try a ticket number, subject, or module name', onClick: () => {} });
+    }
+
+    return {
+      isDash, isDetail: !isDash && !!pg,
+      crumb: isDash ? ' / Dashboard' : ' / Dashboard / ' + (pg ? pg.title : ''),
+      todayLabel: new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+      refreshedText: this.freshnessText(),
+      goDashboard: () => this.go('dashboard'),
+      navToggleIcon: ic('menu', 18, 'currentColor'),
+      onNavToggle: () => document.body.classList.toggle('sdops-nav-open'),
+      dashNavStyle: navStyle(isDash),
+      navItems, favItems, hasFavs: false,
+      homeIcon: ic('home', 17, isDash ? '#7FB5FF' : '#7B8AA0'),
+      plusIcon: ic('plus', 15, 'currentColor'),
+      searchIcon: ic('search', 16, 'var(--sub, #5E6C84)'), searchIcon2: ic('search', 16, 'var(--sub, #5E6C84)'),
+      refreshIcon: ic('refresh', 16, 'currentColor'),
+      themeIcon: ic(theme === 'dark' ? 'sun' : 'moon', 16, 'currentColor'),
+      bellIcon: ic('bell', 16, 'currentColor'),
+      arrowIcon: ic('arrow', 16, 'currentColor'),
+      downloadIcon: ic('download', 15, 'currentColor'), downloadIcon2: ic('download', 15, 'currentColor'),
+      printIcon: ic('printer', 15, 'currentColor'),
+      onToggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' }),
+      onToggleNotif: () => this.setState({ notifOpen: !S.notifOpen }),
+      notifOpen: S.notifOpen,
+      hasUnread: this.notifs.length > 0,
+      notifications: this.notifs.map(n => ({ title: n.title, sub: n.sub, dotStyle: { width: '8px', height: '8px', borderRadius: '50%', background: n.color, marginTop: '5px', flexShrink: 0 } })),
+      onRefresh: async () => {
+        this.setState({ refreshing: true });
+        const loaders = ['loadLiveRequests', 'loadLiveStale', 'loadLiveCalls', 'loadLiveEmployees',
+                         'loadLiveTeamsRequests', 'loadLiveEmailActivity', 'loadLiveTopCategories',
+                         'loadLiveTrend', 'loadLiveManualContent'];
+        const results = await Promise.all(loaders.map(fn => {
+          if (typeof this[fn] !== 'function') return Promise.resolve(false);
+          return Promise.resolve(this[fn]()).then(() => true)
+            .catch(e => { console.error('dashboard refresh: ' + fn, e); return false; });
+        }));
+        const ok = results.filter(Boolean).length;
+        this.setState({ refreshing: false, refreshTick: (this.state.refreshTick || 0) + 1 });
+        this.showToast(ok === loaders.length
+          ? 'Dashboard refreshed'
+          : 'Dashboard partially refreshed \u2014 ' + (loaders.length - ok) + ' of ' + loaders.length + ' feeds failed');
+      },
+      onAddModule: () => this.showToast('Modular slot ready — future widgets (M365, Intune, Okta…) plug in here'),
+      globalQ: S.globalQ,
+      onGlobalSearch: e => this.setState({ globalQ: e.target.value }),
+      onGlobalBlur: () => setTimeout(() => this.setState({ globalQ: '' }), 180),
+      searchOpen: q.length >= 2, searchResults,
+      isTiles: layout === 'tiles', isCommand: layout === 'command',
+      onLayoutTiles: () => this.setState({ layout: 'tiles' }),
+      onLayoutCommand: () => this.setState({ layout: 'command' }),
+      tilesBtnStyle: segBtn(layout === 'tiles'), commandBtnStyle: segBtn(layout === 'command'),
+      tileGridStyle: { display: 'grid', gridTemplateColumns: layout === 'tiles' ? 'repeat(auto-fill, minmax(310px, 1fr))' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' },
+      tiles, heroCards, topCatBars, topCatWindows, topCatSub, topCatHasData, topCatEmpty, topCatEmptyText,
+      trendBars, trendWindows, trendSub, trendHasData, trendEmpty, trendEmptyText,
+      hasToast: !!S.toast, toast: S.toast,
+      ...detail
+    };
+  }
+}
+
+</script>
+
+
+<script src="/it-observe.js" data-app-key="service-desk-portal"></script>
+<script src="/it-topbar.js" defer></script>
+<script src="/feed-freshness.js" data-page="service-desk-portal" defer></script>
+<script src="/it-version.js" data-app-key="service-desk-portal" defer></script>
+</body></html>

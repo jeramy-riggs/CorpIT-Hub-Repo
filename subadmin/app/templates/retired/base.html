@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{% block title %}Subdomain Admin{% endblock %} &middot; NRPI IT</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --panel:#ffffff; --ink:#0f1b2d; --muted:#5b6b82; --line:#e2e8f0;
+    --accent:#1f6feb; --accent-ink:#fff; --chip:#eef2f8; --ok:#0f9d58; --err:#d93025;
+    --ok-bg:#e6f4ea; --err-bg:#fce8e6; --shadow:0 20px 50px -30px rgba(2,12,30,.5);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0b1220; --panel:#111a2b; --ink:#e8eef7; --muted:#9fb0c7; --line:#22304a;
+      --accent:#4f8cf5; --accent-ink:#0b1220; --chip:#182338; --ok:#5bd08a; --err:#ff7a70;
+      --ok-bg:#12301f; --err-bg:#3a1815;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14.5px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);background:var(--bg)}
+  a{color:var(--accent)}
+  .top{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 24px;
+    display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
+  .logo{width:34px;height:34px;border-radius:9px;flex:none;background:linear-gradient(135deg,var(--accent),#7db0ff);
+    display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px}
+  .top b{font-size:15px}.top span{color:var(--muted);font-size:12.5px;display:block}
+  .top .sp{flex:1}
+  .who{color:var(--muted);font-size:13px;margin-right:6px}
+  .wrap{max-width:1000px;margin:26px auto;padding:0 24px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin-bottom:22px}
+  .card h2{font-size:15px;margin:0;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .card .body{padding:20px}
+  label{display:block;font-weight:600;font-size:13px;margin:0 0 6px}
+  .hint{color:var(--muted);font-weight:400;font-size:12.5px}
+  input[type=text],textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;
+    background:var(--bg);color:var(--ink);font:inherit}
+  textarea{min-height:64px;resize:vertical}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .fqdn-prev{font:13px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);margin-top:6px}
+  .btn{display:inline-flex;align-items:center;gap:7px;border:0;border-radius:9px;padding:10px 16px;
+    font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-ink);text-decoration:none}
+  .btn.ghost{background:var(--chip);color:var(--ink);border:1px solid var(--line)}
+  .btn.danger{background:transparent;color:var(--err);border:1px solid var(--line);padding:7px 12px;font-size:13px}
+  .btn.sm{padding:7px 12px;font-size:13px}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:11px 20px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:middle}
+  th{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+  tr:last-child td{border-bottom:0}
+  td.mono,.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+  .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:700;border:1px solid var(--line)}
+  .pill.parked{background:var(--chip);color:var(--muted)}
+  .pill.live{background:var(--ok-bg);color:var(--ok)}
+  .pill.disabled{background:var(--err-bg);color:var(--err)}
+  .flash{padding:12px 16px;border-radius:10px;margin-bottom:16px;font-size:13.5px;border:1px solid transparent}
+  .flash.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+  .flash.error{background:var(--err-bg);color:var(--err);border-color:var(--err)}
+  .empty{padding:34px 20px;text-align:center;color:var(--muted)}
+  pre.csr{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;
+    font-size:12px;line-height:1.4;max-height:340px}
+  .kv{display:grid;grid-template-columns:160px 1fr;gap:8px 16px;font-size:13.5px}
+  .kv dt{color:var(--muted)} .kv dd{margin:0}
+  ol.steps{margin:0;padding-left:20px} ol.steps li{margin:7px 0}
+  code{background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+  @media (max-width:640px){.row{grid-template-columns:1fr}.kv{grid-template-columns:1fr}
+    th.hide,td.hide{display:none}}
+</style>
+</head>
+<body>
+  <header class="top">
+    <div class="logo">NR</div>
+    <div><b>Subdomain Admin</b><span>NRPI IT &middot; {{ request.host }}</span></div>
+    <div class="sp"></div>
+    {% if session.user %}
+      <a class="btn ghost sm" href="{{ url_for('dashboard') }}" style="margin-right:8px">Subdomains</a>
+      <a class="btn ghost sm" href="{{ url_for('beta_links_page') }}" style="margin-right:8px">Beta links</a>
+      <a class="btn ghost sm" href="{{ url_for('gal_page') }}" style="margin-right:8px">Directory Sync</a>
+      {% if is_platform_owner() %}
+      <a class="btn ghost sm" href="{{ url_for('settings_page') }}" style="margin-right:8px">Settings</a>
+      {% endif %}
+      <a class="btn ghost sm" href="{{ url_for('account') }}" style="margin-right:8px">{{ session.user }}</a>
+      <form method="post" action="{{ url_for('logout') }}" style="margin:0">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button class="btn ghost sm" type="submit">Sign out</button>
+      </form>
+    {% endif %}
+  </header>
+  <main class="wrap">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

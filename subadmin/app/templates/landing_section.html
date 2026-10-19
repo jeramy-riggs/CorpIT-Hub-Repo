@@ -1,0 +1,294 @@
+{# HOME PAGE - a canvas that looks like the CorpIT landing page, plus one inspector.
+   Click a tile to edit it on the right. Drag tiles to move them; drag a section's handle to
+   reorder sections. Every save posts to landing.py and goes live right away. #}
+<style>
+  /* icon chip: --ico is the icon url; glyphs are masked so the tone colours them, logos show as-is */
+  .ico-prev{--tone:#475569;--tone-bg:rgba(71,85,105,.12);width:38px;height:38px;border-radius:10px;flex:0 0 auto;
+    display:grid;place-items:center;background:var(--tone-bg);color:var(--tone);border:1px solid transparent}
+  .ico-prev::before{content:"";display:block;width:22px;height:22px;background:currentColor;
+    -webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+  .ico-prev[data-kind="logo"]{background:#fff;border-color:var(--border)}
+  .ico-prev[data-kind="logo"]::before{width:24px;height:24px;background:var(--ico) center/contain no-repeat;-webkit-mask:none;mask:none}
+  .ico-prev[data-tone="blue"]{--tone:#3B5BDB;--tone-bg:rgba(59,91,219,.12)}
+  .ico-prev[data-tone="teal"]{--tone:#0D9488;--tone-bg:rgba(13,148,136,.12)}
+  .ico-prev[data-tone="purple"]{--tone:#7C3AED;--tone-bg:rgba(124,58,237,.12)}
+  .ico-prev[data-tone="amber"]{--tone:#D97706;--tone-bg:rgba(217,119,6,.14)}
+  .ico-prev[data-tone="red"]{--tone:#DC2626;--tone-bg:rgba(220,38,38,.12)}
+  .ico-prev[data-tone="green"]{--tone:#16A34A;--tone-bg:rgba(22,163,74,.12)}
+  .ico-prev[data-tone="slate"]{--tone:#475569;--tone-bg:rgba(71,85,105,.12)}
+  .ico-prev.sm{width:32px;height:32px;border-radius:8px} .ico-prev.sm::before{width:18px;height:18px} .ico-prev.sm[data-kind="logo"]::before{width:20px;height:20px}
+  .ico-prev.xs{width:24px;height:24px;border-radius:6px} .ico-prev.xs::before{width:14px;height:14px} .ico-prev.xs[data-kind="logo"]::before{width:16px;height:16px}
+  .ico-prev.lg{width:56px;height:56px;border-radius:14px} .ico-prev.lg::before{width:32px;height:32px} .ico-prev.lg[data-kind="logo"]::before{width:36px;height:36px}
+
+  /* layout */
+  .lp{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;align-items:start}
+  .lp-canvas{min-width:0}
+  .lp-inspector{position:sticky;top:72px;max-height:calc(100vh - 88px);overflow-y:auto}
+  @media (max-width:1120px){.lp{grid-template-columns:1fr}.lp-inspector{position:static;max-height:none}}
+
+  /* strips that mirror the top of the landing page */
+  .lp-strip{margin-bottom:12px}
+  .lp-strip .card-h{padding:11px 16px}
+  .lp-strip .card-h h3{font-size:13px}
+  .lp-chips{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px}
+  .lp-chip{display:inline-flex;align-items:center;gap:8px;padding:5px 11px 5px 5px;border:1px solid var(--border);border-radius:999px;
+    background:var(--surface);font:inherit;font-size:12.5px;font-weight:500;color:var(--ink);cursor:pointer;transition:transform .12s var(--ease-out)}
+  .lp-chip:active{transform:scale(.97)}
+  @media (hover:hover) and (pointer:fine){.lp-chip:hover{border-color:var(--ink-3)}}
+  .lp-chip[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .lp-chips .empty{padding:6px 0;text-align:left;font-size:12.5px}
+
+  /* sections */
+  .lp-sec{margin-bottom:14px}
+  .lp-sec.dragging{opacity:.4}
+  .lp-sec-h{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 8px;border-bottom:1px solid var(--border-2)}
+  .lp-sec-handle{width:22px;height:26px;display:grid;place-items:center;color:var(--ink-3);cursor:grab;border-radius:6px;border:0;background:none;padding:0}
+  .lp-sec-handle:active{cursor:grabbing}
+  .lp-sec-handle svg{width:14px;height:14px}
+  @media (hover:hover) and (pointer:fine){.lp-sec-handle:hover{background:var(--surface-2);color:var(--ink)}}
+  .lp-sec-name{font:inherit;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);
+    background:none;border:0;padding:4px 8px;border-radius:6px;cursor:pointer;text-align:left}
+  @media (hover:hover) and (pointer:fine){.lp-sec-name:hover{background:var(--surface-2);color:var(--ink)}}
+  .lp-sec-name[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+  .lp-sec-h .meta{font-size:12px;color:var(--ink-3)}
+  .lp-sec.is-hidden .lp-grid{opacity:.55}
+  .lp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:10px;padding:14px 14px 16px;min-height:60px}
+
+  /* tiles - a smaller twin of the tiles on the landing page */
+  .lp-tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:12px 12px 11px;min-height:104px;
+    border:1px solid var(--border);border-radius:11px;background:var(--surface);text-align:left;font:inherit;color:var(--ink);cursor:pointer;
+    box-shadow:0 1px 2px rgba(16,24,40,.04);transition:transform .12s var(--ease-out),box-shadow .12s var(--ease-out),border-color .12s ease}
+  .lp-tile:active{transform:scale(.98)}
+  @media (hover:hover) and (pointer:fine){.lp-tile:hover{border-color:var(--ink-3);box-shadow:0 4px 14px -6px rgba(16,24,40,.18)}}
+  .lp-tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .lp-tile[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .lp-tile.is-hidden{opacity:.5;border-style:dashed}
+  .lp-tile.dragging{opacity:.35}
+  .lp-tile-name{font-size:12.5px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+  .lp-tile-host{font-family:var(--mono);font-size:10px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+  .lp-marks{position:absolute;top:8px;right:8px;display:flex;gap:4px}
+  .lp-marks span{font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.04em;padding:1px 5px;border-radius:4px;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--border)}
+  .lp-add{border-style:dashed;justify-content:center;align-items:center;color:var(--ink-3);gap:6px;font-size:12.5px;font-weight:500;box-shadow:none}
+  .lp-add svg{width:16px;height:16px}
+  @media (hover:hover) and (pointer:fine){.lp-add:hover{color:var(--accent);border-color:var(--accent)}}
+  .lp-addsec{width:100%;padding:14px;border:1px dashed var(--border);border-radius:var(--r);background:none;font:inherit;font-size:13px;font-weight:500;color:var(--ink-3);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .lp-addsec svg{width:16px;height:16px}
+  @media (hover:hover) and (pointer:fine){.lp-addsec:hover{color:var(--accent);border-color:var(--accent)}}
+  .lp-addsec[aria-pressed="true"]{color:var(--accent);border-color:var(--accent);border-style:solid}
+
+  /* inspector */
+  .lp-pane .card-h{padding:12px 16px}
+  .lp-pane .card-h h3{font-size:14px}
+  .lp-pane .card-b{padding:14px 16px 16px}
+  .lp-pane .f{margin-bottom:12px}
+  .lp-empty{padding:34px 20px;text-align:center;color:var(--ink-3);font-size:13.5px;line-height:1.55}
+  .lp-empty b{display:block;color:var(--ink-2);margin-bottom:4px}
+  .lp-empty .btn{margin-top:14px}
+  .iconfield{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface)}
+  .iconfield .ico-meta{min-width:0;flex:1}
+  .iconfield .ico-meta b{display:block;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .iconfield .ico-meta small{display:block;font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tones{display:flex;flex-wrap:wrap;gap:6px}
+  .tone{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 9px 4px 5px;border:1px solid var(--border);border-radius:999px;cursor:pointer;background:var(--surface);position:relative}
+  .tone input{position:absolute;opacity:0;width:0;height:0}
+  .tone i{width:14px;height:14px;border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+  .tone:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .tone:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  .checks{display:grid;gap:7px;margin:4px 0 14px}
+  .checks .f-inline{margin:0}
+  .checks small{display:block;color:var(--ink-3);font-size:11.5px;margin:-4px 0 0 25px}
+  .lp-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .lp-actions form{display:inline}
+  .lp-secondary{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px;border-top:1px solid var(--border-2);background:var(--raise)}
+  .lp-secondary form{display:inline}
+  .lp-secondary .spacer{margin-left:auto}
+  .lp-meta{padding:10px 16px;font-size:11.5px;color:var(--ink-3);border-top:1px solid var(--border-2)}
+  .lp-status{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-2)}
+  .lp-status .st{font-size:12.5px}
+
+  /* picker */
+  dialog.sheet.picker{width:min(760px,94vw);max-height:86vh;padding:0}
+  dialog.sheet.picker[open]{display:flex;flex-direction:column}
+  .picker-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--border-2)}
+  .picker-tools input[type=search]{flex:1;min-width:200px}
+  .chips{display:flex;gap:6px}
+  .chips button{font:inherit;font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink-2);cursor:pointer}
+  .chips button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+  .icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;padding:14px 20px;overflow-y:auto;flex:1;min-height:200px}
+  .ico-cell{font:inherit;display:flex;flex-direction:column;align-items:center;gap:7px;padding:10px 6px 8px;border-radius:9px;border:1px solid transparent;
+    background:none;cursor:pointer;color:var(--ink);text-align:center;transition:transform .1s var(--ease-out)}
+  .ico-cell:active{transform:scale(.97)}
+  .ico-cell span.lbl{font-size:11px;line-height:1.3;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%}
+  @media (hover:hover) and (pointer:fine){.ico-cell:hover{background:var(--surface-2);border-color:var(--border)}}
+  .ico-cell[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+  .ico-cell:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .picker-empty{grid-column:1/-1;padding:30px;text-align:center;color:var(--ink-3)}
+  .picker-empty b{display:block;color:var(--ink-2);margin-bottom:4px}
+</style>
+
+{% set lp_can = can('landing.manage') %}
+<section class="page wide" data-view="landing" hidden>
+  <div class="page-h">
+    <div><h2>Tool catalog</h2>
+      <p>This is what people see on <a href="{{ landing_hub_url }}" target="_blank" rel="noopener">corpit.nrpi.local</a>. Click a tile to change it. {% if lp_can %}Drag tiles to move them. Every save goes live right away.{% endif %}</p></div>
+    <div class="actions">
+      <span class="lp-status" id="lp-status"><span class="st {{ 'good' if landing_published else 'warn' }}"><i></i>{% if landing_published %}Live · updated {{ landing_published[11:16] }} UTC{% else %}Not published yet{% endif %}</span></span>
+      <a class="btn" href="{{ landing_hub_url }}" target="_blank" rel="noopener">Open the home page</a>
+    </div>
+  </div>
+
+  {% if not lp_can %}
+  <div class="note quiet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
+    <div><b>You can look, but not change anything here.</b> Editing the home page needs the <b>Edit the CorpIT home page</b> permission, granted under People &amp; Access.</div></div>
+  {% endif %}
+
+  <div class="lp" id="lp" data-can="{{ 1 if lp_can else 0 }}" data-csrf="{{ csrf_token() }}">
+    {# ============================ canvas ============================ #}
+    <div class="lp-canvas" id="lp-canvas">
+      {% set quick = [] %}{% set favs = [] %}
+      {% for s in landing_sections %}{% for l in s['links'] %}{% if l['quick'] %}{% set _ = quick.append(l) %}{% endif %}{% if l['favorite'] %}{% set _ = favs.append(l) %}{% endif %}{% endfor %}{% endfor %}
+
+      <div class="card lp-strip">
+        <div class="card-h"><h3>Quick launch tiles</h3><span class="meta">{{ quick|length }} · the first 4 appear on the home page</span></div>
+        <div class="lp-chips">
+          {% for l in quick %}<button type="button" class="lp-chip" data-lp-select="{{ l['id'] }}"><span class="ico-prev xs" data-kind="{{ l['icon_kind'] }}" data-tone="{{ l['tone'] }}" style="--ico:url('{{ l['icon_src'] }}')"></span>{{ l['title'] }}</button>
+          {% else %}<div class="empty">None yet. Open a link and turn on <b>Quick launch tile</b>.</div>{% endfor %}
+        </div>
+      </div>
+      <div class="card lp-strip">
+        <div class="card-h"><h3>Favorite Tools</h3><span class="meta">{{ favs|length }} · the shortcut row near the bottom of the page</span></div>
+        <div class="lp-chips">
+          {% for l in favs %}<button type="button" class="lp-chip" data-lp-select="{{ l['id'] }}"><span class="ico-prev xs" data-kind="{{ l['icon_kind'] }}" data-tone="{{ l['tone'] }}" style="--ico:url('{{ l['icon_src'] }}')"></span>{{ l['title'] }}</button>
+          {% else %}<div class="empty">None yet. Open a link and turn on <b>Favorite Tools</b>.</div>{% endfor %}
+        </div>
+      </div>
+
+      <div id="lp-sections">
+      {% for s in landing_sections %}
+      <div class="card lp-sec{% if not s['enabled'] %} is-hidden{% endif %}" data-section-id="{{ s['id'] }}" data-name="{{ s['name'] }}" data-enabled="{{ 1 if s['enabled'] else 0 }}" data-count="{{ s['links']|length }}">
+        <div class="lp-sec-h">
+          {% if lp_can %}<button type="button" class="lp-sec-handle" draggable="true" title="Drag to move this section" aria-label="Drag to move section {{ s['name'] }}"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></button>{% endif %}
+          <button type="button" class="lp-sec-name" data-lp-section="{{ s['id'] }}" title="Click to rename, hide or remove this section">{{ s['name'] }}</button>
+          <span class="meta">{{ s['links']|length }} link{{ '' if s['links']|length == 1 else 's' }}{% if not s['enabled'] %} · <b>hidden</b>{% endif %}</span>
+        </div>
+        <div class="lp-grid" data-section-id="{{ s['id'] }}">
+          {% for l in s['links'] %}
+          {% set host = l['url'].split('/')[2] if l['url'].startswith('https://') and l['url'].count('/') >= 2 else 'corpit.nrpi.local' %}
+          <button type="button" class="lp-tile{% if not l['enabled'] %} is-hidden{% endif %}" {% if lp_can %}draggable="true"{% endif %}
+                  data-link-id="{{ l['id'] }}" data-title="{{ l['title'] }}" data-url="{{ l['url'] }}" data-desc="{{ l['description'] or '' }}"
+                  data-section="{{ l['section_id'] }}" data-icon="{{ l['icon'] or landing_default_icon }}" data-icon-src="{{ l['icon_src'] }}"
+                  data-icon-kind="{{ l['icon_kind'] }}" data-icon-label="{{ l['icon_label'] }}" data-tone="{{ l['tone'] }}"
+                  data-new-tab="{{ 1 if l['new_tab'] else 0 }}" data-favorite="{{ 1 if l['favorite'] else 0 }}" data-quick="{{ 1 if l['quick'] else 0 }}"
+                  data-enabled="{{ 1 if l['enabled'] else 0 }}" data-created="{{ (l['created_at'] or '')[:10] }} by {{ l['created_by'] or '—' }}"
+                  data-updated="{% if l['updated_at'] %}{{ l['updated_at'][:10] }} by {{ l['updated_by'] }}{% endif %}">
+            <span class="ico-prev sm" data-kind="{{ l['icon_kind'] }}" data-tone="{{ l['tone'] }}" style="--ico:url('{{ l['icon_src'] }}')"></span>
+            <span class="lp-tile-name">{{ l['title'] }}</span>
+            <span class="lp-tile-host">{{ host }}</span>
+            <span class="lp-marks">{% if not l['enabled'] %}<span title="Hidden from the home page">hidden</span>{% endif %}{% if l['quick'] %}<span title="Shown as a Quick launch tile on the home page">quick</span>{% endif %}{% if l['favorite'] %}<span title="In Favorite Tools">fav</span>{% endif %}</span>
+          </button>
+          {% endfor %}
+          {% if lp_can %}<button type="button" class="lp-tile lp-add" data-lp-add="{{ s['id'] }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add a link</button>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      </div>
+      {% if lp_can %}<button type="button" class="lp-addsec" data-lp-addsec><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add a section</button>{% endif %}
+    </div>
+
+    {# ============================ inspector ============================ #}
+    {% if lp_can %}
+    <aside class="lp-inspector" id="lp-inspector" aria-live="polite">
+
+      <div class="card lp-pane" data-pane="empty">
+        <div class="lp-empty"><b>Nothing selected</b>Click a tile to edit it, or add a new link to any section.
+          <div><button type="button" class="btn pri" data-lp-add="{{ landing_sections[0]['id'] if landing_sections else '' }}"{% if not landing_sections %} disabled{% endif %}>Add a link</button></div></div>
+      </div>
+
+      <div class="card lp-pane" data-pane="link" hidden>
+        <div class="card-h"><h3 id="lp-link-title">Edit link</h3><div class="actions"><button type="button" class="btn sm" data-lp-close>Done</button></div></div>
+        <form method="post" id="lp-form" action="{{ url_for('landing_link_add') }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <div class="card-b">
+            <div class="f"><label>Icon</label>
+              <div class="iconfield" data-iconfield>
+                <span class="ico-prev lg" data-icon-preview data-kind="glyph" data-tone="blue" style="--ico:url('{{ landing_default_icon_src }}')"></span>
+                <div class="ico-meta"><b data-icon-label>Link</b><small class="mono" data-icon-id>{{ landing_default_icon }}</small></div>
+                <input type="hidden" name="icon" value="{{ landing_default_icon }}">
+                <button type="button" class="btn sm" data-icon-pick>Change</button>
+              </div></div>
+            <div class="f"><label for="lp-title">Name</label><input id="lp-title" type="text" name="title" maxlength="60" placeholder="Zscaler Admin" required></div>
+            <div class="f"><label for="lp-url">Web address <span class="hint">starts with https:// — or /page.html for a page on corpit</span></label><input id="lp-url" type="text" name="url" maxlength="500" placeholder="https://admin.zscaler.com" spellcheck="false" required></div>
+            <div class="f"><label for="lp-desc">Short description <span class="hint">one line under the name</span></label><input id="lp-desc" type="text" name="description" maxlength="120" placeholder="Web filtering, ZPA and user policy"></div>
+            <div class="f"><label for="lp-section">Section</label><select id="lp-section" name="section_id">{% for o in landing_sections %}<option value="{{ o['id'] }}">{{ o['name'] }}</option>{% endfor %}</select></div>
+            <div class="f"><label>Color behind the icon <span class="hint">logos keep their own colors</span></label>
+              <div class="tones">{% for key, name, hex in landing_tones %}<label class="tone"><input type="radio" name="tone" value="{{ key }}"{% if key == 'blue' %} checked{% endif %}><i style="background:{{ hex }}"></i>{{ name }}</label>{% endfor %}</div></div>
+            <div class="checks">
+              <label class="f-inline"><input type="checkbox" name="new_tab" value="1" checked> Open in a new tab</label>
+              <label class="f-inline"><input type="checkbox" name="favorite" value="1"> Show in <b>Favorite Tools</b></label>
+              <label class="f-inline"><input type="checkbox" name="quick" value="1"> Show as a <b>Quick launch tile</b> on the home page</label>
+            </div>
+            <div class="lp-actions"><button class="btn pri" type="submit" id="lp-save">Save</button><span class="hint" style="margin:0">Goes live on the home page when you save.</span></div>
+          </div>
+        </form>
+        <div class="lp-secondary" id="lp-secondary">
+          <form method="post" id="lp-move-up"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="dir" value="up"><button class="btn sm" type="submit" title="Move earlier in its section">↑</button></form>
+          <form method="post" id="lp-move-down"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="dir" value="down"><button class="btn sm" type="submit" title="Move later in its section">↓</button></form>
+          <form method="post" id="lp-toggle"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm" type="submit" id="lp-toggle-btn">Hide</button></form>
+          <span class="spacer"></span>
+          <form method="post" id="lp-delete"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm danger" type="submit" id="lp-delete-btn" data-confirm="Remove this link?">Remove</button></form>
+        </div>
+        <div class="lp-meta" id="lp-meta"></div>
+      </div>
+
+      <div class="card lp-pane" data-pane="section" hidden>
+        <div class="card-h"><h3 id="lp-sec-title">Section</h3><div class="actions"><button type="button" class="btn sm" data-lp-close>Done</button></div></div>
+        <form method="post" id="lp-sec-form">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <div class="card-b">
+            <div class="f"><label for="lp-sec-name">Section name</label><input id="lp-sec-name" type="text" name="name" maxlength="40" required></div>
+            <div class="lp-actions"><button class="btn pri" type="submit">Save name</button></div>
+          </div>
+        </form>
+        <div class="lp-secondary">
+          <form method="post" id="lp-sec-up"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="dir" value="up"><button class="btn sm" type="submit" title="Move section up">↑</button></form>
+          <form method="post" id="lp-sec-down"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="dir" value="down"><button class="btn sm" type="submit" title="Move section down">↓</button></form>
+          <form method="post" id="lp-sec-toggle"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm" type="submit" id="lp-sec-toggle-btn">Hide section</button></form>
+          <span class="spacer"></span>
+          <form method="post" id="lp-sec-delete"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm danger" type="submit" id="lp-sec-delete-btn" data-confirm="Remove this section?">Remove</button></form>
+        </div>
+        <div class="lp-meta" id="lp-sec-meta"></div>
+      </div>
+
+      <div class="card lp-pane" data-pane="newsection" hidden>
+        <div class="card-h"><h3>New section</h3><div class="actions"><button type="button" class="btn sm" data-lp-close>Done</button></div></div>
+        <form method="post" action="{{ url_for('landing_section_add') }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <div class="card-b">
+            <div class="f"><label for="lp-newsec">Section name <span class="hint">e.g. "Printing" or "HR Systems"</span></label><input id="lp-newsec" type="text" name="name" maxlength="40" placeholder="Printing" required></div>
+            <div class="lp-actions"><button class="btn pri" type="submit">Add section</button><span class="hint" style="margin:0">It shows on the home page once it has a link.</span></div>
+          </div>
+        </form>
+      </div>
+    </aside>
+    {% endif %}
+  </div>
+</section>
+
+{# ============================ the icon picker ============================ #}
+<dialog class="sheet picker" id="icon-picker" aria-labelledby="icon-picker-t">
+  <div class="sheet-h">
+    <div><h3 id="icon-picker-t">Choose an icon</h3><div class="sub">Type a product (Zscaler, Okta, Entra, Meraki) or a plain word (security, network, people, printer)</div></div>
+    <button class="btn sm" type="button" data-icon-close style="margin-left:auto">Close</button>
+  </div>
+  <div class="picker-tools">
+    <input id="icon-q" type="search" placeholder="Search {{ '{:,}'.format(landing_icon_count) }} icons…" autocomplete="off" spellcheck="false" aria-label="Search icons">
+    <div class="chips" role="group" aria-label="Icon type">
+      <button type="button" data-icon-kind="all" aria-pressed="true">All</button>
+      <button type="button" data-icon-kind="logo" aria-pressed="false">Company logos</button>
+      <button type="button" data-icon-kind="glyph" aria-pressed="false">Simple icons</button>
+    </div>
+    <span class="meta" id="icon-count" style="font-size:12px;color:var(--ink-3)"></span>
+  </div>
+  <div class="icon-grid" id="icon-grid" role="listbox" aria-label="Icons"></div>
+  <div class="sheet-f"><span class="why">Click an icon to use it. Company logos keep their real colors; simple icons take the color you pick.</span></div>
+</dialog>

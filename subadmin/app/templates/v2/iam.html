@@ -1,0 +1,337 @@
+{# PEOPLE & ACCESS - review access, console permissions, and role groups. #}
+<section class="page" data-view="iam" hidden>
+  <div class="page-h">
+    <div><h2 id="access-page-title">Access review</h2>
+      <p id="access-page-description">Choose a site or AD group, review its access path, then record a decision.</p></div>
+  </div>
+
+  {# Access Control (Hub page permissions) moved in here on 2026-10-12 from the standalone
+     corpit.nrpi.local/access-admin.html. Owner-only tab; the hub API still decides (super admin). #}
+  <div class="tabs" role="tablist" data-tabs="iam">
+    <button class="tab" role="tab" data-tab="governance" aria-selected="true">Review access</button>
+    <button class="tab" role="tab" data-tab="permissions" aria-selected="false">Permissions</button>
+    <button class="tab" role="tab" data-tab="roles" aria-selected="false">Roles &amp; groups</button>
+    {% if is_platform_owner() %}<button class="tab" role="tab" data-tab="access" aria-selected="false">Hub page access</button>{% endif %}
+  </div>
+
+  {# ---------------- governance registry ---------------- #}
+  <div data-tabpanel="governance">
+    {% include 'v2/access_review.html' %}
+    {% if false %}{# Retained temporarily for rollback while the unified workspace is verified. #}
+    {% if access_directory_error %}
+    <div class="note warn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+      <div><b>Active Directory evidence is unavailable.</b> The policy references below are still shown, but member counts, owners, descriptions, and AD health are unknown. No unknown value is being treated as healthy.</div>
+    </div>
+    {% endif %}
+
+    <div class="ag-posture" aria-label="Access governance posture">
+      <div><span>AD role groups</span><b>{{ access_summary.groups }}</b></div>
+      <div><span>Need attention</span><b class="{{ 'ag-warn' if access_summary.attention else '' }}">{{ access_summary.attention }}</b></div>
+      <div><span>Missing owner</span><b class="{{ 'ag-warn' if access_summary.unowned else '' }}">{{ access_summary.unowned }}</b></div>
+      <div><span>No known enforcement</span><b class="{{ 'ag-warn' if access_summary.unreferenced else '' }}">{{ access_summary.unreferenced }}</b></div>
+      <p>Live AD evidence joined to SubAdmin roles, capabilities, and site admission. Hub page permissions stay in Access Control.</p>
+    </div>
+
+    <div class="card" id="access-registry">
+      <div class="card-h">
+        <div><h3>Entitlement registry</h3><span class="meta">direct AD membership · refreshed at most every two minutes</span></div>
+        <div class="actions"><label class="sr-only" for="access-group-filter">Filter groups</label><input id="access-group-filter" class="ag-filter" type="search" placeholder="Filter groups or findings" autocomplete="off" data-access-filter></div>
+      </div>
+      <div class="tblwrap">
+        <table class="grid ag-registry">
+          <thead><tr><th>AD group</th><th>Directory record</th><th>Enforced by</th><th>Status</th></tr></thead>
+          <tbody data-access-rows>
+          {% for g in access_registry %}
+            <tr data-access-row data-search="{{ (g.name ~ ' ' ~ (g.owner or '') ~ ' ' ~ (g.description or '') ~ ' ' ~ (g.issues|map(attribute=1)|join(' ')))|lower }}">
+              <td>
+                <b class="mono">{{ g.name }}</b>
+                <div class="hint">{{ g.role or 'no console role' }}{% if g.scope %} · {{ g.scope }}{% endif %}</div>
+              </td>
+              <td>
+                {% if g.missing %}<span class="st crit"><i></i>not found in AD</span>
+                {% elif access_directory_error %}<span class="st mut"><i></i>evidence unavailable</span>
+                {% else %}
+                  <b>{{ g.member_count }} direct member{{ '' if g.member_count == 1 else 's' }}</b>
+                  <div class="hint">Owner: {{ g.owner or 'not set' }} · changed {{ g.changed }}</div>
+                  <div class="hint">{{ g.description or 'No purpose description in AD' }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <div class="ag-chain">
+                  {% if g.role %}<span>role: {{ g.role }}</span>{% endif %}
+                  {% if g.capabilities %}<span>{{ g.capabilities|length }} console action{{ '' if g.capabilities|length == 1 else 's' }}</span>{% endif %}
+                  {% if g.sites %}<span>{{ g.sites|length }} site rule{{ '' if g.sites|length == 1 else 's' }}</span>{% endif %}
+                  {% if not g.role and not g.capabilities and not g.sites %}<span class="mut">no known reference</span>{% endif %}
+                </div>
+                {% if g.capabilities or g.sites %}<details class="why"><summary>Show enforcement</summary><div>
+                  {% if g.capabilities %}<p><b>Console:</b> {{ g.capabilities|join(', ') }}</p>{% endif %}
+                  {% if g.sites %}<p><b>Sites:</b> <span class="mono">{{ g.sites|join(', ') }}</span></p>{% endif %}
+                </div></details>{% endif %}
+              </td>
+              <td>
+                <span class="pill {{ 'p-crit' if g.level == 'critical' else 'p-warn' if g.level in ('warning','review') else 'p-good' }}">{{ g.level }}</span>
+                {% if g.issues %}<ul class="ag-issues">{% for level, message in g.issues %}<li>{{ message }}</li>{% endfor %}</ul>{% else %}<div class="hint">No registry finding</div>{% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4"><div class="empty"><b>No CorpIT role groups found.</b>Directory evidence may be unavailable, or no groups use the expected naming standard.</div></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-b ag-empty-filter" hidden data-access-empty>No groups match this filter.</div>
+      <div class="card-b"><p><b>Membership note:</b> SubAdmin currently resolves direct AD <span class="mono">memberOf</span>. Do not rely on nested groups for an entitlement until recursive resolution is implemented and tested.</p></div>
+    </div>
+
+    <div class="g2 ag-workbench">
+      <div class="card">
+        <div class="card-h"><h3>Cleanup queue</h3><span class="meta">{{ access_findings|length }} finding{{ '' if access_findings|length == 1 else 's' }}</span></div>
+        {% for finding in access_findings[:12] %}
+        <div class="row">
+          <span class="st {{ 'crit' if finding.level == 'critical' else 'warn' }}"><i></i></span>
+          <div class="main"><b class="mono">{{ finding.group }}</b><small>{{ finding.message }}</small></div>
+          <button type="button" class="btn sm" data-proposal-group="{{ finding.group }}" data-goto="iam" data-tab="governance">Plan cleanup</button>
+        </div>
+        {% else %}<div class="empty"><b>No registry findings.</b>The available AD and policy evidence currently agree.</div>{% endfor %}
+      </div>
+
+      <div class="card" id="access-proposal">
+        <div class="card-h"><h3>Record a change proposal</h3><span class="meta">planning only · no AD write</span></div>
+        {% if can('access.propose') %}
+        <form method="post" action="{{ url_for('access_governance_proposal') }}" data-access-proposal-form>
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <div class="card-b">
+            <div class="f-row">
+              <div class="f"><label for="ag-action">Proposal type</label><select id="ag-action" name="action" required>{% for key, label in access_proposal_actions.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
+              <div class="f"><label for="ag-group">AD group</label><input id="ag-group" name="group_name" type="text" list="ag-groups" value="SaaS-ITH-" required><datalist id="ag-groups">{% for g in access_registry if not g.missing %}<option value="{{ g.name }}"></option>{% endfor %}</datalist></div>
+            </div>
+            <div class="f"><label for="ag-purpose">Business purpose</label><textarea id="ag-purpose" name="purpose" required placeholder="Who needs this access, what job it enables, and why the existing role does not cover it"></textarea></div>
+            <div class="f-row">
+              <div class="f"><label for="ag-business-owner">Business owner</label><input id="ag-business-owner" name="business_owner" type="text" required placeholder="Person accountable for membership"></div>
+              <div class="f"><label for="ag-technical-owner">Technical owner</label><input id="ag-technical-owner" name="technical_owner" type="text" required placeholder="Team responsible for enforcement"></div>
+            </div>
+            <div class="f-row">
+              <div class="f"><label for="ag-cycle">Review cycle</label><select id="ag-cycle" name="review_cycle" required>{% for key, label in access_review_cycles.items() %}<option value="{{ key }}"{% if key == 'quarterly' %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+              <div class="f"><label for="ag-resources">Intended enforcement</label><textarea id="ag-resources" name="resources" required placeholder="One site, page, role, or console action per line"></textarea></div>
+            </div>
+            <div class="f"><label for="ag-notes">Evidence and notes <span class="hint">Optional</span></label><textarea id="ag-notes" name="notes" placeholder="Current state, affected teams, dependencies, rollback considerations"></textarea></div>
+            <div class="note quiet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg><div><b>This records intent only.</b> Saving creates a local draft and an audit entry. It cannot create a group, change membership, or alter an AD attribute.</div></div>
+            <div class="form-foot"><button class="btn pri" type="submit">Record proposal</button><span class="hint">The separate apply process is deliberately absent from this release.</span></div>
+          </div>
+        </form>
+        {% else %}<div class="empty"><b>You can review the registry.</b>Your role does not include recording access proposals.</div>{% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>Recent proposals</h3><span class="meta">local planning records</span></div>
+      <div class="tblwrap"><table class="grid"><thead><tr><th>Reference</th><th>Group and purpose</th><th>Ownership</th><th>Status</th></tr></thead><tbody>
+      {% for p in access_proposals %}<tr><td class="mono">AG-{{ '%04d'|format(p.id) }}<div class="hint">{{ p.created_at }} · {{ p.created_by }}</div></td><td><b class="mono">{{ p.group_name }}</b><div class="hint">{{ p.action_label }} · {{ p.purpose }}</div>{% if p.resources %}<div class="ag-chain">{% for resource in p.resources %}<span>{{ resource }}</span>{% endfor %}</div>{% endif %}</td><td>{{ p.business_owner }}<div class="hint">Technical: {{ p.technical_owner }} · {{ p.review_label }}</div></td><td><span class="pill p-info">{{ p.status }}</span></td></tr>
+      {% else %}<tr><td colspan="4"><div class="empty"><b>No proposals yet.</b>Use the form above to record the first reviewable access change.</div></td></tr>{% endfor %}
+      </tbody></table></div>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ---------------- permissions ---------------- #}
+  <div data-tabpanel="permissions" hidden>
+    <div class="card" id="permissions">
+      <div class="card-h"><h3>What each group can do</h3><span class="meta">tick a box to grant it</span></div>
+      {% if can('permissions.manage') %}
+      <form method="post" action="{{ url_for('permissions_page') }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <div class="tblwrap">
+        <table class="grid permgrid">
+          <thead><tr>
+            <th style="min-width:240px">Action</th>
+            <th class="ownercol">Platform owner</th>
+            {% for g in grantable_groups %}<th class="gcol"><span>{{ g.short }}</span><small>{{ g.role }}</small></th>{% endfor %}
+          </tr></thead>
+          <tbody>
+            {% for section in capability_sections %}
+            <tr class="secrow"><td colspan="{{ grantable_groups|length + 2 }}">{{ section }}</td></tr>
+              {% for c in capabilities if c.group == section %}
+              <tr>
+                <td><b{% if c.danger %} style="color:var(--crit)"{% endif %}>{{ c.label }}</b>
+                  <div style="color:var(--ink-3);font-size:11px;margin-top:3px;max-width:52ch">{{ c.help }}</div></td>
+                <td class="ownercol" title="The platform owner can always do everything. That is what stops anyone locking everybody out.">&#10003;</td>
+                {% for g in grantable_groups %}
+                <td class="gcol">
+                  {% if c.editable %}
+                  <input type="checkbox" name="cap:{{ c.key }}" value="{{ g.key }}" {% if g.key in (policy[c.key] or []) %}checked{% endif %} aria-label="{{ c.label }} for {{ g.name }}">
+                  {% else %}<span style="color:var(--ink-3)" title="Owner only, by design">—</span>{% endif %}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <div class="card-b">
+          <div class="form-foot">
+            <button class="btn pri" type="submit">Save permissions</button>
+            <span class="hint">Every change is logged with who made it. People already signed in keep their current access until they sign in again.</span>
+          </div>
+        </div>
+      </form>
+      {% else %}
+      <div class="tblwrap"><table class="grid">
+        <thead><tr><th>Action</th><th>Granted to</th><th>You</th></tr></thead>
+        <tbody>{% for c in capabilities %}
+          <tr><td><b>{{ c.label }}</b></td>
+            <td>{% if not c.editable %}<span class="pill p-mut">platform owner only</span>{% elif policy[c.key] %}{% for k in policy[c.key] %}<span class="pill p-mut mono">{{ group_names.get(k, k) }}</span> {% endfor %}{% else %}<span class="pill p-mut">platform owner only</span>{% endif %}</td>
+            <td>{% if can(c.key) %}<span class="st good"><i></i>yes</span>{% else %}<span class="st mut"><i></i>no</span>{% endif %}</td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+      <div class="card-b"><p style="margin:0;color:var(--ink-3)">Only the platform owner can change these.</p></div>
+      {% endif %}
+      <div class="card-b" style="padding-top:0">
+        <details class="why"><summary>Why only these groups show up</summary>
+          <div><p>Sign-in only looks at a person's <span class="mono">SaaS-ITH-*</span> role and approver groups. {% if denied_groups %}<span class="mono">{{ denied_groups|join('</span>, <span class="mono">')|safe }}</span> {{ 'is' if denied_groups|length == 1 else 'are' }} not offered because {{ 'it has' if denied_groups|length == 1 else 'they have' }} no console role, so a grant could never take effect. {% endif %}To add a group: create a <span class="mono">SaaS-ITH-</span> group in Active Directory and give it a role — it then appears here.</p>
+          <p>Two things are fixed on purpose: the platform owner always has every permission, and <b>Change these permissions</b> stays owner-only. Together they mean nobody can lock every administrator out.</p></div></details>
+      </div>
+    </div>
+  </div>
+
+  {# ---------------- site access ---------------- #}
+  <div data-tabpanel="siteaccess" hidden>
+    <div class="card">
+      <div class="card-h"><h3>Who can open each site</h3><span class="meta">the rule the sign-in gate actually enforces</span></div>
+      <div class="tblwrap"><table class="grid">
+        <thead><tr><th>Site</th><th>Who gets in</th><th>Rule</th><th></th></tr></thead>
+        <tbody>
+          {% for fqdn, a in policy_rows %}
+          <tr>
+            <td class="mono">{{ fqdn }}{% if fqdn == 'accessportal.nrpi.local' %}<div class="hint">Protected approver routes only. Requester forms remain public.</div>{% endif %}</td>
+            <td>{% if a.mode == 'authenticated' %}anyone who can sign in to CorpIT{% elif a.mode == 'groups' %}{% for g in a.groups %}<span class="mono">{{ g }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}platform owners only{% endif %}</td>
+            <td>{% if a.inherited %}<span class="pill p-warn">default</span>{% else %}<span class="pill p-mut">set for this site</span>{% endif %}</td>
+            <td style="text-align:right">{% if fqdn == 'accessportal.nrpi.local' %}<a href="https://accessportal.nrpi.local/approver.html" class="btn sm">Approval Access</a> {% endif %}<button class="btn sm" data-goto="sites" data-open="sub-{{ a.sub_id }}">Site restriction</button></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4"><div class="empty"><b>No sites yet.</b></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+      <div class="card-b" style="padding-top:10px">
+        <details class="why"><summary>What "default" means</summary>
+          <div>A site with no rule of its own falls back to <b>platform owners only</b>. Nothing is ever open to everyone by accident. Group names are checked against Active Directory before they are saved — a group that does not exist would lock everyone out.</div></details>
+      </div>
+    </div>
+  </div>
+
+  {# ---------------- roles ---------------- #}
+  <div data-tabpanel="roles" hidden>
+    <div class="g2">
+      <div class="card">
+        <div class="card-h"><h3>AD group → console role</h3></div>
+        <div class="tblwrap"><table class="grid">
+          <thead><tr><th>AD group</th><th>Role</th></tr></thead>
+          <tbody>{% for g, r in role_map %}
+            <tr><td class="mono">{{ g }}</td><td>{% if r %}<span class="pill {{ 'p-good' if r == 'platform-owner' else 'p-mut' }}">{{ r }}</span>{% else %}<span class="pill p-crit">no access</span>{% endif %}</td></tr>
+          {% endfor %}</tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Production changes</h3><span class="meta">a second, smaller list</span></div>
+        <div class="row"><span class="st good"><i></i></span><div class="main"><b>Allowed to change production</b><small>{% if owners %}{% for o in owners %}<span class="mono">{{ o }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}nobody listed — changes are refused{% endif %}</small></div></div>
+        <div class="row"><span class="st {{ 'good' if can_write_prod else 'mut' }}"><i></i></span><div class="main"><b>You</b><small><span class="mono">{{ user }}</span> · {{ role or 'local break-glass account' }}</small></div>
+          <div class="end"><span class="pill {{ 'p-good' if can_write_prod else 'p-mut' }}">{{ 'can change production' if can_write_prod else 'read only in production' }}</span></div></div>
+        <div class="card-b" style="padding-top:8px"><details class="why"><summary>Why two lists?</summary>
+          <div>Being in the owner <em>group</em> gives you the owner role. Changing production also needs your name on this list. Widening it is one setting under System, not a code change.</div></details></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Groups offered in pickers</h3><span class="meta">{{ group_suggestions|length }} groups</span></div>
+      {% if group_suggestions %}
+      <div class="card-b"><div class="tags">{% for g in group_suggestions %}<span class="pill p-mut mono">{{ g }}</span>{% endfor %}</div>
+        <p style="margin:12px 0 0;font-size:14px;color:var(--ink-3)">These are the platform's own groups plus ones already in use. You can type any other AD group into a site's access rule; it is checked when you save.</p></div>
+      {% else %}
+      <div class="note crit" style="margin:16px 18px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <div><b>Active Directory could not be reached.</b> Group suggestions are unavailable, and saving a group-based access rule will be refused until it is back — an unchecked group name is how a site gets locked out.</div></div>
+      {% endif %}
+    </div>
+  </div>
+  {# ---------------- Hub page access (was corpit /access-admin.html) ---------------- #}
+  {% if is_platform_owner() %}
+  <div data-tabpanel="access" hidden>
+    <div class="ac is-loading" data-access-control>
+      <div class="ac-lede">
+        <p>Review role permissions or check one person’s access. Changes are enforced and audited by the Hub; saving requires Hub super-admin access.</p>
+        <div class="ac-head-actions"><button type="button" class="btn sm" data-ac-check>Check someone’s access</button><button type="button" class="btn sm" data-ac-reload disabled>Refresh</button><button type="button" class="btn pri sm" data-ac-edit disabled>Edit permissions</button></div>
+      </div>
+      <p class="ac-msg" data-ac-msg role="status" aria-live="polite"></p>
+
+      <div class="ac-skel" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="note crit ac-blocked" data-ac-blocked hidden></div>
+
+      <div data-ac-body hidden>
+        <nav class="ac-views" aria-label="Hub page access views">
+          <button type="button" data-ac-view="roles" aria-pressed="true">Roles &amp; permissions</button>
+          <button type="button" data-ac-view="people" aria-pressed="false">People &amp; exceptions</button>
+          <button type="button" data-ac-view="activity" aria-pressed="false">Audit log</button>
+        <button type="button" class="ac-compare" data-ac-view="matrix" aria-pressed="false">Compare all roles</button>
+        </nav>
+        <section data-ac-pane="roles" aria-label="Roles and permissions">
+          <div class="ac-workbench">
+            <aside class="ac-role-col" aria-label="Choose a role"><div class="ac-list-head"><h3>Hub roles <span id="ac-role-count"></span></h3><label class="sr-only" for="ac-r-search">Find a role</label><input id="ac-r-search" type="search" placeholder="Find a role" autocomplete="off"></div><div id="ac-role-list" class="ac-role-list"></div></aside>
+            <article class="ac-role-detail"><div id="ac-role-summary"></div><div class="ac-toolbar"><label class="sr-only" for="ac-rp-search">Find a role page</label><input id="ac-rp-search" type="search" placeholder="Find a page" autocomplete="off"><label class="ac-chk"><input id="ac-rp-explicit" type="checkbox"> Explicit permissions only</label><label class="ac-chk"><input id="ac-rp-retired" type="checkbox"> Include retired</label><span id="ac-rp-count" role="status"></span></div><div class="tblwrap ac-role-table-wrap"><table id="ac-role-pages" class="grid ac-role-table"></table></div></article>
+          </div>
+        </section>
+        <section data-ac-pane="matrix" aria-label="Compare roles and pages" hidden>
+          <div class="collection-tools">
+            <label class="sr-only" for="ac-m-search">Find a page</label>
+            <input id="ac-m-search" type="search" placeholder="Find a page" autocomplete="off">
+            <label class="ac-chk"><input type="checkbox" id="ac-m-onlyset"> Only pages with a role setting</label>
+            <label class="ac-chk"><input type="checkbox" id="ac-m-inactive"> Show retired pages</label>
+          </div>
+          <p class="hint ac-howto">Compare role permissions across pages. <b>Inherited</b> follows the role’s default; explicit settings apply to one page. Use Roles &amp; permissions for focused editing.</p>
+          <div class="tblwrap ac-matrix-wrap"><table class="grid ac-matrix" id="ac-matrix"></table></div>
+        </section>
+
+        <section data-ac-pane="people" aria-label="People" hidden>
+          <div class="ac-people">
+            <div class="ac-plist-col">
+              <div class="collection-tools">
+                <label class="sr-only" for="ac-p-search">Find a person</label>
+                <input id="ac-p-search" type="search" placeholder="Name, email or role" autocomplete="off">
+                <label class="ac-chk"><input type="checkbox" id="ac-p-inactive"> Include inactive</label><label class="ac-chk"><input type="checkbox" id="ac-p-exceptions"> With exceptions</label>
+              </div>
+              <div class="ac-plist" id="ac-plist"></div>
+            </div>
+            <div class="ac-pdet" id="ac-pdet"><div class="empty"><b>Check someone’s access.</b>Choose a person to see their roles, inherited permissions and personal exceptions. Edit permissions enables changes.</div></div>
+          </div>
+        </section>
+
+        <section data-ac-pane="activity" aria-label="Audit log" hidden>
+          <div class="collection-tools">
+            <label class="sr-only" for="ac-a-search">Find an audit event</label><input id="ac-a-search" type="search" placeholder="Find an actor, event or target" autocomplete="off"><label class="ac-chk"><input type="checkbox" id="ac-a-lookups"> Include access lookups</label><span class="hint" id="ac-a-count"></span>
+          </div>
+          <div class="tblwrap"><table class="grid ac-audit" id="ac-audit"></table></div>
+        </section>
+      </div>
+
+      <section class="ac-review" data-ac-review hidden aria-labelledby="ac-review-title" tabindex="-1"><header><div><h3 id="ac-review-title">Review permission changes</h3><p>Check every role, person and page below. A role default affects all pages without an explicit setting.</p></div><button type="button" class="btn sm" data-ac-back-edit>Back to editing</button></header><ol data-ac-review-list></ol><p class="hint">Each role or person is saved as a separate audited transaction. People already signed in may retain access until their session refreshes.</p><label class="ac-chk"><input type="checkbox" id="ac-confirm"> I reviewed these permission changes</label><button type="button" class="btn pri" data-ac-save disabled>Save reviewed changes</button></section>
+      <div class="ac-savebar" data-ac-savebar hidden>
+        <div class="ac-changes" data-ac-changes></div>
+        <div class="ac-savebtns">
+          <button type="button" class="btn" data-ac-discard>Discard</button>
+          <button type="button" class="btn pri" data-ac-review-open>Review changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+<details class="access-boundaries"><summary>Which access system owns this setting?</summary>  <div class="note">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+    <div><b>Three access systems, with separate owners.</b>
+      This console inventories CorpIT role groups, console permissions, and which <em>sites</em> a person can reach.
+      Access to individual Hub pages is set under
+      {% if is_platform_owner() %}<a href="#iam/access" data-goto="iam" data-tab="access">Hub page access</a>{% else %}<b>Hub page access</b>{% endif %}
+      in this section (platform owners), and the Hub itself enforces it. Access Portal approver governance remains a separate project and is managed only under
+      <a href="https://accessportal.nrpi.local/approver.html">Administrator → Approval Access</a>; this registry does not read or change it.</div>
+  </div>
+
+</details>
+</section>

@@ -1,0 +1,7 @@
+node_modules/
+.env
+data/
+logs/
+client/build/
+config/okta-private-key.pem
+*.pem

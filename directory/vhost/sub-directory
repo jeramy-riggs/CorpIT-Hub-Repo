@@ -1,0 +1,65 @@
+# CORPIT-SITE-AUTHZ 2026-09-02: per-site AD group authorization. Gated locations below use
+# "error_page 403 @gate_forbidden;" and "error_page 500 502 503 504 =503 @gate_unavailable;".
+# Note there is NO "=" on the 403 line: with it, nginx replaces the status and a
+# refusal is served as 200 OK. Copy an existing block rather than writing a new one.
+# Managed by subdomain-admin. Subdomain: directory.nrpi.local
+# HAND-EDITED 2026-08-28: parked page replaced with the CardDAV company
+# directory (Radicale on loopback). Do NOT re-provision "directory" from the
+# subadmin console - it would overwrite this file. Parked original saved at
+# sites-available/sub-directory.bak-parked-20260828.
+#
+# HAND-EDITED 2026-09-02: the Radicale WEB INTERFACE (/.web) is now behind the
+# CorpIT Hub sign-in like every other browser surface on this box. It was the
+# one thing here answering 200 to an anonymous request.
+#
+# The CardDAV COLLECTION paths deliberately stay on Radicale's own Basic auth.
+# iOS/macOS Contacts authenticates with Basic and cannot follow an interactive
+# redirect to Microsoft, so putting auth_request in front of them would break
+# address-book sync for the whole fleet. They are not open: an unauthenticated
+# PROPFIND on "/" and "/company/" already returns 401 from Radicale itself
+# (verified 2026-09-02), which is the correct control for a non-browser client.
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name directory.nrpi.local;
+
+    ssl_certificate     /etc/ssl/corpit-ha/directory.nrpi.local/fullchain.pem;
+    ssl_certificate_key /etc/ssl/corpit-ha/directory.nrpi.local/server.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+
+    # [CORPIT-HUB-SSO] one platform sign-in, this host's own cookie.
+    include snippets/corpit-hub-sso.conf;
+
+    # --- Radicale web interface: browser surface, so it takes the hub sign-in.
+    # ^~ so it wins over the generic "location /" proxy below. A browser landing
+    # on "/" gets Radicale's own 302 to /.web and then meets the gate here.
+    location ^~ /.web {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;   # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        proxy_pass       http://127.0.0.1:5232;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Radicale at the vhost root - no prefix, no X-Script-Name needed.
+    # CardDAV clients (Basic auth, enforced by Radicale) live here.
+    location / {
+        proxy_pass       http://127.0.0.1:5232;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 10m;
+    }
+
+    # iOS RFC 6764 discovery probe.
+    location = /.well-known/carddav {
+        return 301 https://$host/;
+    }
+}

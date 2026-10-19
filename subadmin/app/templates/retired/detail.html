@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}{{ s['fqdn'] }}{% endblock %}
+{% block content %}
+
+<p style="margin:0 0 16px"><a href="{{ url_for('dashboard') }}">&larr; All subdomains</a></p>
+
+<div class="card">
+  <h2>{{ s['fqdn'] }} <span class="pill {{ s['status'] }}">{{ s['status'] }}</span></h2>
+  <div class="body">
+    <dl class="kv">
+      <dt>FQDN</dt><dd class="mono">{{ s['fqdn'] }}</dd>
+      <dt>Points to</dt><dd class="mono">{{ host_ip }}</dd>
+      <dt>DNS</dt><dd>{{ s['dns_status'] or 'not pushed' }}{% if s['dns_pushed_at'] %} <span class="hint">(last push {{ s['dns_pushed_at'] }})</span>{% endif %}</dd>
+      <dt>Certificate</dt><dd>{{ s['cert_type'] }}{% if s['cert_expires'] %} &middot; expires {{ s['cert_expires'] }}{% endif %}{% if s['cert_issuer'] %}<br><span class="hint mono">{{ s['cert_issuer'] }}</span>{% endif %}</dd>
+      <dt>Department</dt><dd>{{ s['department'] or '—' }}</dd>
+      <dt>Notes</dt><dd>{{ s['notes'] or '—' }}</dd>
+      <dt>Created</dt><dd>{{ s['created_at'] }} by {{ s['created_by'] }}</dd>
+    </dl>
+  </div>
+</div>
+
+{# CORPIT-SITE-ACCESS-CONSOLE #}
+<div class="card">
+  <h2>Access</h2>
+  <div class="body">
+    <dl class="kv">
+      <dt>Who gets in</dt>
+      <dd>
+        {% if access.mode == 'authenticated' %}
+          Anyone who can sign in to the CorpIT platform
+        {% elif access.mode == 'groups' %}
+          Members of:
+          {% for g in access.groups %}<span class="mono">{{ g }}</span>{% if not loop.last %}, {% endif %}{% endfor %}
+        {% else %}
+          Platform owners only
+        {% endif %}
+        {% if access.inherited %}<br><span class="hint">No entry for this site yet &mdash; the default policy applies.</span>{% endif %}
+      </dd>
+      <dt>Always</dt>
+      <dd class="hint">Platform owners (<span class="mono">SaaS-ITH-SA</span>) can open every site on this server.</dd>
+    </dl>
+
+    {% if is_platform_owner() %}
+    <form method="post" action="{{ url_for('set_access', sub_id=s['id']) }}" style="margin-top:16px">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label style="display:block;margin:0 0 6px">
+        <input type="radio" name="access_mode" value="groups" {% if access.mode == 'groups' %}checked{% endif %}>
+        Members of these AD security groups
+      </label>
+      <input type="text" name="access_groups" list="ad-groups-detail" maxlength="600"
+             value="{{ access.groups|join(', ') }}" placeholder="NRPI-HR-Staff, NRPI-Finance"
+             style="width:100%">
+      <datalist id="ad-groups-detail">
+        {% for g in group_suggestions %}<option value="{{ g }}"></option>{% endfor %}
+      </datalist>
+      <label style="display:block;margin:12px 0 6px">
+        <input type="radio" name="access_mode" value="authenticated" {% if access.mode == 'authenticated' %}checked{% endif %}>
+        Anyone who can sign in to the CorpIT platform
+      </label>
+      <label style="display:block;margin:0 0 12px">
+        <input type="radio" name="access_mode" value="superadmin" {% if access.mode == 'superadmin' %}checked{% endif %}>
+        Platform owners only
+      </label>
+      <button class="btn" type="submit">Save access</button>
+      <span class="hint" style="margin-left:12px">
+        Group membership is read at sign-in, so anyone already signed in must sign in
+        again before a change applies to them.
+      </span>
+    </form>
+    {% else %}
+    <p class="hint" style="margin-bottom:0">Only a platform owner can change who may open this site.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Finish go-live</h2>
+  <div class="body">
+    <p class="hint" style="margin-top:0">The subdomain already serves the parked page over a self-signed cert. To make it a trusted, resolvable site, complete these steps:</p>
+    <ol class="steps">
+      <li><strong>DNS</strong> — pushed automatically when the subdomain is created
+        (<code>{{ s['fqdn'] }} &rarr; {{ host_ip }}</code>). If the DNS row above isn't
+        <em>live</em>, use the <em>Push DNS</em> button below.</li>
+      <li><strong>Certificate</strong> — submit the CSR below to <strong>NRPI-CA</strong>
+        (<code>http://pki04awsw2us.nrpi.local/certsrv/</code>), then upload the file it returns
+        in the <em>Deploy NRPI-CA certificate</em> box below — verification, chain ordering,
+        install and nginx reload are handled for you.</li>
+      <li><strong>Publish</strong> — replace the parked <code>root</code> block in
+        <code>/etc/nginx/sites-available/sub-{{ s['label'] }}</code> with the real site or a
+        <code>proxy_pass</code> to the app.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="card">
+  <h2>DNS</h2>
+  <div class="body">
+    <p class="hint" style="margin-top:0">Creates and verifies the A record
+    <code>{{ s['fqdn'] }} &rarr; {{ host_ip }}</code> on all three domain controllers, taking a
+    zone backup first. Safe to re-run: an existing correct record counts as success, and a name
+    that points somewhere else is never overwritten. Freshly pushed names can take a few
+    minutes to reach Macs over ZPA — that lag is normal.</p>
+    <form method="post" action="{{ url_for('push_dns', sub_id=s['id']) }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn" type="submit">Push DNS</button>
+      <span class="hint" style="margin-left:12px">runs on the DCs; can take up to a minute or two</span>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Deploy NRPI-CA certificate</h2>
+  <div class="body">
+    <p class="hint" style="margin-top:0">Upload the file the CA returned after signing this
+    subdomain's CSR — the <strong>.p7b</strong> (certificate chain) is best; a
+    <strong>.cer</strong>/<strong>.pem</strong> leaf also works. Before anything changes, the
+    server checks the cert matches this subdomain's private key and names
+    <code>{{ s['fqdn'] }}</code>; then it installs the ordered full chain, reloads nginx, and
+    confirms the new certificate is actually being served. The previous cert and vhost are
+    backed up automatically.</p>
+    <form method="post" action="{{ url_for('deploy_cert', sub_id=s['id']) }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="file" name="cert_file" accept=".p7b,.cer,.crt,.pem" required>
+      <button class="btn" type="submit" style="margin-top:12px">Verify &amp; deploy certificate</button>
+    </form>
+  </div>
+</div>
+
+{% if csr %}
+<div class="card">
+  <h2>Certificate signing request (for NRPI-CA)</h2>
+  <div class="body">
+    <pre class="csr">{{ csr }}</pre>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Remove</h2>
+  <div class="body">
+    <p class="hint" style="margin-top:0">Deletes the nginx vhost and self-signed cert for {{ s['fqdn'] }}. Does not touch DNS.</p>
+    <form method="post" action="{{ url_for('delete_subdomain', sub_id=s['id']) }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn danger" type="submit">Remove {{ s['fqdn'] }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

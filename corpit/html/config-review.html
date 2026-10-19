@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en" data-version="3.0.0">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Config Review — IT Command</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<link href="/it-unifi.css" rel="stylesheet">
+<link href="/it-command.css" rel="stylesheet">
+<link href="/it-noc.css" rel="stylesheet">
+<style>
+.srcgrid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:var(--n-gap)}
+@media(max-width:1100px){.srcgrid{grid-template-columns:1fr}}
+.drop{border:1.5px dashed var(--o-line);border-radius:var(--n-r);padding:16px;
+  background:var(--o-panel2);transition:border-color .15s ease,background .15s ease}
+.drop.over{border-color:var(--o-mint);background:var(--o-mint-wash)}
+.drop textarea{width:100%;min-height:132px;resize:vertical;border:1px solid var(--o-line);
+  border-radius:8px;background:var(--o-panel);color:var(--o-ink);padding:9px 11px;
+  font-family:var(--n-mono);font-size:11.5px;line-height:1.5}
+.drop textarea:focus{outline:none;border-color:var(--o-mint)}
+.srcrow{display:flex;align-items:center;gap:8px;margin-top:9px;flex-wrap:wrap}
+.srcrow label{font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--o-faint)}
+select.nsel{height:32px;border-radius:8px;border:1px solid var(--o-line);background:var(--o-panel2);
+  color:var(--o-ink);font:inherit;font-size:12px;padding:0 8px;cursor:pointer}
+.warnbar{display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:var(--n-r);
+  background:var(--chip-warn-bg);color:var(--chip-warn-ink);font-size:12.5px;line-height:1.5}
+.warnbar svg{width:16px;height:16px;flex:none;margin-top:1px}
+.warnbar b{font-weight:680}
+.fdet dt{font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--o-faint);margin-top:13px}
+.fdet dt:first-child{margin-top:0}
+.fdet dd{margin:4px 0 0;font-size:12.5px;line-height:1.55}
+.fdet pre{margin:5px 0 0;padding:9px 11px;border-radius:8px;background:var(--o-panel2);
+  border:1px solid var(--o-hair);font-family:var(--n-mono);font-size:11.5px;line-height:1.55;
+  white-space:pre-wrap;word-break:break-word;overflow-x:auto}
+.fdet pre.ev{background:var(--o-bg);border-style:dashed}
+.chk{font-size:12.5px;line-height:1.7;margin:0;padding-left:17px}
+.chk li{color:var(--o-dim)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--n-mono);font-size:10px;
+  font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:5px;
+  background:var(--o-panel2);color:var(--o-dim)}
+.pill.confirmed{background:var(--chip-crit-bg);color:var(--chip-crit-ink)}
+.pill.likely{background:var(--chip-warn-bg);color:var(--chip-warn-ink)}
+.pill.possible{background:var(--o-panel2);color:var(--o-faint)}
+</style>
+</head>
+<body class="u cmd noc" data-page="confreview">
+<div id="nocContent">
+  <div class="ngrid">
+    <section class="ncard c12">
+      <div class="nch"><h2>Configuration source</h2>
+        <div class="tools"><span class="sev info">read-only · nothing is changed or stored</span></div></div>
+      <div class="ncb">
+        <div class="srcgrid">
+          <div>
+            <div class="drop" id="drop">
+              <textarea id="cfg" spellcheck="false" placeholder="Paste a switch or firewall configuration here — `show running-config` on Cisco, `show full-configuration` on FortiGate — or drop a .txt/.conf file onto this box."></textarea>
+              <div class="srcrow">
+                <button class="nbtn pri" id="run">Review configuration</button>
+                <input type="file" id="file" accept=".txt,.conf,.cfg,.log,text/plain" hidden>
+                <button class="nbtn" id="pick">Choose file…</button>
+                <label for="vendor">Platform</label>
+                <select class="nsel" id="vendor">
+                  <option value="auto">Detect automatically</option>
+                  <option value="cisco-iosxe">Cisco IOS / IOS-XE</option>
+                  <option value="fortios">Fortinet FortiOS</option>
+                </select>
+                <span id="srcInfo" style="font-size:11.5px;color:var(--o-faint);margin-left:auto"></span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+                        text-transform:uppercase;color:var(--o-faint);margin-bottom:7px">Or read a live device</div>
+            <div class="nlist" id="collect" style="border:1px solid var(--o-line);border-radius:var(--n-r);overflow:hidden"></div>
+            <div style="margin-top:9px;font-size:11.5px;color:var(--o-faint);line-height:1.5">
+              Switch configs cannot be collected automatically — SSH scraping stalls on the
+              Catalysts' AAA and SNMP read-only cannot retrieve a running-config. Paste those instead.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="report" hidden>
+    <div class="ngrid" style="margin-top:10px" id="kpis"></div>
+
+    <div class="ngrid" style="margin-top:10px">
+      <section class="ncard c12">
+        <div class="ncb" id="notes" style="display:grid;gap:9px"></div>
+      </section>
+    </div>
+
+    <div class="ngrid" style="margin-top:10px">
+      <section class="ncard c7">
+        <div class="nch"><h2>Findings</h2>
+          <div class="tools">
+            <div class="nseg" id="sevSeg"></div>
+            <button class="nbtn" id="export">CSV</button>
+          </div>
+        </div>
+        <div class="ncb flush"><div class="ntw cap" style="--nt-cap:520px" id="rows"></div></div>
+        <div class="ncf" id="foot"></div>
+      </section>
+
+      <section class="ncard c5">
+        <div class="nch"><h2 id="detTitle">Finding detail</h2>
+          <div class="tools" id="detTools"></div></div>
+        <div class="ncb" id="detail">
+          <div class="nempty">Select a finding to see what it means and how to fix it.</div>
+        </div>
+      </section>
+    </div>
+
+    <div class="ngrid" style="margin-top:10px">
+      <section class="ncard c4">
+        <div class="nch"><h2>Checks completed</h2></div>
+        <div class="ncb"><ul class="chk" id="coverage"></ul></div>
+      </section>
+      <section class="ncard c4">
+        <div class="nch"><h2>Could not be evaluated</h2></div>
+        <div class="ncb"><ul class="chk" id="notEval"></ul></div>
+      </section>
+      <section class="ncard c4">
+        <div class="nch"><h2>Unrecognised lines</h2>
+          <div class="tools"><span class="sev" id="unsupN">—</span></div></div>
+        <div class="ncb" id="unsup"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="/it-netnav.js"></script>
+<script src="/it-noc.js"></script>
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="config-review"></script>
+<script>
+NOC.mount({page:'confreview', title:'Config review', sub:'switches · firewalls · read-only'});
+NOC.act('<button class="nbtn" id="print">Print</button>');
+var esc=NOC.esc;
+var R=null, S={sev:'ALL', sel:null};
+
+async function jpost(u,b){
+  var r=await fetch(u,{method:'POST',credentials:'include',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+  var j=await r.json().catch(function(){return {ok:false,message:'unreadable response'};});
+  if(!r.ok||j.ok===false)throw err(j,r);
+  return j;
+}
+async function jget(u){
+  var r=await fetch(u,{credentials:'include'});
+  var j=await r.json().catch(function(){return {ok:false,message:'unreadable response'};});
+  if(!r.ok||j.ok===false)throw err(j,r);
+  return j;
+}
+/* keep the server's hint attached — it usually says what to do next */
+function err(j,r){
+  var e=new Error((j&&(j.message||j.detail||j.error))||('HTTP '+r.status));
+  if(j&&j.hint)e.hint=j.hint;
+  return e;
+}
+
+/* ── sources ────────────────────────────────────────────────────────────── */
+var drop=document.getElementById('drop'), cfg=document.getElementById('cfg');
+['dragenter','dragover'].forEach(function(e){drop.addEventListener(e,function(ev){
+  ev.preventDefault();drop.classList.add('over');});});
+['dragleave','drop'].forEach(function(e){drop.addEventListener(e,function(ev){
+  ev.preventDefault();drop.classList.remove('over');});});
+drop.addEventListener('drop',function(ev){
+  var f=(ev.dataTransfer&&ev.dataTransfer.files||[])[0]; if(f)readFile(f);});
+document.getElementById('pick').addEventListener('click',function(){
+  document.getElementById('file').click();});
+document.getElementById('file').addEventListener('change',function(e){
+  var f=e.target.files&&e.target.files[0]; if(f)readFile(f);});
+function readFile(f){
+  var rd=new FileReader();
+  rd.onload=function(){ cfg.value=String(rd.result||'');
+    document.getElementById('srcInfo').textContent=f.name+' · '+(cfg.value.length/1024).toFixed(0)+' KB';
+    run({name:f.name}); };
+  rd.readAsText(f);
+}
+cfg.addEventListener('input',function(){
+  var n=cfg.value.length;
+  document.getElementById('srcInfo').textContent=n?((n/1024).toFixed(1)+' KB pasted'):'';
+});
+
+async function loadSources(){
+  var el=document.getElementById('collect');
+  try{
+    var d=await jget('/api/confreview/checks');
+    var fws=d.firewalls||[];
+    el.innerHTML=fws.length?fws.map(function(f){
+      return '<button class="nrow" data-fw="'+esc(f.key)+'">'+
+        '<span class="ic">'+NOC.icon('shield')+'</span>'+
+        '<span class="bd"><span class="t">'+esc(f.label)+'</span>'+
+        '<span class="s">'+esc(f.site)+' · reads the live configuration</span></span>'+
+        '<span class="rt">review</span></button>';}).join('')
+      :'<div class="nempty">'+NOC.icon('shield')+'<b>No firewall configured</b>'+
+       'No FortiGate host and token are set on this server.</div>';
+    // Resting state: this page reviews on demand, it does not poll.
+    NOC.stamp(fws.length?(fws.length+' live source'+(fws.length===1?'':'s')+
+              ' · nothing reviewed yet'):'no live source · paste a configuration',false);
+    el.querySelectorAll('[data-fw]').forEach(function(b){
+      b.addEventListener('click',function(){collect(b.dataset.fw,b);});});
+  }catch(e){
+    el.innerHTML='<div class="nempty"><b>Live collection unavailable</b>'+esc(e.message)+'</div>';
+    NOC.stamp('live sources unavailable',true);
+  }
+}
+async function collect(fw,btn){
+  var old=btn.innerHTML;
+  btn.innerHTML='<span class="ic">'+NOC.icon('refresh')+'</span><span class="bd"><span class="t">Reading configuration…</span><span class="s">this takes a few seconds</span></span>';
+  btn.disabled=true;
+  try{ render(await jget('/api/confreview/collect?fw='+encodeURIComponent(fw))); }
+  catch(e){ fail(e.message, e.hint); }
+  finally{ btn.innerHTML=old; btn.disabled=false; }
+}
+async function run(meta){
+  var text=cfg.value;
+  if(!text.trim()){ fail('Paste a configuration first, or choose a file.'); return; }
+  var b=document.getElementById('run'); var old=b.textContent;
+  b.textContent='Reviewing…'; b.disabled=true;
+  try{ render(await jpost('/api/confreview/analyze',
+        {text:text, vendor:document.getElementById('vendor').value, name:(meta&&meta.name)||null})); }
+  catch(e){ fail(e.message, e.hint); }
+  finally{ b.textContent=old; b.disabled=false; }
+}
+document.getElementById('run').addEventListener('click',function(){run();});
+function fail(msg,hint){
+  R=null;
+  try{ if(window.ITObserve&&typeof ITObserve.degraded==='function') ITObserve.degraded('confreview-run','Review could not run',String(msg)+(hint?' — '+hint:'')); }catch(_){}
+  document.getElementById('report').hidden=false;
+  document.getElementById('kpis').innerHTML=
+    '<div class="c12"><div class="ncard"><div class="ncb"><div class="nempty">'+
+    NOC.icon('shield')+'<b>Review could not run</b>'+esc(msg)+
+    (hint?'<div style="margin-top:9px;color:var(--o-dim)">'+esc(hint)+'</div>':'')+
+    '</div></div></div></div>';
+  ['notes','rows','coverage','notEval','unsup','foot'].forEach(function(id){
+    var e=document.getElementById(id); if(e)e.innerHTML='';});
+}
+
+/* ── report ─────────────────────────────────────────────────────────────── */
+var SEVCLS={critical:'crit',high:'warn',medium:'warn',low:'',info:'info'};
+function render(res){
+  R=res; S.sev='ALL'; S.sel=null;
+  document.getElementById('report').hidden=false;
+  var s=res.summary.bySeverity, c=res.summary.byConfidence;
+  var K=function(o){return '<div class="c2"><div class="nkpi'+(o.tone?' '+o.tone:'')+'">'+
+    '<span class="k">'+esc(o.k)+'</span><span class="v">'+o.v+'</span>'+
+    (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</div></div>';};
+  document.getElementById('kpis').innerHTML=
+    K({k:'Critical',v:s.critical,tone:s.critical?'bad':'good',s:s.critical?'act on these first':'none'})+
+    K({k:'High',v:s.high,tone:s.high?'warn':'good',s:s.high?'schedule promptly':'none'})+
+    K({k:'Medium',v:s.medium,tone:s.medium?'warn':'good',s:'review at next change'})+
+    K({k:'Low / Info',v:(s.low+s.info),s:'hygiene and context'})+
+    K({k:'Confirmed',v:c.confirmed,tone:'info',
+       s:'the config literally says so'})+
+    K({k:'Needs context',v:(c.likely+c.possible),
+       s:'inferred — verify on the device'});
+
+  NOC.vitals([
+    {k:'Device',v:res.device||'unnamed'},
+    {k:'Platform',v:res.vendor.name+(res.vendor.confident?'':' (uncertain)'),
+     cls:res.vendor.confident?'good':'warn'},
+    {k:'Source',v:res.source&&res.source.kind==='collected'?'live device':'upload'},
+    {k:'Lines',v:Number(res.stats.lines).toLocaleString()},
+    {k:'Findings',v:res.summary.total,cls:s.critical?'bad':(s.high?'warn':'good')}
+  ]);
+  NOC.stamp('reviewed just now',false);
+
+  document.getElementById('notes').innerHTML=(res.notes||[]).map(function(n){
+    if(n.kind==='warn')return '<div class="warnbar">'+NOC.icon('shield')+
+      '<div><b>Validate before you apply anything.</b> '+esc(n.text)+'</div></div>';
+    var tone=n.kind==='blocker'?'crit':(n.kind==='caution'?'warn':(n.kind==='ok'?'ok':'info'));
+    return '<div style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.5">'+
+      '<span class="sev '+tone+'" style="flex:none;margin-top:1px">'+
+      (n.kind==='blocker'?'blocked':n.kind==='caution'?'caution':n.kind==='ok'?'clean':'note')+
+      '</span><span>'+esc(n.text)+'</span></div>';}).join('');
+
+  document.getElementById('coverage').innerHTML=(res.coverage||[]).length
+    ? res.coverage.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')
+    : '<li>No vendor rules ran, so nothing was checked.</li>';
+  document.getElementById('notEval').innerHTML=(res.notEvaluated||[])
+    .map(function(x){return '<li>'+esc(x)+'</li>';}).join('');
+
+  var un=res.unsupported||[];
+  document.getElementById('unsupN').textContent=un.length||'none';
+  document.getElementById('unsup').innerHTML=un.length
+    ? '<div style="font-size:11.5px;color:var(--o-dim);margin-bottom:8px">Lines the parser did not '+
+      'recognise as configuration. They were not analysed, so anything they contain is outside this review.</div>'+
+      '<div class="ntw cap" style="--nt-cap:190px"><table class="nt"><tbody>'+
+      un.map(function(u){return '<tr><td class="num" style="width:64px">'+u.line+'</td>'+
+        '<td class="mono">'+esc(u.text)+'</td></tr>';}).join('')+'</tbody></table></div>'
+    : '<div class="nempty" style="padding:14px">'+NOC.icon('shield')+
+      '<b>Every line was recognised</b>The parser understood the whole file.</div>';
+
+  renderRows();
+}
+
+function visible(){
+  if(!R)return [];
+  return S.sev==='ALL'?R.findings:R.findings.filter(function(f){return f.severity===S.sev;});
+}
+function renderRows(){
+  var s=R.summary.bySeverity;
+  document.getElementById('sevSeg').innerHTML=
+    [['ALL','All',R.summary.total]].concat(['critical','high','medium','low','info']
+      .filter(function(k){return s[k];})
+      .map(function(k){return [k,k[0].toUpperCase()+k.slice(1),s[k]];}))
+    .map(function(x){return '<button data-s="'+x[0]+'" aria-pressed="'+(S.sev===x[0])+'">'+
+      esc(x[1])+' '+x[2]+'</button>';}).join('');
+  document.querySelectorAll('#sevSeg [data-s]').forEach(function(b){
+    b.addEventListener('click',function(){S.sev=b.dataset.s;renderRows();});});
+
+  var list=visible();
+  var el=document.getElementById('rows');
+  if(!list.length){
+    el.innerHTML='<div class="nempty">'+NOC.icon('shield')+
+      '<b>'+(R.summary.total?'Nothing at this severity':'No findings raised')+'</b>'+
+      (R.summary.total?'Try another filter.'
+        :'The checks that ran found nothing. See the completed-checks list for what was examined.')+'</div>';
+  }else{
+    el.innerHTML='<table class="nt">'+
+      '<colgroup><col style="width:84px"><col class="wide"><col style="width:96px">'+
+      '<col style="width:70px"></colgroup><thead><tr>'+
+      '<th data-key="sev" data-type="num">Severity</th><th data-key="t">Finding</th>'+
+      '<th data-key="c">Confidence</th><th data-key="l" data-type="num" class="num">Line</th>'+
+      '</tr></thead><tbody>'+list.map(function(f,i){
+        var idx=R.findings.indexOf(f);
+        return '<tr class="click" data-i="'+idx+'" aria-selected="'+(S.sel===idx)+'">'+
+          '<td data-sort="'+['critical','high','medium','low','info'].indexOf(f.severity)+'">'+
+            '<span class="sev '+(SEVCLS[f.severity]||'')+'">'+esc(f.severity)+'</span></td>'+
+          '<td class="grow"><button class="fbtn" type="button" aria-label="Detail for '+esc(f.title)+'">'+
+            '<span class="t">'+esc(f.title)+'</span>'+
+            '<span class="s">'+esc(f.category)+(f.section?' · '+esc(f.section):'')+'</span></button></td>'+
+          '<td><span class="pill '+esc(f.confidence)+'">'+esc(f.confidence)+'</span></td>'+
+          '<td class="num">'+(f.line||'—')+'</td></tr>';}).join('')+'</tbody></table>';
+    NOC.sortable(el.querySelector('table'));
+    el.querySelectorAll('tr.click').forEach(function(tr){
+      var go=function(){S.sel=+tr.dataset.i;renderRows();renderDetail();};
+      tr.addEventListener('click',go);
+      var fb=tr.querySelector('.fbtn');
+      if(fb)fb.addEventListener('click',function(e){e.stopPropagation();go();});});
+  }
+  document.getElementById('foot').innerHTML=
+    '<span><b>'+list.length+'</b> shown</span><span><b>'+R.summary.total+'</b> total</span>'+
+    '<span style="margin-left:auto;color:var(--o-faint)">Select a finding for impact and remediation</span>';
+  if(S.sel!=null)renderDetail();
+}
+
+function renderDetail(){
+  var el=document.getElementById('detail'), f=S.sel!=null?R.findings[S.sel]:null;
+  if(!f){el.innerHTML='<div class="nempty">Select a finding to see what it means and how to fix it.</div>';return;}
+  document.getElementById('detTitle').textContent=f.title;
+  document.getElementById('detTools').innerHTML=
+    '<span class="sev '+(SEVCLS[f.severity]||'')+'">'+esc(f.severity)+'</span>'+
+    '<span class="pill '+esc(f.confidence)+'">'+esc(f.confidence)+'</span>';
+
+  /* A command is only shown when the rule's platform matches the platform we
+     actually detected. A Cisco command printed for a FortiGate is worse than
+     no command at all. */
+  var showCmd=f.remediation && f.remediationPlatform &&
+              f.remediationPlatform===R.engine && (R.vendor.confident||R.vendor.forced);
+  el.innerHTML='<dl class="fdet">'+
+    '<dt>Where</dt><dd>'+esc(R.device||'this device')+
+      (f.section?' — <span class="u-mono">'+esc(f.section)+'</span>':'')+
+      (f.line?' · line '+f.line:'')+
+      (f.count>1?' <span class="pill">'+f.count+' occurrences</span>':'')+'</dd>'+
+    (f.evidence?'<dt>Configuration</dt><dd><pre class="ev">'+esc(f.evidence)+'</pre></dd>':'')+
+    '<dt>What appears to be wrong</dt><dd>'+esc(f.problem)+'</dd>'+
+    '<dt>What it could cause</dt><dd>'+esc(f.impact)+'</dd>'+
+    '<dt>Recommended remediation</dt><dd>'+
+      (showCmd
+        ? '<pre>'+esc(f.remediation)+'</pre>'
+        : f.remediation
+          ? '<div class="warnbar" style="margin-top:2px">'+NOC.icon('shield')+
+            '<div>Commands are withheld because the platform '+
+            (R.vendor.confident?'of this rule does not match the detected platform':'could not be confirmed')+
+            '. Guidance: '+esc(String(f.remediation).replace(/\n/g,' ').slice(0,220))+'</div></div>'
+          : '<span style="color:var(--o-faint)">No specific command applies — this is a design or process change.</span>')+
+      '</dd>'+
+    '<dt>Confidence</dt><dd>'+
+      (f.confidence==='confirmed'
+        ? 'Confirmed — the configuration explicitly contains this setting.'
+        : f.confidence==='likely'
+          ? 'Likely — inferred from the absence of a directive in what looks like a complete configuration. Verify on the device before acting.'
+          : 'Possible — inferred from a partial configuration, or dependent on firmware defaults. Confirm on the device.')+
+      '</dd>'+
+    '<dt>Rule</dt><dd><span class="u-mono" style="font-size:11.5px;color:var(--o-faint)">'+esc(f.id)+'</span></dd>'+
+  '</dl>';
+}
+
+document.getElementById('export').addEventListener('click',function(){
+  if(!R)return;
+  var q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
+  var csv=['device,platform,severity,confidence,line,section,rule,title,problem,impact,remediation']
+    .concat(visible().map(function(f){
+      return [R.device,R.vendor.name,f.severity,f.confidence,f.line,f.section,f.id,f.title,
+              f.problem,f.impact,f.remediation].map(q).join(',');})).join('\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=(R.device||'config')+'-review.csv'; a.click(); URL.revokeObjectURL(a.href);
+});
+document.getElementById('print').addEventListener('click',function(){window.print();});
+
+loadSources();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/it-version.js" data-app-key="config-review" defer></script>
+</body>
+</html>

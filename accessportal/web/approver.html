@@ -1,0 +1,1713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script id="portal-theme-boot">
+/* Runs before first paint — no flash. Shared key across every portal page. */
+(function(){try{var t=localStorage.getItem('portal_theme');
+if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise Approval Portal — Approver Console</title>
+<link id="apv4-fonts" rel="stylesheet" href="/fonts/fonts.css">
+<style id="apv4-console">
+/* ─────────────────────────────────────────────────────────────────────────
+   Approver Console (rebuilt 2026-09-14).
+   One page, one script, every control backed by /api/portal/*.
+   Ids and class names below are a contract with portal-theme.css/.js and
+   portal-content-admin.js — keep #apv4-root, #apv4-sidebar-inner,
+   #apv4-sb-<page>, #apv4-page-<page>, #apv4-tab-<page>, #apv4-role-grid,
+   #apv4-subgreeting, .apv4-role-tile, .apv4-stat-card, .apv4-req-tile,
+   .apv4-row-tile, .apv4-tbl, .apv4-field and window.apv4Nav().
+   ───────────────────────────────────────────────────────────────────────── */
+html,body{margin:0;padding:0;background:#f3f4f6}
+#apv4-root,#apv4-root button,#apv4-root input,#apv4-root select,#apv4-root textarea{
+  font-family:"Nunito","Segoe UI","Helvetica Neue",Helvetica,Arial,sans-serif}
+#apv4-root{position:fixed;inset:0;z-index:9999;background:#f3f4f6;color:#111827;display:flex}
+#apv4-root *{box-sizing:border-box}
+.apv4-screen{display:none;flex-direction:column;position:absolute;inset:0;overflow:hidden;background:#f3f4f6}
+.apv4-screen.on{display:flex}
+.apv4-bar{height:52px;background:#111827;display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;gap:12px}
+.apv4-brand{display:flex;align-items:center;gap:10px;min-width:0}
+.apv4-brand-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#3D7924,#78BE20);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.apv4-brand-title{font-size:14px;font-weight:700;color:#fff;line-height:1.2;white-space:nowrap}
+.apv4-brand-sub{font-size:11px;color:#9ca3af;white-space:nowrap}
+.apv4-bar-btn{padding:6px 13px;border-radius:7px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.10);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.apv4-bar-btn:hover{background:rgba(255,255,255,.20)}
+.apv4-hero{flex-shrink:0;position:relative;background:#0f1629 url('/auction-hq-banner.png?v=1') center 38%/cover no-repeat; background:#0f1629 image-set(url('/auction-hq-banner.webp?v=20261001') type('image/webp'), url('/auction-hq-banner.png?v=1') type('image/png')) center 38%/cover no-repeat}
+.apv4-hero-inner{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:22px 28px}
+.apv4-hero h1{margin:0 0 4px;font-size:24px;font-weight:700;color:#fff}
+.apv4-hero p{margin:0;font-size:13px;color:#d1d5db}
+/* apv4-hero-compact: banner 112px, content vertically centred, brand rule (Pantone 362→368) */
+#apv4-root .apv4-hero{height:112px!important}
+#apv4-root .apv4-hero-inner{justify-content:center;padding:0 28px}
+#apv4-root .apv4-hero h1{font-size:22px;margin:0 0 3px;letter-spacing:-.2px}
+#apv4-root .apv4-hero p{font-size:13px;color:#dbe4ea}
+#apv4-root .apv4-hero::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,#509E2F,#78BE20);z-index:2}
+#apv4-role-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;max-width:1200px}
+.apv4-role-tile{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;cursor:pointer;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:all .2s}
+.apv4-role-tile:hover{border-color:#f59e0b;box-shadow:0 6px 20px rgba(0,0,0,.12);transform:translateY(-2px)}
+.apv4-role-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.apv4-pill{display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
+.apv4-note{margin:0 0 16px;padding:10px 14px;border-radius:8px;font-size:12.5px;line-height:1.5;background:#f3f4f6;border:1px solid #e5e7eb;color:#4b5563;max-width:1200px}
+.apv4-note.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+.apv4-note.err{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+#apv4-dash-screen{flex-direction:row}
+.apv4-side{width:216px;min-width:216px;background:#111827;display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+#apv4-sidebar-inner{flex:1;padding:16px 10px 8px}
+.apv4-sb-head{font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;padding:0 8px;margin:6px 0 7px}
+.apv4-sb-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:13px;cursor:pointer;margin-bottom:2px;color:#9ca3af}
+.apv4-sb-item:hover{background:#1f2937;color:#e5e7eb}
+.apv4-sb-item.on{background:#1f2937;color:#fff}
+.apv4-sb-item .ic{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.apv4-sb-item .bd{margin-left:auto;min-width:18px;height:18px;border-radius:9px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;color:#fff;background:#ef4444}
+.apv4-sb-item .bd.amber{background:#f59e0b}
+.apv4-sb-item .bd.grey{background:#374151}
+.apv4-side-foot{padding:10px}
+.apv4-role-chip{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#1f2937;border-radius:8px;font-size:12px;color:#d1d5db}
+.apv4-role-chip .dot{width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0}
+.apv4-main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#apv4-nav-tabs{display:flex;gap:3px;flex-wrap:wrap;justify-content:center}
+.apv4-tab-btn{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:#d1d5db}
+.apv4-tab-btn.on{background:#147299;color:#fff}
+.apv4-user{display:flex;align-items:center;gap:8px}
+#apv4-avatar{width:30px;height:30px;border-radius:50%;background:#3b82f6;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+#apv4-uname{font-size:13px;color:#d1d5db;white-space:nowrap}
+#apv4-scroll{flex:1;overflow-y:auto;padding:22px 28px;background:#f3f4f6}
+.apv4-page-title{font-size:17px;font-weight:700;color:#111827;margin-bottom:2px}
+.apv4-page-sub{font-size:13px;color:#6b7280}
+.apv4-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden}
+.apv4-card-hd{padding:14px 18px 10px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border-bottom:1px solid #f3f4f6}
+.apv4-card-hd b{font-size:14px;font-weight:600;color:#111827;display:block}
+.apv4-card-hd span{font-size:12px;color:#6b7280}
+.apv4-link{font-size:12px;color:#147299;font-weight:600;cursor:pointer;white-space:nowrap;background:none;border:none;padding:0;font-family:inherit}
+.apv4-grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
+.apv4-grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+@media (max-width:1100px){.apv4-grid4{grid-template-columns:repeat(2,minmax(0,1fr))}.apv4-grid2{grid-template-columns:1fr}}
+.apv4-stat-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;cursor:pointer;transition:all .2s}
+.apv4-stat-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.10);transform:translateY(-1px)}
+.apv4-stat-n{font-size:26px;font-weight:700;color:#111827;line-height:1}
+.apv4-stat-l{font-size:12px;font-weight:500;color:#374151;margin-top:4px}
+.apv4-stat-s{font-size:11px;color:#9ca3af;margin-top:1px}
+.apv4-req-tile{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;transition:all .15s}
+.apv4-req-tile:hover{border-color:#f59e0b;background:#fffbf0}
+.apv4-row-tile{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #f3f4f6;cursor:pointer}
+.apv4-row-tile:hover{background:#f3f4f6}
+.apv4-type-ic{width:36px;height:36px;border-radius:9px;background:#e0f2fe;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.apv4-ellip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apv4-ic{flex-shrink:0;display:inline-block;vertical-align:-3px}
+.apv4-type-ic .apv4-ic{width:18px;height:18px}
+.apv4-type-ic.sm{width:26px;height:26px;border-radius:7px}.apv4-type-ic.sm .apv4-ic{width:14px;height:14px}
+.apv4-sb-item .ic .apv4-ic{width:16px;height:16px;vertical-align:-3px}
+.apv4-pill-ic{display:inline-flex;align-items:center;gap:4px}
+.apv4-dir{display:flex;align-items:center;gap:12px;margin:0 20px 14px;padding:12px 14px;border:1px solid #bfdbfe;background:#f0f9ff;border-radius:10px}
+.apv4-dir-av{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#0c2233,#0e4a6e);color:#60a5fa;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+.apv4-btn-ic{display:inline-flex;align-items:center;gap:6px}
+.apv4-stat-card .apv4-ic{width:20px;height:20px}
+.apv4-type-ic.art{box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 1px 2px rgba(0,0,0,.18)}
+.apv4-type-ic.art .apv4-ic{stroke-width:2}
+.apv4-tbl{width:100%;border-collapse:collapse}
+.apv4-tbl th{padding:10px 16px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;background:#f9fafb;border-bottom:1px solid #e5e7eb}
+.apv4-tbl td{padding:12px 16px;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;vertical-align:top}
+.apv4-tbl tr.click{cursor:pointer}
+.apv4-tbl tr.click:hover td{background:#f9fafb}
+.apv4-btn{padding:8px 14px;border-radius:8px;border:1px solid #e5e7eb;background:#fff;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer;font-family:inherit;white-space:nowrap}
+.apv4-btn:hover{border-color:#147299;color:#147299}
+.apv4-btn:disabled{opacity:.5;cursor:not-allowed}
+.apv4-btn.pri{background:#1e3a8a;border-color:#1e3a8a;color:#fff}
+.apv4-btn.pri:hover{background:#1d4ed8;color:#fff}
+.apv4-btn.ok{background:#059669;border-color:#059669;color:#fff}
+.apv4-btn.no{background:#dc2626;border-color:#dc2626;color:#fff}
+.apv4-btn.warn{background:#f59e0b;border-color:#f59e0b;color:#fff}
+.apv4-btn.sm{padding:4px 10px;font-size:11.5px;font-weight:500}
+.apv4-btn.danger{color:#b91c1c;border-color:#fecaca}
+.apv4-field{margin-bottom:12px}
+.apv4-field label{display:block;font-size:11.5px;font-weight:600;color:#374151;margin-bottom:4px}
+.apv4-field input,.apv4-field textarea,.apv4-field select{width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;color:#111827;outline:none;font-family:inherit;background:#fff}
+.apv4-field input:focus,.apv4-field textarea:focus{border-color:#147299;box-shadow:0 0 0 3px rgba(20,114,153,.15)}
+.apv4-field textarea{resize:vertical;min-height:70px}
+.apv4-field .hint{font-size:11px;color:#9ca3af;margin-top:4px}
+.apv4-err{font-size:12px;color:#b91c1c;font-weight:600;margin-top:6px}
+.apv4-empty{padding:28px;text-align:center;color:#9ca3af;font-size:13px}
+.apv4-toolbar{display:flex;gap:10px;align-items:center;margin:0 0 14px;flex-wrap:wrap}
+.apv4-toolbar input,.apv4-toolbar select{padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:12.5px;font-family:inherit;background:#fff;color:#111827}
+.apv4-kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:13px}
+.apv4-kv .k{color:#6b7280;font-weight:600;font-size:12px}
+.apv4-kv .v{color:#111827;word-break:break-word}
+.apv4-wf{display:flex;flex-direction:column}
+.apv4-wf-step{display:flex;align-items:flex-start;gap:10px;padding:9px 0;position:relative}
+.apv4-wf-step .ln{position:absolute;left:13px;top:34px;bottom:-9px;width:2px;background:#e5e7eb}
+.apv4-wf-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;z-index:1;border:2px solid #e5e7eb;background:#f3f4f6;color:#9ca3af}
+.apv4-wf-dot.done{background:#d1fae5;color:#059669;border-color:#059669}
+.apv4-wf-dot.cur{background:#fef3c7;color:#d97706;border-color:#f59e0b}
+.apv4-wf-dot.bad{background:#fee2e2;color:#dc2626;border-color:#dc2626}
+.apv4-wf-body b{font-size:13px;font-weight:600;color:#111827;display:block}
+.apv4-wf-body span{font-size:11.5px;color:#6b7280}
+.apv4-wf-body i{display:block;font-size:12px;color:#374151;margin-top:3px}
+#apv4-draw-ov{display:none;position:absolute;inset:0;z-index:10001;background:rgba(0,0,0,.25)}
+#apv4-drawer{position:absolute;top:0;right:0;bottom:0;width:560px;max-width:96vw;background:#fff;border-left:1px solid #e5e7eb;z-index:10002;display:none;flex-direction:column;box-shadow:-4px 0 24px rgba(0,0,0,.12);transform:translateX(100%);transition:transform .25s ease}
+#apv4-drawer.on{display:flex}
+.apv4-draw-hd{padding:18px 22px 14px;border-bottom:1px solid #e5e7eb;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-shrink:0}
+#apv4-draw-title{font-size:15px;font-weight:700;color:#111827;margin-bottom:2px}
+#apv4-draw-sub{font-size:12px;color:#6b7280}
+#apv4-draw-body{flex:1;overflow-y:auto;padding:18px 22px}
+#apv4-draw-actions{padding:14px 22px;border-top:1px solid #e5e7eb;display:flex;gap:10px;flex-shrink:0;flex-wrap:wrap;background:#fafafa}
+.apv4-sec{margin-bottom:20px}
+.apv4-sec h4{margin:0 0 8px;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em}
+.apv4-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99995;padding:10px 16px;border-radius:10px;background:#142533;color:#EBF1F6;font-size:12.5px;font-weight:700;box-shadow:0 10px 30px -10px rgba(0,0,0,.6)}
+.apv4-toast.bad{background:#7f1d1d}
+.apv4-x{width:28px;height:28px;border-radius:6px;border:none;background:#374151;color:#9ca3af;cursor:pointer;font-size:20px;line-height:1}
+.apv4-x.lt{background:#f3f4f6;color:#6b7280}
+#apv4-blocked{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#f3f4f6;z-index:20000}
+#apv4-blocked.on{display:flex}
+/* ── Approval Access (aa-*) — tokens only; light on #apv4-root, dark under [data-theme="dark"] ── */
+#apv4-root{--aa-surface:#fff;--aa-surface-2:#f9fafb;--aa-line:#e5e7eb;--aa-line-2:#f3f4f6;--aa-ink:#111827;--aa-ink-2:#374151;--aa-ink-3:#5b6573;--aa-ink-4:#646d7a;--aa-accent:#147299;--aa-ring:rgba(20,114,153,.15);--aa-ok-bg:#d1fae5;--aa-ok:#065f46;--aa-warn-bg:#fffbeb;--aa-warn-line:#fde68a;--aa-warn:#92400e;--aa-bad-bg:#fef2f2;--aa-bad-line:#fecaca;--aa-bad:#991b1b;--aa-info-bg:#e0f2fe;--aa-info:#0369a1;--aa-mute-bg:#f3f4f6;--aa-mute:#4b5563;--aa-scrim:rgba(17,24,39,.45);--aa-shadow:0 20px 60px rgba(0,0,0,.18);--aa-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+[data-theme="dark"] #apv4-root{--aa-surface:#142533;--aa-surface-2:#0E1D2A;--aa-line:#2A3D4D;--aa-line-2:#22323F;--aa-ink:#EBF1F6;--aa-ink-2:#C2CCD4;--aa-ink-3:#A5B1BA;--aa-ink-4:#86939D;--aa-accent:#41B6E6;--aa-ring:rgba(65,182,230,.25);--aa-ok-bg:rgba(16,185,129,.18);--aa-ok:#6EE7B7;--aa-warn-bg:rgba(245,158,11,.14);--aa-warn-line:rgba(245,158,11,.4);--aa-warn:#FCD34D;--aa-bad-bg:rgba(239,68,68,.14);--aa-bad-line:rgba(239,68,68,.4);--aa-bad:#FCA5A5;--aa-info-bg:rgba(65,182,230,.16);--aa-info:#7DD3FC;--aa-mute-bg:#1C2E3D;--aa-mute:#93A1AB;--aa-scrim:rgba(0,0,0,.6);--aa-shadow:0 20px 60px rgba(0,0,0,.6)}
+#apv4-root [hidden]{display:none!important}
+#apv4-page-manage-access .apv4-tbl th{color:var(--aa-ink-3);background:var(--aa-surface-2);border-bottom-color:var(--aa-line)}
+/* request drawer — portal-theme.css v6 never covered it (white panel under a dark page); same palette as its tiles */
+[data-theme="dark"] #apv4-drawer{background:#142533;border-left-color:#2A3D4D}
+[data-theme="dark"] .apv4-draw-hd{border-bottom-color:#2A3D4D}
+[data-theme="dark"] #apv4-draw-title,[data-theme="dark"] .apv4-kv .v,[data-theme="dark"] .apv4-wf-body b{color:#EBF1F6}
+[data-theme="dark"] #apv4-draw-sub,[data-theme="dark"] .apv4-kv .k,[data-theme="dark"] .apv4-wf-body span,[data-theme="dark"] .apv4-sec h4{color:#A5B1BA}
+[data-theme="dark"] .apv4-wf-body i{color:#C2CCD4}
+[data-theme="dark"] .apv4-wf-step .ln{background:#2A3D4D}
+[data-theme="dark"] .apv4-wf-dot{background:#1C2E3D;border-color:#2A3D4D;color:#86939D}
+[data-theme="dark"] .apv4-wf-dot.done{background:rgba(16,185,129,.18);color:#6EE7B7;border-color:#059669}
+[data-theme="dark"] .apv4-wf-dot.cur{background:rgba(245,158,11,.14);color:#FCD34D;border-color:#f59e0b}
+[data-theme="dark"] .apv4-wf-dot.bad{background:rgba(239,68,68,.14);color:#FCA5A5;border-color:#dc2626}
+[data-theme="dark"] #apv4-draw-actions{background:#0E1D2A;border-top-color:#2A3D4D}
+[data-theme="dark"] .apv4-x.lt{background:#1C2E3D;color:#C2CCD4}
+[data-theme="dark"] #apv4-drawer .apv4-btn:not(.pri):not(.ok):not(.no){background:#1C2E3D;border-color:#2A3D4D;color:#EBF1F6}
+[data-theme="dark"] #apv4-drawer [style*="color:#111827"]{color:#EBF1F6!important}
+[data-theme="dark"] #apv4-drawer [style*="color:#4b5563"],[data-theme="dark"] #apv4-drawer [style*="color:#6b7280"]{color:#C2CCD4!important}
+[data-theme="dark"] #apv4-drawer [style*="color:#9ca3af"]{color:#A5B1BA!important}
+[data-theme="dark"] #apv4-drawer [style*="background:#fef3c7"]{background:rgba(245,158,11,.14)!important;color:#FCD34D!important}
+[data-theme="dark"] .apv4-tbl th{background:#0E1D2A!important}
+[data-theme="dark"] .apv4-tbl tr:hover td,[data-theme="dark"] .apv4-tbl tr.click:hover td{background:#1C2E3D}
+[data-theme="dark"] .aa-tbl tr.aa-off td{color:var(--aa-ink-4)!important}
+.aa-h1{margin:0 0 2px;font-size:17px;color:var(--aa-ink)}
+#apv4-page-manage-access .apv4-page-sub,#apv4-page-manage-access .apv4-card-hd span{color:var(--aa-ink-3)}
+#apv4-page-manage-access .apv4-card{background:var(--aa-surface);border-color:var(--aa-line)}
+#apv4-page-manage-access .apv4-card-hd{border-color:var(--aa-line-2)}
+#apv4-page-manage-access .apv4-card-hd b,#apv4-page-manage-access .aa-tbl td b{color:var(--aa-ink)}
+#apv4-page-manage-access .apv4-empty{color:var(--aa-ink-3)}
+#apv4-page-manage-access code{color:var(--aa-ink-2)}
+.aa-pill-ok{background:var(--aa-ok-bg);color:var(--aa-ok)}
+.aa-pill-off{background:var(--aa-mute-bg);color:var(--aa-mute)}
+.aa-pill-info,.aa-step-pill{background:var(--aa-info-bg);color:var(--aa-info)}
+.aa-pill-warn{background:var(--aa-warn-bg);color:var(--aa-warn)}
+.aa-key{font-family:var(--aa-mono);font-size:11px;color:var(--aa-ink-4);overflow-wrap:anywhere}
+.aa-hint{font-size:11px;color:var(--aa-ink-4);margin-top:6px}
+.aa-tblwrap{overflow-x:auto}
+.aa-tbl td{vertical-align:middle}
+.aa-tbl tr.aa-off td{color:var(--aa-ink-4)}
+.aa-tbl th.aa-act{text-align:right}
+.aa-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.aa-kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;padding:12px 18px;font-size:13px;color:var(--aa-ink-2);align-items:center}
+.aa-kv .k{font-weight:600;color:var(--aa-ink-3);font-size:12px}
+.aa-err-state{margin:0;max-width:none;text-align:left}
+.aa-err-state b{display:block;margin-bottom:2px}
+.aa-ov{position:fixed;inset:0;z-index:10005;background:var(--aa-scrim);display:flex;align-items:center;justify-content:center;padding:16px}
+.aa-dlg{background:var(--aa-surface);color:var(--aa-ink);border:1px solid var(--aa-line);border-radius:14px;width:100%;max-width:640px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;box-shadow:var(--aa-shadow);min-width:0}
+.aa-dlg-hd{padding:16px 20px 12px;border-bottom:1px solid var(--aa-line);display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-shrink:0}
+.aa-dlg .apv4-page-title{color:var(--aa-ink)}
+.aa-dlg .apv4-page-sub,.aa-dlg .apv4-field .hint,.aa-dlg .apv4-empty{color:var(--aa-ink-3)}
+.aa-dlg .apv4-field label,.aa-dlg .aa-fs legend{color:var(--aa-ink-2)}
+.aa-dlg .apv4-field input,.aa-dlg .apv4-field select{background:var(--aa-surface);color:var(--aa-ink);border-color:var(--aa-line)}
+.aa-dlg .apv4-dir{background:var(--aa-surface-2);border-color:var(--aa-line)}
+.aa-dlg .apv4-dir div{color:var(--aa-ink-2)}
+.aa-dlg .apv4-x{color:var(--aa-ink-3)}
+.nf-tabs{display:flex;gap:2px;border-bottom:1px solid var(--aa-line);margin:-4px 0 14px}
+.nf-tab{appearance:none;background:transparent;border:none;border-bottom:2px solid transparent;padding:8px 14px;font-size:13px;font-weight:600;color:var(--aa-ink-3);cursor:pointer}
+.nf-tab.on{color:var(--aa-ink);border-bottom-color:var(--aa-accent)}
+.aa-dlg #nf-preview .apv4-card{background:var(--aa-surface-2);border-color:var(--aa-line)}
+.aa-dlg-body{padding:16px 20px;overflow-y:auto;flex:1;min-height:0}
+.aa-dlg-ft{padding:12px 20px;border-top:1px solid var(--aa-line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;background:var(--aa-surface-2);flex-shrink:0;border-radius:0 0 14px 14px}
+.aa-fs{border:1px solid var(--aa-line);border-radius:10px;padding:12px 14px;margin:0 0 12px;min-width:0}
+.aa-fs legend{font-size:11.5px;font-weight:700;color:var(--aa-ink-2);padding:0 6px}
+.aa-radios{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.aa-radios label,.aa-checks label,.aa-check label{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--aa-ink-2);cursor:pointer;margin:0}
+.aa-radios input,.aa-checks input,.aa-check input{width:auto;margin:0;accent-color:var(--aa-accent)}
+.aa-checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px 12px}
+.aa-checks.aa-groups{grid-template-columns:1fr;gap:8px}
+.aa-groups label{white-space:normal;line-height:1.35}
+.aa-checks label.off,.aa-radios label.off{opacity:.45;cursor:not-allowed}
+.aa-inline{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.aa-inline input{flex:1;min-width:0}
+.aa-preview{font-size:12.5px;color:var(--aa-ink-2);background:var(--aa-surface-2);border:1px solid var(--aa-line);border-radius:8px;padding:9px 12px;margin-bottom:12px}
+#apv4-root .aa-dlg .apv4-note.warn{background:var(--aa-warn-bg);border-color:var(--aa-warn-line);color:var(--aa-warn)}
+#apv4-root .apv4-note.err.aa-err-state{background:var(--aa-bad-bg);border-color:var(--aa-bad-line);color:var(--aa-bad)}
+#apv4-root .aa-dlg .apv4-field input:focus,#apv4-root .aa-dlg .apv4-field select:focus,#apv4-root .aa-dlg input:focus-visible,#apv4-root .aa-dlg button:focus-visible{outline:none;border-color:var(--aa-accent);box-shadow:0 0 0 3px var(--aa-ring)}
+@media (max-width:720px){
+  /* the console shell has no narrow layout of its own; stack it so 360px works with no page scroll */
+  #apv4-dash-screen{flex-direction:column}
+  .apv4-side{width:100%;min-width:0;flex-direction:row;overflow:auto hidden;flex-shrink:0}
+  #apv4-sidebar-inner{display:flex;gap:2px;align-items:center;padding:8px}
+  .apv4-sb-item{white-space:nowrap}
+  .apv4-side-foot{display:none}
+  .apv4-bar{height:auto;min-height:52px;flex-wrap:wrap;padding:6px 12px}
+  .apv4-brand-sub{display:none}
+  #apv4-nav-tabs{display:none} /* the sidebar strip above already lists these pages */
+  #apv4-scroll{padding:14px 16px}
+  .apv4-grid4{grid-template-columns:1fr}
+  html body #apv4-root #apv4-role-grid{grid-template-columns:1fr!important}
+  .apv4-card-hd{flex-wrap:wrap}
+  .aa-tbl thead{display:none}
+  .aa-tbl,.aa-tbl tbody,.aa-tbl tr,.aa-tbl td{display:block;width:100%}
+  .aa-tbl tr{border-bottom:1px solid var(--aa-line);padding:8px 0}
+  .aa-tbl td{border:none;padding:4px 16px}
+  .aa-tbl td[data-l]::before{content:attr(data-l);display:block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--aa-ink-4);margin-bottom:2px}
+  .aa-actions{justify-content:flex-start}
+  .aa-kv{grid-template-columns:1fr}
+  .aa-ov{padding:0;align-items:stretch}
+  .aa-dlg{max-width:none;max-height:none;border-radius:0;border:none}
+  .aa-dlg-ft{border-radius:0}
+}
+/* Department access keeps the console's existing table and form language. */
+.da-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.da-controls .apv4-field{flex:1 1 230px;margin-bottom:0}
+.da-controls input,.da-controls select{width:100%;min-width:0}
+.da-body{padding:18px;display:grid;gap:18px}
+.da-result{overflow-wrap:anywhere}
+.da-member{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--aa-line)}
+.da-result table{width:100%}.da-result td,.da-result th{padding:8px;text-align:left;vertical-align:top}
+.da-message{min-height:20px;color:var(--aa-ink-2);line-height:1.5}
+.da-result .aa-key{color:var(--aa-ink-3)}
+.da-controls select,.aa-dlg select{color:var(--aa-ink);background:var(--aa-surface);border:1px solid var(--aa-line);border-radius:6px;padding:9px}
+@media(max-width:620px){.da-controls>.apv4-btn{flex:1 1 130px}.da-body{padding:14px}.da-result table{font-size:12px}.da-result td,.da-result th{padding:6px 3px}}
+</style>
+<style id="apv4-theme">
+/* Reference design system (carried over from the previous console head block). */
+#apv4-root .apv4-hero-scrim{position:absolute;inset:0;
+  background:linear-gradient(100deg,rgba(8,12,20,.80) 0%,rgba(8,12,20,.44) 40%,rgba(8,12,20,.06) 74%),
+             linear-gradient(to bottom,transparent 30%,rgba(65,182,230,.55) 100%)}
+.apv4-role-tile{border-radius:14px;transition:transform 160ms cubic-bezier(.23,1,.32,1),border-color 150ms,box-shadow 160ms}
+.apv4-role-tile:hover{border-color:#5FA0C2;transform:translateY(-2px);box-shadow:0 12px 26px -14px rgba(38,50,56,.42)}
+.apv4-req-tile:hover{border-color:#5FA0C2;background:#F2F7FA}
+.apv4-sb-item:hover{background:rgba(20,114,153,.12);color:#147299}
+.apv4-btn:hover{border-color:#147299;color:#147299}
+.apv4-stat-card{border-radius:18px;border-top:2px solid #C3D3DA}
+.apv4-tbl th{font-size:10.5px;letter-spacing:.08em;color:#6D767C;font-weight:800;border-bottom:1px solid #DAE0E3}
+.apv4-tbl tr:hover td{background:#F4F6F7}
+/* role artwork bands (apv4-role-art) */
+.apv4-role-tile.v4art{padding:0!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:0!important}
+.v4band{width:100%;height:78px;display:flex;align-items:center;padding-left:16px;position:relative;overflow:hidden;box-sizing:border-box;flex:0 0 78px}
+.v4band .v4lbl{position:absolute;bottom:7px;left:12px;font-size:7px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.42);text-transform:uppercase;font-family:"IBM Plex Mono",ui-monospace,monospace}
+.apv4-role-tile.v4art > *:not(.v4band){padding-left:16px!important;padding-right:16px!important}
+.apv4-role-tile.v4art .apv4-role-body{padding:14px 16px!important}
+.apv4-role-tile.v4art .v4hide{display:none!important}
+</style>
+<script id="apv4-role-art">
+(function(){
+var G='linear-gradient(135deg,', A=[
+ ['dept',G+'#0D1428,#1e3a5f)','Dept. Manager','<svg width="150" height="78" viewBox="0 0 150 78"><rect x="56" y="10" width="30" height="17" rx="4" fill="rgba(65,182,230,.18)" stroke="#41B6E6" stroke-width="1.4"/><circle cx="71" cy="18.5" r="3.6" fill="#41B6E6"/><g stroke="rgba(65,182,230,.45)" stroke-width="1.2" fill="none"><path d="M71 27v9M36 48v-6h70v6M71 36v6"/></g><rect x="22" y="48" width="28" height="16" rx="4" fill="rgba(65,182,230,.1)" stroke="rgba(65,182,230,.55)" stroke-width="1.3"/><circle cx="36" cy="56" r="3.2" fill="rgba(120,190,32,.9)"/><rect x="57" y="48" width="28" height="16" rx="4" fill="rgba(65,182,230,.1)" stroke="rgba(65,182,230,.55)" stroke-width="1.3"/><circle cx="71" cy="56" r="3.2" fill="rgba(65,182,230,.85)"/><rect x="92" y="48" width="28" height="16" rx="4" fill="rgba(65,182,230,.1)" stroke="rgba(65,182,230,.55)" stroke-width="1.3"/><circle cx="106" cy="56" r="3.2" fill="rgba(65,182,230,.85)"/></svg>'],
+ ['security & comp',G+'#3d2000,#78350f)','Security &amp; Compliance','<svg width="150" height="78" viewBox="0 0 150 78"><path d="M52,12 L74,7 L96,12 L96,42 Q96,60 74,68 Q52,60 52,42 Z" fill="rgba(245,158,11,.14)" stroke="#f59e0b" stroke-width="1.5"/><path d="M63,38 L71,46 L86,28" stroke="#fbbf24" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="106" y="18" width="26" height="34" rx="3.5" fill="rgba(251,191,36,.08)" stroke="rgba(251,191,36,.5)" stroke-width="1.3"/><rect x="113" y="14" width="12" height="7" rx="2" fill="rgba(251,191,36,.6)"/><g stroke="rgba(251,191,36,.45)" stroke-width="1.3"><path d="M111 30h16M111 36h16M111 42h10"/></g></svg>'],
+ ['human resource',G+'#0d2818,#166534)','Human Resources','<svg width="150" height="78" viewBox="0 0 150 78"><circle cx="46" cy="26" r="9" fill="rgba(120,190,32,.2)" stroke="#78BE20" stroke-width="1.5"/><path d="M31,54 Q31,40 46,40 Q61,40 61,54" fill="rgba(120,190,32,.12)" stroke="#78BE20" stroke-width="1.5"/><circle cx="70" cy="31" r="7" fill="rgba(120,190,32,.1)" stroke="rgba(120,190,32,.55)" stroke-width="1.3"/><path d="M58,54 Q58,43 70,43 Q82,43 82,54" fill="none" stroke="rgba(120,190,32,.55)" stroke-width="1.3"/><rect x="96" y="20" width="34" height="40" rx="4" fill="rgba(120,190,32,.08)" stroke="rgba(120,190,32,.5)" stroke-width="1.4"/><circle cx="113" cy="33" r="5.5" fill="rgba(120,190,32,.45)"/><path d="M104,50 Q104,42 113,42 Q122,42 122,50" fill="rgba(120,190,32,.3)"/><rect x="107" y="15" width="12" height="6" rx="2" fill="rgba(120,190,32,.7)"/></svg>'],
+ ['legal',G+'#2d1b69,#4c1d95)','Legal','<svg width="150" height="78" viewBox="0 0 150 78"><line x1="75" y1="14" x2="75" y2="62" stroke="#a78bfa" stroke-width="1.8"/><line x1="47" y1="22" x2="103" y2="22" stroke="#a78bfa" stroke-width="1.8"/><circle cx="75" cy="14" r="3.6" fill="#c4b5fd"/><rect x="66" y="60" width="18" height="4" rx="2" fill="#a78bfa"/><path d="M47,22 L37,42 L57,42 Z" fill="rgba(167,139,250,.2)" stroke="rgba(196,181,253,.75)" stroke-width="1.3"/><path d="M103,22 L93,42 L113,42 Z" fill="rgba(167,139,250,.2)" stroke="rgba(196,181,253,.75)" stroke-width="1.3"/><rect x="118" y="26" width="22" height="28" rx="3" fill="rgba(124,58,237,.25)" stroke="rgba(167,139,250,.5)" stroke-width="1.2"/><g stroke="rgba(196,181,253,.5)" stroke-width="1.1"><path d="M123 34h12M123 40h12M123 46h8"/></g></svg>'],
+ ['information sec',G+'#4a0d2e,#831843)','Information Security','<svg width="150" height="78" viewBox="0 0 150 78"><path d="M75,10 L99,17 L99,41 Q99,60 75,68 Q51,60 51,41 L51,17 Z" fill="rgba(236,72,153,.13)" stroke="#ec4899" stroke-width="1.5"/><rect x="65" y="34" width="20" height="16" rx="3" fill="rgba(244,114,182,.25)" stroke="#f472b6" stroke-width="1.4"/><path d="M69,34 v-5 a6,6 0 0 1 12,0 v5" fill="none" stroke="#f472b6" stroke-width="1.6"/><circle cx="75" cy="41" r="2.4" fill="#fbcfe8"/><g stroke="rgba(244,114,182,.4)" stroke-width="1.1" fill="none"><path d="M112 24h18M112 32h14M112 40h18M112 48h11"/><circle cx="107" cy="24" r="1.8"/><circle cx="107" cy="32" r="1.8"/><circle cx="107" cy="40" r="1.8"/><circle cx="107" cy="48" r="1.8"/></g></svg>'],
+ ['chief technology',G+'#0c2233,#0e4a6e)','Chief Technology Officer','<svg width="150" height="78" viewBox="0 0 150 78"><path d="M42,26 L62,18 L82,26 L82,48 L62,56 L42,48 Z" fill="rgba(96,165,250,.14)" stroke="#60a5fa" stroke-width="1.5" stroke-linejoin="round"/><path d="M42,26 L62,34 L82,26 M62,34 v22" stroke="rgba(147,197,253,.7)" stroke-width="1.3" fill="none"/><path d="M92,40 h30" stroke="#78BE20" stroke-width="1.6" stroke-dasharray="4,3"/><path d="M118,35 l6,5 -6,5" fill="none" stroke="#78BE20" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="130" cy="40" r="4" fill="rgba(120,190,32,.6)"/></svg>'],
+ ['chief executive',G+'#3d2f00,#78600f)','Chief Executive Officer','<svg width="150" height="78" viewBox="0 0 150 78"><path d="M62,12 l5.6,11.4 12.6,1.8 -9.1,8.9 2.2,12.5 -11.3,-5.9 -11.3,5.9 2.2,-12.5 -9.1,-8.9 12.6,-1.8 Z" fill="rgba(251,191,36,.22)" stroke="#fbbf24" stroke-width="1.4" stroke-linejoin="round"/><g stroke="rgba(251,191,36,.55)" stroke-width="1.4" fill="none"><path d="M96 56 v-14M108 56 v-22M120 56 v-30"/></g><rect x="93" y="56" width="32" height="1.6" fill="rgba(251,191,36,.6)"/></svg>'],
+ ['all approvals',G+'#0c2233,#0f4c5c)','All Approvals','<svg width="150" height="78" viewBox="0 0 150 78"><rect x="46" y="24" width="44" height="30" rx="4" fill="rgba(65,182,230,.10)" stroke="rgba(65,182,230,.45)" stroke-width="1.3"/><rect x="52" y="17" width="44" height="30" rx="4" fill="rgba(65,182,230,.14)" stroke="rgba(65,182,230,.65)" stroke-width="1.3"/><rect x="58" y="10" width="44" height="30" rx="4" fill="rgba(65,182,230,.2)" stroke="#41B6E6" stroke-width="1.5"/><path d="M70,25 L77,32 L92,17" stroke="#7DD3FC" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><g stroke="rgba(65,182,230,.35)" stroke-width="1.2" stroke-linecap="round"><path d="M62 52h30M62 58h22M62 64h26"/></g></svg>'],
+ ['administrator',G+'#111827,#374151)','Administrator','<svg width="150" height="78" viewBox="0 0 150 78"><circle cx="62" cy="38" r="13" fill="none" stroke="#9ca3af" stroke-width="1.6"/><circle cx="62" cy="38" r="5" fill="rgba(156,163,175,.35)"/><g stroke="#9ca3af" stroke-width="1.6" stroke-linecap="round"><path d="M62 21v-6M62 61v-6M79 38h6M39 38h6M74 26l4-4M46 54l4-4M74 50l4 4M46 22l4 4"/></g><g stroke="rgba(156,163,175,.55)" stroke-width="1.3" fill="none"><path d="M100 26h30M100 38h30M100 50h30"/></g><circle cx="112" cy="26" r="3.4" fill="#9ca3af"/><circle cx="122" cy="38" r="3.4" fill="#9ca3af"/><circle cx="107" cy="50" r="3.4" fill="#9ca3af"/></svg>']
+];
+
+/* ── admin-page icon squares (Manage Roles / Approval Access / Notification Emails) ── */
+var EMO={'👔':'dept','🛡':'security & comp','🧑\u200d💼':'human resource','⚖':'legal',
+         '🔒':'information sec','💻':'chief technology','⭐':'chief executive','⚙':'administrator','📋':'all approvals'};
+var BOX={'dept':'21 -13 100 100','security & comp':'39 2 70 70','human resource':'26 6 60 60',
+         'legal':'35 -1 80 80','information sec':'44 8 62 62','chief technology':'40 15 44 44',
+         'chief executive':'39 7 46 46','administrator':'38 14 48 48','all approvals':'44 6 60 60'};
+function norm(s){return (s||'').replace(/\uFE0F/g,'').trim();}
+function runIcons(){
+  var root=document.getElementById('apv4-root'); if(!root) return;
+  var sq=root.querySelectorAll('.apv4-role-icon,.apv4-type-ic,div[style*="width:34px"],div[style*="width:38px"],div[style*="width:44px"]');
+  for(var i=0;i<sq.length;i++){
+    var el=sq[i]; if(el.getAttribute('data-v4ico')) continue;
+    if(el.children.length) continue;
+    var key=EMO[norm(el.textContent)]; if(!key) continue;
+    var hit=null; for(var j=0;j<A.length;j++){ if(A[j][0]===key){hit=A[j];break;} }
+    if(!hit) continue;
+    var svg=hit[3].replace(/viewBox="[^"]*"/,'viewBox="'+BOX[key]+'"')
+                  .replace(/width="\d+" height="\d+"/,'width="100%" height="100%"');
+    el.setAttribute('data-v4ico','1');
+    el.style.background=hit[1];
+    el.style.padding='4px'; el.style.boxSizing='border-box';
+    el.style.display='flex'; el.style.alignItems='center'; el.style.justifyContent='center';
+    el.innerHTML=svg;
+  }
+}
+function run(){ runIcons();
+  document.querySelectorAll('.apv4-role-tile').forEach(function(t){
+    if(t.classList.contains('v4art')) return;
+    var ttl=t.querySelector('[data-role-title]'); var txt=((ttl?ttl.textContent:t.textContent)||'').toLowerCase(), hit=null;
+    for(var i=0;i<A.length;i++){ if(txt.indexOf(A[i][0])>-1){ hit=A[i]; break; } }
+    if(!hit) return;
+    Array.prototype.slice.call(t.children).forEach(function(c){
+      if(c.classList.contains('apv4-role-icon')){ c.classList.add('v4hide'); return; }
+      var r=c.getBoundingClientRect();
+      if(r.width>0&&r.width<=64&&r.height>0&&r.height<=64&&c.children.length===0) c.classList.add('v4hide');
+    });
+    var d=document.createElement('div');
+    d.className='v4band'; d.style.background=hit[1];
+    d.innerHTML=hit[3]+'<span class="v4lbl">'+hit[2]+'</span>';
+    t.insertBefore(d,t.firstChild); t.classList.add('v4art');
+  });
+}
+function boot(){ run(); [200,600,1200,2400].forEach(function(ms){setTimeout(run,ms)});
+  var ds=document.getElementById('apv4-dash-screen'), _t=null;
+  if(ds&&window.MutationObserver) new MutationObserver(function(){ clearTimeout(_t); _t=setTimeout(runIcons,200); })
+    .observe(ds,{childList:true,subtree:true});
+  var g=document.getElementById('apv4-role-grid');
+  if(g&&window.MutationObserver) new MutationObserver(function(){setTimeout(run,40)}).observe(g,{childList:true,subtree:true});
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+console.log('[apv4-role-art] role artwork active.');
+})();
+</script>
+<link id="pt-shared" rel="stylesheet" href="/portal-theme.css?v=22">
+<script id="pt-shared-js" src="/portal-theme.js?v=21" defer></script>
+<script id="pt-content-js" src="/portal-content.js?v=6" defer></script>
+<script id="pt-content-admin-js" src="/portal-content-admin.js?v=access-cleanup-20260921" defer></script>
+<script id="pt-ack-admin-js" src="/portal-ack-admin.js?v=7" defer></script>
+<script id="pt-rm-js" src="/portal-rm.js?v=5" defer></script>
+<script id="pt-archive-js" src="/portal-archive.js?v=2" defer></script>
+<script id="pt-inventory-js" src="/portal-inventory.js?v=1" defer></script>
+<script id="pt-reopen-js" src="/portal-reopen.js?v=1" defer></script>
+</head>
+<body>
+
+<div id="apv4-root">
+
+  <!-- ===== ROLE SELECTION ===== -->
+  <div id="apv4-role-screen" class="apv4-screen">
+    <div class="apv4-bar">
+      <div class="apv4-brand">
+        <div class="apv4-brand-icon">🔐</div>
+        <div><div class="apv4-brand-title">Enterprise Approval Portal</div><div class="apv4-brand-sub">Approver Console · IT Security &amp; Compliance</div></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="apv4-role-who" style="font-size:12px;color:#9ca3af"></span>
+        <span class="ap-theme-slot"></span>
+        <a class="apv4-bar-btn" href="/" style="text-decoration:none">Requester portal</a>
+        <a class="apv4-bar-btn" href="/approver-guide.html" target="_blank" rel="noopener" title="How to review and decide requests" style="text-decoration:none">Approver Guide</a>
+        <button class="apv4-bar-btn" onclick="AP.signOut()">Sign out</button>
+      </div>
+    </div>
+    <div class="apv4-hero" style="height:180px;background:#0f1629 url('/auction-hq-banner.png?v=1') center 38%/cover no-repeat; background:#0f1629 image-set(url('/auction-hq-banner.webp?v=20261001') type('image/webp'), url('/auction-hq-banner.png?v=1') type('image/png')) center 38%/cover no-repeat">
+      <div class="apv4-hero-scrim"></div>
+      <div class="apv4-hero-inner">
+        <h1 id="apv4-role-greeting">Approver Portal</h1>
+        <p data-cms="approver.role_subtitle">Select your approver role to continue</p>
+      </div>
+    </div>
+    <div style="padding:28px 40px;flex:1;overflow-y:auto">
+      <div style="font-size:15px;font-weight:600;color:#374151;margin-bottom:4px">Select Approver Role</div>
+      <div style="font-size:13px;color:#6b7280;margin-bottom:18px">Each role is a workflow step. You see the requests that pass through that step and can act on the ones waiting at it.</div>
+      <div id="apv4-role-note-host"></div>
+      <div id="apv4-role-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===== DASHBOARD ===== --><!-- apv4-hero-compact -->
+  <div id="apv4-dash-screen" class="apv4-screen">
+    <div class="apv4-side">
+      <div id="apv4-sidebar-inner"></div>
+      <div class="apv4-side-foot"><div class="apv4-role-chip"><span class="dot"></span><span id="apv4-role-chip"></span></div></div>
+    </div>
+    <div class="apv4-main">
+      <div class="apv4-bar">
+        <div class="apv4-brand">
+          <div class="apv4-brand-icon">🔐</div>
+          <div><div class="apv4-brand-title">Enterprise Approval Portal</div><div class="apv4-brand-sub">IT Security &amp; Compliance</div></div>
+        </div>
+        <div id="apv4-nav-tabs"></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="apv4-user"><div id="apv4-avatar"></div><span id="apv4-uname"></span></div>
+          <span class="ap-theme-slot"></span>
+          <button class="apv4-bar-btn" onclick="AP.showRoles()" title="Back to role selection">Switch role</button>
+          <a class="apv4-bar-btn" href="/approver-guide.html" target="_blank" rel="noopener" title="How to review and decide requests" style="text-decoration:none">Approver Guide</a>
+          <button class="apv4-bar-btn" onclick="AP.signOut()">Sign out</button>
+        </div>
+      </div>
+      <div class="apv4-hero" style="height:150px;background:#0f1629 url('/auction-hq-banner.png?v=1') center 38%/cover no-repeat; background:#0f1629 image-set(url('/auction-hq-banner.webp?v=20261001') type('image/webp'), url('/auction-hq-banner.png?v=1') type('image/png')) center 38%/cover no-repeat">
+        <div class="apv4-hero-scrim"></div>
+        <div class="apv4-hero-inner">
+          <h1 id="apv4-greeting" style="font-size:22px"></h1>
+          <p id="apv4-subgreeting"></p>
+        </div>
+      </div>
+      <div id="apv4-scroll">
+        <div id="apv4-page-dashboard"></div>
+        <div id="apv4-page-pending"       style="display:none"></div>
+        <div id="apv4-page-all"           style="display:none"></div>
+        <div id="apv4-page-completed"     style="display:none"></div>
+        <div id="apv4-page-audit"         style="display:none"></div>
+        <div id="apv4-page-manage-roles"  style="display:none"></div>
+        <div id="apv4-page-notifications" style="display:none"></div>
+        <div id="apv4-page-manage-access" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== DRAWER ===== -->
+  <div id="apv4-draw-ov" onclick="AP.closeDrawer()"></div>
+  <div id="apv4-drawer" role="dialog" aria-modal="true">
+    <div class="apv4-draw-hd">
+      <div style="min-width:0"><div id="apv4-draw-title"></div><div id="apv4-draw-sub"></div></div>
+      <button class="apv4-x lt" onclick="AP.closeDrawer()" aria-label="Close">×</button>
+    </div>
+    <div id="apv4-draw-body"></div>
+    <div id="apv4-draw-actions"></div>
+  </div>
+
+  <!-- ===== NO SESSION ===== -->
+  <div id="apv4-blocked">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:32px;max-width:460px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.08)">
+      <div style="font-size:40px;margin-bottom:10px">🔐</div>
+      <div style="font-size:18px;font-weight:700;color:#111827;margin-bottom:6px">Sign-in required</div>
+      <div id="apv4-blocked-msg" style="font-size:13px;color:#6b7280;line-height:1.6;margin-bottom:18px">Your approver session could not be verified.</div>
+      <a class="apv4-btn pri" href="/login.html" style="text-decoration:none;display:inline-block">Sign in with your company account</a>
+      <div style="margin-top:12px"><a href="/" style="font-size:12px;color:#147299">Back to the requester portal</a></div>
+    </div>
+  </div>
+</div>
+
+<script id="apv4-app">
+/* ═════════════════════════════════════════════════════════════════════════
+   Approver Console — single source of truth.
+   Identity: nginx gate → /api/portal/auth/me (SSO). Roles: /api/portal/roles.
+   Requests: /api/portal/requests (server-filtered to the steps you hold).
+   Decisions: POST /api/portal/requests/{id}/decide. Admin: PATCH /requests/{id},
+   /api/portal/settings, /api/department-access/mappings.
+   Approval access (super-admin): /api/portal/approval-access — what me.approval_access mirrors.
+   No demo data, no in-memory settings, no password screen.
+   ═════════════════════════════════════════════════════════════════════════ */
+(function(){
+'use strict';
+
+var STEP_ICON  = {manager:'👔',security:'🛡️',hr:'🧑‍💼',legal:'⚖️',clo:'⚖️',infosec:'🔒',cto:'💻',ceo:'⭐',admin:'⚙️'};
+var STEP_COLOR = {manager:'#dbeafe',security:'#fef3c7',hr:'#d1fae5',legal:'#ede9fe',clo:'#ede9fe',infosec:'#fce7f3',cto:'#e0f2fe',ceo:'#fef9c3',admin:'#f3f4f6'};
+/* ── inline SVG icon set (stroke, currentColor) — replaces the emoji glyphs ── */
+function I(name,size){
+  var P={
+    home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    list:'<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
+    check:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+    x:'<circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/>',
+    ret:'<path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+    scroll:'<path d="M8 3h11v14a4 4 0 0 1-4 4H5a2 2 0 0 1-2-2v-3h5"/><path d="M8 3v13a2 2 0 0 1-2 2"/><path d="M12 8h4M12 12h4"/>',
+    layers:'<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>',
+    users:'<circle cx="9" cy="8" r="3.5"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 15a5 5 0 0 1 5 5"/>',
+    mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    alarm:'<circle cx="12" cy="13" r="7"/><path d="M12 9v4l2.5 1.5"/><path d="M5 4L3 6M19 4l2 2"/>',
+    loader:'<path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/>',
+    refresh:'<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>',
+    flag:'<path d="M5 21V4"/><path d="M5 4h11l-1.5 3L16 10H5"/>',
+    globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    cpu:'<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="10" y="10" width="4" height="4"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+    link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M15 5l3 3M18 8l2-2"/>',
+    shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/>',
+    siren:'<path d="M6 19v-6a6 6 0 0 1 12 0v6"/><path d="M4 19h16"/><path d="M12 3v2M5 6l1.5 1.5M19 6l-1.5 1.5"/>',
+    file:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M10 13h5M10 17h5"/>',
+    edit:'<path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M13 7l4 4"/>'
+  };
+  var d=P[name]||P.file; size=size||18;
+  return '<svg class="apv4-ic" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+d+'</svg>';
+}
+var TYPE_ICON  = {oca:I('globe'),aia:I('cpu'),wua:I('link'),paa:I('key'),ser:I('shield'),sir:I('siren')};
+/* role-art palette (dark gradient square + bright accent stroke) — same family as the Notification Emails / Manage Roles squares */
+var ART_G='linear-gradient(135deg,';
+var TYPE_COLOR = {oca:[ART_G+'#0c2233,#0e4a6e)','#60a5fa'],aia:[ART_G+'#2d1b69,#4c1d95)','#c4b5fd'],wua:[ART_G+'#0d2818,#166534)','#78BE20'],paa:[ART_G+'#3d2f00,#78600f)','#fbbf24'],ser:[ART_G+'#3d2000,#78350f)','#f59e0b'],sir:[ART_G+'#4a0d2e,#831843)','#f472b6']};
+var ART_DEFAULT=[ART_G+'#111827,#374151)','#d1d5db'];
+function artSq(gradAccent,inner,cls){var c=gradAccent||ART_DEFAULT;return '<div class="apv4-type-ic art '+(cls||'')+'" style="background:'+c[0]+';color:'+c[1]+'">'+inner+'</div>';}
+function typeIc(t,cls){return artSq(TYPE_COLOR[t],TYPE_ICON[t]||I('file'),cls);}
+var PAGES = ['dashboard','pending','all','completed','audit','manage-roles','notifications','manage-access'];
+
+var S = {
+  me:null, roles:null, reqs:[], contacts:{}, fixed:{}, groups:null,
+  role:null,          // current step key, or 'admin'
+  page:'dashboard',
+  open:null,          // request currently in the drawer
+  editing:false,
+  filter:{q:'',type:''},
+  loadedAt:0,
+  aa:{loaded:false,loading:false,error:null,policies:[],steps:[],userPick:null,invoker:null,editId:null}   // Approval Access page (super-admin)
+};
+
+/* ── utilities ─────────────────────────────────────────────────────────── */
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function $(id){return document.getElementById(id);}
+function fmtDate(iso){if(!iso)return '—';var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+function fmtDT(iso){if(!iso)return '—';var d=new Date(iso);if(isNaN(d))return esc(iso);return d.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
+function ago(iso){if(!iso)return '';var s=(Date.now()-new Date(iso).getTime())/1000;if(!isFinite(s))return '';if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+function toast(m,bad){var t=document.createElement('div');t.className='apv4-toast'+(bad?' bad':'');t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove();},bad?5000:3200);}
+function titleCase(k){return String(k).replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();});}
+function stepLabel(k){var st=(S.roles&&S.roles.steps||[]).find(function(x){return x.step===k;});if(st)return st.label;var sl=S.me&&S.me.step_labels;if(sl&&sl[k])return sl[k];return k==='admin'?'Administrator':k==='all'?'All Approvals':titleCase(k);}
+function typeLabel(t){var rt=S.roles&&S.roles.request_types&&S.roles.request_types[t];return rt?rt.label:String(t||'').toUpperCase();}
+function statusPill(s){
+  var m={pending:['#fef3c7','#d97706','Pending','clock'],approved:['#d1fae5','#059669','Approved','check'],rejected:['#fee2e2','#dc2626','Rejected','x'],returned:['#e0f2fe','#0284c7','Returned','ret'],draft:['#f3f4f6','#6b7280','Draft','file']}[s]||['#f3f4f6','#6b7280',esc(s),'file'];
+  return '<span class="apv4-pill apv4-pill-ic" style="background:'+m[0]+';color:'+m[1]+'">'+I(m[3],11)+m[2]+'</span>';
+}
+/* How the requester's identity was established, from the submitter block that
+   app.py stamps server-side (2026-09-23). A request filed before stamping
+   existed carries no value at all, and that is NOT the same as "typed" -- it
+   is unknown, and says so. */
+function identityPill(s){
+  var src=(s&&s.identity_source)||'';
+  var m={
+    entra:               ['#d1fae5','#065f46','Verified sign-in',   'Name, email, department, title and manager came from the corporate directory after a silent Microsoft sign-in. The requester could not change them.'],
+    typed:               ['#fef3c7','#92400e','Typed by hand',      'No corporate sign-in was established from this browser. Everything on this request was typed by whoever filled the form in.'],
+    typed_over_verified: ['#fee2e2','#b91c1c','Typed over a sign-in','This browser WAS signed in to Microsoft, and the requester chose "This is not me" and typed the details instead. See the audit log for the signed-in address.']
+  }[src]||['#f3f4f6','#6b7280','Not recorded','This request predates identity stamping, so how it was filled in was never captured. It is unknown, not verified.'];
+  return '<span class="apv4-pill" style="background:'+m[0]+';color:'+m[1]+'" title="'+esc(m[3])+'">'+esc(m[2])+'</span>';
+}
+function prioPill(p){
+  var m={high:['#fee2e2','#dc2626','High'],low:['#dbeafe','#2563eb','Low']}[p]||['#ede9fe','#7c3aed','Normal'];
+  return '<span class="apv4-pill" style="background:'+m[0]+';color:'+m[1]+'">'+m[2]+'</span>';
+}
+
+async function api(path,opts){
+  opts=opts||{};
+  var o={credentials:'same-origin',headers:{'Accept':'application/json'}};
+  if(opts.method)o.method=opts.method;
+  if(opts.body!==undefined){o.headers['Content-Type']='application/json';o.body=JSON.stringify(opts.body);}
+  var r=await fetch(path,o);
+  var j={};try{j=await r.json();}catch(e){}
+  if(r.status===401){var e1=new Error(j.error||'Your session has expired. Sign in again.');e1.status=401;throw e1;}
+  if(!r.ok||j.ok===false){var e2=new Error(j.error||('HTTP '+r.status));e2.status=r.status;throw e2;}
+  return (j&&j.data!==undefined)?j.data:j;
+}
+
+/* ── boot ──────────────────────────────────────────────────────────────── */
+function greetingWord(){ var hr=new Date().getHours(); return hr<12?'Good morning':hr<17?'Good afternoon':'Good evening'; }
+function displayName(){ var m=S.me||{}; return m.display_name||m.name||m.email||'Approver'; }
+function firstName(){ var n=displayName(); return n.indexOf(',')>-1 ? n.split(',')[1].trim().split(' ')[0] : n.split(' ')[0]; }
+function applyGreetings(){
+  var g=$('apv4-role-greeting'); if(g) g.textContent=greetingWord()+', '+firstName()+'!';
+  var d=$('apv4-greeting'); if(d&&S.role) d.textContent=greetingWord()+', '+firstName()+'!';
+  var a=$('apv4-avatar'); if(a) a.textContent=firstName().charAt(0).toUpperCase();
+  var u=$('apv4-uname'); if(u) u.textContent=displayName();
+  var w=$('apv4-role-who'); if(w&&S.me) w.textContent=displayName();
+}
+/* The gate may hand us a login ("rabad") as the name. Resolve the display name once
+   through the directory so every greeting reads "Rey", whoever is signed in. */
+async function resolveDisplayName(){
+  var m=S.me||{}; var n=(m.name||'').trim(); var local=(m.email||'').split('@')[0];
+  if(n&&n.indexOf(' ')>-1&&n.toLowerCase()!==local.toLowerCase()) return;
+  if(!m.email) return;
+  try{ var d=await dirLookup(m.email); if(d&&d.name){ S.me.display_name=d.name; applyGreetings(); } }catch(e){}
+}
+async function boot(){
+  try{
+    S.me=await api('/api/portal/auth/me');
+    resolveDisplayName();
+  }catch(e){
+    $('apv4-blocked-msg').textContent=(e.status===401)
+      ? 'Your company sign-in was not found or has expired.'
+      : 'The console could not reach the portal API ('+e.message+').';
+    $('apv4-blocked').classList.add('on');
+    return;
+  }
+  try{ S.roles=await api('/api/portal/roles'); }
+  catch(e){
+    // Not an approver anywhere: say so plainly instead of an empty picker.
+    S.roles={steps:[],request_types:{}};
+    if(e.status===403){ showRoles(); note('You are signed in as '+esc(S.me.email)+', but no approval access was found for your account and you are not a portal administrator. Ask IT to add you to a department/step approver group, or to grant you access under Approval Access.','err'); return; }
+  }
+  /* Deep link from notification emails: /approver.html?open=<id>. One role: go straight to the
+     request. Several: pick a role first, then it opens. Nothing here changes authentication. */
+  try{ var q=new URLSearchParams(location.search).get('open'); if(q&&/^[A-Z]{3}-\d{4}-\d{5}$/i.test(q.trim())){ S.openOnLoad=q.trim().toUpperCase(); history.replaceState(null,'',location.pathname); } }catch(e){}
+  showRoles();
+  if(S.openOnLoad){
+    var tiles=document.querySelectorAll('#apv4-role-grid .apv4-role-tile[data-role]');
+    if(tiles.length===1){ selectRole(tiles[0].getAttribute('data-role')); }
+    else note('Choose your role to open request <strong>'+esc(S.openOnLoad)+'</strong>.','');
+  }
+}
+
+function note(html,tone){
+  var host=$('apv4-role-note-host'); if(!host)return;
+  host.innerHTML=html?'<div class="apv4-note '+(tone||'')+'">'+html+'</div>':'';
+}
+
+/* ── role picker ───────────────────────────────────────────────────────── */
+function screen(id){
+  ['apv4-role-screen','apv4-dash-screen'].forEach(function(s){$(s).classList.toggle('on',s===id);});
+}
+function showRoles(){
+  closeDrawer(); aaClose(true); S.role=null; S.open=null;
+  screen('apv4-role-screen');
+  $('apv4-role-who').textContent=S.me?displayName():'';
+  applyGreetings();
+  var steps=S.roles&&S.roles.steps||[];
+  var A=access();
+  var isAdmin=!!S.me.is_admin||A.is_superadmin;
+  var mgrN=A.manager_of_requests.length;
+  var teamAck=(S.me.team_ack_count|0); /* ACK-TEAM (v5): acknowledgment records naming this person as manager */
+  var mgrExtra=[mgrN?'Named as manager on '+mgrN+' request'+(mgrN===1?'':'s'):'', teamAck?teamAck+' team acknowledgment'+(teamAck===1?'':'s'):''].filter(Boolean).join(' · ');
+  var tiles=[], hidden=0;
+  function stepTile(st,extra){
+    return {id:st.step,name:st.label,desc:st.description||'',icon:STEP_ICON[st.step]||'',color:STEP_COLOR[st.step]||'#f3f4f6',
+      badge:(st.request_types||[]).length+' request type'+((st.request_types||[]).length===1?'':'s'),extra:extra||''};
+  }
+  // The role screen is the original department grid: one tile per step you can see
+  // (all of them for Tier 2 / view-all). Each tile is that department's page; the server
+  // still decides what can be acted on there.
+  steps.forEach(function(st){
+    if(A.view_all||A.view_steps.indexOf(st.step)>-1){ tiles.push(stepTile(st,st.step==='manager'?mgrExtra:'')); return; }
+    // Named as the direct manager on some requests: the Dept. Manager tile, scoped by the server to those requests.
+    if(st.step==='manager'&&(mgrN||teamAck)){ tiles.push(stepTile(st,mgrExtra)); return; }
+    hidden++;
+  });
+  if(isAdmin) tiles.push({id:'admin',name:'Administrator',desc:A.is_superadmin?'Every request + configuration':'Configuration + requests in your approval scope',icon:'⚙️',color:'#f3f4f6',badge:A.is_superadmin?'Super-admin · configuration':'Configuration only',extra:''});
+  var grid=$('apv4-role-grid');
+  grid.innerHTML=tiles.length?tiles.map(function(t){
+    return '<div class="apv4-role-tile" data-role="'+esc(t.id)+'" role="button" tabindex="0" onclick="AP.selectRole(\''+esc(t.id)+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();AP.selectRole(\''+esc(t.id)+'\')}">'
+      +'<div class="apv4-role-icon" style="background:'+t.color+'">'+t.icon+'</div>'
+      +'<div class="apv4-role-body" style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:0">'
+      +'<div data-role-title style="font-size:14px;font-weight:600;color:#111827">'+esc(t.name)+'</div>'
+      +'<div style="font-size:12px;color:#6b7280;line-height:1.55;flex:1">'+esc(t.desc)+'</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px">'
+      +'<span class="apv4-pill"'+(t.badgeId?' id="'+esc(t.badgeId)+'"':'')+' style="background:#e0f2fe;color:#0369a1">'+esc(t.badge)+'</span>'
+      +(t.extra?'<span class="apv4-pill" style="background:#fee2e2;color:#dc2626">'+esc(t.extra)+'</span>':'')
+      +'</div></div></div>';
+  }).join(''):'<div class="apv4-empty">No approver roles are assigned to your account.</div>';
+  if(!steps.length){ /* note already set by boot */ }
+  else if(!tiles.length) note('No approval access was found for your account. Ask IT to add you to a department/step approver group, or to grant you access under Approval Access.','warn');
+  else if(hidden) note('Showing the '+tiles.length+' role'+(tiles.length===1?'':'s')+' assigned to you. '+hidden+' other role'+(hidden===1?' is':'s are')+' hidden because you hold no approval access for '+(hidden===1?'it':'them')+'.','');
+  else note('');
+}
+
+function selectRole(id){
+  S.role=id; S.page='dashboard'; S.filter={q:'',type:''};
+  screen('apv4-dash-screen');
+  var first=firstName();
+  $('apv4-greeting').textContent=greetingWord()+', '+first+'!';
+  var label=stepLabel(id);
+  $('apv4-subgreeting').textContent=(window.portalContentGreeting?window.portalContentGreeting(label):label+' Dashboard — Review and manage your assigned requests.');
+  $('apv4-role-chip').textContent=label;
+  $('apv4-avatar').textContent=first.charAt(0).toUpperCase();
+  $('apv4-uname').textContent=displayName();
+  buildSidebar(); buildTabs();
+  if(window.RM&&RM.onRole)RM.onRole(id);
+  nav('dashboard');
+  loadRequests().then(function(){ if(S.openOnLoad){ var id=S.openOnLoad; S.openOnLoad=null; if(S.reqs.some(function(x){return x.id===id;})) setTimeout(function(){ openReq(id); },320); /* after showRoles' close animation */ else toast('Request '+id+' is not in your queue for this role',true); } });
+}
+
+/* ── data ──────────────────────────────────────────────────────────────── */
+async function loadRequests(){
+  try{ S.reqs=await api('/api/portal/requests'); S.loadedAt=Date.now(); }
+  catch(e){ if(e.status===401){$('apv4-blocked').classList.add('on');return;} S.reqs=[]; toast('Could not load requests: '+e.message,true); }
+  render();
+}
+/* ── approval access (client mirror of the server rule; the server enforces it) ──
+   me.approval_access is the only contract. A missing payload grants no access. */
+function access(){
+  var me=S.me||{}; var aa=me.approval_access;
+  var all=Array.isArray(me.all_steps)&&me.all_steps.length?me.all_steps.slice():(S.roles&&S.roles.steps||[]).map(function(s){return s.step;});
+  var mgr=Array.isArray(me.manager_of_requests)?me.manager_of_requests:[];
+  if(aa&&typeof aa==='object'){
+    var va=!!aa.view_all, da=!!aa.decide_all;
+    return {is_superadmin:!!aa.is_superadmin,view_all:va,decide_all:da,
+      view_steps:va?all.slice():(Array.isArray(aa.view_steps)?aa.view_steps.slice():[]),
+      decide_steps:da?all.slice():(Array.isArray(aa.decide_steps)?aa.decide_steps.slice():[]),
+      manager_of_requests:Array.isArray(aa.manager_of_requests)?aa.manager_of_requests:mgr,
+      sources:Array.isArray(aa.sources)?aa.sources:[]};
+  }
+  return {is_superadmin:false,view_all:false,decide_all:false,view_steps:[],decide_steps:[],manager_of_requests:[],sources:[]};
+}
+function curStepKey(r){ if(!r||r.status!=='pending')return ''; var k=(r.workflow||[])[r.current_step]; return k?String(k):''; }
+function canAct(r){ // pending AND (decide_all OR current step in decide_steps OR (manager step AND named as manager on this request))
+  if(!r||r.status!=='pending')return false;
+  var k=curStepKey(r); if(!k)return false;
+  if(String((r.submitter||{}).email||'').toLowerCase()===String((S.me||{}).email||'').toLowerCase())return false;
+  var A=(((S.me||{}).approval_access||{}).resources||{})[r.type]||access();
+  if((A.blocked_steps||[]).indexOf(k)>-1)return false;
+  if(A.decide_all)return true;
+  if(A.decide_steps.indexOf(k)>-1)return true;
+  if(k==='manager'&&A.manager_of_requests.indexOf(r.id)>-1)return true;
+  return false;
+}
+function myReqs(){
+  if(S.role==='admin'||S.role==='all')return S.reqs.slice();
+  return S.reqs.filter(function(r){return (r.workflow||[]).indexOf(S.role)>-1;});
+}
+function isMine(r){ // needs my decision now, within the selected tile
+  if(!canAct(r))return false;
+  if(S.role==='admin'||S.role==='all')return true;
+  return curStepKey(r)===S.role;
+}
+function decidedByMe(r){
+  return (r.approvals||[]).some(function(a){return a.status&&a.status!=='pending'&&a.step_key===S.role;});
+}
+
+/* ── chrome ────────────────────────────────────────────────────────────── */
+function sbItem(page,icon,label,badge,tone){
+  return '<div id="apv4-sb-'+page+'" class="apv4-sb-item'+(S.page===page?' on':'')+'" onclick="AP.nav(\''+page+'\')"><span class="ic">'+icon+'</span><span style="flex:1">'+esc(label)+'</span>'
+    +(badge?'<span class="bd '+(tone||'')+'">'+badge+'</span>':'')+'</div>';
+}
+function buildSidebar(){
+  var el=$('apv4-sidebar-inner'); if(!el)return;
+  var mine=myReqs(); var pend=mine.filter(isMine).length;
+  var done=mine.filter(function(r){return r.status!=='pending';}).length;
+  var h='<div class="apv4-sb-head">Approvals</div>'
+    +sbItem('dashboard',I('home'),'Dashboard',pend||'', 'amber')
+    +sbItem('pending',I('clock'),'Pending Approvals',pend||'','')
+    +sbItem('all',I('list'),'All Requests',mine.length||'','grey')
+    +sbItem('completed',I('check'),'Completed',done||'','grey')
+    +'<div style="height:1px;background:#1f2937;margin:8px 0"></div><div class="apv4-sb-head">Tools</div>'
+    +sbItem('audit',I('scroll'),'Audit Trail','','');
+  if(S.role==='admin'){
+    var unroutable=(S.roles.steps||[]).filter(function(s){return !s.routable;}).length;
+    h+='<div style="height:1px;background:#1f2937;margin:8px 0"></div><div class="apv4-sb-head">Administration</div>'
+      +sbItem('manage-roles',I('layers'),'Manage Roles',unroutable||'','')
+      +(access().is_superadmin?sbItem('manage-access',I('shield'),'Approval Access','',''):'')
+      
+      +sbItem('notifications',I('mail'),'Notification Emails',unroutable||'','');
+  }
+  el.innerHTML=h;
+  if(window.RM&&RM.afterSidebar)RM.afterSidebar(el);
+}
+function buildTabs(){
+  var t=$('apv4-nav-tabs'); if(!t)return;
+  t.innerHTML=[['dashboard','Dashboard'],['pending','Pending'],['all','All Requests'],['completed','Completed'],['audit','Audit Trail']].map(function(p){
+    return '<button id="apv4-tab-'+p[0]+'" class="apv4-tab-btn'+(S.page===p[0]?' on':'')+'" onclick="AP.nav(\''+p[0]+'\')">'+p[1]+'</button>';
+  }).join('');
+  if(window.RM&&RM.afterTabs)RM.afterTabs(t);
+}
+function nav(page){
+  if(PAGES.indexOf(page)===-1)return;
+  // manage-access is reachable so a non-super-admin lands on the page's error state instead of a silent no-op
+  if(page!=='manage-access'&&(page.indexOf('manage')===0||page==='notifications')){ if(S.role!=='admin')return; }
+  S.page=page;
+  // includes pages/sidebar items injected by external admin modules (e.g. Site Content)
+  document.querySelectorAll('[id^="apv4-page-"]').forEach(function(pg){pg.style.display=(pg.id==='apv4-page-'+page)?'block':'none';});
+  document.querySelectorAll('[id^="apv4-sb-"]').forEach(function(sb){sb.classList.toggle('on',sb.id==='apv4-sb-'+page);sb.style.background='';sb.style.color='';});
+  PAGES.forEach(function(p){var tb=$('apv4-tab-'+p); if(tb)tb.classList.toggle('on',p===page);});
+  var sc=$('apv4-scroll'); if(sc)sc.scrollTop=0;
+  render();
+}
+function render(){
+  if(!S.role)return;
+  buildSidebar();
+  var p=S.page;
+  /* RM-HOOKS (2026-09-24): Request Management module renders these pages when loaded; console renderers remain the fallback. */
+  var RM=window.RM||{};
+  if(p==='dashboard')(RM.renderDashboard?RM.renderDashboard():renderDashboard());
+  else if(p==='pending'||p==='all'||p==='completed')(RM.renderList?RM.renderList(p):renderList(p));
+  else if(p==='audit')(RM.renderAudit?RM.renderAudit():renderAudit());
+  else if(p==='manage-roles')renderManageRoles();
+  else if(p==='notifications')renderNotifications();
+  else if(p==='manage-access')renderManageAccess();
+}
+
+/* ── shared request renderers ─────────────────────────────────────────── */
+function reqTile(r){
+  var s=r.submitter||{};
+  return '<div class="apv4-req-tile" onclick="AP.openReq(\''+esc(r.id)+'\')">'
+    +typeIc(r.type)
+    +'<div style="flex:1;min-width:0"><div class="apv4-ellip" style="font-size:13px;font-weight:600;color:#111827">'+esc(r.id)+' — '+esc(typeLabel(r.type))+'</div>'
+    +'<div class="apv4-ellip" style="font-size:11px;color:#6b7280">'+esc(s.name||'')+(s.dept?' · '+esc(s.dept):'')+' · '+ago(r.created_at)+'</div>'
+    +'<div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap">'+statusPill(r.status)+' '+prioPill(r.priority)+(r.status==='pending'?' <span class="apv4-pill aa-step-pill">Step: '+esc(currentStepLabel(r))+'</span>':'')+'</div></div>'
+    +'<span style="color:#9ca3af;font-size:13px">›</span></div>';
+}
+function currentStepLabel(r){
+  if(r.status!=='pending')return '—';
+  var k=(r.workflow||[])[r.current_step]; return k?stepLabel(k):'—';
+}
+
+function renderDashboard(){
+  var el=$('apv4-page-dashboard'); if(!el)return;
+  var mine=myReqs();
+  var pend=mine.filter(isMine), inFlight=mine.filter(function(r){return r.status==='pending'&&!isMine(r);});
+  var approved=mine.filter(function(r){return r.status==='approved';});
+  var closed=mine.filter(function(r){return r.status==='rejected'||r.status==='returned';});
+  var high=pend.filter(function(r){return r.priority==='high';});
+  var recent=mine.filter(function(r){return r.status!=='pending';}).sort(function(a,b){return (b.updated_at||'').localeCompare(a.updated_at||'');});
+  function stat(icon,color,n,label,sub,page){return '<div class="apv4-stat-card" onclick="AP.nav(\''+page+'\')"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'+artSq(color,icon)+'<span style="font-size:13px;color:#9ca3af">›</span></div><div class="apv4-stat-n">'+n+'</div><div class="apv4-stat-l">'+label+'</div><div class="apv4-stat-s">'+sub+'</div></div>';}
+  function panel(title,sub,page,body){return '<div class="apv4-card"><div class="apv4-card-hd"><div><b>'+title+'</b><span>'+sub+'</span></div><button class="apv4-link" onclick="AP.nav(\''+page+'\')">View all →</button></div>'+body+'</div>';}
+  var adminNote='';
+  if(S.role==='admin'){
+    var un=(S.roles.steps||[]).filter(function(s){return !s.routable;});
+    if(un.length)adminNote='<div class="apv4-note warn" style="max-width:none"><strong>'+un.length+' approval step'+(un.length===1?' has':'s have')+' no notification recipient:</strong> '+un.map(function(s){return esc(s.label);}).join(', ')+'. Requests reaching '+(un.length===1?'that step':'those steps')+' escalate to the Service Desk until an address is set under <button class="apv4-link" onclick="AP.nav(\'notifications\')">Notification Emails</button>.</div>';
+    /* Undelivered mail. The service now audits notification.failed when the
+       relay refuses a message (2026-09-18); this lists the requests that carry
+       one, so a bad address is not something you only find by reading logs. */
+    var failed=mine.filter(function(r){return (r.audit||[]).some(function(e){return e.event==='notification.failed';});});
+    if(failed.length){
+      adminNote+='<div class="apv4-note warn" style="max-width:none;border-color:#dc2626;background:#fef2f2;color:#7f1d1d"><strong>'+failed.length+' request'+(failed.length===1?' has':'s have')+' an undelivered notification:</strong> '
+        +failed.slice(0,8).map(function(r){var e=(r.audit||[]).filter(function(x){return x.event==='notification.failed';}).pop()||{};var why=(e.note||'').split(' — ')[0];return '<button class="apv4-link" style="color:#7f1d1d;text-decoration:underline" onclick="AP.openReq(\''+esc(r.id)+'\')">'+esc(r.id)+'</button>'+(why?' <span style="color:#991b1b">('+esc(why)+')</span>':'');}).join(', ')
+        +(failed.length>8?' and '+(failed.length-8)+' more':'')+'. Open the request and read its History for the relay\'s reason; fix the address under Notification Emails or by editing the request, then have the previous step re-approve to resend.</div>';
+    }
+  }
+  el.innerHTML=adminNote
+    +'<div class="apv4-grid4">'
+    +stat(I('alarm',20),[ART_G+'#3d2000,#78350f)','#fbbf24'],pend.length,'Waiting for you','Requests at a step you can decide','pending')
+    +stat(I('loader',20),[ART_G+'#0c2233,#0e4a6e)','#60a5fa'],inFlight.length,'In progress elsewhere','Pending at another step','all')
+    +stat(I('check',20),[ART_G+'#0d2818,#166534)','#78BE20'],approved.length,'Approved','Fully approved','completed')
+    +stat(I('x',20),[ART_G+'#4a0d2e,#831843)','#f472b6'],closed.length,'Rejected / Returned','Closed without approval','completed')
+    +'</div>'
+    +'<div class="apv4-grid2">'
+    +panel('Pending Approvals','Requests waiting for your review','pending',pend.length?'<div style="display:flex;flex-direction:column;gap:8px;padding:14px 18px">'+pend.slice(0,5).map(reqTile).join('')+'</div>':'<div class="apv4-empty">Nothing is waiting at your step.</div>')
+    +panel('Recently Completed','Latest decisions in your workflows','completed',recent.length?'<div style="display:flex;flex-direction:column;gap:8px;padding:14px 18px">'+recent.slice(0,5).map(reqTile).join('')+'</div>':'<div class="apv4-empty">No completed requests yet.</div>')
+    +'</div>'
+    +'<div class="apv4-grid2">'
+    +'<div class="apv4-card"><div class="apv4-card-hd"><div><b>Needs Your Attention</b><span>High-priority items waiting at your step</span></div></div>'
+    +(high.length?high.map(function(r){var s=r.submitter||{};return '<div class="apv4-row-tile" onclick="AP.openReq(\''+esc(r.id)+'\')">'+artSq([ART_G+'#4a0d2e,#831843)','#f472b6'],I('flag'))+'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:#111827">'+esc(r.id)+' — '+esc(typeLabel(r.type))+'</div><div style="font-size:11px;color:#6b7280">High priority · '+esc(s.name||'')+(s.dept?' · '+esc(s.dept):'')+'</div></div><span class="apv4-link">Review →</span></div>';}).join('')
+      :'<div class="apv4-empty">No high-priority items.</div>')
+    +'</div>'
+    +'<div class="apv4-card"><div class="apv4-card-hd"><div><b>Quick Actions</b><span>Common tasks</span></div></div><div style="padding:14px 18px;display:flex;flex-wrap:wrap;gap:8px">'
+    +'<button class="apv4-btn apv4-btn-ic" onclick="AP.nav(\'pending\')">'+I('clock',15)+'Pending</button><button class="apv4-btn apv4-btn-ic" onclick="AP.nav(\'all\')">'+I('list',15)+'All Requests</button><button class="apv4-btn apv4-btn-ic" onclick="AP.nav(\'audit\')">'+I('scroll',15)+'Audit Trail</button><button class="apv4-btn apv4-btn-ic" onclick="AP.refresh()">'+I('refresh',15)+'Refresh</button>'
+    +(S.role==='admin'?'<button class="apv4-btn apv4-btn-ic" onclick="AP.nav(\'manage-roles\')">'+I('layers',15)+'Manage Roles</button>'+(access().is_superadmin?'<button class="apv4-btn apv4-btn-ic" onclick="AP.nav(\'manage-access\')">'+I('shield',15)+'Approval Access</button>':'')+'<button class="apv4-btn apv4-btn-ic" onclick="AP.nav(\'notifications\')">'+I('mail',15)+'Notification Emails</button>':'')
+    +'</div></div></div>';
+}
+
+function renderList(page){
+  var el=$('apv4-page-'+page); if(!el)return;
+  var mine=myReqs();
+  var rows=page==='pending'?mine.filter(isMine):page==='completed'?mine.filter(function(r){return r.status!=='pending';}):mine;
+  var q=S.filter.q.toLowerCase(), t=S.filter.type;
+  if(t)rows=rows.filter(function(r){return r.type===t;});
+  if(q)rows=rows.filter(function(r){return JSON.stringify(r).toLowerCase().indexOf(q)>-1;});
+  var titles={pending:['Pending Approvals',(S.role==='admin'||S.role==='all')?'Requests waiting at a step you can decide':'Requests waiting at your step'],all:['All Requests',(S.role==='all'||access().is_superadmin)?'Every request in the portal':S.role==='admin'?'Every request in your approval scope':'Every request whose workflow includes your step'],completed:['Completed','Approved, rejected or returned']};
+  var types=Object.keys(S.roles.request_types||{});
+  el.innerHTML='<div style="margin-bottom:14px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><div class="apv4-page-title">'+titles[page][0]+'</div><div class="apv4-page-sub">'+titles[page][1]+' · '+rows.length+' result'+(rows.length===1?'':'s')+'</div></div>'
+    +'<div class="apv4-toolbar" style="margin:0"><input id="apv4-q-'+page+'" placeholder="Search ID, name, department…" value="'+esc(S.filter.q)+'" oninput="AP.setFilter(\'q\',this.value)"><select onchange="AP.setFilter(\'type\',this.value)"><option value="">All types</option>'+types.map(function(k){return '<option value="'+k+'"'+(t===k?' selected':'')+'>'+esc(typeLabel(k))+'</option>';}).join('')+'</select><button class="apv4-btn apv4-btn-ic" onclick="AP.refresh()" title="Refresh">'+I('refresh',15)+'</button></div></div>'
+    +'<div class="apv4-card">'+(rows.length
+      ?'<div style="overflow-x:auto"><table class="apv4-tbl"><thead><tr><th>ID</th><th>Type</th><th>Submitted by</th><th>Department</th><th>Submitted</th><th>Current step</th><th>Priority</th><th>Status</th></tr></thead><tbody>'
+        +rows.map(function(r){var s=r.submitter||{};return '<tr class="click" onclick="AP.openReq(\''+esc(r.id)+'\')"><td style="font-weight:700;color:#111827;white-space:nowrap">'+esc(r.id)+'</td><td><span style="display:inline-flex;align-items:center;gap:6px;color:'+((TYPE_COLOR[r.type]||['','#374151'])[1])+'">'+(TYPE_ICON[r.type]||'')+'<span style="color:#374151">'+esc(typeLabel(r.type))+'</span></span></td><td>'+esc(s.name||'')+'<div style="font-size:11px;color:#9ca3af">'+esc(s.email||'')+'</div></td><td>'+esc(s.dept||'—')+'</td><td style="white-space:nowrap">'+fmtDate(r.created_at)+'</td><td>'+esc(currentStepLabel(r))+'</td><td>'+prioPill(r.priority)+'</td><td>'+statusPill(r.status)+'</td></tr>';}).join('')
+        +'</tbody></table></div>'
+      :'<div class="apv4-empty">No requests match.</div>')+'</div>';
+  var qi=$('apv4-q-'+page); if(qi&&document.activeElement!==qi&&S.filter.q){qi.focus();qi.setSelectionRange(qi.value.length,qi.value.length);}
+}
+function setFilter(k,v){S.filter[k]=v;renderList(S.page);}
+
+function renderAudit(){
+  var el=$('apv4-page-audit'); if(!el)return;
+  var mine=myReqs().slice().sort(function(a,b){return (b.updated_at||'').localeCompare(a.updated_at||'');});
+  el.innerHTML='<div style="margin-bottom:14px"><div class="apv4-page-title">Audit Trail</div><div class="apv4-page-sub">Every decision and notification event, per request · '+mine.length+' record'+(mine.length===1?'':'s')+'</div></div>'
+    +(mine.length?mine.map(function(r){
+      var s=r.submitter||{}; var bid='ab-'+r.id.replace(/[^a-z0-9]/gi,'');
+      var events=(r.audit||[]).slice().sort(function(a,b){return (a.created_at||'').localeCompare(b.created_at||'');});
+      return '<div class="apv4-card" style="margin-bottom:12px"><div class="apv4-row-tile" onclick="var b=document.getElementById(\''+bid+'\');b.style.display=b.style.display===\'none\'?\'block\':\'none\'">'
+        +typeIc(r.type)+'<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:#111827">'+esc(r.id)+' — '+esc(typeLabel(r.type))+'</div><div style="font-size:12px;color:#6b7280">'+esc(s.name||'')+' · submitted '+fmtDate(r.created_at)+' · '+events.length+' event'+(events.length===1?'':'s')+'</div></div>'
+        +statusPill(r.status)+'<button class="apv4-btn sm" onclick="event.stopPropagation();AP.openReq(\''+esc(r.id)+'\')">Open</button><span style="font-size:16px;color:#9ca3af">❯</span></div>'
+        +'<div id="'+bid+'" style="display:none;padding:6px 18px 12px">'
+        +'<table class="apv4-tbl"><thead><tr><th style="width:170px">When</th><th>Event</th><th>Actor</th><th>Note</th></tr></thead><tbody>'
+        +events.map(function(e){return '<tr><td style="white-space:nowrap;font-size:12px">'+fmtDT(e.created_at)+'</td><td style="font-weight:600;color:#111827">'+esc(e.event)+'</td><td>'+esc(e.actor)+(e.role?'<div style="font-size:11px;color:#9ca3af">'+esc(e.role)+'</div>':'')+'</td><td style="font-size:12px;color:#4b5563;word-break:break-word">'+esc(prettyNote(e.note))+'</td></tr>';}).join('')
+        +'</tbody></table></div></div>';
+    }).join(''):'<div class="apv4-card"><div class="apv4-empty">No records.</div></div>');
+}
+function prettyNote(n){
+  if(!n)return '';
+  if(n.charAt(0)==='{'){try{var j=JSON.parse(n);if(j.changes){return j.changes.map(function(c){return c.field+': “'+(c.old==null?'':c.old)+'” → “'+(c.new==null?'':c.new)+'”';}).join('; ');}}catch(e){}}
+  return n;
+}
+
+/* ── drawer: request detail, decide, admin edit ────────────────────────── */
+function openReq(id){
+  var r=S.reqs.find(function(x){return x.id===id;});
+  if(!r){toast('Request not loaded — refreshing',true);loadRequests();return;}
+  S.open=r; S.editing=false; drawDrawer();
+  $('apv4-draw-ov').style.display='block'; var d=$('apv4-drawer'); d.classList.add('on');
+  requestAnimationFrame(function(){d.style.transform='translateX(0)';});
+}
+function closeDrawer(){
+  var d=$('apv4-drawer'); if(!d)return;
+  d.style.transform='translateX(100%)'; setTimeout(function(){d.classList.remove('on');},260);
+  $('apv4-draw-ov').style.display='none'; S.open=null; S.editing=false;
+}
+function detailRows(det){
+  var skip={};
+  return Object.keys(det||{}).filter(function(k){return !skip[k]&&det[k]!==''&&det[k]!=null&&typeof det[k]!=='object';})
+    .map(function(k){var v=det[k];if(typeof v==='boolean')v=v?'Yes':'No';return '<div class="k">'+esc(titleCase(k))+'</div><div class="v">'+esc(String(v))+'</div>';}).join('')
+    +Object.keys(det||{}).filter(function(k){return Array.isArray(det[k]);}).map(function(k){return '<div class="k">'+esc(titleCase(k))+'</div><div class="v">'+esc(det[k].join(', '))+'</div>';}).join('');
+}
+function drawDrawer(){
+  var r=S.open; if(!r)return;
+  var s=r.submitter||{}, det=r.details||{};
+  $('apv4-draw-title').textContent=r.id+' — '+typeLabel(r.type);
+  $('apv4-draw-sub').innerHTML=esc((s.name||'')+(s.dept?' · '+s.dept:'')+' · submitted ')+fmtDT(r.created_at)+(r.status==='pending'?' <span class="apv4-pill aa-step-pill" id="apv4-draw-step">Current step: '+esc(currentStepLabel(r))+'</span>':'');
+  var mgr=s.manager_name||s.manager_email?('<div class="k">Direct manager</div><div class="v">'+esc(s.manager_name||'')+(s.manager_email?' <span style="color:#6b7280">&lt;'+esc(s.manager_email)+'&gt;</span>':'<span class="apv4-pill" style="background:#fef3c7;color:#92400e;margin-left:6px">no email — manager step uses the fallback recipient</span>')+'</div>'):'<div class="k">Direct manager</div><div class="v" style="color:#9ca3af">Not captured</div>';
+  var wf=(r.workflow||[]).map(function(k,i){
+    var a=(r.approvals||[]).find(function(x){return x.step===i;})||{};
+    var st=a.status||'pending'; var cur=(r.status==='pending'&&i===r.current_step);
+    var cls=st==='approved'?'done':st==='rejected'?'bad':st==='returned'?'bad':cur?'cur':'';
+    var ic=st==='approved'?'✓':(st==='rejected'||st==='returned')?'✗':cur?'●':'○';
+    var txt=st==='approved'?'Approved':st==='rejected'?'Rejected':st==='returned'?'Returned':cur?'Awaiting review':'Pending';
+    var by=a.approver_name?(' · '+esc(a.approver_name)):''; var ts=a.decided_at?(' · '+fmtDT(a.decided_at)):'';
+    return '<div class="apv4-wf-step">'+(i<r.workflow.length-1?'<div class="ln"></div>':'')+'<div class="apv4-wf-dot '+cls+'">'+ic+'</div><div class="apv4-wf-body"><b>'+esc(stepLabel(k))+'</b><span>'+txt+by+ts+'</span>'+(a.comments?'<i>“'+esc(a.comments)+'”</i>':'')+'</div></div>';
+  }).join('');
+  var body;
+  if(S.editing){
+    body='<div class="apv4-note warn" style="max-width:none">Administrator edit. Only requester and request details change here — status, workflow and decisions cannot be edited. Every change is written to the audit log.</div>'
+      +'<div class="apv4-sec"><h4>Requester</h4>'
+      +[['name','Full name'],['email','Work email'],['dept','Department'],['title','Job title'],['employee_id','Employee ID'],['manager_name','Manager name'],['manager_email','Manager email'],['manager_id','Manager ID']].map(function(f){return '<div class="apv4-field"><label>'+f[1]+'</label><input data-sub="'+f[0]+'" value="'+esc(s[f[0]]||'')+'"></div>';}).join('')
+      +'<div class="apv4-field"><label>Priority</label><select data-pri>'+['low','normal','high'].map(function(p){return '<option'+((r.priority||'normal')===p?' selected':'')+'>'+p+'</option>';}).join('')+'</select></div></div>'
+      +'<div class="apv4-sec"><h4>Request details</h4>'
+      +Object.keys(det).filter(function(k){return typeof det[k]!=='object'&&det[k]!==null;}).map(function(k){var v=det[k];var long=typeof v==='string'&&v.length>80;return '<div class="apv4-field"><label>'+esc(titleCase(k))+'</label>'+(typeof v==='boolean'?'<select data-det="'+esc(k)+'" data-bool="1"><option value="true"'+(v?' selected':'')+'>Yes</option><option value="false"'+(!v?' selected':'')+'>No</option></select>':long?'<textarea data-det="'+esc(k)+'">'+esc(v)+'</textarea>':'<input data-det="'+esc(k)+'" value="'+esc(v)+'">')+'</div>';}).join('')
+      +'</div><div id="apv4-edit-err" class="apv4-err"></div>';
+  }else{
+    body='<div class="apv4-sec"><h4>Status</h4><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">'+statusPill(r.status)+' '+prioPill(r.priority)+(r.status==='pending'?'<span style="font-size:12px;color:#6b7280">Waiting at: <b>'+esc(currentStepLabel(r))+'</b></span>':'')+'</div></div>'
+      +'<div class="apv4-sec"><h4>Requester</h4><div class="apv4-kv"><div class="k">Name</div><div class="v">'+esc(s.name||'')+'</div><div class="k">Email</div><div class="v">'+esc(s.email||'')+'</div><div class="k">Identity</div><div class="v">'+identityPill(s)+'</div><div class="k">Department</div><div class="v">'+esc(s.dept||'—')+'</div><div class="k">Title</div><div class="v">'+esc(s.title||'—')+'</div>'+(s.employee_id?'<div class="k">Employee ID</div><div class="v">'+esc(s.employee_id)+'</div>':'')+mgr+'</div></div>'
+      +'<div class="apv4-sec"><h4>Request details</h4><div class="apv4-kv">'+(detailRows(det)||'<div class="v" style="color:#9ca3af">No details recorded</div>')+'</div></div>'
+      +'<div class="apv4-sec"><h4>Approval workflow</h4><div class="apv4-wf">'+wf+'</div></div>'
+      +'<div class="apv4-sec"><h4>History</h4>'+(r.audit&&r.audit.length?'<div style="font-size:12px;color:#4b5563;line-height:1.7">'+r.audit.slice().sort(function(a,b){return (a.created_at||'').localeCompare(b.created_at||'');}).map(function(e){return '<div><span style="color:#9ca3af">'+fmtDT(e.created_at)+'</span> · <b style="color:#111827">'+esc(e.event)+'</b> · '+esc(e.actor)+(e.note?' <span style="color:#6b7280">— '+esc(prettyNote(e.note))+'</span>':'')+'</div>';}).join('')+'</div>':'<div style="color:#9ca3af;font-size:12px">No history</div>')+'</div>';
+  }
+  $('apv4-draw-body').innerHTML=body;
+  var act=$('apv4-draw-actions');
+  if(S.editing){
+    act.innerHTML='<button class="apv4-btn pri" onclick="AP.saveEdit()">Save changes</button><button class="apv4-btn" onclick="AP.toggleEdit(false)">Cancel</button>';
+  }else if(canAct(r)){
+    act.innerHTML='<div style="flex-basis:100%"><div class="apv4-field" style="margin:0"><label>Comment <span style="color:#9ca3af;font-weight:400">(required to reject or return)</span></label><textarea id="apv4-decide-note" placeholder="Reason, conditions, or notes for the requester…" style="min-height:56px"></textarea></div><div id="apv4-decide-err" class="apv4-err"></div></div>'
+      +'<button class="apv4-btn ok" onclick="AP.decide(\'approve\')">✓ Approve</button><button class="apv4-btn no" onclick="AP.decide(\'reject\')">✗ Reject</button><button class="apv4-btn warn" onclick="AP.decide(\'return\')">↩ Return</button>'
+      +(S.role==='admin'?'<button class="apv4-btn" style="margin-left:auto" onclick="AP.toggleEdit(true)">✎ Edit request</button>':'');
+  }else{
+    act.innerHTML='<div style="font-size:12.5px;color:#6b7280;flex:1">'+(r.status==='pending'?'Waiting at <b>'+esc(currentStepLabel(r))+'</b>'+(S.role==='admin'||S.role==='all'?' — you are not a department/step approver for that step.':' — no action for your step right now.'):'This request is <b>'+esc(r.status)+'</b>. No further action.')+'</div>'
+      +(S.role==='admin'?'<button class="apv4-btn" onclick="AP.toggleEdit(true)">✎ Edit request</button>'+(r.status!=='pending'&&!r.archived_at?'<button class="apv4-btn warn" onclick="window.RMREOPEN&&RMREOPEN.open(\''+esc(r.id)+'\')">↺ Reopen to step</button>':''):'');
+  }
+}
+function canAdminAct(r){ return canAct(r); } // kept for callers: an administrator decides only where a grant covers the current step
+async function decide(action){
+  var r=S.open; if(!r)return;
+  var note=($('apv4-decide-note')||{}).value||''; note=note.trim();
+  var errEl=$('apv4-decide-err'); if(errEl)errEl.textContent='';
+  if((action==='reject'||action==='return')&&!note){if(errEl)errEl.textContent='A comment is required to '+action+'.';return;}
+  var btns=$('apv4-draw-actions').querySelectorAll('button'); btns.forEach(function(b){b.disabled=true;});
+  try{
+    // step = the current step as loaded; updated_at = the row version as loaded. The server refuses both with 409.
+    var body={action:action,step:curStepKey(r),updated_at:r.updated_at,comments:note};
+    var res=await api('/api/portal/requests/'+encodeURIComponent(r.id)+'/decide',{method:'POST',body:body});
+    toast('✓ '+r.id+' '+(action==='approve'?'approved':action==='reject'?'rejected':'returned'));
+    closeDrawer(); await loadRequests();
+    if(res&&res.id){var f=S.reqs.find(function(x){return x.id===res.id;}); if(f&&S.page!=='dashboard'){/* stay on list */}}
+  }catch(e){
+    if(e.status===409){
+      toast((e.message&&e.message!=='stale'?e.message:'This request changed since you loaded it')+' — refreshed',true);
+      await loadRequests();
+      var fresh=S.reqs.find(function(x){return x.id===r.id;});
+      if(fresh){ S.open=fresh; S.editing=false; drawDrawer(); } else closeDrawer();
+      return;
+    }
+    if(errEl)errEl.textContent=e.message; btns.forEach(function(b){b.disabled=false;});
+  }
+}
+function toggleEdit(on){S.editing=!!on;drawDrawer();}
+async function saveEdit(){
+  var r=S.open; if(!r)return;
+  var body={submitter:{},details:{}};
+  document.querySelectorAll('#apv4-draw-body [data-sub]').forEach(function(i){body.submitter[i.getAttribute('data-sub')]=i.value.trim();});
+  document.querySelectorAll('#apv4-draw-body [data-det]').forEach(function(i){var k=i.getAttribute('data-det');body.details[k]=i.getAttribute('data-bool')?(i.value==='true'):i.value;});
+  var pri=document.querySelector('#apv4-draw-body [data-pri]'); if(pri)body.priority=pri.value;
+  var errEl=$('apv4-edit-err'); errEl.textContent='';
+  try{
+    var res=await api('/api/portal/requests/'+encodeURIComponent(r.id),{method:'PATCH',body:body});
+    toast(res.changed?('✓ Saved '+res.changed+' change'+(res.changed===1?'':'s')+' — audited'):'No changes');
+    await loadRequests(); var f=S.reqs.find(function(x){return x.id===r.id;}); if(f){S.open=f;S.editing=false;drawDrawer();}
+  }catch(e){ errEl.textContent=e.message; }
+}
+
+/* ── admin: Manage Roles (read model — roles are workflow steps in code) ── */
+function renderManageRoles(){
+  var el=$('apv4-page-manage-roles'); if(!el)return;
+  var steps=S.roles.steps||[];
+  el.innerHTML='<div style="margin-bottom:14px"><div class="apv4-page-title">Manage Roles</div><div class="apv4-page-sub">A role is a workflow step. Its <b>display name</b> can be renamed here, and each request type\'s <b>chain</b> is edited below. Choose Approvers to manage access or Recipient to manage notifications.</div></div>'
+    +'<div class="apv4-note" style="max-width:none">Step labels and notification recipients apply to <b>every request type</b> that uses the step. Approval Access can limit a person or group to selected request types. The one exception is <b>Dept. Manager</b>, which routes per request to the requester\'s own manager captured at submission; its recipient below is the fallback when a request carries no manager email.</div>'
+    +'<div class="apv4-card"><div style="overflow-x:auto"><table class="apv4-tbl"><thead><tr><th>Step</th><th>Used by</th><th>Who may approve</th><th>Notified</th><th style="text-align:right">Manage</th></tr></thead><tbody>'
+    +steps.map(function(st){
+      var rc=st.recipient||{};
+      var notified=st.dynamic
+        ?'<div style="font-size:12px;color:#374151">Requester\'s manager (from directory lookup)</div><div style="font-size:11px;color:'+(rc.email?'#6b7280':'#b45309')+'">Fallback: '+(rc.email?esc(rc.email):'<b>not set — escalates to Service Desk</b>')+'</div>'
+        :(rc.email?'<div style="font-size:12px;color:#374151">'+esc(rc.email)+'</div>'+(rc.name?'<div style="font-size:11px;color:#9ca3af">'+esc(rc.name)+'</div>':''):'<span class="apv4-pill" style="background:#fee2e2;color:#dc2626">No recipient — escalates to Service Desk</span>');
+      return '<tr><td><div style="display:flex;align-items:center;gap:10px"><div class="apv4-type-ic" style="background:'+(STEP_COLOR[st.step]||'#f3f4f6')+'">'+(STEP_ICON[st.step]||'')+'</div><div style="min-width:0" id="mr-name-'+esc(st.step)+'"><div style="font-size:13px;font-weight:600;color:#111827;display:flex;align-items:center;gap:7px">'+esc(st.label)+'<button class="apv4-btn sm" style="padding:1px 7px;font-size:11px" title="Rename this step" onclick="AP.stepRename(\''+esc(st.step)+'\')">Rename</button></div><div style="font-size:11px;color:#9ca3af;font-family:monospace">'+esc(st.step)+' · access managed in Approval Access'+'</div></div></div><div style="font-size:12px;color:#6b7280;margin-top:6px;max-width:320px">'+esc(st.description||'')+'</div><div id="mr-err-'+esc(st.step)+'" class="apv4-err" style="margin:4px 0 0"></div></td>'
+        +'<td>'+((st.request_types||[]).map(function(t){return '<span class="apv4-pill" style="background:#e0f2fe;color:#0369a1;margin:0 4px 4px 0">'+esc((S.roles.request_types[t]||{}).prefix||t.toUpperCase())+'</span>';}).join('')||'<span style="color:#9ca3af">—</span>')+'</td>'
+        +'<td><div style="font-size:12px;color:#374151">Person and group policies in Approval Access</div>'+(st.dynamic?'<div style="font-size:11px;color:#9ca3af">Also the named manager on each request</div>':'')+'</td>'
+        +'<td>'+notified+'</td>'
+        +'<td style="text-align:right;white-space:nowrap"><button class="apv4-btn sm" onclick="AP.nav(\'manage-access\')">Approvers</button> <button class="apv4-btn sm" onclick="AP.nav(\'notifications\')">Recipient</button></td></tr>';
+    }).join('')
+    +'</tbody></table></div></div>'
+    +wfCard();
+}
+
+/* ── admin: workflow editor (2026-09-18) ─────────────────────────────────────
+   Each request type's approval chain, editable in place: move a step, remove
+   it, add one of the existing steps, reset to the built-in chain, or hide the
+   form from the public portal. Saved chains apply to NEW requests only; the
+   service validates (manager first, >= 2 steps, no duplicates, known steps)
+   and audits every change. In-flight requests keep their own snapshot. */
+var WF={draft:{},open:null,busy:false};
+function wfRules(){ return (S.roles&&S.roles.workflow_rules)||{first_step:'manager',min_steps:2}; }
+function wfCard(){
+  var rts=S.roles.request_types||{}, steps=S.roles.steps||[];
+  return '<div style="margin-top:16px" class="apv4-card" id="wf-card"><div class="apv4-card-hd"><div><b>Workflows by request type</b><span>The steps a NEW request passes through, in order. Requests already submitted keep the chain they started with.</span></div></div>'
+    +'<div class="apv4-note" style="max-width:none;margin:0 18px 8px"><b>'+esc(stepLabel(wfRules().first_step))+'</b> is always the first step and cannot be moved or removed. A chain needs at least '+wfRules().min_steps+' steps. <b>Hidden</b> takes the form off the public portal and refuses new submissions; anything already submitted still routes and completes.</div>'
+    +'<div style="padding:4px 18px 14px">'+Object.keys(rts).map(function(t){ return wfRow(t, rts[t], steps); }).join('')+'</div></div>';
+}
+function wfRow(t, rt, steps){
+  var editing=WF.open===t, wf=editing?(WF.draft[t]||rt.workflow.slice()):rt.workflow;
+  var head='<div style="min-width:240px;font-size:13px;font-weight:600;color:#111827;display:flex;align-items:center;gap:8px">'+typeIc(t,'sm')+esc(rt.label)+' <span style="font-family:monospace;font-size:11px;color:#9ca3af">'+esc(rt.prefix)+'</span>'
+    +(rt.hidden?'<span class="apv4-pill" style="background:#fee2e2;color:#991b1b">Hidden</span>':'')+(rt.workflow_custom?'<span class="apv4-pill" style="background:#fef3c7;color:#92400e" title="Differs from the built-in chain">Custom</span>':'')+'</div>';
+  if(!editing){
+    return '<div id="wf-row-'+esc(t)+'" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f6;flex-wrap:wrap">'+head
+      +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;flex:1">'+wf.map(function(k,i){return (i?'<span style="color:#9ca3af">→</span>':'')+'<span class="apv4-pill" style="background:'+(STEP_COLOR[k]||'#f3f4f6')+';color:#374151">'+(STEP_ICON[k]||'')+' '+esc(stepLabel(k))+'</span>';}).join('')+'</div>'
+      +'<button class="apv4-btn sm" onclick="AP.wfEdit(\''+esc(t)+'\')">Edit chain</button></div>';
+  }
+  var first=wfRules().first_step, used={}; wf.forEach(function(k){used[k]=1;});
+  var addable=steps.filter(function(s){return !used[s.step];});
+  var chips=wf.map(function(k,i){
+    var locked=(k===first&&i===0);
+    return '<span class="apv4-pill" style="background:'+(STEP_COLOR[k]||'#f3f4f6')+';color:#374151;display:inline-flex;align-items:center;gap:6px;padding-right:'+(locked?'10px':'4px')+'">'
+      +(STEP_ICON[k]||'')+' '+esc(stepLabel(k))+(i===0?' <span style="font-size:10px;color:#6b7280">(first)</span>':'')
+      +(locked?'':'<button class="apv4-btn sm" title="Move earlier" '+(i<=1?'disabled':'')+' onclick="AP.wfMove(\''+esc(t)+'\','+i+',-1)" style="padding:0 6px">◂</button><button class="apv4-btn sm" title="Move later" '+(i>=wf.length-1?'disabled':'')+' onclick="AP.wfMove(\''+esc(t)+'\','+i+',1)" style="padding:0 6px">▸</button><button class="apv4-btn sm danger" title="Remove this step" onclick="AP.wfRemove(\''+esc(t)+'\','+i+')" style="padding:0 7px">✕</button>')
+      +'</span>';
+  }).join('<span style="color:#9ca3af">→</span>');
+  var add=addable.length?'<select id="wf-add-'+esc(t)+'" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;font-family:inherit"><option value="">+ Add a step…</option>'+addable.map(function(s){return '<option value="'+esc(s.step)+'">'+esc(s.label)+'</option>';}).join('')+'</select><button class="apv4-btn sm" onclick="AP.wfAdd(\''+esc(t)+'\')">Add</button>':'<span style="font-size:12px;color:#9ca3af">every step is in this chain</span>';
+  var hidden=WF.draft.__hidden&&WF.draft.__hidden.hasOwnProperty(t)?WF.draft.__hidden[t]:!!rt.hidden;
+  var isDefault=JSON.stringify(wf)===JSON.stringify(rt.workflow_default||[]);
+  return '<div id="wf-row-'+esc(t)+'" style="padding:10px 12px;margin:6px 0;border:1px solid #93c5fd;border-radius:10px;background:#f8fbff">'
+    +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'+head+'<span style="flex:1"></span><label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#374151;cursor:pointer"><input type="checkbox" '+(hidden?'checked':'')+' onchange="AP.wfHidden(\''+esc(t)+'\',this.checked)"> Hidden from the portal</label></div>'
+    +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'+chips+'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+add
+    +'<span style="flex:1"></span>'
+    +'<button class="apv4-btn sm" '+(isDefault?'disabled':'')+' onclick="AP.wfReset(\''+esc(t)+'\')" title="Built-in: '+esc((rt.workflow_default||[]).map(stepLabel).join(' → '))+'">Reset to built-in</button>'
+    +'<button class="apv4-btn sm" onclick="AP.wfCancel()">Cancel</button>'
+    +'<button class="apv4-btn sm pri" id="wf-save-'+esc(t)+'" onclick="AP.wfSave(\''+esc(t)+'\')"'+(WF.busy?' disabled':'')+'>'+(WF.busy?'Saving…':'Save chain')+'</button></div>'
+    +'<div id="wf-err-'+esc(t)+'" class="apv4-err" style="margin:6px 0 0"></div></div>';
+}
+function wfRerender(){ var card=$('wf-card'); if(!card) return; var tmp=document.createElement('div'); tmp.innerHTML=wfCard(); card.replaceWith(tmp.firstChild); }
+function wfEdit(t){ WF.open=t; WF.draft={}; WF.draft[t]=(S.roles.request_types[t].workflow||[]).slice(); WF.draft.__hidden={}; wfRerender(); }
+function wfCancel(){ WF.open=null; WF.draft={}; wfRerender(); }
+function wfMove(t,i,d){ var wf=WF.draft[t]; var j=i+d; if(i<1||j<1||j>=wf.length) return; var x=wf[i]; wf[i]=wf[j]; wf[j]=x; wfRerender(); }
+function wfRemove(t,i){ var wf=WF.draft[t]; if(i<1) return; if(wf.length<=wfRules().min_steps){ $('wf-err-'+t).textContent='A chain needs at least '+wfRules().min_steps+' steps.'; return; } wf.splice(i,1); wfRerender(); }
+function wfAdd(t){ var sel=$('wf-add-'+t); var k=sel&&sel.value; if(!k) return; if(WF.draft[t].indexOf(k)>-1) return; WF.draft[t].push(k); wfRerender(); }
+function wfReset(t){ WF.draft[t]=(S.roles.request_types[t].workflow_default||[]).slice(); wfRerender(); }
+function wfHidden(t,on){ WF.draft.__hidden=WF.draft.__hidden||{}; WF.draft.__hidden[t]=!!on; }
+async function wfSave(t){
+  var err=$('wf-err-'+t); if(err) err.textContent='';
+  var rt=S.roles.request_types[t], wf=WF.draft[t]||[], body={workflows:{},hidden:{}};
+  var isDefault=JSON.stringify(wf)===JSON.stringify(rt.workflow_default||[]);
+  body.workflows[t]=isDefault?null:wf;
+  var hid=WF.draft.__hidden&&WF.draft.__hidden.hasOwnProperty(t)?WF.draft.__hidden[t]:!!rt.hidden;
+  body.hidden[t]=!!hid;
+  var changed=JSON.stringify(wf)!==JSON.stringify(rt.workflow)||hid!==!!rt.hidden;
+  if(!changed){ wfCancel(); toast('No change'); return; }
+  if(!confirm('Save the '+rt.label+' chain?\n\n'+wf.map(stepLabel).join(' → ')+(hid?'\n\nThe form will be HIDDEN from the portal.':'')+'\n\nApplies to new requests only.')) return;
+  WF.busy=true; wfRerender();
+  try{
+    var res=await api('/api/portal/workflows',{method:'POST',body:body});
+    WF.busy=false; WF.open=null; WF.draft={};
+    await loadRolesFresh(); renderManageRoles(); buildSidebar();
+    toast('✓ '+rt.label+' chain saved — new requests use it from now on');
+  }catch(e){ WF.busy=false; wfRerender(); var e2=$('wf-err-'+t); if(e2) e2.textContent=e.message; }
+}
+
+/* ── directory lookup for the approver field ───────────────────────────────
+   Same relay the requester form uses (public exact-match nginx location that
+   proxies to app.py, which holds the hub credential). Resolves a company
+   address to the employee's name/title/department/manager so an administrator
+   can confirm who they are granting the step to before saving. */
+async function dirLookup(email){
+  var r=await fetch('/api/identity/portal-lookup?q='+encodeURIComponent(email),{headers:{'Accept':'application/json'},credentials:'same-origin'});
+  var j=await r.json().catch(function(){return {};});
+  if(r.status===404) throw new Error('No enabled employee found with that address');
+  if(r.status===429) throw new Error('Too many lookups — wait a minute and try again');
+  if(!r.ok||!j.ok||!j.data) throw new Error((j&&j.error)||('Directory lookup failed (HTTP '+r.status+')'));
+  return j.data;
+}
+function dirCardBody(d){ // avatar + name/email/title/manager — used by Approval Access
+  return '<div class="apv4-dir-av">'+esc((d.name||d.email||'?').charAt(0).toUpperCase())+'</div>'
+    +'<div style="flex:1;min-width:0">'
+      +'<div style="font-size:13px;font-weight:600;color:#111827">'+esc(d.name||'(no name in directory)')+'</div>'
+      +'<div style="font-size:11.5px;color:#6b7280">'+esc(d.email||'')+'</div>'
+      +'<div style="font-size:11.5px;color:#6b7280">'+[d.title,d.department].filter(Boolean).map(esc).join(' · ')+'</div>'
+      +(d.manager?'<div style="font-size:11px;color:#9ca3af">Manager: '+esc(d.manager)+'</div>':'')
+    +'</div>';
+}
+async function loadGroups(){ try{ var r=await fetch('/api/department-access/mappings',{credentials:'same-origin'}); if(!r.ok){S.groups=null;return;} var j=await r.json(); S.groups=(j&&(j.roles||j.data||j))||null; if(!Array.isArray(S.groups))S.groups=null; }catch(e){S.groups=null;} }
+async function loadRolesFresh(){ try{ S.roles=await api('/api/portal/roles'); }catch(e){} }
+/* ── admin: rename an approval step (display name only) ───────────────────
+   Writes content.step.<key>.label through the existing Site Content API, which
+   validates length, rejects markup and audits the change. The step key and its
+   policy bindings are untouched, so renaming never alters who may
+   approve — only what everyone reads. Clearing the field restores the built-in
+   name. The new name appears on the requester tiles, the form step ladder, the
+   public tracker, the role picker, Notification Emails and future emails. */
+function stepRename(key){
+  var host=$('mr-name-'+key); if(!host)return;
+  var st=(S.roles.steps||[]).find(function(x){return x.step===key;}); if(!st)return;
+  if(host.dataset.editing==='1')return;
+  host.dataset.editing='1';
+  var prev=host.innerHTML;
+  host.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+    +'<input id="mr-in-'+esc(key)+'" maxlength="40" value="'+esc(st.label)+'" '
+    +'style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12.5px;font-family:inherit;width:190px">'
+    +'<button class="apv4-btn sm pri" id="mr-save-'+esc(key)+'">Save</button>'
+    +'<button class="apv4-btn sm" id="mr-cancel-'+esc(key)+'">Cancel</button>'
+    +'</div><div style="font-size:11px;color:#9ca3af;margin-top:4px">Display name only &middot; clear the box to restore &ldquo;'+esc(st.builtin_label||st.label)+'&rdquo;</div>';
+  var inp=$('mr-in-'+key), save=$('mr-save-'+key), cancel=$('mr-cancel-'+key), err=$('mr-err-'+key);
+  inp.focus(); inp.select();
+  function done(){ host.dataset.editing=''; }
+  cancel.onclick=function(){ done(); host.innerHTML=prev; if(err)err.textContent=''; };
+  inp.onkeydown=function(e){ if(e.key==='Enter')save.click(); if(e.key==='Escape')cancel.click(); };
+  save.onclick=async function(){
+    var v=(inp.value||'').trim();
+    if(err)err.textContent='';
+    if(v===st.label){ cancel.click(); return; }
+    save.disabled=true; save.textContent='Saving…';
+    try{
+      var body={content:{}}; body.content['step.'+key+'.label']=v;   // '' resets to default
+      var d=await api('/api/portal/content',{method:'POST',body:body});
+      done();
+      await loadRolesFresh();
+      renderManageRoles(); buildSidebar();
+      var now=((S.roles.steps||[]).find(function(x){return x.step===key;})||{}).label||v;
+      toast('\u2713 Step renamed to '+now+(v?'':' (restored default)'));
+    }catch(e){
+      save.disabled=false; save.textContent='Save';
+      if(err)err.textContent=e.message;
+    }
+  };
+}
+/* ── super-admin: Approval Access (who can see / decide which steps) ─────
+   Data comes only from GET /api/portal/approval-access (§5). app.py enforces
+   super-admin on every policy endpoint; this page mirrors that in the UI. */
+var AA_OLD_INTRO='Page access and approval access are separate. Membership in an AD group or a page-level admin grant does not let anyone approve requests. Only the grants below (plus a request\'s own direct manager) can decide a step.';
+var AA_INTRO='Manage approver access by AD security group or by person. Department assignments do not depend on the employee’s HR department. A grant includes portal entry; account and explicit access blocks still apply.';
+var AA_KEY_RE=/^[a-z0-9][a-z0-9-]{0,63}$/, AA_EMAIL_RE=/^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+function allSteps(){ // [{step,label}] — STEP_LABELS, the same source Manage Roles renders from
+  if(S.aa.steps&&S.aa.steps.length)return S.aa.steps;
+  var me=S.me||{};
+  if(Array.isArray(me.all_steps)&&me.all_steps.length)return me.all_steps.map(function(k){return {step:k,label:(me.step_labels||{})[k]||stepLabel(k)};});
+  return (S.roles&&S.roles.steps||[]).map(function(s){return {step:s.step,label:s.label};});
+}
+function aaScopeText(scope,steps){ if(scope==='all')return 'All steps (current and future)'; steps=Array.isArray(steps)?steps:[]; return steps.length?steps.map(stepLabel).join(', '):'none'; }
+function aaPolicy(id){ return (S.aa.policies||[]).find(function(p){return String(p.id)===String(id);}); }
+function pageError(title,msg,id){ return '<div class="apv4-card"'+(id?' id="'+esc(id)+'"':'')+'><div style="padding:18px"><div class="apv4-note err aa-err-state" role="alert"><b>'+esc(title)+'</b>'+(msg?esc(msg):'')+'</div></div></div>'; }
+async function loadAccess(){
+  S.aa.loading=true; S.aa.error=null;
+  try{
+    var d=await api('/api/portal/approval-access');
+    S.aa.policies=Array.isArray(d&&d.policies)?d.policies:[];
+    S.aa.steps=Array.isArray(d&&d.steps)?d.steps:[];
+    S.aa.types=Array.isArray(d&&d.request_types)?d.request_types:[];
+    S.aa.loaded=true;
+    if(DA.person){try{DA.person=await daApi('preview?email='+encodeURIComponent(DA.person.email));}catch(e){DA.person=null;}}
+  }catch(e){ S.aa.error=e; S.aa.loaded=false; }
+  finally{ S.aa.loading=false; }
+}
+function renderManageAccess(){
+  var el=$('apv4-page-manage-access'); if(!el)return;
+  var head='<div style="margin-bottom:14px"><h1 class="apv4-page-title aa-h1">Approval Access</h1><div class="apv4-page-sub" style="max-width:820px">'+esc(AA_INTRO)+'</div></div>';
+  if(!access().is_superadmin){ el.innerHTML=head+pageError('Super-admin only','Approval Access can be viewed and changed only by a portal super-admin.','aa-error'); return; }
+  if(S.aa.error){
+    var e=S.aa.error, forb=e.status===403;
+    el.innerHTML=head+pageError(forb?'Super-admin only':'Could not load approval policies',forb?'The portal API refused the request: '+e.message:e.message,'aa-error')
+      +'<div style="margin-top:12px"><button type="button" class="apv4-btn" id="aa-retry" onclick="AP.aaRetry()">Retry</button></div>';
+    return;
+  }
+  if(!S.aa.loaded){
+    el.innerHTML=head+'<div class="apv4-card"><div class="apv4-empty" id="aa-loading" role="status" aria-live="polite">'+I('loader',16)+' Loading approval policies…</div></div>';
+    if(!S.aa.loading){ Promise.all([loadAccess(),loadGroups()]).then(function(){ if(S.page==='manage-access')renderManageAccess(); }); }
+    return;
+  }
+  var pol=S.aa.policies.slice().sort(function(a,b){ if(a.principal_type!==b.principal_type)return a.principal_type==='ad_group'?-1:1; return String(a.name||'').localeCompare(String(b.name||'')); });
+  var t2=pol.find(function(p){return p.principal_type==='ad_group'&&p.principal_key==='tier2';});
+  var groups={}; (S.groups||[]).forEach(function(g){var k=g.role_key||g.key; if(k)groups[k]=g;});
+  function stPill(p){ if(p.expired)return '<span class="apv4-pill aa-pill-off">Expired</span>'; return p.enabled?'<span class="apv4-pill aa-pill-ok">Enabled</span>':'<span class="apv4-pill aa-pill-off">Disabled</span>'; }
+  function tyPill(p){ return '<span class="apv4-pill aa-pill-info">'+(p.principal_type==='user'?'User':'AD group')+'</span>'; }
+  function principalCell(p){
+    var keys=p.principal_type==='ad_group'?(p.principal_keys||String(p.principal_key||'').split(',')).filter(Boolean):[p.principal_key];
+    var lines=keys.map(function(k){ var g=groups[k], meta=[esc(k)]; if(!g)return meta[0]+(p.principal_type==='ad_group'?' · no mapped AD group':'');
+      var cn=aaGroupCN(g); if(cn)meta.push(esc(cn)); else if(g.display_name&&g.display_name!==p.name)meta.push(esc(g.display_name));
+      if(g.member_count!=null)meta.push(esc(g.member_count)+' cached member'+(Number(g.member_count)===1?'':'s'));
+      return meta.join(' · '); });
+    return '<b>'+esc(p.name)+'</b>'+(p.effect==='block'?'<div class="apv4-pill aa-pill-warn">Block</div>':'')+'<div class="aa-key">'+esc(p.request_types&&p.request_types.length?p.request_types.join(', ').toUpperCase():'All request types')+(p.expires_at?' · Expires '+esc(fmtDT(p.expires_at)):'')+'</div>'+lines.map(function(l){return '<div class="aa-key">'+l+'</div>';}).join('')+(p.origin==='seed'?'<span class="apv4-pill aa-pill-off" style="margin-top:4px">seeded</span>':'');
+  }
+  function updCell(p){ return '<div>'+fmtDT(p.updated_at)+'</div>'+(p.updated_by?'<div class="aa-key">'+esc(p.updated_by)+'</div>':''); }
+  var t2Card='<div class="apv4-card" id="aa-tier2" style="margin-bottom:14px"><div class="apv4-card-hd"><div><b>Tier 2</b><span>Portal-wide policy for the <code>tier2</code> AD group</span></div>'
+    +(t2?'<button type="button" class="apv4-btn sm" onclick="AP.aaEdit('+Number(t2.id)+',this)">Edit</button>':'<button type="button" class="apv4-btn sm pri" onclick="AP.aaAdd(this,\'tier2\')">Add Tier 2 policy</button>')+'</div>'
+    +(t2?'<div class="aa-kv"><div class="k">Status</div><div>'+stPill(t2)+'</div><div class="k">Can see</div><div>'+esc(aaScopeText(t2.view_scope,t2.view_steps))+'</div><div class="k">Can decide</div><div>'+esc(aaScopeText(t2.decide_scope,t2.decide_steps))+(t2.decide_scope==='all'&&t2.enabled?' <span class="apv4-pill aa-pill-warn">high privilege</span>':'')+'</div><div class="k">Updated</div><div>'+fmtDT(t2.updated_at)+(t2.updated_by?' · '+esc(t2.updated_by):'')+'</div></div>'
+        :'<div class="apv4-empty" style="padding:16px">No Tier 2 policy. Nobody holds a portal-wide grant until one is added for the <code>tier2</code> group.</div>')
+    +'</div>';
+  var tbl='<div class="apv4-card" style="margin-bottom:14px"><div class="apv4-card-hd"><div><b>Policies</b><span>'+pol.length+' polic'+(pol.length===1?'y':'ies')+' · each grants its principal what it can see and what it can decide</span></div><button type="button" class="apv4-btn pri" id="aa-add" onclick="AP.aaAdd(this)">+ Add policy</button></div>'
+    +(pol.length
+      ?'<div class="aa-tblwrap"><table class="apv4-tbl aa-tbl" id="aa-table"><thead><tr><th>Principal</th><th>Type</th><th>Can see</th><th>Can decide</th><th>Status</th><th>Last updated</th><th class="aa-act">Actions</th></tr></thead><tbody>'
+        +pol.map(function(p){ var id=Number(p.id);
+          return '<tr data-aa-id="'+id+'"'+(p.enabled?'':' class="aa-off"')+'><td data-l="Principal">'+principalCell(p)+'</td><td data-l="Type">'+tyPill(p)+'</td><td data-l="Can see">'+esc(aaScopeText(p.view_scope,p.view_steps))+'</td><td data-l="Can decide">'+esc(aaScopeText(p.decide_scope,p.decide_steps))+(p.decide_scope==='all'?' <span class="apv4-pill aa-pill-warn">high privilege</span>':'')+'</td><td data-l="Status">'+stPill(p)+'</td><td data-l="Last updated">'+updCell(p)+'</td>'
+            +'<td data-l="Actions"><div class="aa-actions"><button type="button" class="apv4-btn sm" data-aa-act="edit" onclick="AP.aaEdit('+id+',this)">Edit</button><button type="button" class="apv4-btn sm" data-aa-act="toggle" onclick="AP.aaToggle('+id+',this)">'+(p.enabled?'Disable':'Enable')+'</button><button type="button" class="apv4-btn sm danger" data-aa-act="delete" onclick="AP.aaDelete('+id+',this)">Delete</button></div></td></tr>'; }).join('')
+        +'</tbody></table></div>'
+      :'<div class="apv4-empty" id="aa-empty">No approval policies yet. Add one to let an AD group or a person see and decide approval steps.</div>')
+    +'</div>';
+  el.innerHTML=head+daPanel()+t2Card+tbl;
+  daRestore();
+}
+function aaRetry(){ S.aa.error=null; S.aa.loaded=false; renderManageAccess(); }
+function aaFocusRow(id,act){ // after a re-render: the row's button if it still exists, else "+ Add policy"
+  var b=(id!=null)?document.querySelector('#aa-table tr[data-aa-id="'+String(id).replace(/[^0-9]/g,'')+'"] [data-aa-act="'+(act||'edit')+'"]'):null;
+  if(!b)b=$('aa-add'); if(b)b.focus();
+}
+function aaAdd(btn,preset){ aaOpen(null,btn,preset); }
+function aaEdit(id,btn){ var p=aaPolicy(id); if(!p){ toast('Policy not loaded — refreshing',true); loadAccess().then(renderManageAccess); return; } aaOpen(p,btn); }
+async function aaToggle(id,btn){
+  var p=aaPolicy(id); if(!p)return;
+  if(btn)btn.disabled=true;
+  try{ await api('/api/portal/approval-access/'+encodeURIComponent(id),{method:'PATCH',body:{enabled:!p.enabled,expected_updated_at:p.updated_at}}); toast('✓ '+p.name+(p.enabled?' disabled':' enabled')); await loadAccess(); renderManageAccess(); aaFocusRow(id,'toggle'); }
+  catch(e){ toast(e.message,true); if(btn)btn.disabled=false; }
+}
+async function aaDelete(id,btn){
+  var p=aaPolicy(id); if(!p)return;
+  if(!confirm('Delete the policy “'+p.name+'” ('+p.principal_key+')?\n\nThis removes only this grant. Other group, person or manager grants may still provide access. Use Check access to verify the result.'))return;
+  if(btn)btn.disabled=true;
+  try{ await api('/api/portal/approval-access/'+encodeURIComponent(id),{method:'DELETE'}); toast('✓ Deleted '+p.name); await loadAccess(); renderManageAccess(); aaFocusRow(null); }
+  catch(e){ toast(e.message,true); if(btn)btn.disabled=false; }
+}
+/* ── Add / Edit dialog ─────────────────────────────────────────────────── */
+function aaOpen(policy,invoker,presetKey){
+  aaClose(true);
+  S.aa.invoker=invoker||document.activeElement; S.aa.userPick=null; S.aa.editId=policy?policy.id:null;
+  var steps=allSteps(), groups=(S.groups||[]).filter(function(g){return !!g.ad_group_dn;});
+  var p=policy?policy:{name:'',principal_type:'ad_group',principal_key:presetKey||'',view_scope:'steps',view_steps:[],decide_scope:'steps',decide_steps:[],enabled:true};
+  if(!policy&&presetKey==='tier2'){ p.name='Tier 2'; p.view_scope='all'; p.decide_scope='all'; }
+  var isGroup=p.principal_type!=='user';
+  var pkeys=isGroup?(p.principal_keys||String(p.principal_key||'').split(',')).filter(Boolean):[];
+  var listed=groups.map(function(g){return g.role_key||g.key;});
+  var otherKeys=pkeys.filter(function(k){return listed.indexOf(k)<0;});
+  var gsel='<div id="aa-group-list" class="aa-checks aa-groups">'+groups.map(function(g){ var k=g.role_key||g.key, cid='aa-group-'+k.replace(/[^a-z0-9_-]/gi,'_'); return '<label for="'+cid+'"><input type="checkbox" id="'+cid+'" data-aa-group="'+esc(k)+'"'+(pkeys.indexOf(k)>-1?' checked':'')+'> '+esc(aaGroupLabel(g))+'</label>'; }).join('')+'</div>';
+  function checks(attr,list){ return '<div id="aa-'+attr+'-list" class="aa-checks">'+steps.map(function(s){ var cid='aa-'+attr+'-'+String(s.step).replace(/[^a-z0-9_-]/gi,'_'); return '<label for="'+cid+'"><input type="checkbox" id="'+cid+'" data-aa-'+attr+'="'+esc(s.step)+'"'+(list.indexOf(s.step)>-1?' checked':'')+'> '+esc(s.label)+'</label>'; }).join('')+'</div>'; }
+  var ov=document.createElement('div'); ov.id='aa-dialog-ov'; ov.className='aa-ov';
+  ov.innerHTML='<div id="aa-dialog" class="aa-dlg" role="dialog" aria-modal="true" aria-labelledby="aa-dialog-title" aria-describedby="aa-dialog-sub">'
+    +'<div class="aa-dlg-hd"><div style="min-width:0"><div id="aa-dialog-title" class="apv4-page-title">'+(policy?'Edit approval policy':'Add approval policy')+'</div><div id="aa-dialog-sub" class="apv4-page-sub">One or more AD groups, or one person; which steps they can see; which of those they can decide.</div></div><button type="button" class="apv4-x lt" id="aa-close" aria-label="Close" onclick="AP.aaClose()">×</button></div>'
+    +'<form id="aa-form" class="aa-dlg-body" novalidate>'
+    +'<div class="apv4-field"><label for="aa-name">Policy name</label><input id="aa-name" maxlength="80" autocomplete="off" value="'+esc(p.name||'')+'"><div class="apv4-err" id="aa-err-name" aria-live="polite"></div></div>'
+    +'<fieldset class="aa-fs"><legend>Principal</legend>'
+      +'<div class="aa-radios" role="radiogroup" aria-label="Principal type"><label for="aa-ptype-group"><input type="radio" name="aa-ptype" id="aa-ptype-group" value="ad_group"'+(isGroup?' checked':'')+'> AD group</label><label for="aa-ptype-user"><input type="radio" name="aa-ptype" id="aa-ptype-user" value="user"'+(isGroup?'':' checked')+'> User</label></div>'
+      +'<div id="aa-principal-group"><div class="apv4-field"><label id="aa-group-label">AD groups — display name (AD security group) · RBAC role key</label>'+gsel+'<div class="hint">Choose mapped security groups. Add another group from the AD groups controls on Approval Access.</div></div>'
+        +'<div class="apv4-field" id="aa-group-key-wrap" hidden><label for="aa-group-key">Other role keys</label><input id="aa-group-key" readonly autocomplete="off" spellcheck="false" placeholder="approver-finance, approver-cto" value="'+esc(otherKeys.join(', '))+'"><div class="hint">Optional, comma-separated. Lower-case letters, digits and hyphens · 1–64 characters · must match the RBAC role key exactly.</div></div></div>'
+      +'<div id="aa-principal-user"><div class="apv4-field"><label for="aa-user-search">Company email</label><div class="aa-inline"><input id="aa-user-search" type="email" autocomplete="off" placeholder="name@auction.com" value="'+esc(isGroup?'':p.principal_key)+'"><button type="button" class="apv4-btn sm pri" id="aa-user-lookup" onclick="AP.aaLookup()">Look up →</button></div><div class="hint">Confirms the employee from the directory before the grant is saved.</div></div><div id="aa-user-result">'+(isGroup?'':'<div class="aa-preview" style="margin:0">Current principal: '+esc(p.principal_key)+'</div>')+'</div></div>'
+      +'<div class="apv4-err" id="aa-err-principal" aria-live="polite"></div></fieldset>'
+    +'<fieldset class="aa-fs"><legend>Can see</legend><div class="aa-radios" role="radiogroup" aria-label="Visibility"><label for="aa-view-all"><input type="radio" name="aa-view" id="aa-view-all" value="all"'+(p.view_scope==='all'?' checked':'')+'> All current and future steps</label><label for="aa-view-steps"><input type="radio" name="aa-view" id="aa-view-steps" value="steps"'+(p.view_scope==='all'?'':' checked')+'> Selected steps</label></div>'+checks('view',p.view_steps||[])+'<div class="apv4-err" id="aa-err-view" aria-live="polite"></div></fieldset>'
+    +'<fieldset class="aa-fs"><legend>Can decide</legend><div class="aa-radios" role="radiogroup" aria-label="Decision"><label for="aa-decide-all"><input type="radio" name="aa-decide" id="aa-decide-all" value="all"'+(p.decide_scope==='all'?' checked':'')+'> All current and future steps</label><label for="aa-decide-steps"><input type="radio" name="aa-decide" id="aa-decide-steps" value="steps"'+(p.decide_scope==='all'?'':' checked')+'> Selected steps</label></div>'+checks('decide',p.decide_steps||[])+'<div class="aa-hint">Leave all unchecked for view-only access. Choosing a decision step also enables its visibility.</div><div class="apv4-err" id="aa-err-decide" aria-live="polite"></div></fieldset>'
+    +daPolicyFields(p)
+    +'<div id="aa-warning" class="apv4-note warn" role="alert" style="max-width:none">High privilege: this principal will be able to decide every approval step, now and in the future.</div>'
+    +'<div id="aa-preview" class="aa-preview" aria-live="polite"></div>'
+    +'<div class="apv4-field aa-check"><label for="aa-enabled"><input type="checkbox" id="aa-enabled"'+(p.enabled===false||p.enabled===0?'':' checked')+'> Enabled</label></div>'
+    +'<div class="apv4-err" id="aa-err" aria-live="assertive"></div>'
+    +'</form>'
+    +'<div class="aa-dlg-ft"><button type="button" class="apv4-btn" id="aa-cancel" onclick="AP.aaClose()">Cancel</button><button type="button" class="apv4-btn pri" id="aa-save" onclick="AP.aaSave()">'+(policy?'Save changes':'Save policy')+'</button></div>'
+    +'</div>';
+  $('apv4-root').appendChild(ov);
+  if(policy&&policy.principal_type==='user')S.aa.userPick={email:String(policy.principal_key||'').toLowerCase()};
+  ov.addEventListener('click',function(e){ if(e.target===ov)aaClose(); });
+  ov.addEventListener('input',aaSync); ov.addEventListener('change',aaSync);
+  ov.addEventListener('keydown',aaKeydown);
+  $('aa-form').addEventListener('submit',function(e){ e.preventDefault(); aaSave(); });
+  $('aa-user-search').addEventListener('input',function(){ var v=this.value.trim().toLowerCase(); if(S.aa.userPick&&S.aa.userPick.email!==v){ S.aa.userPick=null; $('aa-user-result').innerHTML=''; } });
+  aaSync();
+  var first=$('aa-name'); if(first)first.focus();
+}
+function aaGroupCN(g){ var m=/^CN=([^,]+)/i.exec(String((g&&g.ad_group_dn)||'')); return m?m[1].replace(/\\,/g,','):''; }
+function aaGroupLabel(g){ var k=g.role_key||g.key, cn=aaGroupCN(g), mc=(g.member_count!=null)?' · '+g.member_count+' cached member'+(Number(g.member_count)===1?'':'s'):''; return (g.display_name||k)+(cn?' ('+cn+')':'')+' · '+k+mc; }
+function aaChecked(attr){ return [].slice.call(document.querySelectorAll('#aa-dialog [data-aa-'+attr+']')).filter(function(c){return c.checked&&!c.disabled;}).map(function(c){return c.getAttribute('data-aa-'+attr);}); }
+function aaSync(e){ // reveal controls, keep decide ⊆ view, refresh the live preview + warning
+  var d=$('aa-dialog'); if(!d)return;
+  // Every control stays editable. Deciding implies seeing: ticking a decide step ticks its
+  // see step, and "decide all" selects "see all"; narrowing Can see narrows Can decide with it.
+  var t=e&&e.target;
+  if(t&&t.checked&&t.getAttribute&&t.getAttribute('data-aa-decide')){ var v=d.querySelector('[data-aa-view="'+t.getAttribute('data-aa-decide')+'"]'); if(v)v.checked=true; }
+  if(t&&t.checked&&t.id==='aa-decide-all'){ $('aa-view-all').checked=true; }
+  var user=$('aa-ptype-user').checked;
+  $('aa-effect-wrap').hidden=!user;
+  if(!user)$('aa-effect').value='allow';
+  $('aa-type-list').hidden=$('aa-types-all').checked;
+  $('aa-principal-group').hidden=user; $('aa-principal-user').hidden=!user;
+  var viewAll=$('aa-view-all').checked;
+  $('aa-view-list').hidden=viewAll;
+  var vs=aaChecked('view');
+  var da=$('aa-decide-all'), ds=$('aa-decide-steps');
+  if(!viewAll&&da.checked){ da.checked=false; ds.checked=true; }
+  var decAll=da.checked;
+  $('aa-decide-list').hidden=decAll;
+  [].slice.call(d.querySelectorAll('[data-aa-decide]')).forEach(function(cb){ if(!viewAll&&vs.indexOf(cb.getAttribute('data-aa-decide'))<0)cb.checked=false; });
+  var dsl=aaChecked('decide');
+  $('aa-warning').hidden=!decAll;
+  $('aa-preview').textContent=($('aa-effect').value==='block'?'Block selected teams (overrides other grants). ':'')+'Can see: '+(viewAll?'All current and future steps':(vs.length?vs.map(stepLabel).join(', '):'none'))+' · Can decide: '+(decAll?'All current and future steps':(dsl.length?dsl.map(stepLabel).join(', '):'none'));
+}
+function aaKeydown(e){ // Escape closes; Tab is trapped inside the dialog
+  if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); aaClose(); return; }
+  if(e.key!=='Tab')return;
+  var d=$('aa-dialog'); if(!d)return;
+  var f=[].slice.call(d.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')).filter(function(x){return x.offsetParent!==null;});
+  if(!f.length)return;
+  var first=f[0], last=f[f.length-1];
+  if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+}
+function aaClose(silent){
+  var ov=$('aa-dialog-ov'); if(!ov)return;
+  ov.parentNode.removeChild(ov); S.aa.userPick=null; S.aa.editId=null;
+  var inv=S.aa.invoker; S.aa.invoker=null;
+  if(silent)return;
+  if(inv&&typeof inv.focus==='function'&&document.body.contains(inv))inv.focus();
+  else { var b=$('aa-add'); if(b)b.focus(); }
+}
+async function aaLookup(){
+  var inp=$('aa-user-search'), err=$('aa-err-principal'), host=$('aa-user-result'), btn=$('aa-user-lookup'); if(!inp)return;
+  var em=(inp.value||'').trim().toLowerCase(); if(err)err.textContent=''; if(host)host.innerHTML='';
+  if(!AA_EMAIL_RE.test(em)){ if(err)err.textContent='Enter a complete email address'; inp.focus(); return; }
+  if(btn){ btn.disabled=true; btn.textContent='Looking up…'; }
+  try{
+    var d=await dirLookup(em);
+    S.aa.userPick={email:String(d.email||em).toLowerCase(),name:d.name||''};
+    inp.value=S.aa.userPick.email;
+    if(host)host.innerHTML='<div class="apv4-dir" id="aa-user-card" style="margin:0 0 4px">'+dirCardBody(d)+'<button type="button" class="apv4-btn sm" onclick="AP.aaClearUser()">Clear</button></div>';
+  }catch(e){ S.aa.userPick=null; if(err)err.textContent=e.message; }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Look up →'; } }
+}
+function aaClearUser(){ S.aa.userPick=null; var h=$('aa-user-result'); if(h)h.innerHTML=''; var i=$('aa-user-search'); if(i){ i.value=''; i.focus(); } }
+function aaCollect(){ // returns {body, errs} — the same rules app.py enforces (§5)
+  var errs={}, out={};
+  out.name=($('aa-name').value||'').trim(); if(!out.name||out.name.length>80)errs.name='Enter a policy name (1–80 characters).';
+  out.principal_type=$('aa-ptype-user').checked?'user':'ad_group';
+  if(out.principal_type==='ad_group'){
+    var keys=[].slice.call(document.querySelectorAll('#aa-dialog [data-aa-group]')).filter(function(c){return c.checked;}).map(function(c){return c.getAttribute('data-aa-group');});
+    var typed=String($('aa-group-key').value||'').split(',').map(function(k){return k.trim().toLowerCase();}).filter(Boolean);
+    var bad=typed.filter(function(k){return !AA_KEY_RE.test(k);});
+    typed.forEach(function(k){ if(keys.indexOf(k)<0)keys.push(k); });
+    if(bad.length)errs.principal='Not a role key: '+bad.join(', ')+' — 1–64 lower-case letters, digits or hyphens, starting with a letter or digit.';
+    else if(!keys.length)errs.principal='Tick at least one AD group, or type its RBAC role key under Other role keys.';
+    out.principal_keys=keys; out.principal_key=keys.join(',');
+  }else{
+    var em=($('aa-user-search').value||'').trim().toLowerCase();
+    if(!AA_EMAIL_RE.test(em))errs.principal='Enter a complete company email address.';
+    else if(!S.aa.userPick||S.aa.userPick.email!==em)errs.principal='Click “Look up →” to confirm the employee before saving.';
+    out.principal_key=em;
+  }
+  out.view_scope=$('aa-view-all').checked?'all':'steps'; out.view_steps=out.view_scope==='all'?[]:aaChecked('view');
+  if(out.view_scope==='steps'&&!out.view_steps.length)errs.view='Choose at least one step this principal can see.';
+  out.decide_scope=$('aa-decide-all').checked?'all':'steps'; out.decide_steps=out.decide_scope==='all'?[]:aaChecked('decide');
+  if(out.decide_scope==='all'&&out.view_scope!=='all')errs.decide='Deciding every step requires seeing every step.';
+
+  else if(out.decide_scope==='steps'&&out.view_scope==='steps'&&out.decide_steps.some(function(k){return out.view_steps.indexOf(k)===-1;}))errs.decide='A principal cannot decide a step it cannot see.';
+  out.enabled=!!$('aa-enabled').checked;
+  out.request_types=$('aa-types-all').checked?[]:aaChecked('type');
+  if(!$('aa-types-all').checked&&!out.request_types.length)errs.view='Choose at least one request type or select All request types.';
+  out.effect=out.principal_type==='user'?$('aa-effect').value:'allow';
+  out.reason=$('aa-reason').value.trim();
+  var ex=$('aa-expiry').value; out.expires_at=ex?new Date(ex).toISOString():null;
+  if(out.effect==='block'){out.decide_scope='steps';out.decide_steps=[];}
+  if(S.aa.editId!=null){var saved=aaPolicy(S.aa.editId);if(saved)out.expected_updated_at=saved.updated_at;}
+  return {body:out,errs:errs};
+}
+async function aaSave(){
+  if(!$('aa-dialog'))return;
+  var c=aaCollect(), errs=c.errs;
+  ['name','principal','view','decide'].forEach(function(k){ var el=$('aa-err-'+k); if(el)el.textContent=errs[k]||''; });
+  $('aa-err').textContent='';
+  var firstErr=Object.keys(errs)[0];
+  if(firstErr){
+    var fid={name:'aa-name',principal:$('aa-ptype-user').checked?'aa-user-search':(($('aa-group-key').value||'').trim()||!document.querySelector('#aa-dialog [data-aa-group]')?'aa-group-key':document.querySelector('#aa-dialog [data-aa-group]').id),view:'aa-view-steps',decide:'aa-decide-steps'}[firstErr];
+    var f=$(fid); if(f)f.focus(); return;
+  }
+  var btn=$('aa-save'), old=btn.textContent; btn.disabled=true; btn.textContent='Saving…';
+  var wasEdit=S.aa.editId!=null, editId=S.aa.editId;
+  try{
+    var res=wasEdit?await api('/api/portal/approval-access/'+encodeURIComponent(editId),{method:'PATCH',body:c.body})
+                   :await api('/api/portal/approval-access',{method:'POST',body:c.body});
+    var name=(res&&res.policy&&res.policy.name)||c.body.name;
+    aaClose(true); toast('✓ Policy '+(wasEdit?'updated':'added')+' · '+name);
+    await loadAccess(); renderManageAccess();
+    aaFocusRow(wasEdit?editId:(res&&res.policy&&res.policy.id),'edit'); // the re-render replaced the invoking button
+  }catch(e){
+    var m=e.message||'Save failed';
+    if(e.status===409)$('aa-err-principal').textContent=m; else $('aa-err').textContent=m;
+    btn.disabled=false; btn.textContent=old;
+    var back=e.status===409?$($('aa-ptype-user').checked?'aa-user-search':'aa-group-key'):null;
+    (back||btn).focus(); // disabling the button dropped focus to <body>; the dialog's own keydown handler must keep receiving Esc/Tab
+  }
+}
+
+/* ── admin: Notification Emails (real: settings.approver_email_<step>) ─── */
+async function loadContacts(){ try{ var d=await api('/api/portal/settings'); S.contacts=d.approver_contacts||{}; S.fixed=d.recipients||{}; S.mail=d.approver_mail||{}; S.contacts.__loaded=true; }catch(e){ toast('Could not load recipients: '+e.message,true); S.contacts.__loaded=true; } }
+function renderNotifications(){
+  var el=$('apv4-page-notifications'); if(!el)return;
+  if(!S.contacts.__loaded){ el.innerHTML='<div class="apv4-empty">Loading recipients…</div>'; loadContacts().then(renderNotifications); return; }
+  var steps=S.roles.steps||[];
+  el.innerHTML='<div style="margin-bottom:14px"><div class="apv4-page-title">Notification Emails</div><div class="apv4-page-sub">Who receives the “approval needed” email when a request reaches each step. One address per step, shared by every request type and department that uses the step.</div></div>'
+    +'<div class="apv4-note" style="max-width:none">Use <b>Edit email</b> to change the subject and opening wording sent to a step\'s approvers; leave a field blank to keep the built-in template. The request table, decision buttons and footer are always built by the portal service. A step with no recipient does not fail silently: the request is escalated to the IT Service Desk address and an <b>notification.unroutable</b> event is written to the audit trail.</div>'
+    +'<div class="apv4-card">'+steps.map(function(st,i){
+      var c=S.contacts[st.step]||{};
+      return '<div style="padding:16px 20px;border-bottom:'+(i<steps.length-1?'1px solid #f3f4f6':'none')+';display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">'
+        +'<div class="apv4-type-ic" style="background:'+(STEP_COLOR[st.step]||'#f3f4f6')+'">'+(STEP_ICON[st.step]||'')+'</div>'
+        +'<div style="flex:0 0 200px"><div style="font-size:13px;font-weight:600;color:#111827">'+esc(st.label)+(nfCustom(c)?' <span style="font-size:10px;font-weight:700;color:#3D7924;background:#eaf5e6;border-radius:20px;padding:2px 8px;vertical-align:1px">Custom</span>':'')+'</div><div style="font-size:11px;color:#9ca3af">'+(st.dynamic?'Fallback only — the requester\'s own manager is notified when known':'used by '+(st.request_types||[]).map(function(t){return (S.roles.request_types[t]||{}).prefix||t;}).join(', '))+'</div></div>'
+        +'<div class="apv4-field" style="flex:1;min-width:180px;margin:0"><label>Recipient name <span style="color:#9ca3af;font-weight:400">(greeting)</span></label><input id="apv4-nf-name-'+esc(st.step)+'" value="'+esc(c.name||'')+'" placeholder="'+esc(st.label)+'"></div>'
+        +'<div class="apv4-field" style="flex:1.4;min-width:220px;margin:0"><label>Recipient email</label><input id="apv4-nf-email-'+esc(st.step)+'" type="email" value="'+esc(c.email||'')+'" placeholder="'+(st.dynamic?'fallback address':'name@auction.com')+'" onkeydown="if(event.key===\'Enter\')AP.saveRecipient(\''+esc(st.step)+'\')">'
+        +(!c.email&&!st.dynamic?'<div class="hint" style="color:#b45309">Not set — requests at this step escalate to the Service Desk.</div>':'')+'</div>'
+        +'<div style="padding-top:20px;display:flex;gap:8px"><button class="apv4-btn pri" onclick="AP.saveRecipient(\''+esc(st.step)+'\')">Save</button>'
+        +'<button class="apv4-btn" onclick="AP.nfOpen(\''+esc(st.step)+'\',this)">Edit email</button></div>'
+        +'<div id="apv4-nf-err-'+esc(st.step)+'" class="apv4-err" style="flex-basis:100%;margin:0"></div></div>';
+    }).join('')+'</div>'
+    +'<div class="apv4-card" style="margin-top:16px"><div class="apv4-card-hd"><div><b>Fixed recipient</b><span>Set in the portal service environment (HELPDESK_EMAIL). Changing it requires a service restart. Every other recipient is configured per step above.</span></div></div><div style="padding:6px 18px 12px" class="apv4-kv">'
+    +[['IT Service Desk','helpdesk','Approved fulfilment and unroutable-step escalations']].map(function(f){return '<div class="k">'+f[0]+'</div><div class="v">'+esc(S.fixed[f[1]]||'—')+' <span style="color:#9ca3af;font-size:11px">'+f[2]+'</span></div>';}).join('')
+    +'</div></div>';
+}
+async function saveRecipient(step){
+  var name=($('apv4-nf-name-'+step)||{}).value||'', email=(($('apv4-nf-email-'+step)||{}).value||'').trim().toLowerCase();
+  var err=$('apv4-nf-err-'+step); if(err)err.textContent='';
+  if(email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){if(err)err.textContent='Enter a complete email address, or clear the field to unset it.';return;}
+  try{
+    var body={approver_contacts:{}}; body.approver_contacts[step]={name:name.trim(),email:email};
+    var d=await api('/api/portal/settings',{method:'POST',body:body});
+    S.contacts=Object.assign(d.approver_contacts||{},{__loaded:true});
+    await loadRolesFresh(); renderNotifications(); buildSidebar();
+    toast(d.saved?('✓ '+stepLabel(step)+' recipient saved'+(email?' · '+email:' · cleared')):'No change');
+  }catch(e){ if(err)err.textContent=e.message; }
+}
+
+/* ── admin: per-approver notification email ──────────────────────────────
+   Restored 2026-09-17. The pre-rebuild console had this editor (recipient ·
+   subject · body) but stored nothing — NF_T was an in-memory JS object, so
+   nothing it showed ever reached a sent email. Same three fields, now written
+   through /api/portal/settings and read by the service when it sends. Blank
+   field = the built-in wording. */
+var NF={step:null,tab:'edit',invoker:null};
+function nfCustom(c){ return !!(c&&(c.subject||c.body)); }
+function nfDef(field){ var m=S.mail||{}; return (field==='subject'?m.default_subject:m.default_body)||''; }
+function nfVars(){ return ((S.mail||{}).placeholders||[]).join('  '); }
+function nfOpen(step,invoker){
+  nfClose(true);
+  var c=S.contacts[step]||{}, lbl=stepLabel(step), lim=(S.mail||{}).limits||{};
+  NF={step:step,tab:'edit',invoker:invoker||document.activeElement};
+  var ov=document.createElement('div'); ov.id='nf-ov'; ov.className='aa-ov';
+  ov.innerHTML='<div id="nf-dlg" class="aa-dlg" role="dialog" aria-modal="true" aria-labelledby="nf-title" aria-describedby="nf-sub">'
+    +'<div class="aa-dlg-hd"><div style="min-width:0"><div id="nf-title" class="apv4-page-title">'+esc(lbl)+' — Notification Email</div>'
+      +'<div id="nf-sub" class="apv4-page-sub">Edit the approval notification sent to '+esc(lbl)+' approvers. A blank field uses the built-in wording.</div></div>'
+      +'<button type="button" class="apv4-x lt" aria-label="Close" onclick="AP.nfClose()">×</button></div>'
+    +'<div class="aa-dlg-body">'
+      +'<div class="nf-tabs"><button type="button" id="nf-tab-edit" class="nf-tab on" onclick="AP.nfTab(\'edit\')">Edit</button>'
+      +'<button type="button" id="nf-tab-preview" class="nf-tab" onclick="AP.nfTab(\'preview\')">Preview</button></div>'
+      +'<div id="nf-edit">'
+        +'<div class="apv4-field"><label for="nf-to">Recipient email</label>'
+          +'<input id="nf-to" type="email" value="'+esc(c.email||'')+'" placeholder="name@auction.com">'
+          +'<div class="hint">Blank unsets the step — requests reaching it escalate to the Service Desk.</div></div>'
+        +'<div class="apv4-field"><label for="nf-subject">Subject</label>'
+          +'<input id="nf-subject" value="'+esc(c.subject||'')+'" placeholder="'+esc(nfDef('subject'))+'" maxlength="'+(lim.subject||160)+'">'
+          +'<div class="hint">Variables: '+esc(nfVars())+'</div></div>'
+        +'<div class="apv4-field"><label for="nf-body">Email body</label>'
+          +'<textarea id="nf-body" rows="7" placeholder="'+esc(nfDef('body'))+'" maxlength="'+(lim.body||1200)+'">'+esc(c.body||'')+'</textarea>'
+          +'<div class="hint">Replaces the opening paragraph only. The request-details table, the action button and the footer are built by the portal service.</div></div>'
+        +'<div id="nf-err" class="apv4-err"></div></div>'
+      +'<div id="nf-preview" style="display:none"></div></div>'
+    +'<div class="aa-dlg-ft"><button type="button" class="apv4-btn" onclick="AP.nfClose()">Cancel</button>'
+      +'<button type="button" class="apv4-btn pri" id="nf-save" onclick="AP.nfSave()">Save</button></div></div>';
+  $('apv4-root').appendChild(ov);
+  ov.addEventListener('click',function(e){ if(e.target===ov)nfClose(); });
+  ov.addEventListener('keydown',function(e){ if(e.key==='Escape'){ e.stopPropagation(); nfClose(); } });
+  var f=$('nf-to'); if(f)f.focus();
+}
+function nfClose(silent){
+  var ov=$('nf-ov'); if(!ov)return;
+  ov.parentNode.removeChild(ov);
+  var inv=NF.invoker; NF.invoker=null; NF.step=null;
+  if(!silent&&inv&&typeof inv.focus==='function'&&document.body.contains(inv))inv.focus();
+}
+function nfTab(tab){
+  NF.tab=tab; var e=$('nf-edit'), p=$('nf-preview'); if(!e||!p)return;
+  if(tab==='preview')nfRenderPreview();
+  e.style.display=tab==='edit'?'block':'none'; p.style.display=tab==='preview'?'block':'none';
+  var te=$('nf-tab-edit'), tp=$('nf-tab-preview');
+  if(te)te.classList.toggle('on',tab==='edit'); if(tp)tp.classList.toggle('on',tab==='preview');
+}
+function nfInterp(raw,subs){ return String(raw||'').replace(/\{([a-z_]+)\}/g,function(m,k){ return Object.prototype.hasOwnProperty.call(subs,k)?subs[k]:m; }); }
+function nfRenderPreview(){
+  var host=$('nf-preview'); if(!host||!NF.step)return;
+  var lbl=stepLabel(NF.step), c=S.contacts[NF.step]||{};
+  var subs={id:'WUA-2026-00042',type:'Website / URL Access',step:lbl,name:'Dana Requester',dept:'Operations',
+            priority:'NORMAL',approver:c.name||lbl,requester_email:'dana.requester@auction.com'};
+  var subj=nfInterp((($('nf-subject')||{}).value||'').trim()||nfDef('subject'),subs);
+  var body=nfInterp((($('nf-body')||{}).value||'').trim()||nfDef('body'),subs);
+  var to=(($('nf-to')||{}).value||'').trim();
+  host.innerHTML='<div class="apv4-note" style="max-width:none">Sample values — a real send uses the request\'s own details.</div>'
+    +'<div class="apv4-dir" style="margin:0 0 12px"><div><b>To:</b> '+esc(to||'not set')+'</div><div><b>Subject:</b> '+esc(subj)+'</div>'
+      +'<div>From and the footer are pinned by the portal service.</div></div>'
+    +'<div class="apv4-card" style="padding:14px 16px">'
+      +body.split('\n').map(function(l){ return l.trim()?'<p style="margin:0 0 8px;font-size:13px;line-height:1.6">'+esc(l)+'</p>':''; }).join('')
+      +'<div class="hint" style="border-top:1px solid var(--aa-line);margin-top:8px;padding-top:9px">+ request details table · “Review &amp; Take Action” button · footer</div></div>';
+}
+async function nfSave(){
+  var step=NF.step; if(!step)return;
+  var em=(($('nf-to')||{}).value||'').trim().toLowerCase(), err=$('nf-err'), btn=$('nf-save');
+  if(err)err.textContent='';
+  if(em&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ if(err)err.textContent='Enter a complete email address, or clear the field to unset it.'; return; }
+  var payload={approver_contacts:{}};
+  payload.approver_contacts[step]={email:em,subject:(($('nf-subject')||{}).value||'').trim(),body:(($('nf-body')||{}).value||'')};
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  try{
+    var d=await api('/api/portal/settings',{method:'POST',body:payload});
+    S.contacts=Object.assign(d.approver_contacts||{},{__loaded:true});
+    nfClose(); await loadRolesFresh(); renderNotifications(); buildSidebar();
+    toast(d.saved?('✓ '+stepLabel(step)+' notification email saved'):'No change');
+  }catch(e){ if(err)err.textContent=e.message; if(btn){ btn.disabled=false; btn.textContent='Save'; } }
+}
+
+/* ── session ───────────────────────────────────────────────────────────── */
+function signOut(){
+  var done=false; function leave(){if(done)return;done=true;try{sessionStorage.clear();}catch(e){}window.location.replace('/');}
+  setTimeout(leave,4000);
+  Promise.all([fetch('/api/portal/auth/logout',{method:'POST',credentials:'same-origin'}).catch(function(){}),
+               fetch('/api/gate/logout',{method:'POST',credentials:'same-origin'}).catch(function(){})]).then(leave,leave);
+}
+/* Department access: AD membership and app grants stay explicitly distinct. */
+var DA={person:null,membership:null,results:[],busy:false};
+async function daApi(path,body){
+  var r=await fetch('/api/department-access/'+path,{method:body?'POST':'GET',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  var d=await r.json().catch(function(){return {};});if(!r.ok)throw new Error(d.error||('Access service unavailable (HTTP '+r.status+'). Retry.'));return d;
+}
+function daPanel(){
+  var groups=(S.groups||[]).filter(function(g){return g.ad_group_dn;});
+  return '<div class="apv4-card" style="margin-bottom:18px"><div class="apv4-card-hd"><div><b>People &amp; AD groups</b><span>Check effective access, manage group membership, or grant an app-only exception.</span></div></div><div class="da-body">'
+    +'<div class="da-controls"><div class="apv4-field"><label for="da-email">Person’s company email</label><input id="da-email" type="email" autocomplete="off" placeholder="name@auction.com" value="'+esc(DA.person&&DA.person.email||'')+'"></div><button class="apv4-btn" onclick="AP.daCheck(false,this)">Check access</button><button class="apv4-btn" onclick="AP.daCheck(true,this)">Refresh AD access</button><button class="apv4-btn pri" onclick="AP.daGrant(this)">App-only override</button></div>'
+    +'<div id="da-person" class="da-result" aria-live="polite"></div>'
+    +'<details><summary style="cursor:pointer;font-weight:600;padding:8px 0">Manage AD security groups</summary><div style="display:grid;gap:14px;margin-top:12px">'
+    +'<div class="apv4-note">AD membership applies to every system that uses the group. App-only overrides change this portal only. Nested membership is not used for approval access.</div>'
+    +'<div class="da-controls"><div class="apv4-field"><label for="da-role">Mapped security group</label><select id="da-role" onchange="document.getElementById(\'da-members\').innerHTML=\'\'">'+groups.map(function(g){return '<option value="'+esc(g.role_key)+'">'+esc(aaGroupCN(g)||g.display_name)+'</option>';}).join('')+'</select></div><button class="apv4-btn" onclick="AP.daMembers(this)">Load members</button></div>'
+    +'<div id="da-members" class="da-result" aria-live="polite"></div>'
+    +'<details><summary style="cursor:pointer">Find another directory group</summary><div class="da-controls" style="margin-top:12px"><div class="apv4-field"><label for="da-group-search">Security group name</label><input id="da-group-search" placeholder="SaaS-ITH"></div><button class="apv4-btn" onclick="AP.daSearch(this)">Search AD</button></div><div id="da-search-results" class="da-result" aria-live="polite"></div></details>'
+    +'</div></details><div id="da-message" class="da-message" role="status" aria-live="polite"></div></div></div>';
+}
+function daPolicyFields(p){
+  var types=S.aa.types||[],local='';
+  if(p.expires_at){var d=new Date(p.expires_at);local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
+  return '<fieldset class="aa-fs"><legend>Request types / resources</legend><label><input type="checkbox" id="aa-types-all"'+(!(p.request_types||[]).length?' checked':'')+'> All request types</label><div class="aa-checks" id="aa-type-list">'+types.map(function(t){return '<label><input type="checkbox" data-aa-type="'+esc(t.key)+'"'+((p.request_types||[]).indexOf(t.key)>-1?' checked':'')+'> '+esc(t.label)+'</label>';}).join('')+'</div></fieldset>'
+    +'<div class="apv4-field" id="aa-effect-wrap"><label for="aa-effect">Person override</label><select id="aa-effect"><option value="allow"'+(p.effect!=='block'?' selected':'')+'>Grant selected access</option><option value="block"'+(p.effect==='block'?' selected':'')+'>Block selected teams and request types</option></select><div class="hint">A block takes precedence over AD, manual and manager grants. Super-admin oversight remains available.</div></div>'
+    +'<div class="apv4-field"><label for="aa-expiry">Expiry (your local time, optional)</label><input id="aa-expiry" type="datetime-local" value="'+esc(local)+'"><div class="hint">Leave blank for ongoing access.</div></div>'
+    +'<div class="apv4-field"><label for="aa-reason">Reason / approval reference</label><textarea id="aa-reason" maxlength="1000" rows="2">'+esc(p.reason||'')+'</textarea></div>';
+}
+function daMsg(message,error){var el=$('da-message');if(el){el.textContent=message;el.style.color=error?'var(--aa-bad)':'var(--aa-ink-2)';}}
+function daEmail(){var email=String($('da-email')&&$('da-email').value||'').trim().toLowerCase();if(!AA_EMAIL_RE.test(email))throw new Error('Enter a complete company email address.');return email;}
+async function daCheck(refresh,btn){
+  if(btn)btn.disabled=true;daMsg(refresh?'Refreshing directory access…':'Checking directory and portal access…');
+  try{var email=daEmail();DA.person=await daApi(refresh?'refresh':'preview?email='+encodeURIComponent(email),refresh?{email:email}:null);daRestore();daMsg(refresh?'Directory access refreshed.':'Checked against live directory membership and saved portal grants.');}
+  catch(e){DA.person=null;if($('da-person'))$('da-person').innerHTML='';daMsg(e.message,true);}
+  finally{if(btn)btn.disabled=false;}
+}
+function daRestore(){
+  var d=DA.person,el=$('da-person');if(!d||!el)return;
+  var resources=d.scope&&d.scope.resources||{},src=d.scope&&d.scope.access&&d.scope.access.sources||[];
+  el.innerHTML='<b>'+esc(d.name)+' · '+esc(d.email)+'</b><div class="aa-key">'+(d.allowed?'Portal entry allowed':'Portal entry blocked: '+esc(d.reason||'no grant'))+(d.recovery?' · Super-admin oversight; decisions still require a grant.':'')+'</div>'
+    +'<div class="aa-key">Teams shown are used by current or saved approval chains. Nobody can approve their own request.</div>'
+    +'<table><thead><tr><th>Request type</th><th>Can see</th><th>Can decide</th></tr></thead><tbody>'+Object.keys(resources).map(function(t){var a=resources[t],label=(S.aa.types||[]).find(function(x){return x.key===t;});return '<tr><td>'+esc(label?label.label:t.toUpperCase())+'</td><td>'+esc(d.recovery?'All (oversight)':a.view_steps.filter(function(k){return !a.applicable_steps||a.applicable_steps.indexOf(k)>-1;}).map(stepLabel).join(', ')||'None')+(a.manager_of_requests.length?' · Named manager requests':'')+'</td><td>'+esc(a.decide_steps.filter(function(k){return !a.applicable_steps||a.applicable_steps.indexOf(k)>-1;}).map(stepLabel).join(', ')||'None')+(a.manager_of_requests.length?' · Named manager requests':'')+'</td></tr>';}).join('')+'</tbody></table>'
+    +'<div class="aa-key">Grant sources: '+(src.length?src.map(function(x){return esc(x.kind==='policy'?x.name+(x.effect==='block'?' (block)':''):x.kind==='manual'?'Legacy '+stepLabel(x.step):'Request-specific manager');}).join('; '):'No approval grants')+'</div>'
+    +'<details style="margin-top:12px"><summary style="cursor:pointer">Portal entry rule (shared with CorpIT)</summary><div class="da-controls" style="margin-top:12px"><div class="apv4-field"><label for="da-entry-level">Entry rule for this person</label><select id="da-entry-level">'+[['inherit','Use group and app grants'],['read','Allow entry (no extra approval rights)'],['admin','Portal configuration admin'],['none','Block portal entry']].map(function(o){return '<option value="'+o[0]+'"'+(d.entry_override===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div><div class="apv4-field"><label for="da-entry-reason">Reason</label><input id="da-entry-reason" maxlength="1000"></div><button class="apv4-btn" onclick="AP.daEntry(this)">Save entry rule</button></div><div class="aa-key">Entry and configuration rights do not grant approval decisions. Account disables, site rules, and super-admin recovery remain in effect.</div></details>'
+    +'<div class="aa-key">Directory checked '+esc(fmtDT(d.directory_checked_at))+'. '+esc(d.authentication_note)+'</div>';
+}
+async function daGrant(btn){
+  try{
+    var email=daEmail(),d=DA.person&&DA.person.email===email?DA.person:await daApi('preview?email='+encodeURIComponent(email));DA.person=d;daRestore();
+    var p=(S.aa.policies||[]).find(function(x){return x.principal_type==='user'&&x.principal_key===email;});
+    aaOpen(p||null,btn);$('aa-ptype-user').checked=true;$('aa-ptype-group').checked=false;$('aa-user-search').value=email;
+    if(!p)$('aa-name').value=d.name||email;S.aa.userPick={email:email,name:d.name};aaSync();
+  }catch(e){daMsg(e.message,true);}
+}
+async function daMembers(btn){
+  if(btn)btn.disabled=true;daMsg('Loading direct AD members…');
+  try{var role=$('da-role').value;DA.membership=await daApi('members?role='+encodeURIComponent(role));daRenderMembers();daMsg('Direct group membership checked. Removing a group grant may leave other grants in place.');}
+  catch(e){DA.membership=null;daMsg(e.message,true);}
+  finally{if(btn)btn.disabled=false;}
+}
+function daRenderMembers(){
+  var m=DA.membership,el=$('da-members');if(!m||!el||$('da-role').value!==m.group.role_key)return;
+  el.innerHTML='<div class="aa-key">'+esc(m.group.name)+' · '+m.members.length+' direct user members'+(m.nested_count?' · '+m.nested_count+' nested or non-person members excluded':'')+'</div>'
+    +((m.other_resources||[]).length?'<div class="apv4-note warn">This AD group also grants: '+m.other_resources.map(function(r){return esc(r.page_key)+' ('+esc(r.access_level)+')';}).join(', ')+'. Use an app-only override if those permissions are not intended.</div>':'')
+    +(m.writable?'<div class="da-controls" style="margin:12px 0"><div class="apv4-field"><label for="da-member-email">Person to add</label><input id="da-member-email" type="email" placeholder="name@auction.com"></div><button class="apv4-btn pri" onclick="AP.daChange(\'add\',null,this)">Add to AD group</button></div><div class="apv4-field"><label for="da-member-reason">Reason for membership change</label><input id="da-member-reason" maxlength="1000" placeholder="Approval responsibility or ticket reference"></div>':'<div class="apv4-note">'+esc(m.restriction)+'</div>')
+    +(m.members.length?m.members.map(function(u,i){return '<div class="da-member"><div>'+esc(u.name)+'<div class="aa-key">'+esc(u.email)+(u.enabled?'':' · Disabled')+'</div></div>'+(m.writable&&u.enabled?'<button class="apv4-btn sm danger" onclick="AP.daChange(\'remove\','+i+',this)">Remove</button>':'')+'</div>';}).join(''):'<div class="apv4-empty">No direct user members.</div>');
+}
+async function daChange(action,index,btn){
+  if(DA.busy)return;var m=DA.membership;if(!m||$('da-role').value!==m.group.role_key)return daMsg('Load this group’s members first.',true);
+  var email=action==='add'?String($('da-member-email').value).trim().toLowerCase():m.members[index].email;
+  var reason=String($('da-member-reason').value||'').trim();if(!AA_EMAIL_RE.test(email)||!reason)return daMsg('Enter a valid company email and a reason for the membership change.',true);
+  if(!confirm((action==='add'?'Add ':'Remove ')+email+(action==='add'?' to ':' from ')+m.group.name+' in Active Directory?\n\nThis changes every system using this group.'+((m.other_resources||[]).length?'\nAlso grants: '+m.other_resources.map(function(r){return r.page_key+' ('+r.access_level+')';}).join(', '):'')+'\nReason: '+reason))return;
+  DA.busy=true;if(btn)btn.disabled=true;daMsg('Saving AD membership…');
+  try{var result=await daApi('memberships',{role:m.group.role_key,email:email,action:action,reason:reason,expected_impact_hash:m.impact_hash,expected_member:m.members.some(function(u){return u.email===email;})});await daMembers();if($('da-email'))$('da-email').value=email;await daCheck(false);daMsg(result.warning||'AD membership '+(result.changed?'updated':'already matched')+'. Effective access is shown above.',!!result.warning);}
+  catch(e){daMsg(e.message,true);}
+  finally{DA.busy=false;if(btn&&btn.isConnected)btn.disabled=false;}
+}
+async function daSearch(btn){
+  if(btn)btn.disabled=true;daMsg('Searching AD security groups…');
+  try{var d=await daApi('groups?q='+encodeURIComponent($('da-group-search').value));DA.results=d.groups||[];$('da-search-results').innerHTML=DA.results.length?DA.results.map(function(g,i){return '<div class="da-member"><div>'+esc(g.name)+'<div class="aa-key">'+esc(g.dn)+'</div></div><button class="apv4-btn sm" onclick="AP.daMap('+i+',this)">Use group</button></div>';}).join(''):'No matching security groups.';daMsg(d.truncated?'Showing the first 100 groups. Narrow your search.':'Select a group, then save its department policy.');}
+  catch(e){daMsg(e.message,true);}
+  finally{if(btn)btn.disabled=false;}
+}
+async function daMap(index,btn){
+  if(btn)btn.disabled=true;
+  try{var g=DA.results[index],d=await daApi('mappings',{dn:g.dn});await loadGroups();var existing=(S.aa.policies||[]).find(function(p){return p.principal_type==='ad_group'&&(p.principal_keys||[]).indexOf(d.role.role_key)>-1;});aaOpen(existing||null,btn,d.role.role_key);if(!existing)$('aa-name').value=g.name.slice(0,80);aaSync();daMsg('Group verified. Choose its department and resource scope, then save.');}
+  catch(e){daMsg(e.message,true);}
+  finally{if(btn)btn.disabled=false;}
+}
+async function daEntry(btn){
+  var d=DA.person;if(!d)return;var level=$('da-entry-level').value,reason=$('da-entry-reason').value.trim();
+  if(!reason)return daMsg('Enter a reason for the entry rule.',true);
+  if(!confirm('Change '+d.email+'’s portal entry rule to “'+$('da-entry-level').selectedOptions[0].text+'”?'))return;
+  if(btn)btn.disabled=true;
+  try{DA.person=await daApi('entry-rule',{email:d.email,level:level,reason:reason,expected_level:d.entry_override});daRestore();daMsg('Shared portal entry rule saved.');}
+  catch(e){daMsg(e.message,true);if(btn)btn.disabled=false;}
+}
+function daBlock(){daMsg('Use App-only override and select Block selected teams and request types.');}
+
+async function refresh(){ await loadRolesFresh(); await loadRequests(); toast('Refreshed'); }
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&S.open)closeDrawer();});
+setInterval(function(){ if(S.role&&!S.open&&!S.editing&&['dashboard','pending','all','completed'].indexOf(S.page)>-1&&document.visibilityState==='visible')loadRequests(); },60000);
+
+/* ── public surface (inline handlers + external scripts) ───────────────── */
+window.AP={stepRename:stepRename,wfEdit:wfEdit,wfCancel:wfCancel,wfMove:wfMove,wfRemove:wfRemove,wfAdd:wfAdd,wfReset:wfReset,wfHidden:wfHidden,wfSave:wfSave,nav:nav,selectRole:selectRole,showRoles:showRoles,openReq:openReq,closeDrawer:closeDrawer,decide:decide,toggleEdit:toggleEdit,saveEdit:saveEdit,
+  setFilter:setFilter,refresh:refresh,saveRecipient:saveRecipient,nfOpen:nfOpen,nfClose:nfClose,nfTab:nfTab,nfSave:nfSave,signOut:signOut,
+  daEntry:daEntry,daCheck:daCheck,daGrant:daGrant,daMembers:daMembers,daChange:daChange,daSearch:daSearch,daMap:daMap,daBlock:daBlock,
+  canAct:canAct,access:access,aaAdd:aaAdd,aaEdit:aaEdit,aaToggle:aaToggle,aaDelete:aaDelete,aaClose:aaClose,aaSave:aaSave,aaLookup:aaLookup,aaClearUser:aaClearUser,aaRetry:aaRetry};
+/* RM-HOOKS: read-only surface for external modules (state + formatting helpers; no new write paths) */
+window.APX={S:S,myReqs:myReqs,isMine:isMine,curStepKey:curStepKey,canAct:canAct,typeIc:typeIc,typeLabel:typeLabel,stepLabel:stepLabel,statusPill:statusPill,fmtDate:fmtDate,fmtDT:fmtDT,ago:ago,esc:esc,toast:toast,prettyNote:prettyNote,loadRequests:loadRequests,access:access,artSq:artSq,I:I,currentStepLabel:currentStepLabel};
+window.apv4Nav=nav; window.apv4ShowRoles=showRoles; window.apv4SelectRole=selectRole; window.apv4Logout=signOut; window.logoutApprover=signOut;
+
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+
+<style id="ap-theme-toggle-fix">
+/* portal-theme.js appends its own theme button to <body> and positions it by
+   measuring the header cluster within 240px of "Sign out". This bar is wider
+   than that, so the circle landed on top of "Requester portal". Once adopted
+   into the bar it is laid out by flex and cannot drift again. */
+.ap-theme-slot{display:inline-flex;align-items:center}
+.pt-toggle.pt-fixed.ap-inbar{
+  position:static!important;top:auto!important;right:auto!important;bottom:auto!important;
+  width:34px!important;height:34px!important;flex:0 0 34px!important;margin:0!important;
+  box-shadow:none!important;background:rgba(255,255,255,.10)!important;
+  border-color:rgba(255,255,255,.22)!important;color:#F5C542!important;font-size:15px!important}
+.pt-toggle.pt-fixed.ap-inbar:hover{background:rgba(255,255,255,.20)!important}
+</style>
+<script id="ap-theme-toggle-adopt">
+/* Moves the theme button into whichever bar is on screen. Re-checked on a
+   timer because portal-theme.js re-mounts and re-positions its button for a
+   few seconds after load, and because the two bars swap on Switch role. */
+(function(){
+  function slot(){
+    var s=document.querySelectorAll('.ap-theme-slot');
+    for(var i=0;i<s.length;i++) if(s[i].offsetParent!==null) return s[i];
+    return null;
+  }
+  function adopt(){
+    var b=document.querySelector('.pt-toggle'); if(!b) return;
+    var host=slot(); if(!host) return;
+    b.classList.add('ap-inbar');
+    b.style.position=''; b.style.top=''; b.style.right=''; b.style.bottom='';
+    if(b.parentNode!==host) host.appendChild(b);
+  }
+  adopt();
+  var n=0, iv=setInterval(function(){ adopt(); if(++n>40) clearInterval(iv); },250);
+  document.addEventListener('click',function(){ setTimeout(adopt,60); },true);
+  window.addEventListener('resize',function(){ setTimeout(adopt,60); });
+})();
+</script>
+</body>
+</html>

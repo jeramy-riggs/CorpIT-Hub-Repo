@@ -1,0 +1,327 @@
+{# DIRECTORY SYNC - who gets the company address book, who is in it, who is held back. #}
+<style>
+  .dir-policy{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--border-2)}
+  .dir-policy .t{flex:1 1 320px;min-width:0}
+  .dir-policy .t b{font-weight:600;margin-right:8px}
+  .dir-policy .t .st{margin-right:6px}
+  .dir-policy .t small{display:block;color:var(--ink-3);font-size:12px;margin-top:3px;line-height:1.45}
+  .dir-policy form{flex:0 0 auto;margin:0}
+  .dir-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--border-2)}
+  .dir-tools input[type=search]{flex:1 1 260px;min-width:200px;margin:0}
+  .dir-tools .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .dir-tools .chips button{font:inherit;font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink-2);cursor:pointer}
+  .dir-tools .chips button .n{font-family:var(--mono);font-size:11px;opacity:1;margin-left:2px}
+  .dir-tools .chips button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+  .dir-tools .chips button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  #dir-table td.dir-empty{text-align:center;color:var(--ink-3);padding:26px 18px}
+  #dir-table .who b{display:block;font-weight:600}
+  #dir-table .who small{display:block;color:var(--ink-3);font-size:12px;margin-top:2px;overflow-wrap:anywhere}
+  #dir-table .rule{display:block;color:var(--ink-3);font-size:12px;margin-top:4px;line-height:1.45}
+  #dir-table td.ph{white-space:nowrap}
+  #dir-table td.act{text-align:right;white-space:nowrap}
+  #dir-table td.act form{display:inline}
+  #dir-table .btn.sm{padding:4px 9px;font-size:12px}
+  .dir-mode{display:flex;gap:10px;align-items:flex-start;padding:8px 0;cursor:pointer;font-weight:400}
+  .dir-mode input{margin-top:3px;flex:0 0 auto}
+  .dir-mode b{display:block;font-weight:600;font-size:13.5px}
+  .dir-mode small{display:block;color:var(--ink-3);font-size:12px;margin-top:2px}
+  #dir-excl{width:min(560px,calc(100vw - 32px))}
+  #dir-excl textarea{min-height:58px}
+</style>
+<section class="page" data-view="directory" hidden>
+
+  <div class="page-h">
+    <div><h2>Company directory</h2>
+      <p>Review published people, manage recipient lists, and follow each sync. Directory publishing is separate from console access permissions.</p></div>
+    <div class="actions">
+      {% if can('directory.sync') %}
+      <form method="post" action="{{ url_for('gal_sync') }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#directory">
+        <button class="btn pri" type="submit"{% if gal_running %} disabled{% endif %}>{{ 'Sync running…' if gal_running else 'Sync now' }}</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not gal_status.ok %}
+  <div class="note crit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+    <div><b>Sync status could not be read.</b> {{ gal_status.error or 'The status collector returned nothing.' }} You can still edit lists below; per-person status and history are unavailable until it is back.</div></div>
+  {% endif %}
+
+  <div class="stats">
+    <div class="stat"><div class="k">Lists</div><div class="v">{{ gal_lists|length }}</div><div class="n">{{ gal_lists|selectattr('enabled')|list|length }} turned on</div></div>
+    <div class="stat"><div class="k">Recipients</div><div class="v">{{ gal_recipient_count }}</div><div class="n">mailboxes receiving contacts</div></div>
+    <div class="stat"><div class="k">People published</div><div class="v">{{ gal_roster.published if gal_roster else (gal_status.lastRun.rosterCount if gal_status.lastRun else '—') }}</div><div class="n">{% if gal_roster %}of {{ '{:,}'.format(gal_roster.fetched) }} accounts in Entra · {{ '{:,}'.format(gal_roster.notPublished) }} filtered out{% else %}in the last run{% endif %}</div></div>
+    {% set xc = gal_exclusions.counts %}
+    <div class="stat"><div class="k">Held back</div><div class="v{% if not gal_exclusions.ok or xc.unmatched %} warn{% endif %}">{{ '{:,}'.format(xc.total + (gal_policy.heldByPolicy if gal_policy.requireMobile else 0)) }}</div><div class="n">{% if not gal_exclusions.ok %}rule file cannot be read{% else %}{% if gal_policy.requireMobile %}{{ '{:,}'.format(gal_policy.heldByPolicy) }} without a mobile{% if xc.total %} · {% endif %}{% endif %}{% if xc.total %}{{ xc.total }} rule{{ '' if xc.total == 1 else 's' }}{% if xc.unmatched %} · {{ xc.unmatched }} match{{ 'es' if xc.unmatched == 1 else '' }} nobody{% endif %}{% if xc.pending %} · {{ xc.pending }} pending{% endif %}{% elif not gal_policy.requireMobile %}no exclusions yet{% endif %}{% endif %}</div></div>
+  </div>
+
+  {% if not gal_exclusions.ok %}
+  <div class="note crit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+    <div><b>The exclusion list on disk cannot be read, so every sync refuses to run.</b> {{ gal_exclusions.error }} The engine will not publish past a list it cannot read - that is the point - but until <span class="mono">{{ '/opt/gal-directory/exclusions.json' }}</span> is repaired nothing reaches the phones.</div></div>
+  {% endif %}
+
+<nav class="tabs directory-tabs" data-tabs="directory" role="tablist" aria-label="Directory tasks"><button class="tab" type="button" role="tab" id="directory-tab-people" data-tab="people" aria-controls="directory-people" aria-selected="false">People</button><button class="tab" type="button" role="tab" id="directory-tab-lists" data-tab="lists" aria-controls="directory-lists" aria-selected="false">Recipient lists</button><button class="tab" type="button" role="tab" id="directory-tab-publishing" data-tab="publishing" aria-controls="directory-publishing" aria-selected="false">Publishing rules</button><button class="tab" type="button" role="tab" id="directory-tab-activity" data-tab="activity" aria-controls="directory-activity" aria-selected="false">Sync & history</button></nav>
+<div data-tabpanel="people" id="directory-people" role="tabpanel" aria-labelledby="directory-tab-people" hidden>
+  {# WHO IS PUBLISHED - the roster the last sync saw, with the do-not-publish rules laid over it.
+     Rendered client-side from /gal/roster (console.js, section "directory roster"): ~1,800 rows is
+     too many to ship inside this page for every view. Carries no phone numbers by design. #}
+  <div class="card" id="dir-people" data-csrf="{{ csrf_token() }}" data-manage="{{ 1 if can('directory.manage') else 0 }}" data-remove-url="{{ url_for('gal_exclusions_remove') }}">
+    <div class="card-h"><h3>People</h3>
+      <span class="meta">{% if gal_roster and gal_roster.generatedAt %}from the last run, {{ (gal_roster.generatedAt or '')[:16]|replace('T',' ') }} UTC{% else %}Snapshot time unavailable{% endif %}</span>
+      {% if can('directory.manage') %}
+      <div class="actions"><button class="btn sm pri" type="button" data-dir-excl-open>Hold someone back…</button></div>
+      {% endif %}
+    </div>
+    {# DIRECTORY-WIDE SWITCH - one policy the sync re-judges every run, not a rule per person.
+       Kept in the same file as the rules; a number added in AD brings the person back by itself. #}
+    <div class="dir-tools"><button class="btn sm" type="button" id="dir-refresh">Refresh roster</button>
+      <input id="dir-q" type="search" placeholder="Search name, email, title or department…" autocomplete="off" spellcheck="false" aria-label="Search people">
+      <div class="chips" role="group" aria-label="Show">
+        <button type="button" data-dir-filter="published" aria-pressed="true">Published <span class="n" data-dir-n="published"></span></button>
+        <button type="button" data-dir-filter="mobile" aria-pressed="false">With a mobile <span class="n" data-dir-n="mobile"></span></button>
+        <button type="button" data-dir-filter="nomobile" aria-pressed="false">Without a mobile <span class="n" data-dir-n="nomobile"></span></button>
+        <button type="button" data-dir-filter="excluded" aria-pressed="false">Individual rules <span class="n" data-dir-n="excluded"></span></button>
+        <button type="button" data-dir-filter="not" aria-pressed="false">Not published <span class="n" data-dir-n="not"></span></button>
+      </div>
+      <span class="meta" id="dir-count" aria-live="polite"></span>
+    </div>
+    <div class="tblwrap"><table class="grid" id="dir-table">
+      <thead><tr><th>Person</th><th>Department</th><th>Mobile</th><th>Desk</th><th>Status</th><th></th></tr></thead>
+      <tbody><tr><td colspan="6" class="dir-empty">Loading the roster…</td></tr></tbody>
+    </table></div><div class="directory-pagination"><button class="btn sm" type="button" id="dir-prev" disabled>Previous</button><span id="dir-page" aria-live="polite"></span><button class="btn sm" type="button" id="dir-next" disabled>Next</button></div>
+
+  </div>
+
+  {% if can('directory.manage') %}
+  <dialog class="sheet" id="dir-excl" aria-labelledby="dir-excl-t">
+    <form method="post" action="{{ url_for('gal_exclusions_add') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#directory">
+      <div class="sheet-h"><div><h3 id="dir-excl-t">Hold back from the directory</h3><div class="sub" id="dir-excl-sub">nothing in AD or Exchange changes</div></div>
+        <button class="btn sm" type="button" data-dir-excl-close style="margin-left:auto">Close</button></div>
+      <div class="sheet-b">
+        <div class="f"><label for="dir-excl-emails">Who <span class="hint">email addresses - one or many, up to {{ gal_exclude_max }} at a time</span></label>
+          <textarea id="dir-excl-emails" name="emails" required placeholder="someone@auction.com"></textarea></div>
+        <fieldset><legend>What to hold back</legend>
+          <label class="dir-mode"><input type="radio" name="mode" value="hide" checked><span><b>Leave them out of the directory</b><small>their card is removed from every phone on the next sync</small></span></label>
+          <label class="dir-mode"><input type="radio" name="mode" value="no-mobile"><span><b>Publish them without their mobile number</b><small>name, email, title and desk phone still go out</small></span></label>
+          <label class="dir-mode"><input type="radio" name="mode" value="no-phones"><span><b>Publish them without any phone numbers</b><small>name, email and title only</small></span></label>
+        </fieldset>
+        <div class="f"><label for="dir-excl-reason">Reason <span class="hint">optional - shown next to the rule so the next person knows why</span></label>
+          <input id="dir-excl-reason" type="text" name="reason" maxlength="{{ gal_reason_max }}" placeholder="Executive - number is not for general distribution"></div>
+        <div class="form-foot"><button class="btn pri" type="submit">Save and sync</button><span class="hint">A sync starts as soon as the rule is saved; phones update within a few minutes.</span></div>
+      </div>
+    </form>
+  </dialog>
+  {% endif %}
+
+
+</div>
+<div data-tabpanel="lists" id="directory-lists" role="tabpanel" aria-labelledby="directory-tab-lists" hidden>
+  {% for l in gal_lists %}
+  {% set mobile_rollout = gal_mobile_rollouts.get(l.id) %}
+  {% if mobile_rollout %}
+  <section class="dir-rollout dir-rollout-top{% if mobile_rollout.matched %} is-matched{% endif %}" aria-labelledby="mobile-rollout-{{ l.id }}">
+    <div class="dir-rollout-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M10 5h4M11 18.5h2"/><path d="M3 9.5h2.5M18.5 9.5H21M4.5 7.5l1.8 2-1.8 2M19.5 7.5l-1.8 2 1.8 2"/></svg>
+    </div>
+    <div class="dir-rollout-copy">
+      <div class="dir-rollout-title">
+        <h3 id="mobile-rollout-{{ l.id }}">Everyone with a cellphone, on every cellphone</h3>
+        {% if mobile_rollout.matched %}<span class="st good"><i></i>matched</span>{% endif %}
+      </div>
+      <p>Make the latest published mobile-user roster the exact recipient list for <b>{{ l.name }}</b>. The mobile-only policy is enabled, recipients are added to the Exchange fence, and a sync starts automatically. AD, Entra, and personal contacts are never changed.</p>
+      <div class="dir-rollout-flow" aria-label="{{ mobile_rollout.target }} published mobile users to {{ mobile_rollout.target }} recipient mailboxes">
+        <span><b>{{ '{:,}'.format(mobile_rollout.target) }}</b><small>published mobile users</small></span>
+        <svg viewBox="0 0 28 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M1 6h24M20 1l5 5-5 5"/></svg>
+        <span><b>{{ '{:,}'.format(mobile_rollout.target) }}</b><small>mobile mailboxes</small></span>
+      </div>
+      {% if mobile_rollout.available %}
+      <p class="dir-rollout-proof">Roster verified {{ (mobile_rollout.generatedAt or '')[:16]|replace('T',' ') }} UTC · successful apply</p>
+      {% endif %}
+    </div>
+    {% if can('directory.manage') %}
+    <form class="dir-rollout-action" method="post" action="{{ url_for('gal_mobile_rollout', lid=l.id) }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#directory">
+      <button class="btn{% if not mobile_rollout.matched %} pri{% endif %}" type="submit"
+        {% if not mobile_rollout.available or not gal_add_ready or gal_running %}disabled{% endif %}
+        data-confirm="Roll out “{{ l.name }}” to all {{ mobile_rollout.target }} published mobile users from the verified {{ (mobile_rollout.generatedAt or '')[:16]|replace('T',' ') }} UTC successful apply? The exact recipient set will add {{ mobile_rollout['add'] }}, remove {{ mobile_rollout.remove }}, enable the mobile-only policy if needed, and start a sync. Personal contacts are never touched.">
+        {% if gal_running %}Sync running…{% elif mobile_rollout.matched %}Reconcile and sync{% else %}Roll out to all {{ mobile_rollout.target }} mobile users{% endif %}
+      </button>
+      <span class="hint">
+        {% if not mobile_rollout.available %}{{ mobile_rollout.reason }}
+        {% elif not gal_add_ready %}Exchange fence automation must be configured first.
+        {% elif mobile_rollout.matched %}Exact recipient match · mobile-only policy on
+        {% else %}{{ mobile_rollout['add'] }} recipient{{ '' if mobile_rollout['add'] == 1 else 's' }} added · {{ mobile_rollout.remove }} removed · first rollout may take several minutes{% endif %}
+      </span>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% endfor %}
+
+  {% for l in gal_lists %}
+  {% set st = (gal_status.lists or [])|selectattr('id','equalto',l.id)|first %}
+  <div class="card">
+    <div class="card-h"><h3>{{ l.name }}</h3>
+      <span class="pill {{ 'p-good' if l.enabled else 'p-mut' }}"><span class="d"></span>{{ 'on' if l.enabled else 'off' }}</span>
+      <span class="meta">publishes {{ st.sourceDetail if st else l.source.type }}{% if st and st.rosterCount %} · {{ st.rosterCount }} people{% endif %} · to {{ l.recipients|length }} mailbox{{ '' if l.recipients|length == 1 else 'es' }}{% if st %} · {{ st.health.synced }} synced, {{ st.health.pending }} pending, {{ st.health.error }} with errors{% endif %}</span>
+      {% if can('directory.manage') %}
+      <div class="actions">
+        <form method="post" action="{{ url_for('gal_list_toggle', lid=l.id) }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#directory">
+          <button class="btn sm" type="submit">{{ 'Turn off' if l.enabled else 'Turn on' }}</button>
+        </form>
+        <form method="post" action="{{ url_for('gal_list_delete', lid=l.id) }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#directory">
+          <button class="btn sm danger" type="submit"{% if gal_lists|length == 1 %} disabled title="The last list cannot be deleted — turn it off instead"{% endif %} data-confirm="Delete the list “{{ l.name }}”? Its contacts are removed from every recipient's mailbox on the next sync.">Delete</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% if st and st.error %}<div class="note crit" style="margin:14px 18px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/></svg><div>{{ st.error }}</div></div>{% endif %}
+    <div class="card-b">
+      <div class="f-lab">Recipients</div>
+      {% if l.recipients %}
+      <label class="directory-recipient-search">Find a recipient<input type="search" data-recipient-search placeholder="Search this list by email" aria-label="Search recipients in {{ l.name }}"></label><p class="hint" data-recipient-count aria-live="polite">{{ l.recipients|length }} recipients</p><div class="tags directory-recipients">
+        {% for r in l.recipients %}
+        {% set m = (gal_status.members or [])|selectattr('upn','equalto',r)|first %}
+        <span class="tag-x" data-recipient="{{ r|lower }}" title="{{ (m.name ~ ' — ' ~ m.detail) if m else 'no status from the last run' }}">
+          {% if m %}<span class="st {{ 'good' if m.status == 'synced' else ('crit' if m.status == 'error' else 'warn') }}"><i></i></span>{% endif %}{{ r }}
+          {% if can('directory.manage') %}
+          <form method="post" action="{{ url_for('gal_recipients_remove') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#directory">
+            <input type="hidden" name="list" value="{{ l.id }}"><input type="hidden" name="upn" value="{{ r }}">
+            <button type="submit" aria-label="Remove {{ r }} from {{ l.name }}" data-confirm="Remove {{ r }} from “{{ l.name }}”? Their contacts from this list are cleaned out on the next sync."><svg class="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+          </form>
+          {% endif %}
+        </span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:var(--ink-3)">No recipients yet, so nothing is published for this list.</p>
+      {% endif %}
+    </div>
+    {% if can('directory.manage') %}
+    <details class="drawer">
+      <summary><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>Add recipients to {{ l.name }}</summary>
+      <div class="drawer-body">
+        <form method="post" action="{{ url_for('gal_recipients_add') }}" enctype="multipart/form-data" style="margin-top:12px">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#directory">
+          <input type="hidden" name="list" value="{{ l.id }}">
+          <div class="f-row">
+            <div class="f"><label for="add-{{ l.id }}">Paste email addresses <span class="hint">anything works — a column, a signature block, a whole CSV. Up to {{ gal_add_max }} at a time.</span></label>
+              <textarea id="add-{{ l.id }}" name="emails" placeholder="someone@auction.com, someone.else@auction.com"></textarea></div>
+            <div class="f"><label for="csv-{{ l.id }}">…or upload a CSV <span class="hint">optional</span></label>
+              <input id="csv-{{ l.id }}" type="file" name="csv" accept=".csv,.txt"></div>
+          </div>
+          <button class="btn sm pri" type="submit">Add to {{ l.name }}</button>
+        </form>
+      </div>
+    </details>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  {% if can('directory.manage') %}
+  <details class="card" id="new-list" style="padding:0">
+    <summary style="list-style:none;cursor:pointer;padding:14px 18px;display:flex;align-items:center;gap:10px">
+      <svg style="width:16px;height:16px;color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <b style="font-size:15px">New list</b><span style="color:var(--ink-3);font-size:12.5px">who is published, and who receives them</span>
+    </summary>
+    <div class="drawer-body" style="padding:18px">
+      <form method="post" action="{{ url_for('gal_list_create') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#directory">
+        <div class="f-row">
+          <div class="f"><label for="gl-name">List name</label>
+            <input id="gl-name" type="text" name="name" maxlength="60" placeholder="Sales Directory" required></div>
+          <div class="f"><label for="gl-cat">Contact category <span class="hint">optional — how the contacts are grouped in Outlook; defaults to the list name</span></label>
+            <input id="gl-cat" type="text" name="category" maxlength="60" placeholder="Sales Directory"></div>
+        </div>
+        <fieldset>
+          <legend>Who is published</legend>
+          <label class="f-inline"><input type="radio" name="source_type" value="all" checked> Everyone in the directory</label>
+          <label class="f-inline"><input type="radio" name="source_type" value="group"> Members of one security group</label>
+          <input type="text" name="source_group" id="gl-group" list="gal-groups" maxlength="120" placeholder="start typing a group name" spellcheck="false" autocapitalize="none">
+          <datalist id="gal-groups"></datalist>
+          <label class="f-inline" style="margin-top:12px"><input type="radio" name="source_type" value="upns"> Specific people</label>
+          <textarea name="source_upns" placeholder="paste the email addresses of the people to publish"></textarea>
+        </fieldset>
+        <div class="f-row">
+          <div class="f"><label for="gl-rec">Recipients <span class="hint">the mailboxes that receive these contacts</span></label>
+            <textarea id="gl-rec" name="emails" placeholder="someone@auction.com, someone.else@auction.com"></textarea></div>
+          <div class="f"><label for="gl-csv">…or upload a CSV of recipients <span class="hint">optional</span></label>
+            <input id="gl-csv" type="file" name="csv" accept=".csv,.txt"></div>
+        </div>
+        <div class="form-foot"><button class="btn pri" type="submit">Create list</button><span class="hint">A list with recipients starts a sync as soon as it is created.</span></div>
+      </form>
+    </div>
+  </details>
+  {% endif %}
+
+
+</div>
+<div data-tabpanel="publishing" id="directory-publishing" role="tabpanel" aria-labelledby="directory-tab-publishing" hidden>
+<div class="card"><div class="card-h"><h3>Who reaches the phones</h3></div>    <div class="dir-policy">
+      <div class="t">
+        <b>Only people with a mobile number</b>
+        {% if gal_policy.requireMobile %}<span class="st good"><i></i>on</span>{% else %}<span class="st mut"><i></i>off</span>{% endif %}
+        {% if gal_policy.status == 'pending' %}<span class="st warn"><i></i>waiting for the next sync</span>{% endif %}
+        <small>{% if gal_policy.withoutMobile is none %}No roster snapshot yet - the next sync writes one.{% elif gal_policy.requireMobile %}{{ '{:,}'.format(gal_policy.heldByPolicy) }} people are held back because Entra has no mobile number for them. Each comes back by themselves the moment a number is added in AD.{% else %}{{ '{:,}'.format(gal_policy.withoutMobile) }} of the people published have no mobile number in Entra - their cards give a phone nothing to dial. Turn this on and they are held back until a number is added in AD.{% endif %}{% if gal_policy.changed and gal_policy.changed.at %} Changed by {{ gal_policy.changed.by or '?' }}, {{ (gal_policy.changed.at or '')[:16]|replace('T',' ') }} UTC.{% endif %}</small>
+      </div>
+      {% if can('directory.manage') %}
+      <form method="post" action="{{ url_for('gal_policy_set') }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#directory">
+        <input type="hidden" name="key" value="requireMobile"><input type="hidden" name="value" value="{{ '0' if gal_policy.requireMobile else '1' }}">
+        {% if gal_policy.requireMobile %}
+        <button class="btn sm" type="submit" data-confirm="Publish people without a mobile number again? {{ '{:,}'.format(gal_policy.heldByPolicy) }} cards go back out to every phone on the next sync.">Publish everyone again</button>
+        {% else %}
+        <button class="btn sm" type="submit" data-confirm="Hold back everyone without a mobile number? {{ '{:,}'.format(gal_policy.withoutMobile or 0) }} cards are removed from every phone on the next sync. Nothing changes in AD, and anyone who later gets a number is published again automatically.">Hold back everyone without a mobile</button>
+        {% endif %}
+      </form>
+      {% endif %}
+    </div>
+    <div class="card-b"><details class="why"><summary>What holding someone back does - and does not - change</summary>
+      <div><p>A rule here changes only what this sync pushes to phones. <b>Nothing in Active Directory, Entra or Exchange is touched</b> - the person keeps their numbers in AD, stays in Outlook's address book, and can still be looked up by anyone with a mailbox. It is the difference between "not in the company phone book on 250 iPhones" and "hidden from the company".</p>
+      <p><b>Leave them out</b> removes their card from every recipient on the next sync. <b>Without their mobile</b> keeps the card (name, email, title, desk phone) and drops the mobile number; phones that already hold the card get it rewritten. <b>Without any phone numbers</b> keeps name, email and title only. A rule for someone who is not being published anyway (disabled, unlicensed, hidden in Exchange) is kept and takes effect if that ever changes.</p>
+      <p><b>Only people with a mobile number</b> is a directory-wide switch, not a list of names: every sync re-checks Entra, holds back anyone with no mobile number, and publishes them again the moment a number is added in AD. A person's own rule outranks it - "publish them without their mobile" still publishes them.</p>
+      <p>"Not published" shows the accounts the sync filtered out and why: disabled, guest, unlicensed (shared mailboxes, rooms, service accounts), hidden from the Exchange address book, or matching the service-account pattern. Those rules live in the sync's own configuration, not on this page.</p></div></details></div></div><div class="ledger-notice"><b>Individual exceptions</b>Use the People tab to hold back one person or restore their published details. <a href="#directory/people">Review people</a></div>
+</div>
+<div data-tabpanel="activity" id="directory-activity" role="tabpanel" aria-labelledby="directory-tab-activity" hidden>
+  <div class="g2">
+    <div class="card">
+      <div class="card-h"><h3>Sync</h3></div>
+      <div class="row">
+        <span class="st {{ 'warn' if gal_running else ('good' if gal_status.lastRun and not gal_status.lastRun.opsFailed else 'mut') }}"><i></i></span>
+        <div class="main"><b>{{ 'Running now' if gal_running else 'Last run' }}</b><small>{% if gal_status.lastRun %}{{ gal_status.lastRun.finishedAt|replace('T',' ')|replace('Z',' UTC') }} · {{ gal_status.lastRun.opsOk }} ok, {{ gal_status.lastRun.opsFailed }} failed{% else %}no run recorded yet{% endif %}</small></div>
+      </div>
+      <div class="row">
+        <span class="st {{ 'good' if gal_status.fenceConfigured else 'warn' }}"><i></i></span>
+        <div class="main"><b>Exchange fence group</b><small>{% if gal_status.fenceConfigured %}kept in step automatically · {{ gal_status.fenceCount }} member{{ '' if gal_status.fenceCount == 1 else 's' }}{% else %}not set up — recipients must be added to the fence group by hand{% endif %}</small></div>
+      </div>
+      <div class="card-b" style="padding-top:8px"><details class="why"><summary>How publishing works</summary>
+        <div>The roster is read from Microsoft Graph, the rules above are applied, and each person becomes a stamped contact in every recipient's Exchange <b>Contacts</b> folder - iPhones sync that natively, so inbound calls show a name. Only contacts carrying the sync's stamp are ever read, changed or removed; personal contacts are never touched. Recipients must be in the Exchange fence group or Graph refuses the write. Only one sync runs at a time - a second "Sync now" is refused rather than run twice. The CardDAV book on <span class="mono">directory.{{ base_domain }}</span> is the same roster on a parked path for devices that can reach it.</div></details></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Sync history</h3><span class="meta">most recent first</span></div>
+      {% if gal_status.history %}
+      <div class="tblwrap"><table class="grid">
+        <thead><tr><th>Started</th><th>Mode</th><th>People</th><th>Mailboxes</th><th>+</th><th>~</th><th>−</th><th>Failed</th></tr></thead>
+        <tbody>{% for h in gal_status.history[:8] %}
+          <tr><td class="mono">{{ h.startedAt|replace('T',' ')|replace('Z','') }}</td><td>{{ h.mode }}</td><td class="mono">{{ h.rosterCount }}</td><td class="mono">{{ h.mailboxes }}</td>
+            <td class="mono">{{ h.creates }}</td><td class="mono">{{ h.updates }}</td><td class="mono">{{ h.deletes }}</td><td class="mono"{% if h.errors %} style="color:var(--crit)"{% endif %}>{{ h.errors }}</td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+      {% else %}<div class="empty"><b>No history yet.</b></div>{% endif %}
+    </div>
+  </div>
+
+  {% if gal_log %}
+  <div class="card">
+    <div class="card-h"><h3>Last manual run</h3><span class="meta">end of the log</span></div>
+    <div class="card-b"><pre class="logbox">{{ gal_log }}</pre></div>
+  </div>
+  {% endif %}
+<section class="card"><div class="card-h"><h3>Device connections</h3></div><div class="card-b"><p>Exchange contacts are the primary delivery path. CardDAV remains a separate connection for compatible devices; it has its own credentials.</p><a class="btn" href="https://directory.{{ base_domain }}/.web/">Open CardDAV administration</a><p class="hint">Opens directory.{{ base_domain }}. Device sync addresses and authentication are unchanged.</p></div></section>
+</div>
+</section>

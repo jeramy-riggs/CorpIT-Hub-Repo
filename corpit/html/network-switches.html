@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en" data-version="3.0.0">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Switch Fabric — IT Command</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<link href="/it-unifi.css" rel="stylesheet">
+<link href="/it-command.css" rel="stylesheet">
+<link href="/it-noc.css" rel="stylesheet">
+<style>
+/* the faceplate is the hero of this page — give it room and a quiet frame */
+.panelwrap{padding:var(--n-pad)}
+.panelmeta{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:11px;font-size:12px;color:var(--o-dim)}
+.panelmeta b{color:var(--o-ink);font-variant-numeric:tabular-nums}
+.pnote{margin-top:8px;font-size:11.5px;color:var(--o-faint);max-width:80ch}
+.swid{display:flex;align-items:center;gap:10px;min-width:0}
+.swid .nm{font-size:14px;font-weight:660;letter-spacing:-.015em}
+.swid .ip{font-family:var(--n-mono);font-size:11.5px;color:var(--o-faint)}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:12.5px}
+.dl dt{font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--o-faint);padding-top:2px;white-space:nowrap}
+.dl dd{margin:0;font-weight:540}
+.dl dd .nmeter{margin-top:5px}
+</style>
+</head>
+<body class="u cmd noc" data-page="fabric">
+<div id="nocContent">
+  <div class="ngrid" id="kpis"></div>
+
+  <div class="ngrid" style="margin-top:10px">
+    <section class="ncard c12" id="panelCard">
+      <div class="nch">
+        <h2 id="panelTitle">Front panel</h2>
+        <div class="tools" id="panelTools"></div>
+      </div>
+      <div class="panelwrap" id="panel">
+        <div class="nskel" style="height:120px;border-radius:12px"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="ngrid" style="margin-top:10px">
+    <section class="ncard c8">
+      <div class="nch"><h2>Inventory</h2>
+        <div class="tools">
+          <div class="nseg" id="siteSeg"></div>
+          <div class="nsearch" style="flex:0 0 190px">
+            <input id="q" type="search" placeholder="Filter name, model, IP…" aria-label="Filter switches">
+          </div>
+        </div>
+      </div>
+      <div class="ncb flush"><div class="ntw cap" id="rows"></div></div>
+      <div class="ncf" id="foot"></div>
+    </section>
+
+    <section class="ncard c4">
+      <div class="nch"><h2>Selected switch</h2></div>
+      <div class="ncb" id="detail"></div>
+    </section>
+  </div>
+</div>
+
+<script src="/it-netnav.js"></script>
+<script src="/it-panel.js"></script>
+<script src="/it-noc.js"></script>
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="network-switches"></script>
+<script>
+NOC.mount({page:'fabric', title:'Switch fabric', sub:'NRPI · all sites'});
+NOC.act('<button class="nbtn" id="nRefresh">'+NOC.icon('refresh')+'Refresh</button>');
+var esc=NOC.esc, ago=NOC.ago;
+var S={devices:[],meta:{},site:'ALL',q:'',sel:null,ports:{}};
+
+async function jget(u){
+  var r=await fetch(u,{credentials:'include'});
+  if(r.status===401)throw Object.assign(new Error('sign-in required'),{code:401});
+  return await r.json().catch(function(){return {ok:false};});
+}
+function isUplink(p){return /^(Te|Twe|Fo|Hu|Fi)/i.test(String(p.port||''))||(p.speed||0)>=10000;}
+
+function visible(){
+  var q=S.q;
+  return S.devices.filter(function(d){
+    if(S.site!=='ALL'&&d.site!==S.site)return false;
+    if(!q)return true;
+    return [d.name,d.ip,d.model,d.serial,d.site].join(' ').toLowerCase().indexOf(q)>-1;
+  }).sort(function(a,b){
+    return String(a.site||'').localeCompare(String(b.site||''))||
+           String(a.name||'').localeCompare(String(b.name||''));});
+}
+
+function renderKpis(){
+  var d=S.devices;
+  var up=d.filter(function(x){return x.reachable;}).length;
+  var pu=d.reduce(function(n,x){return n+(x.if_up||0);},0);
+  var pt=d.reduce(function(n,x){return n+(x.if_total||0);},0);
+  var sites=Object.keys(d.reduce(function(a,x){a[x.site]=1;return a;},{})).length;
+  // ios_current arrives as a SQLite integer (0/1), never a boolean, so the
+  // old `=== false` test matched nothing. null = the collector never read a
+  // version off that switch: unknown, which is neither current nor behind.
+  var offStd=d.filter(function(x){return x.ios_current!=null && !x.ios_current;}).length;
+  var stdUnk=d.filter(function(x){return x.ios_current==null;}).length;
+  var stdBuild=(d.filter(function(x){return x.ios_current==1;})[0]||{}).ios||'';
+  var core=d.filter(function(x){return x.core;}).length;
+  var K=function(o){return '<div class="c2"><div class="nkpi'+(o.tone?' '+o.tone:'')+'">'+
+    '<span class="k">'+esc(o.k)+'</span><span class="v">'+o.v+'</span>'+
+    (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+
+    (o.meter!=null?'<span class="nmeter"><i class="'+(o.mt||'')+'" style="width:'+o.meter+'%"></i></span>':'')+
+    '</div></div>';};
+  document.getElementById('kpis').innerHTML=
+    K({k:'Switches',v:up+'<small>/'+d.length+'</small>',tone:up<d.length?'bad':'good',
+       s:up<d.length?(d.length-up)+' not responding':'all responding',
+       meter:d.length?Math.round(up/d.length*100):0,mt:up<d.length?'bad':'good'})+
+    K({k:'Ports active',v:pu.toLocaleString()+'<small>/'+pt.toLocaleString()+'</small>',
+       s:pt?Math.round(pu/pt*100)+'% in use':'',meter:pt?Math.round(pu/pt*100):0})+
+    K({k:'Sites',v:sites,tone:'info',s:'with switching'})+
+    K({k:'Core',v:core,s:'core / distribution'})+
+    K({k:'Access',v:d.length-core,s:'access switches'})+
+    K({k:'Off standard build',v:offStd,
+       tone:offStd?'warn':(stdUnk?'info':'good'),
+       s:offStd?((stdBuild?'not on '+stdBuild:'off the standard build')+
+                 (stdUnk?' · '+stdUnk+' unknown':''))
+              :(stdUnk?stdUnk+' version not read'
+                     :(stdBuild?'all on '+stdBuild:'all on the standard build'))});
+}
+
+function renderRows(){
+  var rows=visible();
+  if(!rows.filter(function(d){return d.ip===S.sel;}).length) S.sel=rows.length?rows[0].ip:null;
+
+  var sites=Object.keys(S.devices.reduce(function(a,x){a[x.site]=1;return a;},{})).sort();
+  document.getElementById('siteSeg').innerHTML=
+    ['ALL'].concat(sites).map(function(s){
+      var n=s==='ALL'?S.devices.length:S.devices.filter(function(x){return x.site===s;}).length;
+      return '<button data-s="'+esc(s)+'" aria-pressed="'+(S.site===s)+'">'+
+        (s==='ALL'?'All':esc(s))+' '+n+'</button>';}).join('');
+  document.querySelectorAll('#siteSeg [data-s]').forEach(function(b){
+    b.addEventListener('click',function(){S.site=b.dataset.s;renderRows();renderDetail();});});
+
+  var el=document.getElementById('rows');
+  if(!rows.length){
+    el.innerHTML='<div class="nempty">'+NOC.icon('switchd')+'<b>No switches match</b>'+
+      'Try a different site or clear the filter.</div>';
+  }else{
+    el.innerHTML='<table class="nt">'+
+      '<colgroup><col class="wide"><col style="width:92px"><col style="width:112px">'+
+      '<col style="width:92px"><col style="width:104px"><col style="width:84px"></colgroup>'+
+      '<thead><tr>'+
+      '<th data-key="n">Switch</th><th data-key="site">Site</th><th data-key="m">Model</th>'+
+      '<th data-key="ios">IOS-XE</th><th data-key="p" data-type="num" class="num">Ports</th>'+
+      '<th data-key="st">State</th></tr></thead><tbody>'+
+      rows.map(function(d){
+        var pct=d.if_total?Math.round(d.if_up/d.if_total*100):0;
+        return '<tr class="click" data-ip="'+esc(d.ip)+'" aria-selected="'+(S.sel===d.ip)+'">'+
+          '<td class="grow"><button class="fbtn" type="button" aria-label="Show '+esc(d.name)+'">'+
+            '<span class="t">'+esc(d.name)+(d.core?' <span class="sev info">core</span>':'')+'</span>'+
+            '<span class="s">'+esc(d.ip)+'</span></button></td>'+
+          '<td class="mono">'+esc(d.site||'')+'</td>'+
+          '<td class="mono">'+esc(d.model||'')+'</td>'+
+          '<td class="mono">'+esc(d.ios||'—')+
+            (d.ios_current!=null&&!d.ios_current?' <span class="sev warn">off std</span>':'')+'</td>'+
+          '<td class="num" data-sort="'+(d.if_up||0)+'">'+(d.if_up||0)+'/'+(d.if_total||0)+'</td>'+
+          '<td>'+(d.reachable?'<span class="sev ok">up</span>':'<span class="sev crit">no reply</span>')+'</td>'+
+          '</tr>';}).join('')+'</tbody></table>';
+    NOC.sortable(el.querySelector('table'));
+    el.querySelectorAll('tr.click').forEach(function(tr){
+      var go=function(){select(tr.dataset.ip);};
+      tr.addEventListener('click',go);
+      var fb=tr.querySelector('.fbtn');
+      if(fb)fb.addEventListener('click',function(e){e.stopPropagation();go();});
+    });
+  }
+  var up=S.devices.filter(function(d){return d.reachable;}).length;
+  var pu=S.devices.reduce(function(n,d){return n+(d.if_up||0);},0);
+  document.getElementById('foot').innerHTML=
+    '<span><b>'+rows.length+'</b> shown</span><span><b>'+up+'/'+S.devices.length+'</b> responding</span>'+
+    '<span><b>'+pu.toLocaleString()+'</b> ports up</span>'+
+    '<span style="margin-left:auto;color:var(--o-faint)">Pick a switch to load its front panel</span>';
+}
+
+function select(ip){ S.sel=ip; renderRows(); renderDetail(); renderPanel(); }
+
+function renderDetail(){
+  var el=document.getElementById('detail');
+  var d=S.devices.filter(function(x){return x.ip===S.sel;})[0];
+  if(!d){el.innerHTML='<div class="nempty">'+NOC.icon('switchd')+
+    '<b>No switch selected</b>Pick one from the inventory.</div>';return;}
+  var pct=d.if_total?Math.round(d.if_up/d.if_total*100):0;
+  var c=S.ports[d.ip];
+  el.innerHTML='<div class="swid" style="margin-bottom:12px">'+
+      '<span><span class="nm">'+esc(d.name)+'</span><br>'+
+      '<span class="ip">'+esc(d.ip)+'</span></span></div>'+
+    '<dl class="dl">'+
+      '<dt>State</dt><dd>'+(d.reachable
+        ?'<span class="sev ok">responding</span>':'<span class="sev crit">no reply</span>')+
+        ' <span style="color:var(--o-faint);font-size:11.5px">'+esc(ago(S.meta.age_seconds))+'</span></dd>'+
+      '<dt>Role</dt><dd>'+(d.core?'Core / distribution':'Access')+'</dd>'+
+      '<dt>Model</dt><dd class="mono">'+esc(d.model||'—')+'</dd>'+
+      (d.serial?'<dt>Serial</dt><dd class="mono">'+esc(d.serial)+'</dd>':'')+
+      '<dt>Software</dt><dd>IOS-XE <b>'+esc(d.ios||'—')+'</b>'+
+        (d.ios_current!=null&&!d.ios_current?' <span class="sev warn">off standard build</span>':
+         (d.ios_current==null?' <span class="sev info">build not read</span>':''))+'</dd>'+
+      '<dt>Ports</dt><dd>'+(d.if_up||0)+' of '+(d.if_total||0)+' active'+
+        '<span class="nmeter"><i style="width:'+pct+'%"></i></span></dd>'+
+      (c&&!c.err?'<dt>Devices</dt><dd><b>'+c.clients+'</b> learned on this switch</dd>':'')+
+    '</dl>';
+}
+
+/* ── the faceplate, kept exactly as it was and given the whole width ────── */
+function renderPanel(){
+  var d=S.devices.filter(function(x){return x.ip===S.sel;})[0];
+  var host=document.getElementById('panel');
+  var title=document.getElementById('panelTitle');
+  if(!d){host.innerHTML='<div class="nempty">'+NOC.icon('switchd')+
+    '<b>No switch selected</b></div>';return;}
+  title.textContent=d.name+' · front panel';
+  document.getElementById('panelTools').innerHTML=
+    '<span class="sev '+(d.reachable?'ok':'crit')+'">'+(d.reachable?'responding':'no reply')+'</span>'+
+    '<span style="font-family:var(--n-mono);font-size:11px;color:var(--o-faint)">'+esc(d.model||'')+'</span>';
+
+  var draw=function(){
+    if(S.sel!==d.ip)return;
+    var c=S.ports[d.ip];
+    if(!c)return;
+    if(c.err){host.innerHTML='<div class="nempty">'+NOC.icon('switchd')+
+      '<b>Port detail unavailable</b>'+esc(c.err)+'</div>';return;}
+    host.innerHTML='';
+    ITPanel.render(host,{kind:'switch',title:d.model||d.name,sub:d.ip,sysOk:!!d.reachable,
+      ports:c.ports,onSelect:function(p){ITDrill.portDetail(d.ip,d.name,p.id,p.label);}});
+    var withDev=c.ports.filter(function(p){return (p.mac_count||0)>0;}).length;
+    var errP=c.ports.filter(function(p){return (p.crc||0)+(p.in_err||0)+(p.out_err||0)>0;}).length;
+    var upl=c.ports.filter(isUplink).length;
+    host.insertAdjacentHTML('beforeend','<div class="panelmeta">'+
+      '<span><b>'+c.clients+'</b> devices learned</span>'+
+      '<span><b>'+withDev+'</b> ports with a device</span>'+
+      '<span><b>'+upl+'</b> uplinks</span>'+
+      (errP?'<span style="color:var(--o-slow)"><b>'+errP+'</b> ports counting errors</span>'
+           :'<span>no ports counting errors</span>')+
+      '<span style="margin-left:auto;color:var(--o-faint)">Click any port for history and what is plugged in</span>'+
+      '</div>'+
+      (c.ports.some(function(p){return p.duplex;})?'':
+        '<div class="pnote">Duplex and live throughput arrive with the next collector pass; '+
+        'until a port reports them, those two indicators are left off rather than guessed.</div>'));
+    renderDetail();
+  };
+  if(S.ports[d.ip]){draw();return;}
+  host.innerHTML='<div class="nskel" style="height:120px;border-radius:12px"></div>';
+  fetch('/api/netswitch/switch/'+encodeURIComponent(d.ip),{credentials:'include'})
+    .then(function(r){return r.json();})
+    .then(function(j){
+      if(!j||j.ok===false)throw new Error((j&&j.detail)||'unavailable');
+      S.ports[d.ip]={ports:j.ports||[],clients:j.clients||0};})
+    .catch(function(e){S.ports[d.ip]={ports:[],clients:0,err:e.message};})
+    .then(draw);
+}
+
+document.getElementById('q').addEventListener('input',function(e){
+  S.q=e.target.value.toLowerCase();renderRows();renderDetail();renderPanel();});
+
+async function load(){
+  S.ports={};
+  try{
+    var ov=await jget('/api/netswitch/overview');
+    if(!ov||ov.ok===false)throw new Error((ov&&ov.detail)||'unavailable');
+    S.devices=ov.devices||[]; S.meta=ov.meta||{};
+    var s=ov.summary||{};
+    var crit=(ov.issues||[]).filter(function(i){return i.severity==='critical';}).length;
+    NOC.badge('health',crit||(ov.issues||[]).length,crit?'bad':'warn');
+    NOC.vitals([
+      {k:'Scan',v:ago(S.meta.age_seconds)},
+      {k:'Switches',v:s.switches_up+'/'+s.switches,cls:s.switches_down?'bad':'good'},
+      {k:'Ports up',v:Number(s.ports_up||0).toLocaleString()},
+      {k:'Sites',v:Object.keys(S.devices.reduce(function(a,x){a[x.site]=1;return a;},{})).length},
+      {k:'Open faults',v:(ov.issues||[]).length,cls:crit?'bad':'warn'}
+    ]);
+    NOC.stamp('scanned '+ago(S.meta.age_seconds),(S.meta.age_seconds||0)>7200);
+    var want=new URLSearchParams(location.search).get('site');
+    if(want&&S.devices.some(function(d){return d.site===want;}))S.site=want;
+    /* ?switch=<ip> (linked from the Observatory's uplink issues) opens that switch's detail */
+    var wsw=new URLSearchParams(location.search).get('switch');
+    var wdev=wsw?S.devices.filter(function(d){return d.ip===wsw;})[0]:null;
+    if(wdev){ S.sel=wdev.ip; if(wdev.site)S.site=wdev.site; }
+    renderKpis(); renderRows(); renderDetail(); renderPanel();
+  }catch(e){
+    var m=(e.code===401)?'Your session expired. <a href="/login.html">Sign in</a>.':esc(e.message);
+    document.getElementById('kpis').innerHTML='<div class="c12"><div class="ncard"><div class="ncb">'+
+      '<div class="nempty">'+NOC.icon('switchd')+'<b>Couldn’t load the fabric</b>'+m+'</div></div></div></div>';
+  }
+}
+document.getElementById('nRefresh').addEventListener('click',load);
+load();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/it-version.js" data-app-key="network-switches" defer></script>
+</body>
+</html>

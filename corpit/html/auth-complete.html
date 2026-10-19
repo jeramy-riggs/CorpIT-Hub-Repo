@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Signing you in — CorpIT Hub</title>
+<style>
+  :root{
+    --bg:#0b0f14; --card:#141b24; --line:#1f2937;
+    --ink:#e6edf5; --muted:#8b97a8; --accent:#3b9df7; --bad:#f87171;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:grid; place-items:center; padding:24px;
+  }
+  .card{
+    width:100%; max-width:380px; background:var(--card);
+    border:1px solid var(--line); border-radius:12px; padding:32px; text-align:center;
+  }
+  .eyebrow{
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 20px;
+  }
+  h1{font-size:17px; font-weight:600; margin:0 0 6px}
+  p{margin:0; color:var(--muted)}
+  .spin{
+    width:26px; height:26px; margin:0 auto 20px;
+    border:2px solid var(--line); border-top-color:var(--accent);
+    border-radius:50%; animation:sp .7s linear infinite;
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+  /* An animated spinner is decoration; someone who asked for less motion
+     should get a static ring, not a stopped-looking broken one. */
+  @media (prefers-reduced-motion:reduce){
+    .spin{animation:none; border-top-color:var(--accent); opacity:.6}
+  }
+  #err{display:none}
+  #err h1{color:var(--bad)}
+  a.btn{
+    display:inline-block; margin-top:18px; padding:9px 18px; border-radius:8px;
+    background:var(--accent); color:#04121f; font-weight:600; text-decoration:none;
+  }
+  a.btn:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <p class="eyebrow">NRPI &middot; CorpIT Hub</p>
+    <div id="work">
+      <div class="spin" role="status" aria-label="Signing you in"></div>
+      <h1>Signing you in</h1>
+      <p>One moment&hellip;</p>
+    </div>
+    <div id="err">
+      <h1>Sign-in didn&rsquo;t complete</h1>
+      <p id="errmsg">Your session could not be established.</p>
+      <a class="btn" href="/login.html">Back to sign in</a>
+    </div>
+  </div>
+  <script src="/auth-complete.js"></script>
+</body>
+</html>

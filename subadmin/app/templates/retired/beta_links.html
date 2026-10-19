@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Beta links{% endblock %}
+{% block content %}
+
+<div class="card">
+  <h2>Add a beta link</h2>
+  <div class="body">
+    <form method="post" action="{{ url_for('beta_links_add') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <div class="row">
+        <div>
+          <label for="title">Title <span class="hint">— shown on the card</span></label>
+          <input id="title" type="text" name="title" placeholder="Access Portal (beta)"
+                 maxlength="80" required>
+        </div>
+        <div>
+          <label for="url">Link <span class="hint">— full URL or a /path on this host</span></label>
+          <input id="url" type="text" name="url" placeholder="/access-portal/" maxlength="500" required>
+          <div class="fqdn-prev">e.g. <strong>/reports/</strong> or <strong>https://corpit.{{ base_domain }}/reports/</strong></div>
+        </div>
+      </div>
+      <label for="description" style="margin-top:16px">Description <span class="hint">(optional, one line)</span></label>
+      <input id="description" type="text" name="description" maxlength="160"
+             placeholder="What this beta covers.">
+      <div style="margin-top:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+        <button class="btn" type="submit">Add link</button>
+        <label style="font-weight:400;margin:0;display:flex;align-items:center;gap:7px">
+          <input type="checkbox" name="new_tab" value="1" style="width:auto">
+          <span class="hint">Open in a new tab</span>
+        </label>
+        <span class="hint">The public page rewrites itself as soon as you save.</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Links on the beta page <span class="hint">({{ links|length }})</span></h2>
+  {% if links %}
+  <table>
+    <thead><tr>
+      <th style="width:70px">Order</th><th>Title</th><th class="hide">Link</th>
+      <th>Shown</th><th></th>
+    </tr></thead>
+    <tbody>
+      {% for l in links %}
+      <tr>
+        <td style="white-space:nowrap">
+          <form method="post" action="{{ url_for('beta_links_move', link_id=l['id']) }}" style="display:inline;margin:0">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="dir" value="up">
+            <button class="btn ghost sm" type="submit" title="Move up"
+                    {% if loop.first %}disabled style="opacity:.35"{% endif %}>&uarr;</button>
+          </form>
+          <form method="post" action="{{ url_for('beta_links_move', link_id=l['id']) }}" style="display:inline;margin:0">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="dir" value="down">
+            <button class="btn ghost sm" type="submit" title="Move down"
+                    {% if loop.last %}disabled style="opacity:.35"{% endif %}>&darr;</button>
+          </form>
+        </td>
+        <td>
+          <strong>{{ l['title'] }}</strong>
+          {% if l['description'] %}<div class="hint">{{ l['description'] }}</div>{% endif %}
+        </td>
+        <td class="mono hide">{{ l['url'] }}{% if l['new_tab'] %} <span class="hint">(new tab)</span>{% endif %}</td>
+        <td>
+          <form method="post" action="{{ url_for('beta_links_toggle', link_id=l['id']) }}" style="margin:0">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button class="btn ghost sm" type="submit">
+              <span class="pill {{ 'live' if l['enabled'] else 'disabled' }}">{{ 'visible' if l['enabled'] else 'hidden' }}</span>
+            </button>
+          </form>
+        </td>
+        <td style="text-align:right;white-space:nowrap">
+          <a class="btn ghost sm" href="{{ url_for('beta_links_edit', link_id=l['id']) }}">Edit</a>
+          <form method="post" action="{{ url_for('beta_links_delete', link_id=l['id']) }}"
+                style="display:inline;margin:0"
+                onsubmit="return confirm('Remove “{{ l['title'] }}” from the beta page?')">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <button class="btn danger" type="submit">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No links yet. The beta page is showing its empty state.</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>The page</h2>
+  <div class="body">
+    <dl class="kv">
+      <dt>Public URL</dt><dd><a href="https://corpit.{{ base_domain }}/" target="_blank" rel="noopener">https://corpit.{{ base_domain }}/</a></dd>
+      <dt>Written to</dt><dd class="mono">{{ page_path }}</dd>
+      <dt>Last generated</dt><dd class="mono">{{ page_mtime or 'never' }}</dd>
+    </dl>
+    <form method="post" action="{{ url_for('beta_links_regen') }}" style="margin-top:16px">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn ghost" type="submit">Rebuild page now</button>
+      <span class="hint" style="margin-left:12px">Only needed if the file was edited by hand.</span>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

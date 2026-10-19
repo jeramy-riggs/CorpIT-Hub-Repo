@@ -1,0 +1,213 @@
+# Managed by subdomain-admin. Subdomain: reporting.nrpi.local
+# Reporting surface wired up 2026-09-03.
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name reporting.nrpi.local;
+
+    ssl_certificate     /etc/ssl/corpit-ha/reporting.nrpi.local/fullchain.pem;
+    ssl_certificate_key /etc/ssl/corpit-ha/reporting.nrpi.local/server.key;
+    ssl_trusted_certificate /etc/ssl/corpit-ha/reporting.nrpi.local/nrpi-ca-chain.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy no-referrer always;
+
+    # [CORPIT-HUB-SSO] One platform sign-in. Every site on this box is gated
+    # from the moment it exists - there is no window in which a new vhost is
+    # open to the network. Who may open it is set per site by AD group in the
+    # admin console; until that is configured, only platform owners get in.
+    include snippets/corpit-hub-sso.conf;
+
+    # --- reporting surface -------------------------------------------------
+    # Deliberately its OWN web root, NOT /var/www/html. Sharing corpit's root
+    # would put every IT tool page (identity-diag, zscaler-command-center,
+    # server-health) one URL away for anyone in SaaS-CorpITHub-Reporting, which
+    # is the opposite of what a narrower reporting audience exists for. Shared
+    # platform assets (rbac-client.js, it-topbar.js, it-depth.css, vendor/) are
+    # symlinks back to corpit's copies so there is still only one of each to fix.
+    root /var/www/reporting;
+
+    # [REPORTING-SIGNIN] 2026-09-24  The sign-in page (served at /login.html via the
+    # $corpit_login_page map) shows these two images BEFORE anyone is signed in, so
+    # they must be anonymous. Exact-match: nothing else in the web root opens up.
+    location = /signin-hero.jpg {
+        expires 30d;
+        try_files /signin-hero.jpg =404;
+    }
+    location = /signin-hero.webp {
+        expires 30d;
+        try_files /signin-hero.webp =404;
+    }
+    location = /dash-panel.webp {
+        expires 30d;
+        try_files /dash-panel.webp =404;
+    }
+
+    # The AI usage report is the landing. index.html (the scope-aware roll-up with
+    # drill-down) still exists and is still gated, but it is reached deliberately at
+    # /index.html rather than being what everyone lands on.
+    #
+    # No 'index' directive: with the exact-match redirect below, a directory index
+    # would only be a second, quieter way to answer '/' and the two could disagree.
+    #
+    # Deliberately NO auth_request in the redirect block: 'return' runs in the
+    # rewrite phase, BEFORE the access phase where auth_request runs, so a gate here
+    # would never execute and would only look like protection. Nothing leaks - it is
+    # a fixed redirect carrying no data, and the destination is gated.
+    location = / {
+        return 302 /ai-usage-credits.html;
+    }
+
+    location / {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;          # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        error_page 404 @gate_notfound;   # nginx's own "no such file" -> our page, status stays 404
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+        try_files $uri $uri/ =404;
+    }
+
+    # CORPIT-CACHE 2026-09-06  This vhost sent NO Cache-Control on anything it serves
+    # itself: the report page, its two scripts and the symlinked shared scripts went
+    # out with only ETag/Last-Modified, so Chrome's heuristic cache (10% of the file's
+    # age) kept serving a pre-deploy copy for hours, and a same-?v= rewrite (the 09-05
+    # watcher) was invisible to anyone who had the page open that week.
+    #
+    # Same gate as 'location /' above -- auth_request is NOT inherited, so a regex
+    # block without it would serve these anonymously. The three security headers are
+    # repeated because a location-level add_header REPLACES the server-level set
+    # rather than adding to it. Exact-match blocks from the SSO snippet (login.html,
+    # login.js, auth-complete.*, no-site-access.js) still win over these regexes;
+    # /vendor/ and images stay on 'location /'. Headers mirror corpit's vhost.
+    # Both regexes are anchored to ROOT-LEVEL names: a matching regex outranks the
+    # plain-prefix /api/... proxy locations below, so an unanchored \.html$ would
+    # hand any API path ending in .html to the filesystem instead of the hub.
+    location ~* ^/[^/]+\.(js|css)$ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;          # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        add_header Cache-Control "no-cache, must-revalidate";
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy no-referrer always;
+        try_files $uri =404;
+    }
+    location ~* ^/[^/]+\.html$ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;          # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy no-referrer always;
+        try_files $uri =404;
+    }
+
+    # --- application APIs ---------------------------------------------------
+    # No auth_request here, matching corpit: these routers enforce RBAC
+    # in-process (requirePage / requireSuperAdmin), and gating them at nginx
+    # would also break the bearer-token QA and break-glass paths.
+    #
+    # 'Host $host' is NOT boilerplate. The CSRF guard in server.js falls back to
+    # comparing the Origin header's host against the Host header when
+    # Sec-Fetch-Site is absent; a bare proxy_pass would send Host=localhost and
+    # fail that arm for every cookie-authenticated write on this hostname.
+    location /api/insights/ {
+        proxy_pass http://127.0.0.1:3001/api/insights/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+
+    location /api/claude-analytics/ {
+        proxy_pass http://127.0.0.1:3001/api/claude-analytics/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+
+    # Needed by rbac-client.js and it-topbar.js on every page, and by the new
+    # scope endpoints (/api/rbac/me/scope).
+    location /api/rbac/ {
+        proxy_pass http://127.0.0.1:3001/api/rbac/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+
+    # My Profile. The avatar menu points at /my-profile.html on whatever host you
+    # are on, and reporting now serves its own copy (symlinked to corpit's, so
+    # there is still one file to fix). Without this proxy the page would render
+    # and then fail every call it makes.
+    #
+    # Safe to leave off auth_request, same as the API blocks above: every route in
+    # profile-routes.js starts with needUser() and is scoped to the SIGNED-IN user
+    # by who(req) -- there is no ?email= that widens it. The two views that reach
+    # past yourself (team usage, the drill-down) resolve their population from the
+    # AD reporting line server-side, so a reporting-only user sees exactly what
+    # they would see on corpit and nothing more.
+    location /api/profile/ {
+        proxy_pass http://127.0.0.1:3001/api/profile/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+
+    # Avatar images for the topbar. it-topbar.js requests /api/photo?upn=... on every
+    # page; without this the user chip renders broken on this host only. It was missed
+    # in the original move because the reference lives inside a JS string, not a
+    # src=/href= attribute.
+    location /api/photo {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+
+    # Office conditions in the my-profile greeting, same source the landing page
+    # uses. weather-routes.js is open by design (no user data in or out) and the
+    # hub already serves it on corpit; without this location it 404s on reporting
+    # only, and the greeting would silently render no weather at all.
+    location /api/weather {
+        proxy_pass http://127.0.0.1:3001/api/weather;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # Session state for the topbar and sign-out. NOTE: the SSO snippet already
+    # defines 'location = /api/gate/logout', and an exact match beats this
+    # prefix, so logout keeps its own anonymous handling.
+    location /api/gate/ {
+        proxy_pass http://127.0.0.1:3002/api/gate/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_read_timeout 30s;
+    }
+}

@@ -1,0 +1,92 @@
+/* Settings > folded editors (CORPIT-SETTINGS-FOLD 2026-10-12). Console tokens only; no colour of its own, no shadows. */
+.sf{position:relative}
+.sf-lede{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:6px}
+.sf-lede p{margin:0;max-width:78ch;color:var(--ink-2);font-size:14px;line-height:1.55}
+.sf-lede-a{display:flex;gap:8px;flex:none;flex-wrap:wrap;justify-content:flex-end}
+.sf-msg{margin:4px 0 12px;font-size:13px;min-height:1.2em;color:var(--ink-2)}
+.sf-msg.is-err{color:var(--crit)}
+.sf-msg.is-ok{color:var(--good)}
+.sf-blocked{max-width:90ch}
+.sf-blocked b{display:block;margin-bottom:2px}
+
+/* loading placeholder until the owning API answers */
+.sf-skel{display:none;border:1px solid var(--border);border-radius:8px;background:var(--surface);padding:18px 20px;gap:14px;flex-direction:column}
+.sf.is-loading .sf-skel{display:flex}
+.sf-skel i{display:block;height:12px;border-radius:6px;background:var(--surface-2)}
+.sf-skel i:nth-child(1){width:38%;height:16px}
+.sf-skel i:nth-child(2){width:92%}.sf-skel i:nth-child(3){width:84%}.sf-skel i:nth-child(4){width:88%}.sf-skel i:nth-child(5){width:61%}
+@media (prefers-reduced-motion:no-preference){
+  .sf.is-loading .sf-skel i{animation:sf-pulse 1.2s ease-in-out infinite}
+  .sf.is-loading .sf-skel i:nth-child(2n){animation-delay:.15s}
+  .sf-body:not([hidden]){animation:sf-in 180ms cubic-bezier(.23,1,.32,1)}
+}
+@keyframes sf-pulse{50%{opacity:.45}}
+@keyframes sf-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* fields: a two-column grid inside a card; long fields span both */
+.sf .sf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 22px;align-items:start}
+.sf .sf-grid + .sf-grid{margin-top:10px;padding-top:14px;border-top:1px solid var(--border-2)}
+.sf .sf-wide{grid-column:1 / -1}
+.sf .sf-f{min-width:0}
+.sf .sf-f > label.f-inline{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:500;margin:0 0 2px}
+.sf .sf-f > label.f-inline + .hint{margin-left:25px}
+.sf .hint{text-align:left;max-width:70ch;font-family:inherit;font-size:12px}
+.sf input[type=time]{width:100%;font:inherit;font-size:13.5px;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);padding:7px 11px;outline:none}
+.sf input[type=time]:focus{border-color:var(--accent)}
+.sf input:disabled,.sf select:disabled,.sf textarea:disabled{background:var(--surface-2);color:var(--ink-3);cursor:not-allowed}
+.sf input:invalid:not(:placeholder-shown):not(:focus){border-color:var(--crit)}
+.sf .sf-checks .sf-f{margin-bottom:12px}
+.sf .card-b h4{font-size:13.5px;font-weight:600;margin:0 0 10px}
+.sf .sf-add{border-top:1px solid var(--border-2);background:var(--raise)}
+.sf .sf-dim{color:var(--ink-3)}
+.sf .sf-sub{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px}
+
+/* dirty editors get the one accent, never a new colour */
+.sf [data-sf-ed].is-dirty > .sf-foot [data-sf-state],
+.sf .sf-savebar [data-sf-state]{color:var(--ink-2)}
+.sf [data-sf-ed].is-dirty [data-sf-state]{color:var(--accent);font-weight:600}
+.sf [data-sf-ed].is-busy{cursor:progress}
+
+/* save row under each card; the launch pad's long form keeps its save row in reach */
+.sf .sf-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 18px;border-top:1px solid var(--border-2);background:var(--surface)}
+.sf .sf-foot .hint{margin:0}
+.sf .card-b > .sf-foot{padding:12px 0 0;border-top:0;background:none}
+.sf .sf-savebar{position:sticky;bottom:0;z-index:5;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.sf .sf-savebar .sf-foot{border-top:0;border-radius:8px}
+
+/* tables with editable rows */
+.sf table.sf-tbl{font-size:13px}
+.sf table.sf-tbl thead th{text-transform:none;letter-spacing:0;font-family:inherit;font-size:12px;text-align:left;white-space:nowrap}
+.sf table.sf-tbl td{padding:8px 10px;vertical-align:middle}
+.sf table.sf-tbl td:first-child{padding-left:18px}
+.sf table.sf-tbl input[type=text],.sf table.sf-tbl select{font-size:12.5px;padding:5px 8px;min-width:90px}
+.sf table.sf-tbl .sf-c{text-align:center;width:1%}
+.sf table.sf-tbl .sf-act{white-space:nowrap;width:1%;text-align:right;padding-right:18px}
+.sf table.sf-tbl .sf-act .btn + .btn{margin-left:6px}
+.sf table.sf-tbl .sf-test{font-size:12px;max-width:180px}
+.sf table.sf-tbl tr.is-dirty td{background:var(--accent-soft)}
+
+/* key/value groups: per-site maps, recipients, events */
+.sf fieldset.sf-map{margin:8px 0 14px;min-width:0}
+.sf .sf-map-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 16px}
+.sf .sf-map-grid .sf-f{margin-bottom:8px}
+.sf .sf-recip{display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1.4fr) auto;gap:8px;align-items:center;margin-bottom:8px}
+.sf .sf-recip label{font-size:12.5px;color:var(--ink-2);margin:0}
+.sf .sf-events{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 22px}
+
+/* launch pad facts strip */
+.sf .sf-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);margin-bottom:18px}
+.sf .sf-facts > div{padding:12px 16px;border-left:1px solid var(--border-2);min-width:0}
+.sf .sf-facts > div:first-child{border-left:0}
+.sf .sf-facts span{display:block;font-size:12px;color:var(--ink-3);margin-bottom:4px}
+.sf .sf-facts b{display:block;font-weight:500;font-size:13px;overflow-wrap:anywhere}
+
+@media (max-width:1100px){
+  .sf .sf-map-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sf .sf-facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sf .sf-facts > div:nth-child(3){border-left:0}
+  .sf .sf-facts > div:nth-child(n+3){border-top:1px solid var(--border-2)}
+}
+.sf details.sf-auto{border-top:1px solid var(--border-2);padding:12px 18px}
+.sf details.sf-auto summary{cursor:pointer;color:var(--link,var(--accent));font-size:13px}
+.sf details.sf-auto .tblwrap{max-height:360px;overflow:auto;margin-top:8px;border:1px solid var(--border-2);border-radius:6px}

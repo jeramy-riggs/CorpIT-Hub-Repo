@@ -1,0 +1,3035 @@
+<!DOCTYPE html>
+<!-- CorpIT Hub deployment. Ported from itam.nrpi.local/cert-watchtower.html
+     (source md5 bb23cb96d909fe1d1c6ef3348f668798) on 2026-09-06. ITAM copy untouched and still live.
+     Changed here only: breadcrumb points at /landing.html (corpit has no
+     /helpdesk/); the WinRM help text names this host's env file; PRTG push
+     tokens are no longer sent to the browser (the API returns a boolean and
+     the form only submits a token an admin actually typed); and a stale-check
+     marker appears when the scheduled checker has not run, because the ITAM
+     copy of this page reported an expiring certificate as "ok" for 121 days
+     after its cron started crashing. Every asset and API path is host-relative
+     and resolves against corpit.nrpi.local. -->
+<html lang="en" data-theme="dark">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cert Watchtower — CorpIT</title>
+<style>
+  /* ---------- Design tokens ---------- */
+  :root {
+    --bg: #0b1020;
+    --bg-card: #121830;
+    --bg-card-hover: #161e3d;
+    --bg-modal: #0f152b;
+    --border: #1e2745;
+    --border-strong: #2a3458;
+    --text: #e6e9f5;
+    --text-dim: #8a93b3;
+    --text-faint: #5a6388;
+    --accent: #5b8cff;
+    --accent-soft: rgba(91, 140, 255, 0.12);
+    --ok: #2dd4a7;
+    --info: #5b8cff;
+    --warning: #f5b544;
+    --critical: #f56b6b;
+    --expired: #c14b4b;
+    --unreachable: #a78bfa;
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --on-accent: #0b1020;
+    --accent-hover: #7aa1ff;
+    --ease: cubic-bezier(0.23, 1, 0.32, 1);
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  /* ---------- Light mode (mirrors M365 Control Center) ----------
+     Accent tokens are deliberately absent: it-theme.js writes --accent as an
+     INLINE style on :root, which outranks this block, and it-theme-toggle.js
+     re-asserts a darkened twin of the user's accent family per mode. */
+  [data-theme="light"] {
+    --bg: #eef1f6;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f7f9fc;
+    --bg-modal: #ffffff;
+    --border: #dde3ec;
+    --border-strong: #cbd5e3;
+    --text: #0f1b2d;
+    --text-dim: #41526b;
+    --text-faint: #586a80;
+    --accent-soft: rgba(37, 99, 235, 0.10);
+    --ok: #0c6b46;
+    --info: #175fbd;
+    --warning: #8f5106;
+    --critical: #c01640;
+    --expired: #b91c1c;
+    --unreachable: #6d28d9;
+    --shadow: 0 1px 0 rgba(0,0,0,.02), 0 12px 30px -16px rgba(20,40,80,.25);
+    --on-accent: #ffffff;
+    --accent-hover: #1d4ed8;
+  }
+
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ---------- Layout ---------- */
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px 80px;
+  }
+  header.page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .breadcrumb {
+    color: var(--text-faint);
+    font-size: 13px;
+  }
+  .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--text); }
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 4px;
+  }
+  .head-right { display: flex; gap: 8px; align-items: center; }
+
+  /* ---------- Tabs ---------- */
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .tab {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font: inherit;
+    padding: 10px 16px;
+    cursor: pointer;
+    position: relative;
+    transition: color 160ms var(--ease);
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); }
+  .tab.active::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 2px;
+    background: var(--accent);
+  }
+  .tab .badge {
+    display: inline-block;
+    margin-left: 6px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tab .badge.warn { background: rgba(245,181,68,0.14); color: var(--warning); }
+  .tab .badge.crit { background: rgba(245,107,107,0.16); color: var(--critical); }
+
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 200ms var(--ease); }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .search {
+    flex: 1;
+    min-width: 240px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font: inherit;
+    transition: border-color 160ms var(--ease);
+  }
+  .search:focus { outline: none; border-color: var(--accent); }
+  .search::placeholder { color: var(--text-faint); }
+
+  .filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 160ms var(--ease);
+  }
+  .pill:hover { color: var(--text); border-color: var(--border-strong); }
+  .pill.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 160ms var(--ease);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { background: var(--bg-card-hover); border-color: var(--border-strong); }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-danger {
+    border-color: rgba(245,107,107,0.3);
+    color: var(--critical);
+  }
+  .btn-danger:hover { background: rgba(245,107,107,0.08); border-color: var(--critical); }
+  .btn-ghost { background: transparent; border-color: transparent; color: var(--text-dim); }
+  .btn-ghost:hover { color: var(--text); background: var(--bg-card); border-color: var(--border); }
+  .btn-icon {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  /* ---------- Cards / Tables ---------- */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    padding: 11px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: rgba(255,255,255,0.02);
+    color: var(--text-dim);
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  tbody tr {
+    transition: background 120ms var(--ease);
+  }
+  tbody tr:hover {
+    background: var(--bg-card-hover);
+    cursor: pointer;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.host { font-family: var(--mono); font-size: 12.5px; }
+  td.numeric { font-variant-numeric: tabular-nums; }
+  td.actions {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* ---------- Status pills ---------- */
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .status::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .status-ok          { color: var(--ok);          background: rgba(45,212,167,0.10); }
+  .status-info        { color: var(--info);        background: rgba(91,140,255,0.10); }
+  .status-warning     { color: var(--warning);     background: rgba(245,181,68,0.12); }
+  .status-critical    { color: var(--critical);    background: rgba(245,107,107,0.12); }
+  .status-expired     { color: var(--expired);     background: rgba(193,75,75,0.16); }
+  .status-unreachable { color: var(--unreachable); background: rgba(167,139,250,0.12); }
+  .status-error       { color: var(--text-faint);  background: rgba(138,147,179,0.10); }
+  .status-none        { color: var(--text-faint);  background: rgba(138,147,179,0.06); }
+
+  /* ---------- Toggle ---------- */
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle input { display: none; }
+  .toggle .track {
+    width: 32px; height: 18px;
+    background: var(--border);
+    border-radius: 999px;
+    position: relative;
+    transition: background 160ms var(--ease);
+  }
+  .toggle .track::after {
+    content: "";
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: var(--text);
+    border-radius: 50%;
+    transition: transform 160ms var(--ease);
+  }
+  .toggle input:checked + .track { background: var(--accent); }
+  .toggle input:checked + .track::after { transform: translateX(14px); }
+  .toggle .label { font-size: 12px; color: var(--text-dim); }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(5, 8, 20, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 180ms var(--ease);
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--bg-modal);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    max-width: 560px;
+    width: calc(100% - 32px);
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+    animation: modalIn 220ms var(--ease);
+  }
+  .modal.wide { max-width: 760px; }
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .modal-head {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-head h2 { font-size: 16px; font-weight: 600; }
+  .modal-body { padding: 20px 22px; }
+  .modal-foot {
+    padding: 14px 22px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  /* ---------- Form ---------- */
+  .form-row { margin-bottom: 14px; }
+  .form-row label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .form-row .hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 4px;
+  }
+  .form-row input[type="text"],
+  .form-row input[type="email"],
+  .form-row input[type="number"],
+  .form-row textarea,
+  .form-row select {
+    width: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font: inherit;
+    font-size: 13px;
+    transition: border-color 160ms var(--ease);
+  }
+  .form-row input:focus,
+  .form-row textarea:focus,
+  .form-row select:focus { outline: none; border-color: var(--accent); }
+  .form-row textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+  .form-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+
+  /* ---------- Detail view ---------- */
+  .kv-grid {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 10px 14px;
+    margin-bottom: 18px;
+  }
+  .kv-grid .k { color: var(--text-dim); font-size: 13px; font-weight: 500; }
+  .kv-grid .v { font-family: var(--mono); font-size: 13px; word-break: break-all; }
+  .kv-grid .v.flag-good { color: var(--ok); }
+  .kv-grid .v.flag-warn { color: var(--warning); }
+  .section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin: 18px 0 10px;
+    font-weight: 600;
+  }
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .history-table th, .history-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-table td { font-family: var(--mono); }
+
+  /* ---------- Alerts list ---------- */
+  .alert-row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto auto;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 120ms var(--ease);
+  }
+  .alert-row:last-child { border-bottom: none; }
+  .alert-row:hover { background: var(--bg-card-hover); }
+  .alert-row.acked { opacity: 0.5; }
+  .alert-msg { font-size: 13px; }
+  .alert-host { font-family: var(--mono); font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+  .alert-time { color: var(--text-faint); font-size: 12px; white-space: nowrap; }
+
+  /* ---------- Empty state ---------- */
+  .empty {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-faint);
+  }
+  .empty .big { font-size: 16px; color: var(--text-dim); margin-bottom: 8px; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg-modal);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 13px;
+    box-shadow: var(--shadow);
+    transform: translateY(100px);
+    opacity: 0;
+    transition: transform 220ms var(--ease), opacity 220ms var(--ease);
+    z-index: 200;
+    max-width: 400px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { border-color: rgba(245,107,107,0.4); }
+  .toast.success { border-color: rgba(45,212,167,0.4); }
+
+  /* ---------- Misc ---------- */
+  .meta-line {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 16px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+  }
+  .meta-line strong { color: var(--text); font-weight: 600; }
+  .meta-line .dot { color: var(--text-faint); }
+
+  /* ---------- Cert selection panel (v1.2.0) ---------- */
+  .cert-select-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .cert-select-table th, .cert-select-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  .cert-select-table th { background: rgba(255,255,255,0.02); color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; }
+  .cert-select-table tbody tr:hover { background: var(--bg-card-hover); }
+  .cert-select-table tbody tr:last-child td { border-bottom: none; }
+  .cert-select-table input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+  .cert-select-table td.mono { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  /* ---------- Cloud services (v1.2.0) ---------- */
+  .cloud-services-section { margin-top: 28px; }
+  .cloud-services-section .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cloud-services-section h3 { font-size: 13px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .cloud-cert-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .cloud-cert-card:hover { border-color: var(--border-strong); }
+  .cloud-cert-info .name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .cloud-cert-info .meta { font-size: 12px; color: var(--text-dim); }
+  .cloud-cert-info .meta span { margin-right: 14px; }
+
+  .skeleton {
+    height: 16px;
+    background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-card-hover) 50%, var(--bg-card) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 4px;
+  }
+  /* CorpIT port fix: the ITAM page has no media queries; below ~900px the
+     card clipped the table's ACTIONS column with no scrollbar, and below
+     ~520px the tab strip forced the whole document to scroll sideways. */
+  nav.tabs { overflow-x: auto; scrollbar-width: thin; }
+  .tab { flex: 0 0 auto; }
+  .card:has(> table) { overflow-x: auto; }
+
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+</style>
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="cert-watchtower"></script>
+<link rel="stylesheet" href="/it-depth.css">
+</head>
+<body data-dp="cert-watchtower">
+<div class="container">
+  <header class="page-head">
+    <div>
+      <div class="breadcrumb"><a href="/landing.html">CorpIT Hub</a> &nbsp;/&nbsp; Diagnostics</div>
+      <h1>Cert Watchtower</h1>
+    </div>
+    <div class="head-right">
+      <button class="btn btn-ghost" id="btn-refresh" title="Refresh (R)">↻ Refresh</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="monitors">External Certs <span class="badge" id="tab-count-monitors">0</span></button>
+    <button class="tab" data-tab="targets">Scan Targets <span class="badge" id="tab-count-targets">0</span></button>
+    <button class="tab" data-tab="findings">Findings <span class="badge" id="tab-count-findings">0</span></button>
+    <button class="tab" data-tab="alerts">Alerts <span class="badge crit" id="tab-count-alerts">0</span></button>
+    <button class="tab" data-tab="prtg">PRTG <span class="badge" id="tab-count-prtg">0</span></button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </nav>
+
+  <!-- ============== MONITORS PANEL ============== -->
+  <section class="panel active" id="panel-monitors">
+    <div class="meta-line" id="monitors-meta">
+      <span class="skeleton" style="width: 280px;"></span>
+    </div>
+    <div class="toolbar">
+      <input type="text" class="search" id="monitor-search" placeholder="Search hostname, label, or owner…" />
+      <div class="filter-pills" id="filter-pills">
+        <button class="pill active" data-filter="all">All</button>
+        <button class="pill" data-filter="alerting">Alerting</button>
+        <button class="pill" data-filter="critical">Critical &lt;30d</button>
+        <button class="pill" data-filter="warning">Warning &lt;60d</button>
+        <button class="pill" data-filter="expired">Expired</button>
+        <button class="pill" data-filter="unreachable">Unreachable</button>
+        <button class="pill" data-filter="disabled">Disabled</button>
+      </div>
+      <button class="btn" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-import">Import CSV</button>
+      <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-add">+ Add External Cert</button>
+    </div>
+
+    <div class="card">
+      <table id="monitors-table">
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th>Port</th>
+            <th>Label</th>
+            <th>Status</th>
+            <th class="numeric">Days Left</th>
+            <th>Last Checked</th>
+            <th>Owner</th>
+            <th>Enabled</th>
+            <th class="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="monitors-tbody">
+          <tr><td colspan="9" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============== FINDINGS PANEL (cert files discovered by agents) ============== -->
+  <section class="panel" id="panel-findings">
+    <div class="meta-line" id="findings-meta">
+      <span class="skeleton" style="width: 280px;"></span>
+    </div>
+    <div class="toolbar">
+      <input type="text" class="search" id="finding-search" placeholder="Search hostname, subject, issuer…" />
+      <div class="filter-pills" id="finding-filter-pills">
+        <button class="pill active" data-finding-filter="all">All</button>
+        <button class="pill" data-finding-filter="alerting">Alerting</button>
+        <button class="pill" data-finding-filter="critical">Critical &lt;30d</button>
+        <button class="pill" data-finding-filter="warning">Warning &lt;60d</button>
+        <button class="pill" data-finding-filter="expired">Expired</button>
+        <button class="pill" data-finding-filter="missing">Missing (gone from store)</button>
+      </div>
+    </div>
+    <div class="card">
+      <table id="findings-table">
+        <thead>
+          <tr>
+            <th>Host</th>
+            <th>Store</th>
+            <th>Subject</th>
+            <th>Issuer</th>
+            <th>Status</th>
+            <th class="numeric">Days Left</th>
+            <th>Last Seen</th>
+            <th class="actions"></th>
+          </tr>
+        </thead>
+        <tbody id="findings-tbody">
+          <tr><td colspan="8" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============== SCAN TARGETS PANEL (Windows servers via WinRM) ============== -->
+  <section class="panel" id="panel-targets">
+    <div class="meta-line" id="targets-meta">
+      <span class="skeleton" style="width: 280px;"></span>
+    </div>
+    <div class="toolbar">
+      <input type="text" class="search" id="target-search" placeholder="Search FQDN, hostname, notes…" />
+      <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-add-target">+ Add Scan Target</button>
+    </div>
+    <div class="card">
+      <table id="targets-table">
+        <thead>
+          <tr>
+            <th>FQDN</th>
+            <th>Hostname</th>
+            <th>OS</th>
+            <th>Last Check-in</th>
+            <th>Status</th>
+            <th class="numeric">Findings</th>
+            <th>Enabled</th>
+            <th class="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="targets-tbody">
+          <tr><td colspan="8" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Cloud Services sub-section (v1.2.0) -->
+    <div class="cloud-services-section">
+      <div class="section-head">
+        <h3>Cloud Services</h3>
+        <button class="btn btn-ghost" id="btn-intune-sync" data-rbac-page="cert-watchtower" data-rbac-level="admin">&#8635; Sync Now</button>
+      </div>
+      <div id="cloud-certs-list"><div style="color:var(--text-faint);font-size:13px;">Loading…</div></div>
+    </div>
+  </section>
+
+  <!-- ============== ALERTS PANEL ============== -->
+  <section class="panel" id="panel-alerts">
+    <div class="toolbar">
+      <label class="toggle">
+        <input type="checkbox" id="show-resolved">
+        <span class="track"></span>
+        <span class="label">Show resolved (last 30 days)</span>
+      </label>
+    </div>
+    <div class="card" id="alerts-list">
+      <div class="empty">Loading…</div>
+    </div>
+  </section>
+
+  <!-- ============== PRTG PANEL (Step 9) ============== -->
+  <section class="panel" id="panel-prtg">
+    <div class="card" id="prtg-status-card" style="padding: 18px 22px; margin-bottom: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <div>
+          <h2 style="font-size: 15px; margin: 0 0 6px 0;">PRTG Integration</h2>
+          <div id="prtg-tab-status" style="font-size: 12.5px; color: var(--text-dim);">
+            Loading status…
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-ghost" id="btn-prtg-tab-refresh">Refresh</button>
+          <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-prtg-retry-failed" disabled title="Loading…">Retry Failed Pushes</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 0;">
+      <div style="padding: 16px 22px 8px 22px; display: flex; align-items: baseline; justify-content: space-between;">
+        <div>
+          <h2 style="font-size: 14px; margin: 0;">Push Status</h2>
+          <p style="color: var(--text-faint); font-size: 11.5px; margin: 4px 0 0 0;">
+            One row per cert that has ever pushed. Each entry reflects that cert's MOST-RECENT push outcome — not a per-push log. For full historical sensor data, see the sensor in PRTG.
+          </p>
+        </div>
+        <div id="prtg-history-meta" style="font-size: 12px; color: var(--text-dim);"></div>
+      </div>
+      <table class="history-table" style="margin-top: 8px;">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Type</th>
+            <th>Subject</th>
+            <th>Cert</th>
+            <th>Status</th>
+            <th>Response</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="prtg-history-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="prtg-retry-result" style="margin-top: 14px; padding: 14px 16px; border-radius: 6px; font-size: 12.5px; display: none;"></div>
+  </section>
+
+  <!-- ============== SETTINGS PANEL ============== -->
+  <section class="panel" id="panel-settings">
+    <div class="card" style="padding: 24px; max-width: 960px;">
+      <h2 style="font-size: 15px; margin-bottom: 4px;">Configuration</h2>
+      <p style="color: var(--text-dim); font-size: 12.5px; margin-bottom: 22px;">
+        These values control how Cert Watchtower behaves. Changes take effect immediately.
+      </p>
+
+      <div class="form-row">
+        <label>Info threshold (days)</label>
+        <input type="number" id="cfg-info" min="1" max="365">
+        <div class="hint">Below this, an Info alert fires.</div>
+      </div>
+      <div class="form-row">
+        <label>Warning threshold (days)</label>
+        <input type="number" id="cfg-warning" min="1" max="365">
+        <div class="hint">Below this, a Warning alert fires.</div>
+      </div>
+      <div class="form-row">
+        <label>Critical threshold (days)</label>
+        <input type="number" id="cfg-critical" min="1" max="365">
+        <div class="hint">Below this, a Critical alert fires.</div>
+      </div>
+      <div class="form-row">
+        <label>Unreachable grace period (days)</label>
+        <input type="number" id="cfg-unreachable" min="0" max="30">
+        <div class="hint">How long a host stays unreachable before alerting. Avoids transient blips.</div>
+      </div>
+      <div class="form-row">
+        <label>History retention (days)</label>
+        <input type="number" id="cfg-retention" min="30" max="3650">
+        <div class="hint">Old check records pruned daily.</div>
+      </div>
+      <div class="form-row">
+        <label>Manual check cooldown (seconds)</label>
+        <input type="number" id="cfg-cooldown" min="0" max="3600">
+        <div class="hint">Minimum delay between manual "Check Now" runs per monitor.</div>
+      </div>
+      <div class="form-row">
+        <label>Fallback alert email</label>
+        <input type="email" id="cfg-email" placeholder="alerts@example.com">
+        <div class="hint">Used when a monitor has no per-monitor owner email.</div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 6px;">
+        <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-save-config">Save Changes</button>
+        <button class="btn btn-ghost" id="btn-reload-config">Reload</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 24px; max-width: 960px; margin-top: 16px;">
+      <h2 style="font-size: 15px; margin-bottom: 4px;">PRTG Integration</h2>
+      <p style="color: var(--text-dim); font-size: 12.5px; margin-bottom: 22px;">
+        Push cert expiration data to PRTG sensors. Sensors must be created in PRTG first as <strong>HTTP Push Data Advanced</strong> sensors. Paste the identification token here per cert (Step 8 — coming soon) or as the global summary sensor below.
+      </p>
+
+      <div id="prtg-status-display" style="background: var(--bg-card); padding: 12px 14px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 20px; font-size: 12.5px; color: var(--text-dim);">
+        Loading status…
+      </div>
+
+      <div class="form-row">
+        <label>PRTG push enabled</label>
+        <select id="prtg-cfg-enabled">
+          <option value="0">Disabled</option>
+          <option value="1">Enabled</option>
+        </select>
+        <div class="hint">Master switch. When disabled, no pushes go out from any cron or transition.</div>
+      </div>
+
+      <h3 style="font-size: 13px; margin-top: 20px; margin-bottom: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Connection</h3>
+
+      <div class="form-row">
+        <label>PRTG core host</label>
+        <input type="text" id="prtg-cfg-host" placeholder="prtg01awsw2us.nrpi.local">
+        <div class="hint">FQDN or IP of the PRTG probe that receives pushes.</div>
+      </div>
+      <div class="form-row">
+        <label>Push port</label>
+        <input type="number" id="prtg-cfg-port" min="1" max="65535">
+        <div class="hint">Default 5050 (HTTP) or 5051 (HTTPS). Configured per-probe in PRTG.</div>
+      </div>
+      <div class="form-row">
+        <label>Protocol</label>
+        <select id="prtg-cfg-protocol">
+          <option value="http">HTTP</option>
+          <option value="https">HTTPS</option>
+        </select>
+        <div class="hint">Match what your PRTG probe is configured to accept.</div>
+      </div>
+      <div class="form-row">
+        <label>Verify TLS certificate</label>
+        <select id="prtg-cfg-verify-tls">
+          <option value="0">No (skip verification)</option>
+          <option value="1">Yes (verify)</option>
+        </select>
+        <div class="hint">Only meaningful when protocol is HTTPS. Skip when PRTG uses an internal CA cert.</div>
+      </div>
+
+      <h3 style="font-size: 13px; margin-top: 20px; margin-bottom: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Behaviour</h3>
+
+      <div class="form-row">
+        <label>Heartbeat push</label>
+        <select id="prtg-cfg-heartbeat">
+          <option value="0">Disabled</option>
+          <option value="1">Enabled (push every cron run)</option>
+        </select>
+        <div class="hint">Keeps PRTG sensor "fresh" — without it PRTG can't tell if cert-watchtower stops running.</div>
+      </div>
+      <div class="form-row">
+        <label>Push on alert transition</label>
+        <select id="prtg-cfg-on-transition">
+          <option value="0">Disabled</option>
+          <option value="1">Enabled (push immediately when status changes)</option>
+        </select>
+        <div class="hint">Pushes the moment a cert flips from OK to warning, etc. — outside the normal cron schedule.</div>
+      </div>
+      <div class="form-row">
+        <label>Push timeout (ms)</label>
+        <input type="number" id="prtg-cfg-timeout" min="100" max="60000">
+        <div class="hint">How long to wait for PRTG before giving up. Default 5000.</div>
+      </div>
+      <div class="form-row">
+        <label>Retry count</label>
+        <input type="number" id="prtg-cfg-retry" min="0" max="10">
+        <div class="hint">Retries on transient failure (network blip, PRTG restart). Default 2.</div>
+      </div>
+
+      <h3 style="font-size: 13px; margin-top: 20px; margin-bottom: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Summary sensor</h3>
+
+      <div class="form-row">
+        <label>Summary sensor token</label>
+        <input type="password" autocomplete="off" id="prtg-cfg-summary-token" value="" placeholder="(empty = no summary sensor)">
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;font-size:12.5px;color:var(--text-dim);">
+          <input type="checkbox" id="prtg-cfg-summary-token-clear" style="margin:0;">
+          <span>Clear the saved summary sensor token</span>
+        </label>
+        <div class="hint" id="prtg-cfg-summary-token-state"></div>
+        <div class="hint">Optional. A single PRTG sensor that receives fleet-wide stats (count of expiring certs, etc.) every cron run.</div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 6px;">
+        <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-save-prtg-config">Save PRTG Settings</button>
+        <button class="btn btn-ghost" id="btn-reload-prtg-config">Reload</button>
+      </div>
+
+      <h3 style="font-size: 13px; margin-top: 28px; margin-bottom: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Test push</h3>
+      <p style="color: var(--text-dim); font-size: 12.5px; margin-bottom: 14px;">
+        Verify a PRTG sensor token works before saving it on a real cert. Uses the connection settings above.
+      </p>
+
+      <div class="form-row">
+        <label>Sensor token</label>
+        <input type="text" id="prtg-test-token" placeholder="paste identtoken here">
+        <div class="hint">Get this from the PRTG sensor's Settings tab.</div>
+      </div>
+      <div class="form-row">
+        <label>Test value</label>
+        <input type="number" id="prtg-test-value" value="42" step="any">
+        <div class="hint">Any number. Will appear on the sensor's "Test Value" channel (or the channel name below).</div>
+      </div>
+      <div class="form-row">
+        <label>Channel name</label>
+        <input type="text" id="prtg-test-channel" value="Test Value" placeholder="Test Value">
+        <div class="hint">Must match a channel name configured on the PRTG sensor.</div>
+      </div>
+      <div class="form-row">
+        <label>Status text</label>
+        <input type="text" id="prtg-test-text" placeholder="(optional)" value="Test from cert-watchtower UI">
+        <div class="hint">Appears as the sensor's status message in PRTG.</div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 6px;">
+        <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-prtg-test-push">Run Test Push</button>
+      </div>
+
+      <div id="prtg-test-result" style="margin-top: 14px; padding: 12px 14px; border-radius: 6px; font-size: 12.5px; display: none;"></div>
+    </div>
+  </section>
+</div>
+
+<!-- ============== ADD MONITOR MODAL ============== -->
+<div class="modal-backdrop" id="modal-add">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Add External Cert</h2>
+      <button class="btn btn-ghost btn-icon close-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 16px; line-height: 1.55;">
+        Enter the <strong>hostname and port</strong> of any service you want to watch. Cert Watchtower will perform a TLS handshake daily and alert before the cert expires. Works for HTTPS sites, internal APIs, LDAPS, and anything else that presents a cert.
+      </p>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Hostname *</label>
+          <input type="text" id="add-hostname" placeholder="ldap.nrpi.local">
+          <div class="hint">DNS name or IP address that the server is reachable at.</div>
+        </div>
+        <div class="form-row">
+          <label>Port</label>
+          <input type="number" id="add-port" value="443" min="1" max="65535">
+          <div class="hint">Common: 443 (HTTPS), 636 (LDAPS), 8443.</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Label</label>
+        <input type="text" id="add-label" placeholder="Internal LDAP">
+        <div class="hint">Friendly name shown in the dashboard.</div>
+      </div>
+      <div class="form-row">
+        <label>Owner email</label>
+        <input type="email" id="add-owner" placeholder="(optional, falls back to global)">
+        <div class="hint">Who gets alerted when this cert expires. Leave blank to use the global fallback.</div>
+      </div>
+      <div class="form-row">
+        <label>SNI override</label>
+        <input type="text" id="add-sni" placeholder="(optional, rarely needed)">
+        <div class="hint">Only set if the server hosts multiple certs and you need a specific one — otherwise leave blank.</div>
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="add-notes" placeholder="Anything useful for whoever sees this next…"></textarea>
+        <div class="hint">Context for your future self or teammates.</div>
+      </div>
+      <div class="hint" style="font-size: 12px; color: var(--text-faint); padding: 10px 12px; background: var(--bg-card); border-radius: 6px; border: 1px solid var(--border);">
+        New external certs start <strong>disabled</strong>. Toggle them on after reviewing — the next cron run will then check them. Or click <strong>Check Now</strong> on the row to run it immediately.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost close-modal">Cancel</button>
+      <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-add-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== IMPORT CSV MODAL ============== -->
+<div class="modal-backdrop" id="modal-import">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Import Monitors from CSV</h2>
+      <button class="btn btn-ghost btn-icon close-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 14px; line-height: 1.55;">
+        Bulk-add external certs from a CSV. Useful when you already have a list of hostnames somewhere (a spreadsheet, an export from another tool, etc).
+      </p>
+      <div class="section-title" style="margin-top: 0;">CSV columns</div>
+      <table class="history-table" style="margin-bottom: 16px;">
+        <thead>
+          <tr><th>Column</th><th>Required</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>hostname</code></td><td style="color: var(--critical);">Yes</td><td>DNS name or IP</td></tr>
+          <tr><td><code>port</code></td><td style="color: var(--text-dim);">No</td><td>Defaults to 443 if blank</td></tr>
+          <tr><td><code>label</code></td><td style="color: var(--text-dim);">No</td><td>Friendly name</td></tr>
+          <tr><td><code>owner_email</code></td><td style="color: var(--text-dim);">No</td><td>Falls back to global if blank</td></tr>
+          <tr><td><code>servername_sni</code></td><td style="color: var(--text-dim);">No</td><td>Rare — leave blank</td></tr>
+          <tr><td><code>notes</code></td><td style="color: var(--text-dim);">No</td><td>Free-form context</td></tr>
+        </tbody>
+      </table>
+      <p style="color: var(--text-faint); font-size: 12px; margin-bottom: 14px;">
+        Header row required. Duplicates (same hostname:port) are skipped. All imported external certs start <strong>disabled</strong> — review and toggle on after.
+      </p>
+      <button class="btn" id="btn-template" style="margin-bottom: 14px;">Download template CSV</button>
+      <div class="form-row">
+        <label>CSV file</label>
+        <input type="file" id="import-file" accept=".csv,text/csv">
+      </div>
+      <div id="import-results" style="margin-top: 14px;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost close-modal">Cancel</button>
+      <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-import-save">Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== DETAIL MODAL ============== -->
+<div class="modal-backdrop" id="modal-detail">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h2 id="detail-title">External Cert Detail</h2>
+      <button class="btn btn-ghost btn-icon close-modal">✕</button>
+    </div>
+    <div class="modal-body" id="detail-body">
+      <div class="empty">Loading…</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-detail-delete">Delete</button>
+      <div style="flex: 1;"></div>
+      <button class="btn" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-detail-check">Check Now</button>
+      <button class="btn btn-ghost close-modal">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== ADD SCAN TARGET MODAL ============== -->
+<div class="modal-backdrop" id="modal-add-target">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Add Scan Target</h2>
+      <button class="btn btn-ghost btn-icon close-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color: var(--text-dim); font-size: 13px; margin-bottom: 16px; line-height: 1.55;">
+        Add a Windows server for agentless cert scanning via WinRM. The server runs nothing — Cert Watchtower connects daily and reads the cert store remotely.
+      </p>
+      <div class="form-row">
+        <label>FQDN *</label>
+        <input type="text" id="target-fqdn" placeholder="server01.nrpi.local">
+        <div class="hint">Fully-qualified DNS name. This is the unique identifier — can't be changed later.</div>
+      </div>
+      <div class="form-row">
+        <label>Target host (override)</label>
+        <input type="text" id="target-target-host" placeholder="(optional, defaults to FQDN)">
+        <div class="hint">Use this only if you need to point WinRM at a different DNS name or IP than the FQDN. Rare.</div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>WinRM port</label>
+          <input type="number" id="target-port" value="5985" min="1" max="65535">
+          <div class="hint">5985 HTTP, 5986 HTTPS</div>
+        </div>
+        <div class="form-row">
+          <label>Use HTTPS</label>
+          <select id="target-ssl">
+            <option value="0">No (5985)</option>
+            <option value="1">Yes (5986)</option>
+          </select>
+          <div class="hint">Most internal WinRM uses HTTP + Kerberos/NTLM</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Auth transport</label>
+        <select id="target-transport">
+          <option value="ntlm">NTLM</option>
+          <option value="kerberos">Kerberos</option>
+          <option value="basic">Basic</option>
+          <option value="credssp">CredSSP</option>
+        </select>
+        <div class="hint">NTLM works for most domain-joined Windows servers.</div>
+      </div>
+      <div class="form-row">
+        <label>Cert stores to scan</label>
+        <input type="text" id="target-stores" value="LocalMachine\My">
+        <div class="hint">Comma-separated. Default <code>LocalMachine\My</code> covers IIS, RDP, SQL, and most server certs. Add others like <code>LocalMachine\WebHosting</code> if needed.</div>
+      </div>
+      <div class="form-row">
+        <label>Scan IIS bindings</label>
+        <select id="target-scan-iis">
+          <option value="1">Yes (auto-skip if IIS not installed)</option>
+          <option value="0">No</option>
+        </select>
+        <div class="hint">When enabled, the agent enumerates IIS sites and reports which cert each binding uses.</div>
+      </div>
+      <div class="form-row">
+        <label>CA Server</label>
+        <select id="target-is-ca">
+          <option value="0">No</option>
+          <option value="1">Yes — this server is a Certificate Authority</option>
+        </select>
+        <div class="hint">When enabled, the daily WinRM scan also queries the CA issued cert store via certutil.</div>
+      </div>
+      <div class="form-row" id="ca-name-row" style="display:none;">
+        <label>CA Name</label>
+        <input type="text" id="target-ca-name" placeholder="e.g. NRPI-PKI04AWSW2US-CA">
+        <div class="hint">The CA name as shown in certsrv — used in the certutil -config flag.</div>
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea id="target-notes" placeholder="Optional context for teammates"></textarea>
+      </div>
+      <div class="hint" style="font-size: 12px; color: var(--text-faint); padding: 10px 12px; background: var(--bg-card); border-radius: 6px; border: 1px solid var(--border);">
+        WinRM credentials come from <code>/var/www/corpit-hub-api/.env</code> (<code>WINRM_USER</code> / <code>WINRM_PASS</code>) — same account Identity Diagnostics uses. The target server must allow WinRM from this server's IP.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost close-modal">Cancel</button>
+      <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-add-target-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== FINDING DETAIL MODAL ============== -->
+<div class="modal-backdrop" id="modal-finding-detail">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h2 id="finding-detail-title">Finding Detail</h2>
+      <button class="btn btn-ghost btn-icon close-modal">✕</button>
+    </div>
+    <div class="modal-body" id="finding-detail-body">
+      <div class="empty">Loading…</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost close-modal">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== TARGET DETAIL MODAL ============== -->
+<div class="modal-backdrop" id="modal-target-detail">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h2 id="target-detail-title">Scan Target Detail</h2>
+      <button class="btn btn-ghost btn-icon close-modal">✕</button>
+    </div>
+    <div class="modal-body" id="target-detail-body">
+      <div class="empty">Loading…</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-target-detail-delete">Delete</button>
+      <div style="flex: 1;"></div>
+      <button class="btn" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-target-detail-scan">Scan Now</button>
+      <button class="btn btn-ghost close-modal">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================================
+// State + helpers
+// ============================================================================
+const API_BASE = ''; // same origin via nginx
+let monitors = [];
+let alerts = [];
+let activeFilter = 'all';
+let activeTab = 'monitors';
+let detailMonitorId = null;
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+function fmtRelative(iso) {
+  if (!iso) return 'never';
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.round(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  return `${d}d ago`;
+}
+function statusPill(status) {
+  if (!status) return `<span class="status status-none">—</span>`;
+  return `<span class="status status-${status}">${status}</span>`;
+}
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function showToast(msg, type = '') {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(API_BASE + path, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+// ============================================================================
+// Monitors panel
+// ============================================================================
+// ---------------------------------------------------------------------------
+// Every loader on this page ended in `catch { showToast(...) }`. A toast is gone
+// in a few seconds and the surface it was about keeps whatever it already had --
+// which on a cold load is the literal string "Loading…" and a row of skeleton
+// bars. So a dead /api/certs left this page showing a spinner forever, and the
+// counts beside it never resolved to anything at all.
+//
+// This page is the reason the observability build exists: it reported ok/142d
+// for four months against a cron that had stopped on 2026-05-08. A loader that
+// fails without saying so is the same defect one layer up -- the page looks
+// like it is working, and nothing anywhere counts the times it was not.
+// ---------------------------------------------------------------------------
+function loadFailed(scope, e, ui) {
+  const msg = (e && e.message) ? e.message : String(e);
+  try {
+    if (window.ITObserve) {
+      ITObserve.degraded(scope, ui.label + ' could not be loaded', 'load error: ' + msg);
+    }
+  } catch (_) { /* a failed report must never replace the failure it describes */ }
+  showToast('Failed to load ' + ui.label + ': ' + msg, 'error');
+
+  // "could not load" is not "there are none". Say which one this is.
+  const body = ui.tbody ? $(ui.tbody) : null;
+  if (body) body.innerHTML =
+    `<tr><td colspan="${ui.cols}" class="empty">` +
+      `<div class="big">${escapeHtml(ui.label)} could not be loaded</div>` +
+      `<div>${escapeHtml(msg)} — this is a failed request, not an empty list.</div>` +
+    `</td></tr>`;
+  const list = ui.list ? $(ui.list) : null;
+  if (list) list.innerHTML =
+    `<div class="empty" style="padding:18px">` +
+      `<div class="big">${escapeHtml(ui.label)} could not be loaded</div>` +
+      `<div>${escapeHtml(msg)} — this is a failed request, not an empty list.</div>` +
+    `</div>`;
+  // The meta line holds skeleton bars until its first render. Left alone it
+  // animates forever, which reads as "still loading" rather than "gave up".
+  const meta = ui.meta ? $(ui.meta) : null;
+  if (meta) meta.innerHTML = '<span style="color: var(--critical);">Counts unavailable — load failed</span>';
+  // A tab badge that keeps its previous number is a stale claim, not a blank one.
+  const badge = ui.badge ? $(ui.badge) : null;
+  if (badge) { badge.textContent = '?'; badge.title = ui.label + ' could not be loaded'; }
+}
+
+async function loadMonitors() {
+  try {
+    const data = await api('/api/certs');
+    monitors = data.monitors;
+    renderMonitors();
+    updateMeta();
+    reportStaleMonitors();
+  } catch (e) {
+    loadFailed('cert-monitors', e, { label: 'External certificate monitors',
+      tbody: '#monitors-tbody', cols: 9, meta: '#monitors-meta', badge: '#tab-count-monitors' });
+  }
+}
+
+// The row already carries a stale marker: "No successful check in over 48h --
+// the scheduled checker may be down. Days remaining is derived from the last
+// observed certificate, not a fresh handshake." That sentence describes the
+// exact state this page sat in, undetected, from May to September. It has never
+// been counted anywhere. It is now.
+//
+// Called from the LOAD, not from renderMonitors(): renderMonitors re-runs on
+// every keystroke in the search box, and a filter that hides a stale row must
+// not change what gets reported.
+function reportStaleMonitors() {
+  try {
+    if (!window.ITObserve || !Array.isArray(monitors)) return;
+    const stale = monitors.filter(m => m.stale && m.enabled);
+    if (!stale.length) return;
+    const names = stale.slice(0, 3).map(m => m.hostname).join(', ') +
+                  (stale.length > 3 ? ' +' + (stale.length - 3) + ' more' : '');
+    ITObserve.degraded('cert-stale-check',
+      stale.length + ' monitor' + (stale.length !== 1 ? 's' : '') +
+        ' showing days-remaining from a stale observation',
+      'no successful check in over 48h: ' + names);
+  } catch (e) { /* never break the page for a report */ }
+}
+
+function filterMatches(m) {
+  switch (activeFilter) {
+    case 'all': return true;
+    case 'disabled': return m.enabled === 0;
+    case 'critical': return m.status === 'critical' || m.status === 'expired';
+    case 'warning': return m.status === 'warning';
+    case 'expired': return m.status === 'expired';
+    case 'unreachable': return m.status === 'unreachable';
+    case 'alerting': return ['info','warning','critical','expired','unreachable'].includes(m.status);
+    default: return true;
+  }
+}
+function searchMatches(m, q) {
+  if (!q) return true;
+  const s = q.toLowerCase();
+  return (m.hostname || '').toLowerCase().includes(s)
+      || (m.label || '').toLowerCase().includes(s)
+      || (m.owner_email || '').toLowerCase().includes(s);
+}
+
+function renderMonitors() {
+  const q = $('#monitor-search').value.trim();
+  const tbody = $('#monitors-tbody');
+  const visible = monitors.filter(m => filterMatches(m) && searchMatches(m, q));
+  $('#tab-count-monitors').textContent = monitors.length;
+
+  if (visible.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">
+      <div class="big">No monitors match.</div>
+      <div>${monitors.length === 0 ? 'Click "Add External Cert" to create your first one.' : 'Try clearing the filter or search.'}</div>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = visible.map(m => `
+    <tr data-id="${m.id}">
+      <td class="host">${escapeHtml(m.hostname)}</td>
+      <td class="numeric">${m.port}</td>
+      <td>${escapeHtml(m.label || '')}</td>
+      <td>${statusPill(m.status)}</td>
+      <td class="numeric">${m.days_remaining ?? '—'}</td>
+      <td title="${m.last_checked_at ? fmtDate(m.last_checked_at) : ''}">${fmtRelative(m.last_checked_at)}${m.stale ? ` <span title="No successful check in over 48h \u2014 the scheduled checker may be down. Days remaining is derived from the last observed certificate, not a fresh handshake." style="color: var(--warning, #f0b429); margin-left: 6px;">\u26A0</span>` : ''}</td>
+      <td>${escapeHtml(m.owner_email || '—')}</td>
+      <td>
+        <label class="toggle" onclick="event.stopPropagation();">
+          <input type="checkbox" ${m.enabled ? 'checked' : ''} data-toggle-id="${m.id}">
+          <span class="track"></span>
+        </label>
+      </td>
+      <td class="actions" onclick="event.stopPropagation();">
+        ${m.prtg_push_enabled && m.prtg_token_set ? `<span title="PRTG push configured (last: ${m.prtg_last_push_status || 'pending'})" style="color: var(--accent); margin-right: 6px; font-size: 13px;">📡</span>` : ''}
+        <button class="btn btn-icon btn-ghost" data-check-id="${m.id}" title="Check now">↻</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function updateMeta() {
+  const total = monitors.length;
+  const enabled = monitors.filter(m => m.enabled).length;
+  const alerting = monitors.filter(m => ['info','warning','critical','expired','unreachable'].includes(m.status)).length;
+  $('#monitors-meta').innerHTML = `
+    <strong>${total}</strong> monitor${total !== 1 ? 's' : ''}
+    <span class="dot">•</span>
+    <strong>${enabled}</strong> enabled
+    <span class="dot">•</span>
+    <strong>${alerting}</strong> alerting
+  `;
+}
+
+// ============================================================================
+// Alerts panel
+// ============================================================================
+async function loadAlerts() {
+  try {
+    const includeResolved = $('#show-resolved').checked;
+    const data = await api('/api/alerts' + (includeResolved ? '?include_resolved=true' : ''));
+    alerts = data.alerts;
+    renderAlerts();
+    updateAlertCount();
+  } catch (e) {
+    loadFailed('cert-alerts', e, { label: 'Alerts',
+      list: '#alerts-list', badge: '#tab-count-alerts' });
+  }
+}
+
+function updateAlertCount() {
+  const active = alerts.filter(a => !a.resolved_at).length;
+  const badge = $('#tab-count-alerts');
+  badge.textContent = active;
+  badge.className = active > 0 ? 'badge crit' : 'badge';
+}
+
+function renderAlerts() {
+  const list = $('#alerts-list');
+  if (alerts.length === 0) {
+    list.innerHTML = `<div class="empty">
+      <div class="big">No alerts.</div>
+      <div>Everything's healthy. Nice.</div>
+    </div>`;
+    return;
+  }
+  list.innerHTML = alerts.map(a => `
+    <div class="alert-row ${a.acknowledged_at ? 'acked' : ''} ${a.resolved_at ? 'acked' : ''}">
+      <div>${statusPill(a.severity)}</div>
+      <div>
+        <div class="alert-msg">${escapeHtml(a.message || a.severity)}</div>
+        <div class="alert-host">${escapeHtml(a.hostname)}:${a.port} ${a.label ? '— ' + escapeHtml(a.label) : ''}</div>
+      </div>
+      <div class="alert-time">
+        ${a.resolved_at ? 'resolved ' + fmtRelative(a.resolved_at) : 'opened ' + fmtRelative(a.triggered_at)}
+        ${a.acknowledged_at ? '<br><span style="color: var(--text-faint);">ack: ' + escapeHtml(a.acknowledged_by || '') + '</span>' : ''}
+      </div>
+      <div>
+        ${!a.acknowledged_at && !a.resolved_at
+          ? `<button class="btn btn-icon" data-ack-id="${a.id}">Ack</button>`
+          : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============================================================================
+// Settings panel
+// ============================================================================
+async function loadConfig() {
+  try {
+    const data = await api('/api/cert-config');
+    const c = data.config;
+    $('#cfg-info').value = c.threshold_info_days || 90;
+    $('#cfg-warning').value = c.threshold_warning_days || 60;
+    $('#cfg-critical').value = c.threshold_critical_days || 30;
+    $('#cfg-unreachable').value = c.unreachable_alert_days || 2;
+    $('#cfg-retention').value = c.history_retention_days || 365;
+    $('#cfg-cooldown').value = c.manual_check_cooldown_s || 300;
+    $('#cfg-email').value = c.fallback_alert_email || '';
+  } catch (e) {
+    showToast('Failed to load config: ' + e.message, 'error');
+  }
+}
+
+async function saveConfig() {
+  const body = {
+    threshold_info_days: $('#cfg-info').value,
+    threshold_warning_days: $('#cfg-warning').value,
+    threshold_critical_days: $('#cfg-critical').value,
+    unreachable_alert_days: $('#cfg-unreachable').value,
+    history_retention_days: $('#cfg-retention').value,
+    manual_check_cooldown_s: $('#cfg-cooldown').value,
+    fallback_alert_email: $('#cfg-email').value
+  };
+  try {
+    await api('/api/cert-config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    showToast('Settings saved', 'success');
+  } catch (e) {
+    showToast('Save failed: ' + e.message, 'error');
+  }
+}
+
+// ============================================================================
+// PRTG settings panel (Phase 2.5)
+// ============================================================================
+async function loadPrtgConfig() {
+  try {
+    const data = await api('/api/prtg/config');
+    const c = data.config || {};
+    $('#prtg-cfg-enabled').value         = c.prtg_enabled ?? '0';
+    $('#prtg-cfg-host').value            = c.prtg_core_host ?? '';
+    $('#prtg-cfg-port').value            = c.prtg_push_port ?? '5050';
+    $('#prtg-cfg-protocol').value        = c.prtg_push_protocol ?? 'http';
+    $('#prtg-cfg-verify-tls').value      = c.prtg_verify_tls ?? '0';
+    $('#prtg-cfg-heartbeat').value       = c.prtg_heartbeat_enabled ?? '1';
+    $('#prtg-cfg-on-transition').value   = c.prtg_push_on_transition ?? '1';
+    $('#prtg-cfg-timeout').value         = c.prtg_timeout_ms ?? '5000';
+    $('#prtg-cfg-retry').value           = c.prtg_retry_count ?? '2';
+    // CorpIT: the API returns prtg_summary_sensor_token_set, not the token.
+    $('#prtg-cfg-summary-token').value   = '';
+    $('#prtg-cfg-summary-token-state').textContent = c.prtg_summary_sensor_token_set
+      ? 'A token is saved; it is never sent back to the browser. Leave blank to keep it.'
+      : 'No summary sensor token is saved.';
+  } catch (e) {
+    showToast('Failed to load PRTG config: ' + e.message, 'error');
+  }
+}
+
+async function savePrtgConfig() {
+  const body = {
+    prtg_enabled:              $('#prtg-cfg-enabled').value,
+    prtg_core_host:            $('#prtg-cfg-host').value.trim(),
+    prtg_push_port:            $('#prtg-cfg-port').value,
+    prtg_push_protocol:        $('#prtg-cfg-protocol').value,
+    prtg_verify_tls:           $('#prtg-cfg-verify-tls').value,
+    prtg_heartbeat_enabled:    $('#prtg-cfg-heartbeat').value,
+    prtg_push_on_transition:   $('#prtg-cfg-on-transition').value,
+    prtg_timeout_ms:           $('#prtg-cfg-timeout').value,
+    prtg_retry_count:          $('#prtg-cfg-retry').value
+  };
+  // Only touch the summary sensor token when the admin actually changed it.
+  const summaryTok = $('#prtg-cfg-summary-token').value.trim();
+  if ($('#prtg-cfg-summary-token-clear').checked) body.prtg_summary_sensor_token = '';
+  else if (summaryTok) body.prtg_summary_sensor_token = summaryTok;
+  try {
+    await api('/api/prtg/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    showToast('PRTG settings saved', 'success');
+    loadPrtgStatus();
+  } catch (e) {
+    showToast('PRTG save failed: ' + e.message, 'error');
+  }
+}
+
+async function loadPrtgStatus() {
+  const el = $('#prtg-status-display');
+  if (!el) return;
+  try {
+    const s = await api('/api/prtg/status');
+    const enabledLabel = s.enabled
+      ? '<span style="color: var(--ok);">● Enabled</span>'
+      : '<span style="color: var(--text-faint);">○ Disabled</span>';
+    const summaryLabel = s.summary_sensor_configured
+      ? '<span style="color: var(--ok);">configured</span>'
+      : '<span style="color: var(--text-faint);">not configured</span>';
+    const lastM = s.monitors.last_push_at ? new Date(s.monitors.last_push_at).toLocaleString() : 'never';
+    const lastF = s.findings.last_push_at ? new Date(s.findings.last_push_at).toLocaleString() : 'never';
+    const lastA = s.agents && s.agents.last_push_at ? new Date(s.agents.last_push_at).toLocaleString() : 'never';
+    const agentsBlock = s.agents
+      ? `&nbsp;·&nbsp; Scan Targets: <strong>${s.agents.with_token}</strong> with token, ` +
+        `<strong>${s.agents.push_enabled}</strong> of ${s.agents.total} push-enabled &nbsp;·&nbsp; ` +
+        `Last scan target push: ${lastA}`
+      : '';
+    el.innerHTML =
+      `${enabledLabel} &nbsp;·&nbsp; ` +
+      `Summary sensor ${summaryLabel} &nbsp;·&nbsp; ` +
+      `Monitors: <strong>${s.monitors.with_token}</strong> with token, ` +
+      `<strong>${s.monitors.push_enabled}</strong> of ${s.monitors.total} push-enabled &nbsp;·&nbsp; ` +
+      `Findings: <strong>${s.findings.with_token}</strong> with token, ` +
+      `<strong>${s.findings.push_enabled}</strong> of ${s.findings.total} push-enabled &nbsp;·&nbsp; ` +
+      `Last monitor push: ${lastM} &nbsp;·&nbsp; ` +
+      `Last finding push: ${lastF}` +
+      agentsBlock;
+  } catch (e) {
+    el.innerHTML = `<span style="color: var(--critical);">Status unavailable: ${e.message}</span>`;
+  }
+}
+
+async function runPrtgTestPush() {
+  const resultEl = $('#prtg-test-result');
+  resultEl.style.display = 'block';
+  resultEl.style.background = 'var(--bg-card)';
+  resultEl.style.border = '1px solid var(--border)';
+  resultEl.style.color = 'var(--text-dim)';
+  resultEl.textContent = 'Pushing…';
+
+  const token = $('#prtg-test-token').value.trim();
+  const valueRaw = $('#prtg-test-value').value;
+  const value = Number(valueRaw);
+  if (!token) {
+    resultEl.style.background = 'rgba(245, 107, 107, 0.1)';
+    resultEl.style.border = '1px solid var(--critical)';
+    resultEl.style.color = 'var(--critical)';
+    resultEl.textContent = 'Token is required.';
+    return;
+  }
+  if (!Number.isFinite(value)) {
+    resultEl.style.background = 'rgba(245, 107, 107, 0.1)';
+    resultEl.style.border = '1px solid var(--critical)';
+    resultEl.style.color = 'var(--critical)';
+    resultEl.textContent = 'Test value must be a number.';
+    return;
+  }
+
+  // Use whatever's currently in the form (may not be saved yet) so user can
+  // try out new connection settings without committing them first.
+  const body = {
+    host:        $('#prtg-cfg-host').value.trim(),
+    port:        parseInt($('#prtg-cfg-port').value, 10),
+    protocol:    $('#prtg-cfg-protocol').value,
+    verifyTls:   $('#prtg-cfg-verify-tls').value === '1',
+    timeoutMs:   parseInt($('#prtg-cfg-timeout').value, 10),
+    token,
+    value,
+    channelName: $('#prtg-test-channel').value.trim() || 'Test Value',
+    statusText:  $('#prtg-test-text').value
+  };
+
+  try {
+    const data = await api('/api/prtg/test-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const r = data.result || {};
+    if (data.ok) {
+      resultEl.style.background = 'rgba(45, 212, 167, 0.1)';
+      resultEl.style.border = '1px solid var(--ok)';
+      resultEl.style.color = 'var(--ok)';
+      resultEl.innerHTML =
+        `✓ Push succeeded — HTTP ${r.httpStatus}, ${r.matchingSensors} matching sensor(s), ${r.durationMs}ms<br>` +
+        `<span style="color: var(--text-dim); font-size: 11.5px;">${r.url}</span>`;
+    } else {
+      resultEl.style.background = 'rgba(245, 107, 107, 0.1)';
+      resultEl.style.border = '1px solid var(--critical)';
+      resultEl.style.color = 'var(--critical)';
+      resultEl.innerHTML =
+        `✕ Push failed — ${r.error || 'unknown error'}<br>` +
+        `<span style="color: var(--text-dim); font-size: 11.5px;">HTTP ${r.httpStatus ?? '–'}, matching sensors: ${r.matchingSensors ?? '–'}, ${r.durationMs}ms</span>`;
+    }
+  } catch (e) {
+    resultEl.style.background = 'rgba(245, 107, 107, 0.1)';
+    resultEl.style.border = '1px solid var(--critical)';
+    resultEl.style.color = 'var(--critical)';
+    resultEl.textContent = 'Request failed: ' + e.message;
+  }
+}
+
+// ============================================================================
+// Detail modal
+// ============================================================================
+async function openDetail(id) {
+  detailMonitorId = id;
+  const m = monitors.find(x => x.id === id);
+  if (!m) return;
+  $('#detail-title').textContent = `${m.hostname}:${m.port}`;
+  $('#detail-body').innerHTML = `<div class="empty">Loading…</div>`;
+  $('#modal-detail').classList.add('open');
+
+  try {
+    const data = await api(`/api/certs/${id}/history?limit=30`);
+    // Look for a matching scan target — same hostname OR same resolved IP.
+    // If found, fetch its full finding list so we can show all certs on that host.
+    let allFindings = null;
+    let matchingTarget = null;
+    try {
+      const agentsData = await api('/api/agents');
+      const last = data.history[0];
+      const matchHost = (m.hostname || '').toLowerCase();
+      const matchIp = (last && last.resolved_ip) ? last.resolved_ip : null;
+      matchingTarget = agentsData.agents.find(a => {
+        const fqdn = (a.fqdn || '').toLowerCase();
+        const targetHost = (a.target_host || '').toLowerCase();
+        const ip = a.ip_address;
+        return fqdn === matchHost || targetHost === matchHost
+            || (matchIp && (fqdn === matchIp || targetHost === matchIp || ip === matchIp))
+            // also match if the monitor hostname is the prefix of the FQDN (e.g. "server01" matches "server01.nrpi.local")
+            || fqdn.startsWith(matchHost + '.')
+            || targetHost.startsWith(matchHost + '.');
+      });
+      if (matchingTarget) {
+        const targetData = await api(`/api/agents/${matchingTarget.id}`);
+        allFindings = targetData.findings;
+      }
+    } catch (e) {
+      // Non-fatal — just means we don't show the cross-linked section
+      console.warn('Could not fetch related scan target:', e.message);
+    }
+    renderDetail(m, data.history, matchingTarget, allFindings);
+  } catch (e) {
+    $('#detail-body').innerHTML = `<div class="empty">Failed to load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderDetail(m, history, matchingTarget, allFindings) {
+  const last = history[0];
+  const sans = last && last.san_list ? (typeof last.san_list === 'string' ? JSON.parse(last.san_list) : last.san_list) : [];
+
+  // Build the "all certs on this server" section if we have a matching scan target.
+  let allCertsSection = '';
+  if (matchingTarget && allFindings) {
+    const totalCount = allFindings.length;
+    const alertingCount = allFindings.filter(f => ['info','warning','critical','expired'].includes(f.status)).length;
+    allCertsSection = `
+      <div class="section-title" style="display: flex; align-items: center; justify-content: space-between;">
+        <span>All certs on ${escapeHtml(matchingTarget.fqdn)} (${totalCount})</span>
+        ${alertingCount > 0 ? `<span style="color: var(--warning); font-size: 11px;">${alertingCount} alerting</span>` : ''}
+      </div>
+      <p style="color: var(--text-faint); font-size: 12px; margin: -6px 0 10px 0;">
+        Discovered via WinRM scan on ${matchingTarget.last_checkin_at ? fmtRelative(matchingTarget.last_checkin_at) : 'never'}.
+      </p>
+      ${totalCount === 0 ? '<div class="empty">No certs reported yet — has a scan run?</div>' : `
+        <table class="history-table">
+          <thead><tr><th>Subject</th><th>Issuer</th><th>Store</th><th>Status</th><th>Days</th><th>Expires</th></tr></thead>
+          <tbody>
+            ${allFindings.map(f => `
+              <tr>
+                <td>${escapeHtml(f.subject_cn || '—')}</td>
+                <td style="color: var(--text-dim);">${escapeHtml(f.issuer_cn || '—')}</td>
+                <td style="color: var(--text-dim); font-size: 11.5px;">${escapeHtml(f.store_name)}${f.store_location ? '/' + escapeHtml(f.store_location) : ''}</td>
+                <td>${statusPill(f.status)}</td>
+                <td>${f.days_remaining ?? '—'}</td>
+                <td style="font-size: 11.5px;">${f.not_after ? fmtDate(f.not_after).split(',')[0] : '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `}
+    `;
+  } else {
+    // No matching scan target — show a hint
+    allCertsSection = `
+      <div class="section-title">All certs on this server</div>
+      <div class="empty" style="padding: 20px;">
+        <div>No WinRM scan target configured for this host.</div>
+        <div style="font-size: 12px; color: var(--text-faint); margin-top: 6px;">
+          To see every cert in the server's stores, add a Scan Target in the <strong>Scan Targets</strong> tab.
+        </div>
+      </div>
+    `;
+  }
+
+  const body = `
+    <div class="kv-grid">
+      <div class="k">Status</div><div class="v">${statusPill(m.status)} ${m.days_remaining !== null ? '<span style="color: var(--text-dim); margin-left: 8px;">' + m.days_remaining + ' days remaining</span>' : ''}</div>
+      <div class="k">Subject CN</div><div class="v">${escapeHtml(m.subject_cn || '—')}</div>
+      <div class="k">Issuer CN</div><div class="v">${escapeHtml(m.issuer_cn || '—')}</div>
+      <div class="k">Valid until</div><div class="v">${m.not_after ? fmtDate(m.not_after) : '—'}</div>
+      <div class="k">Self-signed</div><div class="v ${m.is_self_signed ? 'flag-warn' : 'flag-good'}">${m.is_self_signed ? 'Yes' : 'No'}</div>
+      <div class="k">Chain complete</div><div class="v ${m.chain_complete === 0 ? 'flag-warn' : 'flag-good'}">${m.chain_complete === 0 ? 'No (missing intermediates)' : m.chain_complete === 1 ? 'Yes' : '—'}</div>
+      ${last && last.serial_number ? `<div class="k">Serial</div><div class="v">${escapeHtml(last.serial_number)}</div>` : ''}
+      ${last && last.fingerprint_sha256 ? `<div class="k">SHA-256</div><div class="v">${escapeHtml(last.fingerprint_sha256)}</div>` : ''}
+      ${last && last.resolved_ip ? `<div class="k">Resolved IP</div><div class="v">${escapeHtml(last.resolved_ip)}</div>` : ''}
+      ${sans.length ? `<div class="k">SANs</div><div class="v">${sans.map(escapeHtml).join('<br>')}</div>` : ''}
+      ${m.notes ? `<div class="k">Notes</div><div class="v" style="font-family: inherit;">${escapeHtml(m.notes)}</div>` : ''}
+    </div>
+
+    ${allCertsSection}
+
+    <div class="section-title">Recent checks (last ${history.length})</div>
+    ${history.length === 0 ? '<div class="empty">No history yet.</div>' : `
+      <table class="history-table">
+        <thead><tr><th>When</th><th>Status</th><th>Days</th><th>Handshake</th><th>Error</th></tr></thead>
+        <tbody>
+          ${history.map(h => `
+            <tr>
+              <td>${fmtDate(h.checked_at)}</td>
+              <td>${statusPill(h.status)}</td>
+              <td>${h.days_remaining ?? '—'}</td>
+              <td>${h.handshake_ms ? h.handshake_ms + ' ms' : '—'}</td>
+              <td style="color: var(--text-faint);">${escapeHtml(h.error_message || '')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `}
+
+    <div class="section-title">PRTG Push</div>
+    <div id="prtg-monitor-section" data-monitor-id="${m.id}">
+      <div class="empty" style="padding: 12px;">Loading PRTG settings…</div>
+    </div>
+  `;
+  $('#detail-body').innerHTML = body;
+  loadPrtgMonitorSection(m.id);
+}
+
+// ============================================================================
+// PRTG TAB (Step 9 — push status table + retry-failed bulk action)
+// ============================================================================
+let prtgHistoryRows = [];
+
+async function loadPrtgTab() {
+  loadPrtgTabStatus();
+  loadPrtgHistory();
+}
+
+async function loadPrtgTabStatus() {
+  const el = $('#prtg-tab-status');
+  if (!el) return;
+  try {
+    const s = await api('/api/prtg/status');
+    const enabledLabel = s.enabled
+      ? '<span style="color: var(--ok); font-weight: 600;">● Enabled</span>'
+      : '<span style="color: var(--text-faint); font-weight: 600;">○ Disabled</span>';
+    const summaryLabel = s.summary_sensor_configured
+      ? '<span style="color: var(--ok);">configured</span>'
+      : '<span style="color: var(--text-faint);">not configured</span>';
+    const lastM = s.monitors.last_push_at ? fmtRelative(s.monitors.last_push_at) : 'never';
+    const lastF = s.findings.last_push_at ? fmtRelative(s.findings.last_push_at) : 'never';
+    const lastA = s.agents && s.agents.last_push_at ? fmtRelative(s.agents.last_push_at) : 'never';
+
+    // Three sections: monitors (TLS), findings (per-cert in store), agents (server-level rollup).
+    // Each shows: tokens saved | push-enabled | last push.
+    //   "with token" — saved a token (could push manually OR via cron once enabled)
+    //   "push-enabled" — also has prtg_push_enabled=1, so cron will push automatically
+    const agentsBlock = s.agents
+      ? `&nbsp;·&nbsp; Scan Targets: <strong>${s.agents.with_token}</strong> with token, ` +
+        `<strong>${s.agents.push_enabled}</strong> of ${s.agents.total} push-enabled · last push ${lastA}`
+      : '';
+
+    el.innerHTML =
+      `${enabledLabel} &nbsp;·&nbsp; ` +
+      `Summary sensor ${summaryLabel} &nbsp;·&nbsp; ` +
+      `Monitors: <strong>${s.monitors.with_token}</strong> with token, ` +
+      `<strong>${s.monitors.push_enabled}</strong> of ${s.monitors.total} push-enabled · last push ${lastM} &nbsp;·&nbsp; ` +
+      `Findings: <strong>${s.findings.with_token}</strong> with token, ` +
+      `<strong>${s.findings.push_enabled}</strong> of ${s.findings.total} push-enabled · last push ${lastF}` +
+      agentsBlock;
+  } catch (e) {
+    el.innerHTML = `<span style="color: var(--critical);">Status unavailable: ${escapeHtml(e.message)}</span>`;
+  }
+}
+
+async function loadPrtgHistory() {
+  const tbody = $('#prtg-history-tbody');
+  const meta = $('#prtg-history-meta');
+  const retryBtn = $('#btn-prtg-retry-failed');
+  if (!tbody) return;
+  try {
+    const data = await api('/api/prtg/push-history?limit=50');
+    prtgHistoryRows = data.history || [];
+    renderPrtgHistory();
+
+    // Update tab badge with the count of rows whose latest push failed
+    const failedCount = prtgHistoryRows.filter(r => r.last_push_status && r.last_push_status !== 'ok').length;
+    const badge = $('#tab-count-prtg');
+    badge.textContent = failedCount;
+    badge.className = failedCount > 0 ? 'badge crit' : 'badge';
+
+    // Update meta line
+    meta.textContent = prtgHistoryRows.length === 0
+      ? 'No pushes yet'
+      : `${prtgHistoryRows.length} cert${prtgHistoryRows.length !== 1 ? 's' : ''} (${failedCount} failed)`;
+
+    // Enable retry button only when there are failures
+    if (failedCount > 0) {
+      retryBtn.disabled = false;
+      retryBtn.title = `Retry the ${failedCount} push${failedCount !== 1 ? 'es' : ''} that failed`;
+      retryBtn.textContent = `Retry ${failedCount} Failed`;
+    } else {
+      retryBtn.disabled = true;
+      retryBtn.title = 'No failed pushes to retry';
+      retryBtn.textContent = 'Retry Failed Pushes';
+    }
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">Failed to load: ${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+function renderPrtgHistory() {
+  const tbody = $('#prtg-history-tbody');
+  if (prtgHistoryRows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">
+      <div class="big">No pushes yet.</div>
+      <div>Configure a token on a monitor or finding, then run Test Push.</div>
+    </td></tr>`;
+    return;
+  }
+  tbody.innerHTML = prtgHistoryRows.map(r => {
+    const colorMap = {
+      ok:         'var(--ok)',
+      error:      'var(--critical)',
+      timeout:    'var(--warning)',
+      mismatch:   'var(--warning)',
+      validation: 'var(--critical)'
+    };
+    const color = colorMap[r.last_push_status] || 'var(--text-dim)';
+    const statusBadge = `<span style="color: ${color}; font-weight: 600;">● ${escapeHtml(r.last_push_status || 'unknown')}</span>`;
+    const kindBadge = r.kind === 'monitor'
+      ? '<span style="background: rgba(99, 152, 240, 0.15); color: #6398f0; font-size: 10.5px; padding: 2px 7px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;">Monitor</span>'
+      : r.kind === 'finding'
+        ? '<span style="background: rgba(127, 207, 159, 0.15); color: #7fcf9f; font-size: 10.5px; padding: 2px 7px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;">Finding</span>'
+        : '<span style="background: rgba(245, 181, 68, 0.15); color: #f5b544; font-size: 10.5px; padding: 2px 7px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;">Scan Target</span>';
+    const responseSnippet = r.last_push_response
+      ? `<span style="font-family: var(--font-mono, monospace); font-size: 11px; color: var(--text-faint);">${escapeHtml(r.last_push_response.slice(0, 80))}${r.last_push_response.length > 80 ? '…' : ''}</span>`
+      : '<span style="color: var(--text-faint);">—</span>';
+    const certInfo = (r.subject_cn || r.subject || '')
+      + (r.days_remaining !== null && r.days_remaining !== undefined
+          ? ` <span style="color: var(--text-dim); font-size: 11px;">(${r.days_remaining}d)</span>`
+          : '');
+    const canRetry = r.last_push_status && r.last_push_status !== 'ok';
+    return `
+      <tr>
+        <td title="${r.last_push_at ? fmtDate(r.last_push_at) : ''}">${fmtRelative(r.last_push_at)}</td>
+        <td>${kindBadge}</td>
+        <td class="host">${escapeHtml(r.subject || '—')}</td>
+        <td>${certInfo}</td>
+        <td>${statusBadge}</td>
+        <td>${responseSnippet}</td>
+        <td class="actions">${canRetry
+            ? `<button class="btn btn-ghost btn-icon" data-prtg-retry-kind="${r.kind}" data-prtg-retry-id="${r.id}" title="Retry this push">↻</button>`
+            : ''}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function retryAllFailed() {
+  const btn = $('#btn-prtg-retry-failed');
+  const result = $('#prtg-retry-result');
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Retrying…';
+  result.style.display = 'block';
+  result.style.background = 'var(--bg-card)';
+  result.style.border = '1px solid var(--border)';
+  result.style.color = 'var(--text-dim)';
+  result.textContent = 'Retrying failed pushes — this may take a moment…';
+  try {
+    const data = await api('/api/prtg/retry-failed', { method: 'POST' });
+    const lines = (data.results || []).map(r =>
+      `${r.ok ? '✓' : '✕'} ${escapeHtml(r.kind)} #${r.id} ${escapeHtml(r.subject || '')} — ${r.ok ? 'OK' : escapeHtml(r.error || 'failed')}`
+    ).join('<br>');
+    if (data.attempted === 0) {
+      result.style.background = 'rgba(45, 212, 167, 0.1)';
+      result.style.border = '1px solid var(--ok)';
+      result.style.color = 'var(--ok)';
+      result.textContent = 'Nothing to retry — no failed pushes.';
+    } else if (data.failed === 0) {
+      result.style.background = 'rgba(45, 212, 167, 0.1)';
+      result.style.border = '1px solid var(--ok)';
+      result.style.color = 'var(--ok)';
+      result.innerHTML = `✓ All ${data.attempted} retried successfully<div style="margin-top: 6px; color: var(--text-dim);">${lines}</div>`;
+    } else {
+      result.style.background = 'rgba(245, 181, 68, 0.1)';
+      result.style.border = '1px solid var(--warning)';
+      result.style.color = 'var(--warning)';
+      result.innerHTML = `Retried ${data.attempted}: ${data.succeeded} ok, ${data.failed} failed<div style="margin-top: 6px; color: var(--text-dim);">${lines}</div>`;
+    }
+    // Reload history to reflect new statuses
+    loadPrtgHistory();
+    loadPrtgTabStatus();
+  } catch (e) {
+    result.style.background = 'rgba(245, 107, 107, 0.1)';
+    result.style.border = '1px solid var(--critical)';
+    result.style.color = 'var(--critical)';
+    result.textContent = 'Retry request failed: ' + e.message;
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function retryOnePush(kind, id) {
+  const path = kind === 'monitor' ? `/api/certs/${id}/prtg/test`
+             : kind === 'finding' ? `/api/findings/${id}/prtg/test`
+             : `/api/agents/${id}/prtg/test`;
+  try {
+    const data = await api(path, { method: 'POST' });
+    if (data.ok) {
+      showToast('Push succeeded', 'success');
+    } else {
+      const r = data.result || {};
+      showToast('Push failed: ' + (r.error || 'unknown'), 'error');
+    }
+    loadPrtgHistory();
+    loadPrtgTabStatus();
+  } catch (e) {
+    showToast('Retry failed: ' + e.message, 'error');
+  }
+}
+
+// ============================================================================
+// PRTG per-cert sections (Step 8 — populates the PRTG block in detail modals)
+// ============================================================================
+
+// Format the small "last push" status line shown above the form
+function _prtgLastPushHtml(p) {
+  if (!p.prtg_last_push_at) {
+    return '<span style="color: var(--text-faint);">No push history yet.</span>';
+  }
+  const colorMap = {
+    ok:         'var(--ok)',
+    error:      'var(--critical)',
+    timeout:    'var(--warning)',
+    mismatch:   'var(--warning)',
+    validation: 'var(--critical)'
+  };
+  const color = colorMap[p.prtg_last_push_status] || 'var(--text-dim)';
+  const status = p.prtg_last_push_status || 'unknown';
+  return `<span style="color: ${color};">● ${escapeHtml(status)}</span> ` +
+         `<span style="color: var(--text-dim); margin-left: 6px;">${fmtRelative(p.prtg_last_push_at)}</span>` +
+         (p.prtg_last_push_response
+            ? `<div style="font-size: 11px; color: var(--text-faint); margin-top: 4px; font-family: var(--font-mono); word-break: break-all;">${escapeHtml(p.prtg_last_push_response.slice(0, 200))}</div>`
+            : '');
+}
+
+// Build the PRTG section HTML for a monitor or finding. `kind` is 'monitor' or 'finding'.
+function _prtgSectionHtml(p, kind, id) {
+  const enabledChecked = Number(p.prtg_push_enabled) === 1 ? 'checked' : '';
+  // CorpIT: the API no longer returns the token itself, only whether one is
+  // set. The input therefore always starts empty and only sends a value when
+  // an admin actually types one.
+  const sensorIdVal = p.prtg_sensor_id == null ? '' : escapeHtml(p.prtg_sensor_id);
+  const hasToken = !!p.prtg_token_set;
+  const idAttr = `data-${kind}-id="${id}"`;
+  return `
+    <div ${idAttr} style="background: var(--bg-card); padding: 14px 16px; border-radius: 6px; border: 1px solid var(--border);">
+      <div style="margin-bottom: 12px; font-size: 12.5px;">
+        ${_prtgLastPushHtml(p)}
+      </div>
+      <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" class="prtg-${kind}-enabled" ${enabledChecked} style="margin: 0;">
+          <span>Push to PRTG enabled</span>
+        </label>
+        <div class="hint">Master switch for this ${kind}. Even if checked, push won't happen until a token is set AND the global PRTG switch is on.</div>
+      </div>
+      <div class="form-row" style="margin-bottom: 10px;">
+        <label>Sensor identification token</label>
+        <input type="password" autocomplete="off" class="prtg-${kind}-token" value="" placeholder="${hasToken ? 'a token is saved \u2014 type to replace it' : 'paste from PRTG sensor settings'}">
+        <div class="hint">Get from the PRTG sensor's <strong>Settings</strong> tab. ${hasToken
+          ? 'A token is already saved; it is never sent back to the browser. Leave this blank to keep it.'
+          : 'No token is saved yet.'}</div>
+        ${hasToken ? `<label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;font-size:12.5px;color:var(--text-dim);">
+          <input type="checkbox" class="prtg-${kind}-token-clear" style="margin:0;">
+          <span>Clear the saved token</span>
+        </label>` : ''}
+      </div>
+      <div class="form-row" style="margin-bottom: 10px;">
+        <label>Sensor numeric ID (optional)</label>
+        <input type="text" class="prtg-${kind}-sensor-id" value="${sensorIdVal}" placeholder="e.g. 4593">
+        <div class="hint">Optional — used for cross-link to PRTG UI. Find in the sensor's URL.</div>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+        <button class="btn btn-primary prtg-${kind}-save" data-rbac-page="cert-watchtower" data-rbac-level="admin" data-id="${id}">Save PRTG Settings</button>
+        <button class="btn prtg-${kind}-test" data-rbac-page="cert-watchtower" data-rbac-level="admin" data-id="${id}" ${hasToken ? '' : 'disabled title="Save a token first"'}>Test Push (real cert data)</button>
+      </div>
+      <div class="prtg-${kind}-test-result" style="margin-top: 12px; display: none; padding: 10px 12px; border-radius: 6px; font-size: 12.5px;"></div>
+    </div>
+  `;
+}
+
+async function loadPrtgMonitorSection(id) {
+  const container = $('#prtg-monitor-section');
+  if (!container) return;
+  try {
+    const data = await api(`/api/certs/${id}/prtg`);
+    container.innerHTML = _prtgSectionHtml(data.prtg, 'monitor', id);
+    _wirePrtgMonitorEvents(id);
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Failed to load PRTG settings: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function loadPrtgFindingSection(id) {
+  const container = $('#prtg-finding-section');
+  if (!container) return;
+  try {
+    const data = await api(`/api/findings/${id}/prtg`);
+    container.innerHTML = _prtgSectionHtml(data.prtg, 'finding', id);
+    _wirePrtgFindingEvents(id);
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Failed to load PRTG settings: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// Step 8.5: server-level rollup push for scan targets
+async function loadPrtgAgentSection(id) {
+  const container = $('#prtg-agent-section');
+  if (!container) return;
+  try {
+    const data = await api(`/api/agents/${id}/prtg`);
+    container.innerHTML = _prtgSectionHtml(data.prtg, 'agent', id);
+    _wirePrtgAgentEvents(id);
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Failed to load PRTG settings: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function _wirePrtgMonitorEvents(id) {
+  $('.prtg-monitor-save').addEventListener('click', () => _prtgSave('monitor', id));
+  const testBtn = $('.prtg-monitor-test');
+  if (testBtn && !testBtn.disabled) {
+    testBtn.addEventListener('click', () => _prtgTest('monitor', id));
+  }
+}
+
+function _wirePrtgFindingEvents(id) {
+  $('.prtg-finding-save').addEventListener('click', () => _prtgSave('finding', id));
+  const testBtn = $('.prtg-finding-test');
+  if (testBtn && !testBtn.disabled) {
+    testBtn.addEventListener('click', () => _prtgTest('finding', id));
+  }
+}
+
+function _wirePrtgAgentEvents(id) {
+  $('.prtg-agent-save').addEventListener('click', () => _prtgSave('agent', id));
+  const testBtn = $('.prtg-agent-test');
+  if (testBtn && !testBtn.disabled) {
+    testBtn.addEventListener('click', () => _prtgTest('agent', id));
+  }
+}
+
+async function _prtgSave(kind, id) {
+  const enabled = $(`.prtg-${kind}-enabled`).checked ? '1' : '0';
+  const token = $(`.prtg-${kind}-token`).value.trim();
+  const clearEl = $(`.prtg-${kind}-token-clear`);
+  const clearToken = !!(clearEl && clearEl.checked);
+  const sensorId = $(`.prtg-${kind}-sensor-id`).value.trim();
+  // Map kind -> API path. Agent endpoints are at /api/agents/:id/prtg (Step 8.5).
+  const path = kind === 'monitor' ? `/api/certs/${id}/prtg`
+             : kind === 'finding' ? `/api/findings/${id}/prtg`
+             : `/api/agents/${id}/prtg`;
+  try {
+    await api(path, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      // Omitting prtg_token means "leave the stored one alone"; '' clears it.
+      body: JSON.stringify(Object.assign(
+        { prtg_push_enabled: enabled, prtg_sensor_id: sensorId },
+        clearToken ? { prtg_token: '' } : (token ? { prtg_token: token } : {})
+      ))
+    });
+    showToast('PRTG settings saved', 'success');
+    // Reload the section to pick up new state and re-enable test button if a token was added
+    if (kind === 'monitor')      loadPrtgMonitorSection(id);
+    else if (kind === 'finding') loadPrtgFindingSection(id);
+    else                         loadPrtgAgentSection(id);
+    // Refresh the parent list so row indicators update
+    if (kind === 'monitor')      loadMonitors();
+    else if (kind === 'finding') loadFindings();
+    else                         loadTargets();
+  } catch (e) {
+    showToast('PRTG save failed: ' + e.message, 'error');
+  }
+}
+
+async function _prtgTest(kind, id) {
+  const resultEl = $(`.prtg-${kind}-test-result`);
+  resultEl.style.display = 'block';
+  resultEl.style.background = 'var(--bg-card)';
+  resultEl.style.border = '1px solid var(--border)';
+  resultEl.style.color = 'var(--text-dim)';
+  resultEl.textContent = kind === 'agent'
+    ? 'Pushing server rollup data to PRTG…'
+    : 'Pushing real cert data to PRTG…';
+
+  const path = kind === 'monitor' ? `/api/certs/${id}/prtg/test`
+             : kind === 'finding' ? `/api/findings/${id}/prtg/test`
+             : `/api/agents/${id}/prtg/test`;
+  try {
+    const data = await api(path, { method: 'POST' });
+    const r = data.result || {};
+    if (data.ok) {
+      const channelsLine = (data.channels || [])
+        .map(c => `<strong>${escapeHtml(c.name)}</strong>: ${c.value}`)
+        .join(' &nbsp;·&nbsp; ');
+      resultEl.style.background = 'rgba(45, 212, 167, 0.1)';
+      resultEl.style.border = '1px solid var(--ok)';
+      resultEl.style.color = 'var(--ok)';
+      resultEl.innerHTML =
+        `✓ Push succeeded — HTTP ${r.httpStatus}, ${r.matchingSensors} matching sensor(s), ${r.durationMs}ms` +
+        `<div style="margin-top: 6px; font-size: 11.5px; color: var(--text-dim);">Channels pushed: ${channelsLine}</div>`;
+    } else {
+      resultEl.style.background = 'rgba(245, 107, 107, 0.1)';
+      resultEl.style.border = '1px solid var(--critical)';
+      resultEl.style.color = 'var(--critical)';
+      resultEl.innerHTML =
+        `✕ Push failed — ${escapeHtml(r.error || 'unknown error')}<br>` +
+        `<span style="color: var(--text-dim); font-size: 11.5px;">HTTP ${r.httpStatus ?? '–'}, matching sensors: ${r.matchingSensors ?? '–'}, ${r.durationMs}ms</span>`;
+    }
+    // Refresh the section so the "last push" line updates with the new timestamp
+    if (kind === 'monitor')      loadPrtgMonitorSection(id);
+    else if (kind === 'finding') loadPrtgFindingSection(id);
+    else                         loadPrtgAgentSection(id);
+  } catch (e) {
+    resultEl.style.background = 'rgba(245, 107, 107, 0.1)';
+    resultEl.style.border = '1px solid var(--critical)';
+    resultEl.style.color = 'var(--critical)';
+    resultEl.textContent = 'Request failed: ' + e.message;
+  }
+}
+
+// ============================================================================
+// Event wiring
+// ============================================================================
+function switchTab(name) {
+  activeTab = name;
+  $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  $$('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  if (name === 'alerts') loadAlerts();
+  if (name === 'prtg') loadPrtgTab();
+  if (name === 'settings') { loadConfig(); loadPrtgConfig(); loadPrtgStatus(); }
+  if (name === 'findings') loadFindings();
+  if (name === 'targets') { loadTargets(); loadCloudCerts(); }
+}
+
+$$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+$$('.filter-pills .pill').forEach(p => {
+  p.addEventListener('click', () => {
+    activeFilter = p.dataset.filter;
+    $$('.filter-pills .pill').forEach(x => x.classList.toggle('active', x === p));
+    renderMonitors();
+  });
+});
+
+$('#monitor-search').addEventListener('input', renderMonitors);
+$('#btn-refresh').addEventListener('click', () => {
+  if (activeTab === 'monitors') loadMonitors();
+  else if (activeTab === 'alerts') loadAlerts();
+  else if (activeTab === 'prtg') loadPrtgTab();
+  else if (activeTab === 'settings') { loadConfig(); loadPrtgConfig(); loadPrtgStatus(); }
+  else if (activeTab === 'findings') loadFindings();
+  else if (activeTab === 'targets') { loadTargets(); loadCloudCerts(); }
+});
+
+// Add monitor
+$('#btn-add').addEventListener('click', () => {
+  ['hostname','port','label','owner','sni','notes'].forEach(f => {
+    const el = $('#add-' + f);
+    if (el) el.value = f === 'port' ? '443' : '';
+  });
+  $('#modal-add').classList.add('open');
+  setTimeout(() => $('#add-hostname').focus(), 100);
+});
+$('#btn-add-save').addEventListener('click', async () => {
+  const body = {
+    hostname: $('#add-hostname').value.trim(),
+    port: Number($('#add-port').value),
+    label: $('#add-label').value.trim() || null,
+    owner_email: $('#add-owner').value.trim() || null,
+    servername_sni: $('#add-sni').value.trim() || null,
+    notes: $('#add-notes').value.trim() || null,
+    created_by: 'web-ui'
+  };
+  if (!body.hostname) { showToast('Hostname required', 'error'); return; }
+  try {
+    await api('/api/certs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    closeModals();
+    showToast('External cert added (disabled — toggle on when ready)', 'success');
+    loadMonitors();
+  } catch (e) {
+    showToast('Add failed: ' + e.message, 'error');
+  }
+});
+
+// Import CSV
+$('#btn-import').addEventListener('click', () => {
+  $('#import-file').value = '';
+  $('#import-results').innerHTML = '';
+  $('#modal-import').classList.add('open');
+});
+$('#btn-template').addEventListener('click', () => {
+  const csv = 'hostname,port,label,owner_email,servername_sni,notes\n'
+    + 'example.nrpi.local,443,Example label,owner@example.com,,Optional notes\n';
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'cert-watchtower-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+$('#btn-import-save').addEventListener('click', async () => {
+  const file = $('#import-file').files[0];
+  if (!file) { showToast('Pick a CSV file first', 'error'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const res = await fetch(API_BASE + '/api/certs/import', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    $('#import-results').innerHTML = `
+      <div style="padding: 12px; background: var(--bg-card); border-radius: 6px; border: 1px solid var(--border); font-size: 13px;">
+        <div><strong>${data.added}</strong> added</div>
+        <div><strong>${data.skipped.length}</strong> skipped (duplicates)</div>
+        <div><strong>${data.errors.length}</strong> errors</div>
+        ${data.errors.length ? '<div style="margin-top: 8px; color: var(--critical); font-size: 12px;">' + data.errors.slice(0,5).map(e => 'line ' + e.line + ': ' + escapeHtml(e.error)).join('<br>') + '</div>' : ''}
+      </div>
+    `;
+    if (data.added > 0) loadMonitors();
+  } catch (e) {
+    showToast('Import failed: ' + e.message, 'error');
+  }
+});
+
+// Detail modal actions
+$('#btn-detail-check').addEventListener('click', async () => {
+  if (!detailMonitorId) return;
+  try {
+    const res = await api(`/api/certs/${detailMonitorId}/check`, { method: 'POST' });
+    showToast(`Check complete: ${res.status}` + (res.daysRemaining !== null ? ` (${res.daysRemaining} days)` : ''), 'success');
+    await loadMonitors();
+    openDetail(detailMonitorId);
+  } catch (e) {
+    showToast('Check failed: ' + e.message, 'error');
+  }
+});
+$('#btn-detail-delete').addEventListener('click', async () => {
+  if (!detailMonitorId) return;
+  const m = monitors.find(x => x.id === detailMonitorId);
+  if (!confirm(`Delete monitor for ${m.hostname}:${m.port}? This removes all check history and alerts.`)) return;
+  try {
+    await api(`/api/certs/${detailMonitorId}`, { method: 'DELETE' });
+    closeModals();
+    showToast('External cert deleted', 'success');
+    loadMonitors();
+  } catch (e) {
+    showToast('Delete failed: ' + e.message, 'error');
+  }
+});
+
+// Settings
+$('#btn-save-config').addEventListener('click', saveConfig);
+$('#btn-reload-config').addEventListener('click', loadConfig);
+
+// PRTG (Phase 2.5)
+$('#btn-save-prtg-config').addEventListener('click', savePrtgConfig);
+$('#btn-reload-prtg-config').addEventListener('click', () => { loadPrtgConfig(); loadPrtgStatus(); });
+$('#btn-prtg-test-push').addEventListener('click', runPrtgTestPush);
+
+// PRTG tab (Step 9)
+$('#btn-prtg-tab-refresh').addEventListener('click', loadPrtgTab);
+$('#btn-prtg-retry-failed').addEventListener('click', retryAllFailed);
+$('#prtg-history-tbody').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-prtg-retry-id]');
+  if (!btn) return;
+  retryOnePush(btn.dataset.prtgRetryKind, Number(btn.dataset.prtgRetryId));
+});
+
+// Alerts
+$('#show-resolved').addEventListener('change', loadAlerts);
+
+// Modal close handlers
+function closeModals() {
+  $$('.modal-backdrop').forEach(m => m.classList.remove('open'));
+  detailMonitorId = null;
+}
+$$('.close-modal').forEach(b => b.addEventListener('click', closeModals));
+$$('.modal-backdrop').forEach(b => {
+  b.addEventListener('click', e => { if (e.target === b) closeModals(); });
+});
+
+// Row click + toggle + check via event delegation
+$('#monitors-tbody').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-id]');
+  if (!tr) return;
+  const id = Number(tr.dataset.id);
+
+  // Check now button
+  const checkBtn = e.target.closest('[data-check-id]');
+  if (checkBtn) {
+    e.stopPropagation();
+    runCheck(Number(checkBtn.dataset.checkId));
+    return;
+  }
+  // Open detail
+  if (!e.target.closest('[data-toggle-id]') && !e.target.closest('.toggle')) {
+    openDetail(id);
+  }
+});
+
+$('#monitors-tbody').addEventListener('change', async e => {
+  const t = e.target.closest('[data-toggle-id]');
+  if (!t) return;
+  const id = Number(t.dataset.toggleId);
+  const enabled = t.checked ? 1 : 0;
+  try {
+    await api(`/api/certs/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    });
+    showToast(enabled ? 'Cert enabled' : 'Cert disabled', 'success');
+    const m = monitors.find(x => x.id === id);
+    if (m) m.enabled = enabled;
+    updateMeta();
+  } catch (e) {
+    showToast('Toggle failed: ' + e.message, 'error');
+    t.checked = !t.checked; // revert
+  }
+});
+
+$('#alerts-list').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-ack-id]');
+  if (!btn) return;
+  const id = Number(btn.dataset.ackId);
+  const who = prompt('Acknowledge as (your name/email):', 'jriggs');
+  if (!who) return;
+  try {
+    await api(`/api/alerts/${id}/ack`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acknowledged_by: who })
+    });
+    showToast('Alert acknowledged', 'success');
+    loadAlerts();
+  } catch (e) {
+    showToast('Ack failed: ' + e.message, 'error');
+  }
+});
+
+async function runCheck(id) {
+  try {
+    const res = await api(`/api/certs/${id}/check`, { method: 'POST' });
+    showToast(`Checked: ${res.status}` + (res.daysRemaining !== null ? ` (${res.daysRemaining} days)` : ''), 'success');
+    loadMonitors();
+  } catch (e) {
+    showToast('Check failed: ' + e.message, 'error');
+  }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModals();
+  if (e.key === 'r' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    $('#btn-refresh').click();
+  }
+});
+
+// ============================================================================
+// FINDINGS PANEL (cert files discovered by WinRM agents)
+// ============================================================================
+let findings = [];
+let activeFindingFilter = 'all';
+
+async function loadFindings() {
+  try {
+    const url = activeFindingFilter === 'missing'
+      ? '/api/findings?missing=1'
+      : '/api/findings';
+    const data = await api(url);
+    findings = data.findings;
+    renderFindings();
+    updateFindingsMeta();
+  } catch (e) {
+    loadFailed('cert-findings', e, { label: 'Findings',
+      tbody: '#findings-tbody', cols: 8, meta: '#findings-meta', badge: '#tab-count-findings' });
+  }
+}
+
+function findingFilterMatches(f) {
+  switch (activeFindingFilter) {
+    case 'all': return true;
+    case 'alerting': return ['info','warning','critical','expired'].includes(f.status);
+    case 'critical': return f.status === 'critical' || f.status === 'expired';
+    case 'warning': return f.status === 'warning';
+    case 'expired': return f.status === 'expired';
+    case 'missing': return true; // server-side filtered
+    default: return true;
+  }
+}
+function findingSearchMatches(f, q) {
+  if (!q) return true;
+  const s = q.toLowerCase();
+  return (f.fqdn || '').toLowerCase().includes(s)
+      || (f.hostname || '').toLowerCase().includes(s)
+      || (f.subject_cn || '').toLowerCase().includes(s)
+      || (f.issuer_cn || '').toLowerCase().includes(s)
+      || (f.store_name || '').toLowerCase().includes(s);
+}
+
+function renderFindings() {
+  const q = $('#finding-search').value.trim();
+  const tbody = $('#findings-tbody');
+  const visible = findings.filter(f => findingFilterMatches(f) && findingSearchMatches(f, q));
+  $('#tab-count-findings').textContent = findings.length;
+
+  if (visible.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">
+      <div class="big">${findings.length === 0 ? 'No findings yet.' : 'Nothing matches.'}</div>
+      <div>${findings.length === 0 ? 'Add a scan target to start discovering certs.' : 'Try clearing the filter or search.'}</div>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = visible.map(f => `
+    <tr data-finding-id="${f.id}">
+      <td class="host">${escapeHtml(f.hostname || f.fqdn)}</td>
+      <td class="host" style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(f.store_name)}${f.store_location ? '<br><span style="color: var(--text-faint);">' + escapeHtml(f.store_location) + '</span>' : ''}</td>
+      <td>${escapeHtml(f.subject_cn || '—')}</td>
+      <td style="color: var(--text-dim); font-size: 12px;">${escapeHtml(f.issuer_cn || '—')}</td>
+      <td>${statusPill(f.status)}</td>
+      <td class="numeric">${f.days_remaining ?? '—'}</td>
+      <td title="${f.last_seen_at ? fmtDate(f.last_seen_at) : ''}">${fmtRelative(f.last_seen_at)}</td>
+      <td class="actions">${f.prtg_push_enabled && f.prtg_token_set ? `<span title="PRTG push configured (last: ${f.prtg_last_push_status || 'pending'})" style="color: var(--accent); font-size: 13px;">📡</span>` : ''}</td>
+    </tr>
+  `).join('');
+}
+
+function updateFindingsMeta() {
+  const total = findings.length;
+  const alerting = findings.filter(f => ['info','warning','critical','expired'].includes(f.status)).length;
+  const hosts = new Set(findings.map(f => f.fqdn)).size;
+  $('#findings-meta').innerHTML = `
+    <strong>${total}</strong> finding${total !== 1 ? 's' : ''}
+    <span class="dot">•</span>
+    <strong>${hosts}</strong> host${hosts !== 1 ? 's' : ''}
+    <span class="dot">•</span>
+    <strong>${alerting}</strong> alerting
+  `;
+}
+
+async function openFindingDetail(id) {
+  const f = findings.find(x => x.id === id);
+  if (!f) return;
+  $('#finding-detail-title').textContent = `${f.subject_cn || 'cert'} on ${f.fqdn}`;
+  $('#modal-finding-detail').classList.add('open');
+  try {
+    const data = await api(`/api/findings/${id}`);
+    renderFindingDetail(data.finding);
+  } catch (e) {
+    $('#finding-detail-body').innerHTML = `<div class="empty">Failed to load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderFindingDetail(f) {
+  const sans = f.san_list ? (typeof f.san_list === 'string' ? JSON.parse(f.san_list) : f.san_list) : [];
+  $('#finding-detail-body').innerHTML = `
+    <div class="kv-grid">
+      <div class="k">Status</div><div class="v">${statusPill(f.status)} ${f.days_remaining !== null ? '<span style="color: var(--text-dim); margin-left: 8px;">' + f.days_remaining + ' days remaining</span>' : ''}</div>
+      <div class="k">Found on</div><div class="v">${escapeHtml(f.fqdn)} (${escapeHtml(f.os_family || '')})</div>
+      <div class="k">Store</div><div class="v">${escapeHtml(f.store_name)}${f.store_location ? ' / ' + escapeHtml(f.store_location) : ''}</div>
+      <div class="k">Subject</div><div class="v">${escapeHtml(f.subject || '—')}</div>
+      <div class="k">Issuer</div><div class="v">${escapeHtml(f.issuer || '—')}</div>
+      <div class="k">Valid from</div><div class="v">${f.not_before ? fmtDate(f.not_before) : '—'}</div>
+      <div class="k">Valid until</div><div class="v">${f.not_after ? fmtDate(f.not_after) : '—'}</div>
+      <div class="k">Self-signed</div><div class="v ${f.is_self_signed ? 'flag-warn' : 'flag-good'}">${f.is_self_signed ? 'Yes' : 'No'}</div>
+      <div class="k">Has private key</div><div class="v ${f.has_private_key ? 'flag-good' : 'flag-warn'}">${f.has_private_key ? 'Yes' : 'No'}</div>
+      <div class="k">Key</div><div class="v">${escapeHtml(f.key_algorithm || '—')}${f.key_size ? ' (' + f.key_size + ' bits)' : ''}</div>
+      <div class="k">Signature</div><div class="v">${escapeHtml(f.signature_algorithm || '—')}</div>
+      <div class="k">Serial</div><div class="v">${escapeHtml(f.serial_number || '—')}</div>
+      <div class="k">SHA-1</div><div class="v">${escapeHtml(f.thumbprint_sha1)}</div>
+      <div class="k">SHA-256</div><div class="v">${escapeHtml(f.fingerprint_sha256 || '—')}</div>
+      ${sans.length ? `<div class="k">SANs</div><div class="v">${sans.map(escapeHtml).join('<br>')}</div>` : ''}
+      <div class="k">First seen</div><div class="v">${fmtDate(f.first_seen_at)}</div>
+      <div class="k">Last seen</div><div class="v">${fmtDate(f.last_seen_at)}</div>
+    </div>
+
+    <div class="section-title">PRTG Push</div>
+    <div id="prtg-finding-section" data-finding-id="${f.id}">
+      <div class="empty" style="padding: 12px;">Loading PRTG settings…</div>
+    </div>
+  `;
+  loadPrtgFindingSection(f.id);
+}
+
+// ============================================================================
+// SCAN TARGETS PANEL (Windows servers)
+// ============================================================================
+let scanTargets = [];
+let detailTargetId = null;
+
+async function loadTargets() {
+  try {
+    const data = await api('/api/agents');
+    scanTargets = data.agents;
+    renderTargets(data.thresholds);
+    updateTargetsMeta();
+  } catch (e) {
+    loadFailed('cert-targets', e, { label: 'Scan targets',
+      tbody: '#targets-tbody', cols: 8, meta: '#targets-meta', badge: '#tab-count-targets' });
+  }
+}
+
+function targetSearchMatches(t, q) {
+  if (!q) return true;
+  const s = q.toLowerCase();
+  return (t.fqdn || '').toLowerCase().includes(s)
+      || (t.hostname || '').toLowerCase().includes(s)
+      || (t.notes || '').toLowerCase().includes(s);
+}
+
+function stalenessPill(staleness) {
+  if (staleness === 'never') return '<span class="status status-none">never checked in</span>';
+  if (staleness === 'stale_critical') return '<span class="status status-critical">stale</span>';
+  if (staleness === 'stale_warning') return '<span class="status status-warning">stale</span>';
+  return '<span class="status status-ok">fresh</span>';
+}
+
+function renderTargets() {
+  const q = $('#target-search').value.trim();
+  const tbody = $('#targets-tbody');
+  const visible = scanTargets.filter(t => targetSearchMatches(t, q));
+  $('#tab-count-targets').textContent = scanTargets.length;
+
+  if (visible.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">
+      <div class="big">${scanTargets.length === 0 ? 'No scan targets yet.' : 'Nothing matches.'}</div>
+      <div>${scanTargets.length === 0 ? 'Click "Add Scan Target" to register your first Windows server.' : 'Try clearing the search.'}</div>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = visible.map(t => {
+    const errorBit = t.last_checkin_status === 'error'
+      ? `<br><span style="color: var(--critical); font-size: 11px;" title="${escapeHtml(t.last_error || '')}">⚠ last run failed</span>`
+      : '';
+    return `
+    <tr data-target-id="${t.id}">
+      <td class="host">${escapeHtml(t.fqdn)}</td>
+      <td>${escapeHtml(t.hostname || '—')}</td>
+      <td style="color: var(--text-dim); font-size: 12px;">${escapeHtml(t.os_version || '—')}</td>
+      <td title="${t.last_checkin_at ? fmtDate(t.last_checkin_at) : ''}">${fmtRelative(t.last_checkin_at)}${errorBit}</td>
+      <td>${stalenessPill(t.staleness)}</td>
+      <td class="numeric">
+        ${t.finding_count || 0}${t.finding_alerting_count > 0 ? ' <span style="color: var(--warning);">(' + t.finding_alerting_count + '⚠)</span>' : ''}
+        ${t.watched_issued_count > 0 ? '<br><span style="color:var(--accent);font-size:11px;">+ ' + t.watched_issued_count + ' watched</span>' : ''}
+      </td>
+      <td>
+        <label class="toggle" onclick="event.stopPropagation();">
+          <input type="checkbox" ${t.enabled ? 'checked' : ''} data-target-toggle-id="${t.id}">
+          <span class="track"></span>
+        </label>
+      </td>
+      <td class="actions" onclick="event.stopPropagation();">
+        ${t.prtg_push_enabled && t.prtg_token_set ? `<span title="PRTG push configured (last: ${t.prtg_last_push_status || 'pending'})" style="color: var(--accent); margin-right: 6px; font-size: 13px;">📡</span>` : ''}
+        <button class="btn btn-icon btn-ghost" data-target-scan-id="${t.id}" title="Scan now">↻</button>
+      </td>
+    </tr>
+  `;}).join('');
+}
+
+function updateTargetsMeta() {
+  const total = scanTargets.length;
+  const enabled = scanTargets.filter(t => t.enabled).length;
+  const stale = scanTargets.filter(t => t.staleness === 'stale_warning' || t.staleness === 'stale_critical').length;
+  const errored = scanTargets.filter(t => t.last_checkin_status === 'error').length;
+  $('#targets-meta').innerHTML = `
+    <strong>${total}</strong> target${total !== 1 ? 's' : ''}
+    <span class="dot">•</span>
+    <strong>${enabled}</strong> enabled
+    <span class="dot">•</span>
+    <strong>${stale}</strong> stale
+    <span class="dot">•</span>
+    <strong>${errored}</strong> errored
+  `;
+}
+
+async function openTargetDetail(id) {
+  detailTargetId = id;
+  const t = scanTargets.find(x => x.id === id);
+  if (!t) return;
+  $('#target-detail-title').textContent = t.fqdn;
+  $('#target-detail-body').innerHTML = `<div class="empty">Loading…</div>`;
+  $('#modal-target-detail').classList.add('open');
+  try {
+    const [data, issuedData] = await Promise.all([
+      api(`/api/agents/${id}`),
+      api(`/api/agents/${id}/issued`).catch(() => ({ certs: [] }))
+    ]);
+    renderTargetDetail(data.agent, data.findings, issuedData.certs || []);
+  } catch (e) {
+    $('#target-detail-body').innerHTML = `<div class="empty">Failed to load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderTargetDetail(t, findingsArr, issuedCerts) {
+  issuedCerts = issuedCerts || [];
+  const errorBit = t.last_error
+    ? `<div class="k">Last error</div><div class="v" style="color: var(--critical); font-family: inherit;">${escapeHtml(t.last_error)}</div>`
+    : '';
+  $('#target-detail-body').innerHTML = `
+    <div class="kv-grid">
+      <div class="k">FQDN</div><div class="v">${escapeHtml(t.fqdn)}</div>
+      <div class="k">Hostname</div><div class="v">${escapeHtml(t.hostname || '—')}</div>
+      <div class="k">OS</div><div class="v">${escapeHtml(t.os_version || '—')}</div>
+      <div class="k">Target host</div><div class="v">${escapeHtml(t.target_host || t.fqdn)}</div>
+      <div class="k">WinRM</div><div class="v">${t.winrm_use_ssl ? 'https' : 'http'}://${escapeHtml(t.target_host || t.fqdn)}:${t.winrm_port} (${escapeHtml(t.winrm_transport)})</div>
+      <div class="k">Cert stores</div><div class="v">${escapeHtml(t.scan_stores || 'LocalMachine\\My')}</div>
+      <div class="k">IIS scan</div><div class="v">${t.scan_iis ? 'Yes' : 'No'}</div>
+      <div class="k">Enabled</div><div class="v">${t.enabled ? 'Yes' : 'No'}</div>
+      <div class="k">First seen</div><div class="v">${fmtDate(t.first_seen_at)}</div>
+      <div class="k">Last check-in</div><div class="v">${t.last_checkin_at ? fmtDate(t.last_checkin_at) : 'never'}</div>
+      <div class="k">Status</div><div class="v">${escapeHtml(t.last_checkin_status || '—')}</div>
+      ${errorBit}
+      <div class="k">CA Server</div><div class="v">${t.is_ca ? '<span style="color:var(--ok);">Yes</span>' : 'No'}</div>
+      ${t.is_ca && t.ca_name ? `<div class="k">CA Name</div><div class="v">${escapeHtml(t.ca_name)}</div>` : ''}
+      ${t.notes ? `<div class="k">Notes</div><div class="v" style="font-family: inherit;">${escapeHtml(t.notes)}</div>` : ''}
+    </div>
+
+    <div class="section-title">Findings on this target (${findingsArr.length})</div>
+    ${findingsArr.length === 0 ? '<div class="empty">No findings yet — has a scan run?</div>' : `
+      <table class="history-table">
+        <thead><tr><th>Subject</th><th>Issuer</th><th>Store</th><th>Status</th><th>Days</th><th>Last seen</th></tr></thead>
+        <tbody>
+          ${findingsArr.map(f => `
+            <tr>
+              <td>${escapeHtml(f.subject_cn || '—')}</td>
+              <td style="color: var(--text-dim);">${escapeHtml(f.issuer_cn || '—')}</td>
+              <td style="color: var(--text-dim);">${escapeHtml(f.store_name)}${f.store_location ? '/' + escapeHtml(f.store_location) : ''}</td>
+              <td>${statusPill(f.status)}</td>
+              <td>${f.days_remaining ?? '—'}</td>
+              <td>${fmtRelative(f.last_seen_at)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `}
+
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;">
+      <span>CA Issued Certificates (${issuedCerts.length})</span>
+      <button class="btn btn-ghost btn-icon" id="btn-modal-rescan" data-agent-id="${t.id}">&#8635; Rescan</button>
+    </div>
+    <p style="color:var(--text-faint);font-size:12px;margin:-6px 0 10px 0;">Check certs to monitor/alert. Watched certs push to PRTG.</p>
+    ${issuedCerts.length > 0 ? `<div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <label style="font-size:12px;color:var(--text-dim);">Template</label>
+      <select id="issued-template-filter" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font:inherit;font-size:12px;">
+        <option value="">All templates</option>
+        ${[...new Set(issuedCerts.map(c => c.cert_template).filter(Boolean))].sort().map(t => `<option value="${escapeHtml(t)}" ${t === 'WebServer' ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+      </select>
+      <input type="text" id="issued-serial-search" placeholder="Search CN or serial…" style="background:var(--bg-card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font:inherit;font-size:12px;min-width:220px;">
+      <span id="issued-filter-count" style="font-size:12px;color:var(--text-dim);"></span>
+    </div>` : ''}
+    <div id="issued-certs-panel">${issuedCerts.length === 0 ? '<div class="empty" style="padding:16px;">No CA issued certs found. Click Rescan to query.' + '</div>' : renderIssuedCertsTable(issuedCerts, 'WebServer')}</div>
+    ${issuedCerts.length > 0 ? `<div style="display:flex;gap:8px;margin-top:10px;"><button class="btn btn-primary" id="btn-save-watch" data-rbac-page="cert-watchtower" data-rbac-level="admin">Save Selection</button><span id="watch-save-result" style="font-size:12px;color:var(--text-dim);align-self:center;"></span></div>` : ""}
+
+    <div class="section-title" style="margin-top:20px;">PRTG Push (server rollup)</div>
+    <div id="prtg-agent-section" data-agent-id="${t.id}">
+      <div class="empty" style="padding: 12px;">Loading PRTG settings…</div>
+    </div>
+  `;
+  loadPrtgAgentSection(t.id);
+  // Wire buttons after DOM update
+  const _issuedCertsForFilter = issuedCerts;
+  setTimeout(() => {
+    const rb = document.getElementById("btn-modal-rescan");
+    if (rb) rb.addEventListener("click", () => runRescan(t.id, _issuedCertsForFilter));
+    const sb = document.getElementById("btn-save-watch");
+    if (sb) sb.addEventListener("click", () => saveWatchSelection(t.id));
+    wireIssuedCertsTable();
+    wireTemplateFilter(_issuedCertsForFilter);
+  }, 0);
+}
+
+// Event wiring for findings tab
+$('#finding-search').addEventListener('input', renderFindings);
+$$('#finding-filter-pills .pill').forEach(p => {
+  p.addEventListener('click', () => {
+    activeFindingFilter = p.dataset.findingFilter;
+    $$('#finding-filter-pills .pill').forEach(x => x.classList.toggle('active', x === p));
+    loadFindings();
+  });
+});
+$('#findings-tbody').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-finding-id]');
+  if (!tr) return;
+  openFindingDetail(Number(tr.dataset.findingId));
+});
+
+// Event wiring for targets tab
+$('#target-search').addEventListener('input', renderTargets);
+$('#btn-add-target').addEventListener('click', () => {
+  ['fqdn','target-host','notes','ca-name'].forEach(f => { const el = $('#target-' + f); if (el) el.value = ''; });
+  $('#target-port').value = '5985';
+  $('#target-ssl').value = '0';
+  $('#target-transport').value = 'ntlm';
+  $('#target-stores').value = 'LocalMachine\\My';
+  $('#target-scan-iis').value = '1';
+  $('#target-is-ca').value = '0';
+  $('#ca-name-row').style.display = 'none';
+  $('#modal-add-target').classList.add('open');
+  setTimeout(() => $('#target-fqdn').focus(), 100);
+});
+
+// Show/hide CA name field based on is_ca toggle
+$('#target-is-ca').addEventListener('change', () => {
+  $('#ca-name-row').style.display = $('#target-is-ca').value === '1' ? 'block' : 'none';
+});
+$('#btn-add-target-save').addEventListener('click', async () => {
+  const body = {
+    fqdn: $('#target-fqdn').value.trim(),
+    target_host: $('#target-target-host').value.trim() || null,
+    winrm_port: Number($('#target-port').value),
+    winrm_use_ssl: Number($('#target-ssl').value),
+    winrm_transport: $('#target-transport').value,
+    scan_stores: $('#target-stores').value.trim() || 'LocalMachine\\My',
+    scan_iis: Number($('#target-scan-iis').value),
+    notes: $('#target-notes').value.trim() || null,
+    is_ca: Number($('#target-is-ca').value),
+    ca_name: $('#target-ca-name').value.trim() || null
+  };
+  if (!body.fqdn) { showToast('FQDN required', 'error'); return; }
+  try {
+    await api('/api/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    closeModals();
+    showToast('Scan target added — runs at next cron, or click Scan Now', 'success');
+    loadTargets();
+  } catch (e) {
+    showToast('Add failed: ' + e.message, 'error');
+  }
+});
+
+$('#targets-tbody').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-target-id]');
+  if (!tr) return;
+  const id = Number(tr.dataset.targetId);
+  const scanBtn = e.target.closest('[data-target-scan-id]');
+  if (scanBtn) {
+    e.stopPropagation();
+    runScanNow(Number(scanBtn.dataset.targetScanId));
+    return;
+  }
+  if (!e.target.closest('[data-target-toggle-id]') && !e.target.closest('.toggle')) {
+    openTargetDetail(id);
+  }
+});
+
+$('#targets-tbody').addEventListener('change', async e => {
+  const t = e.target.closest('[data-target-toggle-id]');
+  if (!t) return;
+  const id = Number(t.dataset.targetToggleId);
+  const enabled = t.checked ? 1 : 0;
+  try {
+    await api(`/api/agents/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    });
+    showToast(enabled ? 'Target enabled' : 'Target disabled', 'success');
+    const target = scanTargets.find(x => x.id === id);
+    if (target) target.enabled = enabled;
+    updateTargetsMeta();
+  } catch (e) {
+    showToast('Toggle failed: ' + e.message, 'error');
+    t.checked = !t.checked;
+  }
+});
+
+async function runScanNow(id) {
+  showToast('Scanning…', '');
+  try {
+    const res = await api(`/api/agents/${id}/scan-now`, { method: 'POST' });
+    showToast(`Scan complete: ${res.findings_processed} finding(s)`, 'success');
+    loadTargets();
+  } catch (e) {
+    showToast('Scan failed: ' + e.message, 'error');
+  }
+}
+
+$('#btn-target-detail-scan').addEventListener('click', () => {
+  if (detailTargetId) {
+    runScanNow(detailTargetId);
+    setTimeout(() => openTargetDetail(detailTargetId), 1500);
+  }
+});
+$('#btn-target-detail-delete').addEventListener('click', async () => {
+  if (!detailTargetId) return;
+  const t = scanTargets.find(x => x.id === detailTargetId);
+  if (!confirm(`Delete scan target ${t.fqdn}? Removes all its findings too.`)) return;
+  try {
+    await api(`/api/agents/${detailTargetId}`, { method: 'DELETE' });
+    closeModals();
+    showToast('Target deleted', 'success');
+    loadTargets();
+  } catch (e) {
+    showToast('Delete failed: ' + e.message, 'error');
+  }
+});
+
+
+// ============================================================================
+// Issued certs table (CA cert store) — v1.2.0
+// ============================================================================
+function renderIssuedCertsTable(certs, templateFilter, serialSearch) {
+  let filtered = templateFilter ? certs.filter(c => c.cert_template === templateFilter) : certs;
+  if (serialSearch) {
+    const q = serialSearch.toLowerCase();
+    filtered = filtered.filter(c =>
+      (c.serial_number || '').toLowerCase().includes(q) ||
+      (c.subject_cn || '').toLowerCase().includes(q)
+    );
+  }
+  // Update count label if present
+  const countEl = document.getElementById('issued-filter-count');
+  if (countEl) countEl.textContent = filtered.length + ' of ' + certs.length + ' certs';
+  const rows = filtered.map(c => {
+    const requester = (c.requester_name || '').split('\\').pop() || '\u2014';
+    return '<tr>' +
+      '<td><input type="checkbox" class="issued-watch-cb" data-serial="' + escapeHtml(c.serial_number) + '" ' + (c.is_watched ? 'checked' : '') + '></td>' +
+      '<td>' + escapeHtml(c.subject_cn || '\u2014') + '</td>' +
+      '<td style="color:var(--text-dim);font-size:12px;">' + escapeHtml(c.cert_template || '\u2014') + '</td>' +
+      '<td>' + statusPill(c.cert_status) + '</td>' +
+      '<td class="numeric">' + (c.days_remaining != null ? c.days_remaining : '\u2014') + '</td>' +
+      '<td style="font-size:12px;">' + (c.not_after ? fmtDate(c.not_after).split(',')[0] : '\u2014') + '</td>' +
+      '<td style="color:var(--text-dim);font-size:12px;">' + escapeHtml(requester) + '</td>' +
+      '<td class="mono">' + escapeHtml(c.serial_number || '\u2014') + '</td>' +
+    '</tr>';
+  }).join('');
+  return '<div style="overflow-x:auto;"><table class="cert-select-table"><thead><tr>' +
+    '<th style="width:32px;"><input type="checkbox" id="check-all-issued" title="Select all"></th>' +
+    '<th>Subject CN</th><th>Template</th><th>Status</th><th>Days Left</th><th>Expires</th><th>Requester</th><th class="mono">Serial</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+function wireIssuedCertsTable() {
+  const sa = document.getElementById('check-all-issued');
+  if (!sa || sa._wired) return;
+  sa._wired = true;
+  sa.addEventListener('change', () => {
+    document.querySelectorAll('.issued-watch-cb').forEach(cb => { cb.checked = sa.checked; });
+  });
+}
+
+function wireTemplateFilter(allCerts) {
+  const sel = document.getElementById('issued-template-filter');
+  const searchEl = document.getElementById('issued-serial-search');
+  if (!sel || sel._wired) return;
+  sel._wired = true;
+
+  function applyFilters() {
+    const filter = sel ? sel.value : '';
+    const q = searchEl ? searchEl.value.trim() : '';
+    const panel = document.getElementById('issued-certs-panel');
+    if (panel) {
+      panel.innerHTML = renderIssuedCertsTable(allCerts, filter, q);
+      wireIssuedCertsTable();
+    }
+  }
+
+  // Set initial count
+  applyFilters();
+
+  sel.addEventListener('change', applyFilters);
+  if (searchEl) {
+    searchEl.addEventListener('input', applyFilters);
+  }
+}
+
+async function runRescan(agentId) {
+  const btn = document.getElementById('btn-modal-rescan');
+  if (btn) { btn.disabled = true; btn.textContent = 'Scanning...'; }
+  try {
+    const data = await api('/api/agents/' + agentId + '/rescan', { method: 'POST' });
+    const certs = data.certs || [];
+    const panel = document.getElementById('issued-certs-panel');
+    if (panel) {
+      // After rescan, default filter to WebServer if present
+      const defaultFilter = certs.some(c => c.cert_template === 'WebServer') ? 'WebServer' : '';
+      panel.innerHTML = certs.length === 0
+        ? '<div class="empty" style="padding:16px;">No CA issued certs found.</div>'
+        : renderIssuedCertsTable(certs, defaultFilter, '');
+      wireIssuedCertsTable();
+      // Reset controls
+      const sel = document.getElementById('issued-template-filter');
+      if (sel) { sel.value = defaultFilter; sel._wired = false; }
+      const searchEl = document.getElementById('issued-serial-search');
+      if (searchEl) searchEl.value = '';
+      wireTemplateFilter(certs);
+    }
+    showToast('Rescan complete \u2014 ' + certs.length + ' cert(s) found', 'success');
+  } catch (e) {
+    showToast('Rescan failed: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '\u21bb Rescan'; }
+  }
+}
+
+async function saveWatchSelection(agentId) {
+  const checkboxes = document.querySelectorAll('.issued-watch-cb:checked');
+  const serials = Array.from(checkboxes).map(cb => cb.dataset.serial).filter(Boolean);
+  const resultEl = document.getElementById('watch-save-result');
+  const btn = document.getElementById('btn-save-watch');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  try {
+    const data = await api('/api/agents/' + agentId + '/issued/watch', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ serials: serials })
+    });
+    if (resultEl) resultEl.textContent = '\u2713 Saved \u2014 ' + data.watched + ' watched, ' + data.unwatched + ' unwatched';
+    showToast('Cert selection saved', 'success');
+    loadTargets(); // refresh findings count in targets table
+  } catch (e) {
+    showToast('Save failed: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Selection'; }
+  }
+}
+
+// ============================================================================
+// Cloud Services / Intune (v1.2.0)
+// ============================================================================
+async function loadCloudCerts() {
+  const list = document.getElementById('cloud-certs-list');
+  if (!list) return;
+  try {
+    const data = await api('/api/cert/intune');
+    const certs = data.certs || [];
+    if (certs.length === 0) {
+      list.innerHTML = '<div style="color:var(--text-faint);font-size:13px;padding:8px 0;">No cloud certs synced yet. Click Sync Now to pull from Intune.</div>';
+      return;
+    }
+    list.innerHTML = certs.map(function(c) {
+      const syncedAgo = c.last_synced_at ? fmtRelative(c.last_synced_at) : 'never';
+      return '<div class="cloud-cert-card">' +
+        '<div class="cloud-cert-info">' +
+          '<div class="name">' + escapeHtml(c.display_name) + '</div>' +
+          '<div class="meta">' +
+            '<span>' + statusPill(c.cert_status) + '</span>' +
+            '<span>' + (c.days_remaining != null ? c.days_remaining + ' days remaining' : '\u2014') + '</span>' +
+            (c.not_after ? '<span style="color:var(--text-faint);">expires ' + fmtDate(c.not_after).split(',')[0] + '</span>' : '') +
+            (c.apple_identifier ? '<span style="color:var(--text-faint);">Apple ID: ' + escapeHtml(c.apple_identifier) + '</span>' : '') +
+            '<span style="color:var(--text-faint);">synced ' + syncedAgo + '</span>' +
+          '</div>' +
+        '</div>' +
+        (c.prtg_push_enabled && c.prtg_token_set ? '<span title="PRTG push configured" style="color:var(--accent);">&#x1F4E1;</span>' : '') +
+      '</div>';
+    }).join('');
+  } catch (e) {
+    try {
+      if (window.ITObserve) ITObserve.degraded('cert-cloud', 'Cloud certificates could not be loaded', 'load error: ' + e.message);
+    } catch (_) {}
+    list.innerHTML = '<div style="color:var(--critical);font-size:13px;">Cloud certificates could not be loaded: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function syncIntuneNow() {
+  const btn = document.getElementById('btn-intune-sync');
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing...'; }
+  try {
+    await api('/api/cert/intune/sync', { method: 'POST' });
+    showToast('Intune sync complete', 'success');
+    loadCloudCerts();
+  } catch (e) {
+    showToast('Intune sync failed: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Sync Now'; }
+  }
+}
+
+document.addEventListener('click', function(e) {
+  if (e.target && e.target.id === 'btn-intune-sync') syncIntuneNow();
+});
+
+// Initial load
+loadMonitors();
+</script>
+<script src="/it-version.js" data-app-key="cert-watchtower" defer></script>
+<script src="/it-topbar.js" defer></script>
+<script src="/feed-freshness.js" data-page="cert-watchtower" defer></script>
+</body>
+</html>

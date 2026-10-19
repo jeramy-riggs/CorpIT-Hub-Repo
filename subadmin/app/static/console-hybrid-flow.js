@@ -1,0 +1,47 @@
+(function(){'use strict';
+function node(tag,text,cls){var e=document.createElement(tag);if(text!=null)e.textContent=text;if(cls)e.className=cls;return e;}
+function button(text,fn,cls){var b=node('button',text,cls||'btn sm');b.type='button';b.addEventListener('click',fn);return b;}
+// Access is a full-width collection followed by a detail view, never a second rail.
+document.querySelectorAll('[data-agw-panel]').forEach(function(board){var kind=board.dataset.agwPanel,queue=board.querySelector('.agw-queue'),detail=board.querySelector('.agw-detail'),rows=Array.from(board.querySelectorAll(kind==='sites'?'[data-agw-site]':'[data-agw-group]')),search=board.querySelector('input[type=search]'),page=0,selected=null;
+ var back=button(kind==='sites'?'← All sites':'← All groups',function(){board.classList.remove('hybrid-detail-open');board.querySelector('.agw-queue').scrollIntoView({block:'start'});if(selected)selected.focus({preventScroll:true});},'hybrid-back');detail.prepend(back);
+ function open(row){selected=row;board.classList.add('hybrid-detail-open');var h=detail.querySelector('h3');h.tabIndex=-1;h.focus({preventScroll:true});board.scrollIntoView({block:'start',behavior:'auto'});}
+ rows.forEach(function(row){row.addEventListener('click',function(){open(row);});});
+ var count=node('span'),pager=node('div',null,'collection-tools'),prev=button('Previous',function(){page--;paint();}),next=button('Next',function(){page++;paint();});pager.append(prev,count,next);queue.append(pager);count.setAttribute('role','status');
+ function paint(){var q=search.value.toLowerCase().trim(),filter=board.querySelector('.agw-filters .is-active'),key=filter?(filter.dataset.agwSiteFilter||filter.dataset.agwGroupFilter):'all',list=rows.filter(function(row){return (!q||row.dataset.name.includes(q))&&(key==='all'||row.dataset[key]==='1');});page=Math.max(0,Math.min(page,Math.ceil(list.length/10)-1));rows.forEach(function(row){var index=list.indexOf(row);row.hidden=index<page*10||index>=(page+1)*10;});prev.disabled=page===0;next.disabled=(page+1)*10>=list.length;count.textContent=list.length?'Showing '+(page*10+1)+'–'+Math.min(page*10+10,list.length)+' of '+list.length:'No matches';}
+ search.addEventListener('input',function(){page=0;paint();});board.querySelectorAll('.agw-filters button').forEach(function(b){b.addEventListener('click',function(){page=0;paint();});});paint();
+ if(kind==='sites'){var start=document.querySelector('[data-agw-start]');if(start)start.addEventListener('click',function(){open(rows.find(function(r){return r.dataset.agwSite===start.dataset.agwStart;}));});}
+ detail.querySelectorAll('.agw-section').forEach(function(section,index){if(index===0)return;var heading=section.querySelector('h4');if(!heading)return;var disclosure=node('details',null,'hybrid-disclosure'),summary=node('summary',heading.textContent);heading.hidden=true;section.before(disclosure);disclosure.append(summary,section);});
+});
+// A settings form gets one labelled section selector in the work area.
+document.querySelectorAll('.console-settings-workbench').forEach(function(work){var nav=work.querySelector('nav'),buttons=Array.from(nav.querySelectorAll('[data-settings-section]')),wrap=node('div',null,'hybrid-form-selector'),label=node('label','Settings section'),select=node('select');select.id='hybrid-settings-section';label.htmlFor=select.id;buttons.forEach(function(b){select.append(new Option(b.textContent,b.dataset.settingsSection));});select.addEventListener('change',function(){buttons.find(function(b){return b.dataset.settingsSection===select.value;}).click();});wrap.append(label,select);work.before(wrap);var form=work.closest('form');if(form)form.addEventListener('invalid',function(e){var p=e.target.closest('[data-settings-panel]');if(p)select.value=p.dataset.settingsPanel;},true);});
+window.addEventListener('console-route',function(){document.querySelectorAll('.agw-board').forEach(function(b){b.classList.remove('hybrid-detail-open');});});
+})();
+
+(function(){'use strict';
+var frame=document.getElementById('advanced-workspace');if(!frame)return;
+var tabs=['overview','findings','security','servers','vhosts','jobs','apis','processes','database','backups','cleanup','updates','maint','thresholds','activity','apiinv'],current='',observer=null;
+function selected(){var p=location.hash.slice(1).split('/');return p[0]==='advanced'?(tabs.includes(p[1])?p[1]:'overview'):null;}
+function theme(){try{if(frame.contentDocument)frame.contentDocument.documentElement.dataset.theme=document.documentElement.dataset.theme||'light';}catch(e){/* A sign-in redirect may temporarily change origin. */}}
+function resize(){try{var doc=frame.contentDocument,main=doc&&doc.querySelector('.content');if(main){var bottom=main.getBoundingClientRect().bottom+frame.contentWindow.scrollY;frame.style.height=Math.max(600,Math.ceil(bottom+30))+'px';}}catch(e){/* Keep the fallback height during sign-in. */}}
+function route(){var tab=selected();if(!tab)return;if(!frame.getAttribute('src')){frame.src='/operations/workspace#'+tab;current=tab;return;}try{var doc=frame.contentDocument,b=doc&&doc.querySelector('.rail [data-tab="'+tab+'"]');if(b&&current!==tab){current=tab;b.click();resize();}}catch(e){/* The page retains its own access check. */}}
+frame.addEventListener('load',function(){if(observer)observer.disconnect();try{var doc=frame.contentDocument;if(!doc||!doc.querySelector('.rail')){frame.hidden=false;document.getElementById('advanced-loading').hidden=true;return;}var css=doc.createElement('link');css.rel='stylesheet';css.href='/static/console-hybrid-embedded.css?v=20261012noc1';css.addEventListener('load',function(){frame.hidden=false;document.getElementById('advanced-loading').hidden=true;resize();});doc.head.append(css);theme();current='';route();observer=new ResizeObserver(resize);observer.observe(doc.querySelector('.content')||doc.body);doc.addEventListener('click',function(e){var tab=e.target.closest('.rail [data-tab]');if(tab&&tabs.includes(tab.dataset.tab)&&selected()!==tab.dataset.tab)location.hash='advanced/'+tab.dataset.tab;});frame.contentWindow.addEventListener('hashchange',function(){var tab=frame.contentWindow.location.hash.slice(1);if(tabs.includes(tab)&&selected()!==tab)location.hash='advanced/'+tab;});}catch(e){frame.hidden=false;document.getElementById('advanced-loading').textContent='Open advanced operations directly to complete sign-in.';}});
+// Preserve the existing page and APIs, routing their links into the shared shell.
+document.addEventListener('click',function(e){var a=e.target.closest('a[href]');if(!a||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||a.target==='_blank')return;var u;try{u=new URL(a.href,location.href);}catch(err){return;}if(u.origin===location.origin&&u.pathname==='/operations/workspace'){e.preventDefault();location.hash='advanced/'+(tabs.includes(u.hash.slice(1))?u.hash.slice(1):'overview');}});
+new MutationObserver(theme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});window.addEventListener('hashchange',route);window.addEventListener('console-route',route);route();
+})();
+
+(function(){'use strict';
+// Context stays with the chosen collection, including its detail views.
+var summary=document.querySelector('.agw-summary'),recommendation=summary&&summary.querySelector('.agw-recommended'),heading=recommendation&&recommendation.querySelector('h3'),description=recommendation&&recommendation.querySelector('p'),start=recommendation&&recommendation.querySelector('button'),original=heading?{heading:heading.textContent,description:description.textContent}:null;
+var health=document.getElementById('health-workspace');
+function context(){
+ var hash=location.hash.slice(1),groups=hash.indexOf('iam/governance/groups')===0;
+ if(original){summary.classList.toggle('hybrid-group-summary',groups);heading.textContent=groups?'Group ownership & assurance':original.heading;description.textContent=groups?'Choose a group to review its owner, membership and enforcement.':original.description;start.hidden=groups;summary.children[1].hidden=groups;summary.children[3].hidden=groups;}
+ var admin=document.getElementById('administration-title');if(admin){var copy=admin.parentElement.querySelector('p');if(copy)copy.textContent=hash==='system/settings'?'Manage sign-in, sessions, notifications and console behavior.':hash==='system/updates'?'Inspect update evidence and review controlled install and reboot actions.':'Review server status, cleanup and the console audit log.';}
+ var section=hash.split('/')[1],copy={status:['All health checks','Inspect live checks, source freshness and detailed evidence across the service estate.'],settings:['Health thresholds','Review the warning and critical limits behind health checks.'],journeys:['User activity & troubleshooting','Follow a person across sign-in, access decisions, application activity and server diagnostics.']}[section];
+ if(health&&copy&&hash.indexOf('health/')===0){try{var doc=health.contentDocument,h=doc&&doc.querySelector('.hc-bar-l h1'),p=doc&&doc.querySelector('.hc-bar-l p');if(h)h.textContent=copy[0];if(p)p.textContent=copy[1];}catch(e){/* Sign-in retains the existing access check. */}}
+}
+if(health)health.addEventListener('load',context);
+window.addEventListener('message',function(e){if(health&&e.origin===location.origin&&e.source===health.contentWindow&&e.data&&e.data.type==='corpit-health-ready')context();});
+window.addEventListener('hashchange',context);window.addEventListener('console-route',context);context();
+})();

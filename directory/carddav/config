@@ -1,0 +1,22 @@
+[server]
+# Loopback only. nginx terminates TLS and proxies in - Radicale itself must
+# never be reachable from the network.
+hosts = 127.0.0.1:5232
+
+[auth]
+type = htpasswd
+htpasswd_filename = /opt/gal-carddav/users
+htpasswd_encryption = bcrypt
+cache_logins = True
+cache_successful_logins_expiry = 900
+cache_failed_logins_expiry = 30
+
+[rights]
+type = from_file
+file = /opt/gal-carddav/rights
+
+[storage]
+filesystem_folder = /opt/gal-carddav/collections
+
+[logging]
+level = warning

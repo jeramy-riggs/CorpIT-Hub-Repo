@@ -1,0 +1,4 @@
+Contact: mailto:jriggs@auction.com
+Expires: 2027-06-30T00:00:00.000Z
+Canonical: https://corpit.nrpi.local/.well-known/security.txt
+Preferred-Languages: en

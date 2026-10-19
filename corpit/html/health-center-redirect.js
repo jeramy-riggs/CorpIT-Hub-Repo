@@ -1,0 +1,1 @@
+(function(){'use strict';var s=location.hash.slice(1);if(['status','settings','journeys'].indexOf(s)<0)s='status';var h=location.hostname==='dev-corpit.nrpi.local'?'dev-subadmin.nrpi.local':'subadmin.nrpi.local';var target='https://'+h+'/health?section='+encodeURIComponent(s);var a=document.getElementById('health-destination');if(a)a.href=target;location.replace(target);})();

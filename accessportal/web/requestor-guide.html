@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script id="portal-theme-boot">
+/* Runs before first paint — no flash. Shared key across every portal page. */
+(function(){try{var t=localStorage.getItem('portal_theme');
+if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Requestor Quick Start Guide – Enterprise Approval Portal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0A1628;--surface:#0F1F35;--surface2:#162540;--surface3:#1c2f4a;
+    --border:rgba(255,255,255,.1);--border2:rgba(255,255,255,.06);
+    --text:#e2e8f0;--text-muted:#94a3b8;--text-faint:#64748b;
+    --blue:#3b82f6;--blue-light:#60a5fa;--blue-dark:#1d4ed8;
+    --accent:#2563eb;--accent-glow:rgba(37,99,235,.25);
+    --green:#22c55e;--yellow:#f59e0b;--red:#ef4444;--orange:#f97316;
+    --r:8px;--r-lg:12px;
+    --sidebar:260px;
+  }
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;line-height:1.6}
+
+  /* SIDEBAR */
+  .sidebar{
+    width:var(--sidebar);min-width:var(--sidebar);background:var(--surface);
+    border-right:1px solid var(--border);position:sticky;top:0;height:100vh;
+    overflow-y:auto;display:flex;flex-direction:column;flex-shrink:0;
+  }
+  .sidebar-brand{padding:20px 18px 14px;border-bottom:1px solid var(--border2)}
+  .sidebar-brand a{color:var(--text-muted);font-size:11px;text-decoration:none;display:flex;align-items:center;gap:5px;margin-bottom:8px;opacity:.7}
+  .sidebar-brand a:hover{opacity:1}
+  .sidebar-brand h2{font-size:13px;font-weight:700;color:var(--text)}
+  .sidebar-brand p{font-size:11px;color:var(--text-faint);margin-top:2px}
+  .sidebar-nav{flex:1;padding:12px 0}
+  .nav-section-label{
+    font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--text-faint);padding:12px 18px 4px
+  }
+  .nav-item{
+    display:block;padding:7px 18px;font-size:12px;color:var(--text-muted);
+    text-decoration:none;border-left:2px solid transparent;transition:.15s;cursor:pointer
+  }
+  .nav-item:hover{color:var(--text);background:rgba(255,255,255,.04)}
+  .nav-item.active{color:var(--blue-light);border-left-color:var(--blue);background:rgba(59,130,246,.08);font-weight:600}
+  .nav-sub{padding-left:28px;font-size:11px}
+
+  /* MAIN */
+  .main{flex:1;padding:48px 56px 80px;max-width:860px}
+  .page-hero{margin-bottom:48px}
+  .page-hero .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--blue-light);margin-bottom:10px}
+  .page-hero h1{font-size:32px;font-weight:800;letter-spacing:-.5px;margin-bottom:10px}
+  .page-hero p{font-size:15px;color:var(--text-muted);max-width:580px;line-height:1.7}
+
+  /* SECTION */
+  .guide-section{margin-bottom:64px;scroll-margin-top:24px}
+  .guide-section h2{
+    font-size:20px;font-weight:800;margin-bottom:4px;
+    display:flex;align-items:center;gap:10px
+  }
+  .guide-section h2 .section-icon{
+    width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:16px;background:var(--accent-glow);flex-shrink:0
+  }
+  .section-meta{font-size:12px;color:var(--text-faint);margin-bottom:20px;padding-left:42px}
+  .section-divider{border:none;border-top:1px solid var(--border2);margin:40px 0}
+
+  /* WORKFLOW BADGE */
+  .workflow-badge{
+    display:inline-flex;align-items:center;gap:0;background:var(--surface2);
+    border:1px solid var(--border);border-radius:20px;padding:4px 6px;margin-bottom:20px;
+    font-size:11px;flex-wrap:wrap;row-gap:4px
+  }
+  .wf-step{
+    display:flex;align-items:center;gap:0;color:var(--text-muted);white-space:nowrap
+  }
+  .wf-step span{
+    background:var(--surface3);border:1px solid var(--border);
+    border-radius:12px;padding:2px 10px;font-weight:600;font-size:11px;color:var(--text)
+  }
+  .wf-arrow{color:var(--text-faint);padding:0 4px;font-size:10px}
+  .wf-time{font-size:11px;color:var(--text-faint);padding:2px 10px;border-left:1px solid var(--border);margin-left:4px}
+
+  /* STEP CARD */
+  .step-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+    margin-bottom:20px;overflow:hidden
+  }
+  .step-header{
+    display:flex;align-items:center;gap:12px;padding:14px 18px;
+    border-bottom:1px solid var(--border2);background:var(--surface2)
+  }
+  .step-num{
+    width:26px;height:26px;border-radius:50%;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:800;flex-shrink:0;color:#fff
+  }
+  .step-header h3{font-size:14px;font-weight:700;flex:1}
+  .step-header .step-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);background:var(--surface3);padding:2px 8px;border-radius:4px}
+  .step-body{padding:18px}
+
+  /* FIELD */
+  .field-block{
+    border:1px solid var(--border2);border-radius:var(--r);margin-bottom:14px;overflow:hidden
+  }
+  .field-label{
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--text-faint);padding:8px 14px;background:var(--surface3);
+    border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:6px
+  }
+  .field-label .req{color:var(--red);font-size:13px}
+  .field-body{padding:12px 14px}
+  .field-body p{font-size:13px;color:var(--text-muted);margin-bottom:8px}
+  .field-example{
+    background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2);
+    border-radius:6px;padding:8px 12px;margin-top:6px
+  }
+  .field-example .ex-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--blue-light);margin-bottom:3px}
+  .field-example .ex-val{font-size:12px;color:var(--text);font-family:monospace}
+  .field-why{
+    background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);
+    border-radius:6px;padding:8px 12px;margin-top:6px;display:flex;gap:7px;align-items:flex-start
+  }
+  .field-why .wy-icon{font-size:12px;margin-top:1px;flex-shrink:0}
+  .field-why p{font-size:12px;color:#86efac;margin:0}
+
+  /* CALLOUTS */
+  .callout{border-radius:var(--r);padding:12px 16px;margin-bottom:16px;font-size:13px;line-height:1.65;display:flex;gap:10px;align-items:flex-start}
+  .callout-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+  .callout.info{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:#93c5fd}
+  .callout.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fcd34d}
+  .callout.danger{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5}
+  .callout.success{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#86efac}
+  .callout strong{font-weight:700}
+  .callout ul{margin:8px 0 0 16px}
+  .callout li{margin-bottom:4px}
+
+  /* STATUS */
+  .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  .status-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+  .status-card .s-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+  .status-card h4{font-size:13px;font-weight:700;margin-bottom:4px}
+  .status-card p{font-size:12px;color:var(--text-muted)}
+
+  /* TIPS */
+  .tips-list{list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .tips-list li{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
+  .tips-list li .tip-n{font-weight:800;color:var(--blue-light);flex-shrink:0;width:18px}
+
+  /* CHECKPOINT */
+  .checkbox-group{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .chk-item{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--text-muted)}
+  .chk-item::before{content:'☐';font-size:15px;color:var(--blue-light);flex-shrink:0;line-height:1.4}
+
+  /* QUICK DECISION */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+  .form-tile{
+    background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);
+    padding:16px;display:flex;flex-direction:column;gap:6px
+  }
+  .form-tile .ft-icon{font-size:22px}
+  .form-tile h4{font-size:13px;font-weight:700}
+  .form-tile p{font-size:11px;color:var(--text-faint);line-height:1.5}
+  a.form-tile{text-decoration:none;color:inherit;cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s}
+  a.form-tile:hover,a.form-tile:focus-visible{border-color:var(--blue);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.18);outline:none}
+  a.form-tile::after{content:'Open walkthrough \2192';font-size:10.5px;font-weight:600;color:var(--blue-light);margin-top:auto;padding-top:4px}
+
+
+  /* request-type artwork chips — the same art as the portal tiles */
+  .ga{display:inline-flex;align-items:center;justify-content:center;border-radius:6px;overflow:hidden;vertical-align:middle;flex-shrink:0;width:46px;height:22px}
+  .ga svg{display:block}
+  .nav-item .ga{width:32px;height:16px;margin-right:7px;border-radius:4px}
+  .ft-icon .ga{width:72px;height:35px;border-radius:8px}
+  .guide-section h2 .section-icon.art{width:58px;height:28px;border-radius:7px;background:none;padding:0;overflow:hidden}
+  .guide-section h2 .section-icon.art .ga{width:58px;height:28px;border-radius:7px}
+  .step-num.art{width:52px;height:26px;border-radius:7px;background:none;padding:0;overflow:hidden}
+  .step-num.art .ga{width:52px;height:26px;border-radius:7px}
+
+  /* SCROLLSPY */
+  .nav-item.active{color:var(--blue-light);border-left-color:var(--blue);background:rgba(59,130,246,.08);font-weight:600}
+
+  @media(max-width:768px){
+    .sidebar{display:none}.main{padding:24px 20px 60px}
+    .form-grid{grid-template-columns:1fr 1fr}.status-grid{grid-template-columns:1fr}
+  }
+</style>
+
+
+
+
+
+
+
+
+<style id="pantone-theme">
+/* ═══ Auction.com brand theme — Step 2 ══════════════════════════════════ */
+.logo-icon,.ap-logo-icon,.pub-logo-icon{background:linear-gradient(135deg,#509E2F,#78BE20)!important}
+.btn-primary,button.btn-primary,a.btn-primary{background:#509E2F!important;background-color:#509E2F!important;border-color:#509E2F!important;color:#fff!important}
+.btn-primary:hover,button.btn-primary:hover{background:#3D7924!important;background-color:#3D7924!important}
+button.btn-primary[style],a.btn-primary[style]{background:#509E2F!important;background-color:#509E2F!important}
+.btn-success,button.btn-success{background:#509E2F!important;background-color:#509E2F!important;color:#fff!important}
+.section-title{border-bottom-color:var(--accent)!important}
+.form-section-title{border-left-color:var(--accent)!important}
+.stat-card{background:var(--bg-card)!important;border-top:2px solid color-mix(in srgb,var(--border) 70%,var(--accent) 30%)!important;border-radius:18px!important;box-shadow:0 1px 3px rgba(0,0,0,.06)!important}
+.stat-card:nth-child(1){border-top-color:var(--accent)!important}
+.stat-card:nth-child(2){border-top-color:#509E2F!important}
+.stat-card:nth-child(3){border-top-color:#78BE20!important}
+.chip{background:var(--bg-card)!important;border:1px solid color-mix(in srgb,var(--border) 88%,var(--accent) 12%)!important;color:var(--text-muted)!important;border-radius:20px!important}
+.chip.active,.chip.selected,.chip.on{background:color-mix(in srgb,var(--accent) 9%,var(--bg-card))!important;color:var(--accent)!important;border-color:var(--accent)!important}
+.wpill{background:color-mix(in srgb,var(--accent) 8%,var(--bg-card))!important;color:var(--accent)!important;border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)!important;border-radius:10px!important}
+.badge-approved{background:color-mix(in srgb,var(--pass) 15%,transparent)!important;color:var(--pass)!important;border-color:color-mix(in srgb,var(--pass) 40%,transparent)!important}
+.badge-pending,.badge-warning{background:color-mix(in srgb,var(--med) 15%,transparent)!important;color:var(--med)!important;border-color:color-mix(in srgb,var(--med) 40%,transparent)!important}
+.badge-danger,.badge-rejected,.badge-denied{background:color-mix(in srgb,var(--crit) 15%,transparent)!important;color:var(--crit)!important;border-color:color-mix(in srgb,var(--crit) 40%,transparent)!important}
+.badge-info,.badge-review{background:color-mix(in srgb,var(--accent) 12%,transparent)!important;color:var(--accent)!important;border-color:color-mix(in srgb,var(--accent) 35%,transparent)!important}
+thead th,th{font-size:10.5px!important;letter-spacing:.08em!important;text-transform:uppercase!important;color:var(--text-faint)!important;border-bottom:1px solid var(--border)!important;font-weight:700!important}
+.req-card{background:var(--bg-card)!important;border:1px solid var(--border)!important;border-radius:9px!important}
+.req-card:hover{background:color-mix(in srgb,var(--bg-card) 80%,var(--accent) 4%)!important;border-color:var(--accent)!important}
+.form-progress-fill,[class*="progress-fill"]{background:linear-gradient(to right,var(--accent),#509E2F)!important}
+input:focus,select:focus,textarea:focus{outline-color:var(--accent)!important;border-color:var(--accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent)!important}
+.ap-nav-item.active{background:color-mix(in srgb,var(--accent) 14%,transparent)!important;border-left-color:var(--accent)!important;color:#fff!important}
+.ap-logo-icon,.ap-avatar{background:var(--accent)!important}
+.ap-nav-badge{background:var(--crit)!important}
+.confirm-id,.req-id,.audit-id,.font-mono{font-family:"IBM Plex Mono",ui-monospace,monospace!important;color:var(--accent)!important}
+.tpill.active{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}
+</style>
+<link rel="stylesheet" href="/it-depth.css">
+
+<style id="pt-light">
+[data-theme="light"]{
+  --bg:#F0F2F4;
+  --surface:#FFFFFF;
+  --surface2:#F8F9FA;
+  --surface3:#E7EBEE;
+  --border:#DAE0E3;
+  --border2:#E4E9EC;
+  --text:#263238;
+  --text-muted:#5C676E;
+}
+[data-theme="light"] .page-hero,[data-theme="light"] .hero{
+  background:linear-gradient(100deg,rgba(6,14,24,.88) 0%,rgba(6,14,24,.55) 42%,rgba(6,14,24,.12) 80%),
+             url("/auction-hq-banner.png?v=1") center 42%/cover no-repeat,#071520!important;
+  background:linear-gradient(100deg,rgba(6,14,24,.88) 0%,rgba(6,14,24,.55) 42%,rgba(6,14,24,.12) 80%),
+             image-set(url("/auction-hq-banner.webp?v=20261001") type('image/webp'), url("/auction-hq-banner.png?v=1") type('image/png')) center 42%/cover no-repeat,#071520!important}
+[data-theme="light"] .page-hero *,[data-theme="light"] .hero *{color:#fff!important}
+</style>
+<link id="pt-shared" rel="stylesheet" href="/portal-theme.css?v=22">
+<script id="pt-shared-js" src="/portal-theme.js?v=21" defer></script>
+<script id="pt-content-js" src="/portal-content.js?v=7" defer></script>
+<style id="pg-hero-fix">
+/* The banner comes from portal-theme.css; .page-hero carried no inset, so the
+   eyebrow and heading sat on the very edge of the image and read as cut off. */
+.main .page-hero{
+  padding:34px 40px 36px!important;
+  border-radius:var(--r-lg)!important;
+  overflow:hidden!important;
+  background-position:center 40%!important;
+}
+.main .page-hero .eyebrow{margin-bottom:12px}
+.main .page-hero p{max-width:640px}
+@media(max-width:768px){.main .page-hero{padding:24px 22px 26px!important}}
+</style>
+</head>
+<body data-dp="accessportal">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <a href="/">← Back to Portal</a>
+    <h2>Requestor Guide</h2>
+    <p>Step-by-step form walkthroughs</p>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Getting Started</div>
+    <a class="nav-item" href="#overview">Overview &amp; Which Form?</a>
+    <a class="nav-item" href="#step-zero">Step 1 – Your Info (All Forms)</a>
+
+    <div class="nav-section-label">Form Walkthroughs</div>
+    <a class="nav-item" href="#oca"><span class="ga" style="background:linear-gradient(135deg,#0D1428,#1e3a5f)"><svg width="32" height="16" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="44" rx="22" ry="22" fill="none" stroke="#41B6E6" stroke-width="1.5"/><ellipse cx="60" cy="44" rx="9" ry="22" fill="none" stroke="#41B6E6" stroke-width="1"/><line x1="38" y1="44" x2="82" y2="44" stroke="#41B6E6" stroke-width="1"/><g transform="translate(96,30) rotate(-30)"><path d="M0,0 L18,5 L0,10 L4,5 Z" fill="#78BE20"/><path d="M3,3 L-6,8 L-4,5 L-6,2 Z" fill="rgba(120,190,32,.5)"/></g><path d="M44,54 Q78,14 124,38" stroke="rgba(65,182,230,.4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3"/><circle cx="148" cy="44" r="28" fill="rgba(255,255,255,.03)"/></svg></span>Out-of-Country Access</a>
+    <a class="nav-item nav-sub" href="#oca-s1">Step 1 – Trip Details</a>
+    <a class="nav-item nav-sub" href="#oca-s2">Step 2 – Systems &amp; Access</a>
+    <a class="nav-item nav-sub" href="#oca-s3">Step 3 – Business Justification</a>
+
+    <a class="nav-item" href="#aia"><span class="ga" style="background:linear-gradient(135deg,#2d1b69,#4c1d95)"><svg width="32" height="16" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="28" r="5" fill="#a78bfa"/><circle cx="32" cy="60" r="5" fill="#a78bfa"/><circle cx="60" cy="18" r="4" fill="#c4b5fd"/><circle cx="60" cy="44" r="4" fill="#c4b5fd"/><circle cx="60" cy="70" r="4" fill="#c4b5fd"/><circle cx="88" cy="28" r="5" fill="#7c3aed"/><circle cx="88" cy="60" r="5" fill="#7c3aed"/><line x1="37" y1="28" x2="56" y2="18" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="28" x2="56" y2="44" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="60" x2="56" y2="44" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="60" x2="56" y2="70" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="18" x2="83" y2="28" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="44" x2="83" y2="28" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="44" x2="83" y2="60" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="70" x2="83" y2="60" stroke="rgba(167,139,250,.4)" stroke-width="1"/><rect x="108" y="20" width="34" height="46" rx="6" fill="rgba(109,40,217,.55)" stroke="rgba(167,139,250,.5)" stroke-width="1.5"/><rect x="114" y="28" width="10" height="10" rx="2" fill="#c4b5fd"/><rect x="128" y="28" width="10" height="10" rx="2" fill="#c4b5fd"/><rect x="116" y="44" width="20" height="5" rx="2" fill="rgba(167,139,250,.5)"/></svg></span>AI Use Case Intake</a>
+    <a class="nav-item nav-sub" href="#aia-s1">Step 1 – Use Case &amp; Purpose</a>
+    <a class="nav-item nav-sub" href="#aia-s2">Step 2 – Integration &amp; Data</a>
+    <a class="nav-item nav-sub" href="#aia-s3">Step 3 – Access &amp; Vendor</a>
+    <a class="nav-item" href="#cla">🛡️ AI Policy Acknowledgement (Claude Access)</a>
+
+    <a class="nav-item" href="#wua"><span class="ga" style="background:linear-gradient(135deg,#0D4F4F,#0f766e)"><svg width="32" height="16" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="14" width="86" height="58" rx="5" fill="rgba(255,255,255,.07)" stroke="#14b8a6" stroke-width="1.5"/><rect x="20" y="14" width="86" height="14" rx="5" fill="rgba(20,184,166,.28)"/><circle cx="28" cy="21" r="2.5" fill="#ef4444"/><circle cx="35" cy="21" r="2.5" fill="#f59e0b"/><circle cx="42" cy="21" r="2.5" fill="#22c55e"/><rect x="48" y="16" width="46" height="8" rx="3" fill="rgba(255,255,255,.15)"/><rect x="28" y="36" width="64" height="5" rx="2" fill="rgba(255,255,255,.18)"/><rect x="28" y="46" width="48" height="4" rx="2" fill="rgba(255,255,255,.1)"/><rect x="28" y="56" width="54" height="4" rx="2" fill="rgba(255,255,255,.1)"/><path d="M130,22 L148,14 L166,22 L166,42 Q166,56 148,64 Q130,56 130,42 Z" fill="rgba(20,184,166,.2)" stroke="#14b8a6" stroke-width="1.5"/><path d="M137,40 L144,48 L160,32" stroke="#78BE20" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></span>Website / URL Access</a>
+    <a class="nav-item nav-sub" href="#wua-s1">Step 1 – URL Details</a>
+    <a class="nav-item nav-sub" href="#wua-s2">Step 2 – Business Justification</a>
+
+    <a class="nav-item" href="#paa"><span class="ga" style="background:linear-gradient(135deg,#4a0000,#7f1d1d)"><svg width="32" height="16" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="12" width="60" height="64" rx="4" fill="rgba(255,255,255,.06)" stroke="rgba(239,68,68,.45)" stroke-width="1.5"/><rect x="26" y="20" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="24" r="2.5" fill="#ef4444"/><rect x="26" y="33" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="37" r="2.5" fill="#f59e0b"/><rect x="26" y="46" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="50" r="2.5" fill="#22c55e"/><rect x="26" y="59" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="63" r="2.5" fill="#22c55e"/><circle cx="130" cy="38" r="14" fill="none" stroke="#fbbf24" stroke-width="2"/><line x1="140" y1="48" x2="156" y2="66" stroke="#fbbf24" stroke-width="2.5"/><circle cx="130" cy="38" r="6" fill="rgba(251,191,36,.2)"/></svg></span>Privileged / Admin Access</a>
+    <a class="nav-item nav-sub" href="#paa-s1">Step 1 – Access Details</a>
+    <a class="nav-item nav-sub" href="#paa-s2">Step 2 – Justification</a>
+
+    <a class="nav-item" href="#ser"><span class="ga" style="background:linear-gradient(135deg,#3d2000,#78350f)"><svg width="32" height="16" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><path d="M60,6 L90,0 L120,6 L120,44 Q120,66 90,76 Q60,66 60,44 Z" fill="rgba(245,158,11,.13)" stroke="#f59e0b" stroke-width="1.5"/><rect x="86" y="18" width="8" height="26" rx="4" fill="#fbbf24"/><circle cx="90" cy="54" r="5" fill="#fbbf24"/></svg></span>Security Exception Request</a>
+    <a class="nav-item nav-sub" href="#ser-s1">Step 1 – Business Justification</a>
+    <a class="nav-item nav-sub" href="#ser-s2">Step 2 – Usage &amp; Data Exposure</a>
+
+    <a class="nav-item" href="#sir"><span class="ga" style="background:linear-gradient(135deg,#1e1b4b,#3730a3)"><svg width="32" height="16" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><circle cx="72" cy="44" r="34" fill="none" stroke="rgba(129,140,248,.2)" stroke-width="1"/><circle cx="72" cy="44" r="24" fill="none" stroke="rgba(129,140,248,.3)" stroke-width="1"/><circle cx="72" cy="44" r="13" fill="none" stroke="rgba(129,140,248,.5)" stroke-width="1.5"/><circle cx="72" cy="44" r="4" fill="#818cf8"/><line x1="72" y1="44" x2="98" y2="20" stroke="rgba(99,102,241,.6)" stroke-width="1.5"/><circle cx="92" cy="24" r="3.5" fill="#ef4444" opacity=".9"/><circle cx="142" cy="32" r="14" fill="rgba(239,68,68,.18)" stroke="#ef4444" stroke-width="1.5"/><rect x="139" y="22" width="6" height="13" rx="3" fill="#ef4444"/><circle cx="142" cy="40" r="3.5" fill="#ef4444"/></svg></span>IT Security Incident Form</a>
+    <a class="nav-item nav-sub" href="#sir-s1">Step 1 – Incident Details</a>
+    <a class="nav-item nav-sub" href="#sir-s2">Step 2 – Impact &amp; Outcome</a>
+    <a class="nav-item nav-sub" href="#sir-s3">Step 3 – Security Analysis</a>
+
+    <a class="nav-item" href="#sig">✍️ Signature &amp; Submit (All Forms)</a>
+
+    <div class="nav-section-label">After You Submit</div>
+    <a class="nav-item" href="#tracking">Tracking Your Request</a>
+    <a class="nav-item" href="#statuses">Understanding Statuses</a>
+    <a class="nav-item" href="#tips">Tips for Faster Approval</a>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="page-hero">
+    <div class="eyebrow">Enterprise Approval Portal</div>
+    <h1>Requestor Quick Start Guide</h1>
+    <p>A field-by-field walkthrough for every form type in the Enterprise Approval Portal. Follow each step in order, and use the examples as a template for your own submission.</p>
+  </div>
+
+  <!-- OVERVIEW -->
+  <section class="guide-section" id="overview">
+    <h2><span class="section-icon">🗺️</span> Which Form Do I Need?</h2>
+    <div class="section-meta">Use the table below to pick the right form before you start.</div>
+
+    <div class="form-grid">
+      <a class="form-tile" href="#oca">
+        <div class="ft-icon"><span class="ga" style="background:linear-gradient(135deg,#0D1428,#1e3a5f)"><svg width="72" height="35" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="44" rx="22" ry="22" fill="none" stroke="#41B6E6" stroke-width="1.5"/><ellipse cx="60" cy="44" rx="9" ry="22" fill="none" stroke="#41B6E6" stroke-width="1"/><line x1="38" y1="44" x2="82" y2="44" stroke="#41B6E6" stroke-width="1"/><g transform="translate(96,30) rotate(-30)"><path d="M0,0 L18,5 L0,10 L4,5 Z" fill="#78BE20"/><path d="M3,3 L-6,8 L-4,5 L-6,2 Z" fill="rgba(120,190,32,.5)"/></g><path d="M44,54 Q78,14 124,38" stroke="rgba(65,182,230,.4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3"/><circle cx="148" cy="44" r="28" fill="rgba(255,255,255,.03)"/></svg></span></div>
+        <h4>Out-of-Country Access (OCA)</h4>
+        <p>Traveling internationally and need access to company systems from abroad.</p>
+      </a>
+      <a class="form-tile" href="#aia">
+        <div class="ft-icon"><span class="ga" style="background:linear-gradient(135deg,#2d1b69,#4c1d95)"><svg width="72" height="35" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="28" r="5" fill="#a78bfa"/><circle cx="32" cy="60" r="5" fill="#a78bfa"/><circle cx="60" cy="18" r="4" fill="#c4b5fd"/><circle cx="60" cy="44" r="4" fill="#c4b5fd"/><circle cx="60" cy="70" r="4" fill="#c4b5fd"/><circle cx="88" cy="28" r="5" fill="#7c3aed"/><circle cx="88" cy="60" r="5" fill="#7c3aed"/><line x1="37" y1="28" x2="56" y2="18" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="28" x2="56" y2="44" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="60" x2="56" y2="44" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="60" x2="56" y2="70" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="18" x2="83" y2="28" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="44" x2="83" y2="28" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="44" x2="83" y2="60" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="70" x2="83" y2="60" stroke="rgba(167,139,250,.4)" stroke-width="1"/><rect x="108" y="20" width="34" height="46" rx="6" fill="rgba(109,40,217,.55)" stroke="rgba(167,139,250,.5)" stroke-width="1.5"/><rect x="114" y="28" width="10" height="10" rx="2" fill="#c4b5fd"/><rect x="128" y="28" width="10" height="10" rx="2" fill="#c4b5fd"/><rect x="116" y="44" width="20" height="5" rx="2" fill="rgba(167,139,250,.5)"/></svg></span></div>
+        <h4>AI Use Case Intake (AIA)</h4>
+        <p>Proposing a new AI solution, automation, integration, agent, or any AI use a business process will depend on. Goes through the approval chain.</p>
+      </a>
+      <a class="form-tile" href="#cla">
+        <h4>Claude Access &ndash; Artificial Intelligence Policy Acknowledgment</h4>
+        <p>You just need Claude for your own productivity. Read the AI Policy, tick the provisions, sign &mdash; no approval chain; IT provisions your access.</p>
+      </a>
+      <a class="form-tile" href="#wua">
+        <div class="ft-icon"><span class="ga" style="background:linear-gradient(135deg,#0D4F4F,#0f766e)"><svg width="72" height="35" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="14" width="86" height="58" rx="5" fill="rgba(255,255,255,.07)" stroke="#14b8a6" stroke-width="1.5"/><rect x="20" y="14" width="86" height="14" rx="5" fill="rgba(20,184,166,.28)"/><circle cx="28" cy="21" r="2.5" fill="#ef4444"/><circle cx="35" cy="21" r="2.5" fill="#f59e0b"/><circle cx="42" cy="21" r="2.5" fill="#22c55e"/><rect x="48" y="16" width="46" height="8" rx="3" fill="rgba(255,255,255,.15)"/><rect x="28" y="36" width="64" height="5" rx="2" fill="rgba(255,255,255,.18)"/><rect x="28" y="46" width="48" height="4" rx="2" fill="rgba(255,255,255,.1)"/><rect x="28" y="56" width="54" height="4" rx="2" fill="rgba(255,255,255,.1)"/><path d="M130,22 L148,14 L166,22 L166,42 Q166,56 148,64 Q130,56 130,42 Z" fill="rgba(20,184,166,.2)" stroke="#14b8a6" stroke-width="1.5"/><path d="M137,40 L144,48 L160,32" stroke="#78BE20" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></span></div>
+        <h4>Website / URL Access (WUA)</h4>
+        <p>A website or domain is blocked by IT and you need it for your work.</p>
+      </a>
+      <a class="form-tile" href="#paa">
+        <div class="ft-icon"><span class="ga" style="background:linear-gradient(135deg,#4a0000,#7f1d1d)"><svg width="72" height="35" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="12" width="60" height="64" rx="4" fill="rgba(255,255,255,.06)" stroke="rgba(239,68,68,.45)" stroke-width="1.5"/><rect x="26" y="20" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="24" r="2.5" fill="#ef4444"/><rect x="26" y="33" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="37" r="2.5" fill="#f59e0b"/><rect x="26" y="46" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="50" r="2.5" fill="#22c55e"/><rect x="26" y="59" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="63" r="2.5" fill="#22c55e"/><circle cx="130" cy="38" r="14" fill="none" stroke="#fbbf24" stroke-width="2"/><line x1="140" y1="48" x2="156" y2="66" stroke="#fbbf24" stroke-width="2.5"/><circle cx="130" cy="38" r="6" fill="rgba(251,191,36,.2)"/></svg></span></div>
+        <h4>Privileged / Admin Access (PAA)</h4>
+        <p>Need admin, root, or elevated access to a system or server.</p>
+      </a>
+      <a class="form-tile" href="#ser">
+        <div class="ft-icon"><span class="ga" style="background:linear-gradient(135deg,#3d2000,#78350f)"><svg width="72" height="35" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><path d="M60,6 L90,0 L120,6 L120,44 Q120,66 90,76 Q60,66 60,44 Z" fill="rgba(245,158,11,.13)" stroke="#f59e0b" stroke-width="1.5"/><rect x="86" y="18" width="8" height="26" rx="4" fill="#fbbf24"/><circle cx="90" cy="54" r="5" fill="#fbbf24"/></svg></span></div>
+        <h4>Security Exception Request (SER)</h4>
+        <p>Need to bypass a standard security control for a documented business reason.</p>
+      </a>
+      <a class="form-tile" href="#sir">
+        <div class="ft-icon"><span class="ga" style="background:linear-gradient(135deg,#1e1b4b,#3730a3)"><svg width="72" height="35" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><circle cx="72" cy="44" r="34" fill="none" stroke="rgba(129,140,248,.2)" stroke-width="1"/><circle cx="72" cy="44" r="24" fill="none" stroke="rgba(129,140,248,.3)" stroke-width="1"/><circle cx="72" cy="44" r="13" fill="none" stroke="rgba(129,140,248,.5)" stroke-width="1.5"/><circle cx="72" cy="44" r="4" fill="#818cf8"/><line x1="72" y1="44" x2="98" y2="20" stroke="rgba(99,102,241,.6)" stroke-width="1.5"/><circle cx="92" cy="24" r="3.5" fill="#ef4444" opacity=".9"/><circle cx="142" cy="32" r="14" fill="rgba(239,68,68,.18)" stroke="#ef4444" stroke-width="1.5"/><rect x="139" y="22" width="6" height="13" rx="3" fill="#ef4444"/><circle cx="142" cy="40" r="3.5" fill="#ef4444"/></svg></span></div>
+        <h4>IT Security Incident Form (SIR)</h4>
+        <p>Reporting a security incident that has already occurred. Submit as soon as possible.</p>
+      </a>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- STEP 0 – YOUR INFO -->
+  <section class="guide-section" id="step-zero">
+    <h2><span class="section-icon">👤</span> Step 1 – Your Info <small style="font-size:14px;font-weight:500;color:var(--text-faint)">(All Forms)</small></h2>
+    <div class="section-meta">Every form starts with <strong>Step 1 – Your Info</strong>. Here's how to fill it out quickly.</div>
+
+    <div class="callout warn">
+      <span class="callout-icon">&#9888;&#65039;</span>
+      <div><strong>There is no Save Draft.</strong> Finish the form in one sitting &mdash; if you close the tab part-way through, your entries are lost and you start again.</div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">💡</span>
+      <div><strong>Auto-Fill Tip:</strong> Enter your <strong>@auction.com</strong> email address in the "Directory Lookup" box and click <strong>Look up →</strong>. The system will auto-populate your name, title, department, and manager. You'll save 2 minutes on every form. The lookup needs your <strong>full</strong> company address &mdash; partial names will not match.</div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">A</div>
+        <h3>Directory Lookup</h3>
+        <span class="step-tag">Optional but recommended</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Work Email</div>
+          <div class="field-body">
+            <p>Type your full Auction.com email address, then click <strong>Look up →</strong>. Your name, title, department, and manager will fill in automatically.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">jsmith@auction.com</div></div>
+            <div class="field-why"><span class="wy-icon">✅</span><p>If the lookup succeeds you'll see a green "Directory lookup successful" confirmation. You can still edit any auto-filled field.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">B</div>
+        <h3>Requestor Information</h3>
+        <span class="step-tag">Required</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Full Name <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Your legal first and last name, exactly as it appears in HR records.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">John Smith</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Work Email <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Your full <strong>@auction.com</strong> email address. This is where the portal emails you when a decision is made on your request &mdash; <strong>approved</strong>, <strong>rejected</strong> or <strong>returned</strong>. You are not emailed as it passes each individual step.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">jsmith@auction.com</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Department <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Your current department or business unit. Be specific — this helps route the request to the correct manager.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Engineering / Technology Operations</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Job Title <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Your official HR job title.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Senior Software Engineer</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Direct Manager's Name <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Your immediate supervisor &mdash; this is the first person in the approval chain. If it's wrong, your request may be routed incorrectly.</p>
+            <div class="callout warn" style="margin:10px 0 0"><span class="callout-icon">&#9888;&#65039;</span><div><strong>Let the Directory Lookup fill this in.</strong> The lookup captures your manager&rsquo;s name <em>and</em> their email address together. If you type over the name by hand, the portal discards the looked-up address on purpose &mdash; so the request goes to the global Dept. Manager fallback mailbox instead of to the person you typed. If the looked-up manager is wrong, submit as-is and ask the IT Service Desk to correct the manager on the request.</div></div>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Sarah Johnson</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="callout success"><span class="callout-icon">✅</span><div>Once your info is complete, click <strong>Next →</strong> to proceed to the form-specific steps below.</div></div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ===== OCA ===== -->
+  <section class="guide-section" id="oca">
+    <h2><span class="section-icon art"><span class="ga" style="background:linear-gradient(135deg,#0D1428,#1e3a5f)"><svg width="58" height="28" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="44" rx="22" ry="22" fill="none" stroke="#41B6E6" stroke-width="1.5"/><ellipse cx="60" cy="44" rx="9" ry="22" fill="none" stroke="#41B6E6" stroke-width="1"/><line x1="38" y1="44" x2="82" y2="44" stroke="#41B6E6" stroke-width="1"/><g transform="translate(96,30) rotate(-30)"><path d="M0,0 L18,5 L0,10 L4,5 Z" fill="#78BE20"/><path d="M3,3 L-6,8 L-4,5 L-6,2 Z" fill="rgba(120,190,32,.5)"/></g><path d="M44,54 Q78,14 124,38" stroke="rgba(65,182,230,.4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3"/><circle cx="148" cy="44" r="28" fill="rgba(255,255,255,.03)"/></svg></span></span> Out-of-Country Access (OCA)</h2>
+    <div class="section-meta">Use this form when you are traveling internationally and need remote access to Auction.com systems.</div>
+
+    <div class="workflow-badge" data-workflow="oca">
+      <div class="wf-step"><span>Dept. Manager</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Security &amp; Compliance</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Human Resources</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Chief Legal Officer</span></div>
+      <div class="wf-time">⏱ 3–5 business days</div>
+    </div>
+
+    <div class="callout info"><span class="callout-icon">📌</span><div>Submit at least <strong>7 business days before your departure</strong>. VPN and MFA will be required for all international access — IT Security will verify your device before you leave.</div></div>
+
+    <!-- OCA Step 1 -->
+    <div class="step-card" id="oca-s1">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h3>Trip Details</h3>
+        <span class="step-tag">Step 2 of 5</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Destination Country <span class="req">*</span></div>
+          <div class="field-body">
+            <p>The primary country you will be in. If visiting multiple countries, list the country where you'll be doing the most work-related activity first — you can include others in Additional Notes on the justification step.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Germany</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">City <span class="req">*</span></div>
+          <div class="field-body">
+            <p>The city where you'll primarily be working. Used by Security to assess jurisdiction-specific risks.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Berlin</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Departure Date <span class="req">*</span></div>
+          <div class="field-body">
+            <p>The date you leave the United States. Your access window will not be active before this date.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">2026-09-01</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Return Date <span class="req">*</span></div>
+          <div class="field-body">
+            <p>The date you return to the US. Your international access will be revoked after this date.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">2026-09-08</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Duration (days)</div>
+          <div class="field-body">
+            <p>Total number of days outside the US. The system can calculate this — but entering it manually ensures accuracy for multi-country trips with layovers.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">7</div></div>
+          </div>
+        </div>
+        <div class="callout warn"><span class="callout-icon">⚠️</span><div>VPN and MFA will be required for <em>all</em> international access. IT Security will verify your device configuration before you depart. If your device is not enrolled in MDM, your request may be denied.</div></div>
+      </div>
+    </div>
+
+    <!-- OCA Step 2 -->
+    <div class="step-card" id="oca-s2">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <h3>Systems &amp; Access</h3>
+        <span class="step-tag">Step 3 of 5</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Systems / Applications Needed <span class="req">*</span></div>
+          <div class="field-body">
+            <p>List <em>every</em> application or system you'll need to access while traveling. Be comprehensive — if you forget something, you'll need to submit an amendment or a new form.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Microsoft 365 (Outlook, Teams, SharePoint), GitHub Enterprise, AWS Console (us-east-1), Jira, VPN</div></div>
+            <div class="field-why"><span class="wy-icon">💡</span><p>Include cloud services, not just desktop apps. "Office 365" should include each app you use (Outlook, Teams, OneDrive).</p></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Device(s) You Will Use <span class="req">*</span></div>
+          <div class="field-body">
+            <p>List the company-issued device(s) you'll bring. Include the asset tag if you know it — it helps IT verify MDM enrollment quickly.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Company-issued MacBook Pro 14" (Asset #LT-4421)</div></div>
+            <div class="callout danger" style="margin-top:10px;margin-bottom:0"><span class="callout-icon">🚫</span><div><strong>Personal devices are not permitted</strong> for accessing Auction.com systems internationally. Only company-issued, MDM-enrolled devices are approved.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Priority Level</div>
+          <div class="field-body">
+            <p>Select the urgency of your request. Only select High or Urgent if your departure is imminent and you've already coordinated with your manager.</p>
+            <div class="field-example"><div class="ex-label">Options</div><div class="ex-val">Low · Normal · High · Urgent</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OCA Step 3 -->
+    <div class="step-card" id="oca-s3">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <h3>Business Justification</h3>
+        <span class="step-tag">Step 4 of 5</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Business Purpose <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Explain <em>why</em> you need remote access during this trip. Approvers are looking for a clear, specific business reason — not just "I need access for work."</p>
+            <div class="field-example">
+              <div class="ex-label">Strong Example</div>
+              <div class="ex-val">Attending the MIPIM real estate tech conference in Berlin (Sep 2–4). Will be presenting our platform roadmap to three prospective clients and coordinating live demos in Salesforce and our internal CRM. Need GitHub and AWS Console access to hot-fix any demo environment issues in real time.</div>
+            </div>
+            <div class="field-example" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);margin-top:8px">
+              <div class="ex-label" style="color:#fca5a5">Weak Example (will likely be returned)</div>
+              <div class="ex-val">I need access to do my job while traveling.</div>
+            </div>
+            <div class="field-why"><span class="wy-icon">💡</span><p>Name the specific meetings, projects, or clients. The more concrete, the faster your approval.</p></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Additional Notes</div>
+          <div class="field-body">
+            <p>Use this for anything that doesn't fit above — multi-country itineraries, special security arrangements, known device limitations, or prior approvals for this destination.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Also visiting Amsterdam Sep 5–7 for a client offsite. Previously approved for UK travel in 2025 (OCA-2025-00318). Device is currently enrolled in Jamf MDM.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ===== AIA ===== -->
+  <section class="guide-section" id="aia">
+    <h2><span class="section-icon art"><span class="ga" style="background:linear-gradient(135deg,#2d1b69,#4c1d95)"><svg width="58" height="28" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="28" r="5" fill="#a78bfa"/><circle cx="32" cy="60" r="5" fill="#a78bfa"/><circle cx="60" cy="18" r="4" fill="#c4b5fd"/><circle cx="60" cy="44" r="4" fill="#c4b5fd"/><circle cx="60" cy="70" r="4" fill="#c4b5fd"/><circle cx="88" cy="28" r="5" fill="#7c3aed"/><circle cx="88" cy="60" r="5" fill="#7c3aed"/><line x1="37" y1="28" x2="56" y2="18" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="28" x2="56" y2="44" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="60" x2="56" y2="44" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="60" x2="56" y2="70" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="18" x2="83" y2="28" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="44" x2="83" y2="28" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="44" x2="83" y2="60" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="70" x2="83" y2="60" stroke="rgba(167,139,250,.4)" stroke-width="1"/><rect x="108" y="20" width="34" height="46" rx="6" fill="rgba(109,40,217,.55)" stroke="rgba(167,139,250,.5)" stroke-width="1.5"/><rect x="114" y="28" width="10" height="10" rx="2" fill="#c4b5fd"/><rect x="128" y="28" width="10" height="10" rx="2" fill="#c4b5fd"/><rect x="116" y="44" width="20" height="5" rx="2" fill="rgba(167,139,250,.5)"/></svg></span></span> AI Use Case Intake (AIA)</h2>
+    <div class="section-meta">Use this form to propose a new AI solution, automation, integration, agent, or any AI use that a business process will depend on. Reviewed and approved through the AI Use Case workflow.</div>
+
+    <div class="callout info">
+      <span class="callout-icon">🤖</span>
+      <div><strong>Clicking the AI tile shows two choices.</strong> <strong>New AI Use Case</strong> is this form. <strong>Claude Access &ndash; Artificial Intelligence Policy Acknowledgment</strong> is for standard Claude access for individual productivity and has no approval chain &mdash; see <a href="#cla" style="color:var(--blue-light)">the next section</a>. Pick the use case form whenever automation, integrations, agents, client systems or a business-process dependency are involved.</div>
+    </div>
+
+    <div class="workflow-badge" data-workflow="aia">
+      <div class="wf-step"><span>Dept. Manager</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Security &amp; Compliance</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Legal</span></div>
+      <div class="wf-time">⏱ 3–7 business days</div>
+    </div>
+
+    <!-- AIA Step 1 -->
+    <div class="step-card" id="aia-s1">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h3>Use Case &amp; Purpose</h3>
+        <span class="step-tag">Step 2 of 5</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Tool / AI Functionality <span class="req">*</span></div>
+          <div class="field-body">
+            <p>The exact name of the tool, product, or AI feature you're requesting. Be specific — "Copilot" alone is ambiguous; include the platform.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Microsoft Copilot for M365 (Teams + Outlook)</div></div>
+            <div class="field-example"><div class="ex-label">Another Example</div><div class="ex-val">ChatGPT Enterprise (via OpenAI API)</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Business Purpose / AI Use Case <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Describe exactly how you plan to use this tool in your day-to-day work. Be specific about the tasks it will assist with.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Drafting internal email communications and meeting summaries in Outlook and Teams. Summarizing long documents for executive briefings. Not for any customer-facing output or automated workflows.</div></div>
+            <div class="field-why"><span class="wy-icon">💡</span><p>Legal and Security are looking for what data the AI will see and what decisions it will influence. The clearer you are, the faster the review.</p></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Purpose Category</div>
+          <div class="field-body">
+            <p>Check all that apply. Be honest — selecting "Automation" when you mean full automation without human review can flag your request for extra scrutiny.</p>
+            <div class="field-example"><div class="ex-label">Options (check all that apply)</div><div class="ex-val">☑ Internal Productivity — Complete human oversight, no automation<br>☐ Automation and/or operational dependency<br>☐ Other</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Audience for AI Output</div>
+          <div class="field-body">
+            <p>Who will see or use the content or decisions generated by this AI? Check all that apply. Customer-facing AI use requires additional Legal review.</p>
+            <div class="field-example"><div class="ex-label">Options (check all that apply)</div><div class="ex-val">☑ Individual · ☑ Internal ADC · ☐ Customers · ☐ Clients</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Human Review &amp; Audit Process <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Describe how you or your team will review and validate AI-generated outputs before acting on them. This is required — even for low-risk tools.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">All AI-generated content will be reviewed by the requesting employee before sending or publishing. No AI output will be submitted to clients or customers without manager sign-off. Outputs will not trigger automated actions.</div></div>
+            <div class="callout warn" style="margin-top:10px;margin-bottom:0"><span class="callout-icon">⚠️</span><div>Answering "No review process" will result in your request being returned. Every approved AI use case at Auction.com requires meaningful human oversight.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AIA Step 2 -->
+    <div class="step-card" id="aia-s2">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <h3>Integration &amp; Data</h3>
+        <span class="step-tag">Step 3 of 5</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Auction.com System Integrations</div>
+          <div class="field-body">
+            <p>Will the AI tool connect to or read data from any Auction.com systems, workflows, or other agents? If Yes, list all of them.</p>
+            <div class="field-example"><div class="ex-label">Example if Yes</div><div class="ex-val">Microsoft Exchange (Outlook calendar and email), SharePoint document library (IT Ops team site only)</div></div>
+            <div class="field-why"><span class="wy-icon">💡</span><p>Even read-only access to internal systems counts. If Copilot reads your Outlook email to generate summaries, select Yes.</p></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Customer / Client System Integrations</div>
+          <div class="field-body">
+            <p>Will the AI tool connect to any external client or customer systems? This triggers a mandatory Legal review.</p>
+            <div class="field-example"><div class="ex-label">Example if Yes</div><div class="ex-val">Client loan management portal (read-only data pull for report generation)</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Data Types Involved <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Check all data types the AI tool may access or process. <strong>When in doubt, check it.</strong> Under-reporting data types is the most common reason for post-approval audits.</p>
+            <div class="field-example">
+              <div class="ex-label">Options (check all that apply)</div>
+              <div class="ex-val">
+                ☑ Publicly available information<br>
+                ☑ Company confidential or proprietary information<br>
+                ☐ Customer Personal Information<br>
+                ☐ Client sensitive data (loan numbers, credit bids, or reserves)<br>
+                ☐ Third-party / licensed data (Cotality, etc.)<br>
+                ☐ Employee Information<br>
+                ☐ Other
+              </div>
+            </div>
+            <div class="callout danger" style="margin-top:10px;margin-bottom:0"><span class="callout-icon">🚨</span><div><strong>Never enter SSNs, loan numbers, or client account numbers into any AI tool</strong> unless explicitly approved with "Client Data" checked here and written approval from Legal and InfoSec.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AIA Step 3 -->
+    <div class="step-card" id="aia-s3">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <h3>Access Level &amp; Vendor</h3>
+        <span class="step-tag">Step 4 of 5</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Is this an existing or new tool? <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Select whether this tool is <strong>already approved</strong> at Auction.com (you just need access) or <strong>brand new</strong> (never been used/approved here before).</p>
+            <div class="field-why"><span class="wy-icon">💡</span><p>If you're unsure, check with your manager or IT before submitting. Submitting as "new" when the tool is already approved adds unnecessary review time.</p></div>
+          </div>
+        </div>
+
+        <p style="font-weight:700;margin:16px 0 8px;font-size:13px">If already approved → Section 1: Level of Access</p>
+        <div class="field-block">
+          <div class="field-label">Access Level (Section 1)</div>
+          <div class="field-body">
+            <p>Check all levels of access you need. Be conservative — request only what you need. You can always submit a new request for expanded access later.</p>
+            <div class="field-example"><div class="ex-label">Options (check all that apply)</div><div class="ex-val">☑ Individual productivity use · ☐ Team or department use · ☐ Enterprise-wide · ☐ System integration · ☐ Agent creation · ☐ View/browse only</div></div>
+          </div>
+        </div>
+
+        <p style="font-weight:700;margin:16px 0 8px;font-size:13px">If new tool → Section 2: Vendor / Procurement</p>
+        <div class="field-block">
+          <div class="field-label">Vendor / Tool Name &amp; Website (Section 2)</div>
+          <div class="field-body">
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Anthropic – anthropic.com (Claude Enterprise)</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Procurement Status (Section 2)</div>
+          <div class="field-body">
+            <p>Indicate if a contract or SOW is already in place, and whether Vendor Procurement has been contacted. If procurement has NOT been contacted, your request will be conditionally approved pending procurement review.</p>
+          </div>
+        </div>
+
+        <div class="callout danger">
+          <span class="callout-icon">🚨</span>
+          <div>
+            <strong>Policy Restriction Acknowledgment:</strong> At the bottom of this step, you must check the acknowledgment box confirming you've read the AI Policy restrictions. The following require <strong>written approval from Legal and InfoSec</strong> before use:
+            <ul>
+              <li>Automated HR decisions (hiring, promotion, termination, compensation)</li>
+              <li>Automated credit, lending, underwriting, or pricing decisions</li>
+              <li>Customer-facing automated communications</li>
+              <li>Processing biometric, health, or government ID data</li>
+              <li>Employee or customer monitoring via AI</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ===== CLA — Claude Access &ndash; Artificial Intelligence Policy Acknowledgment ===== -->
+  <section class="guide-section" id="cla">
+    <h2><span class="section-icon">🛡️</span> Claude Access &ndash; Artificial Intelligence Policy Acknowledgment</h2>
+    <div class="section-meta">Standard Claude access for individual productivity. Review the AI Policy, confirm the provisions, and sign &mdash; there is no use-case form and no approval chain. IT provisions your access once the acknowledgement is recorded.</div>
+
+    <div class="workflow-badge">
+      <div class="wf-step"><span>Review policy</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Acknowledge</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Sign</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Audit record</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Access provisioned</span></div>
+      <div class="wf-time">⏱ typically 2 business days</div>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">👥</span>
+      <div><strong>Who can complete it.</strong> Full-time employees (per HR) see the option automatically. Contractors and other worker types see it only if a portal administrator has added them to the eligibility list &mdash; if you need Claude and the option shows as unavailable, ask your manager to request it from IT. Automation, integrations, agents or any business-process use of AI still need a <a href="#aia" style="color:var(--blue-light)">New AI Use Case</a>.</div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">1</div><h3>Open it</h3></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">On the portal home, click the AI tile, then <strong>Complete AI Policy Acknowledgement to Obtain Access to Claude</strong>. Your name, title, department, manager and worker type are filled from your account and cannot be edited here &mdash; if any of it is wrong, contact the IT Service Desk before signing.</p>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">2</div><h3>Read the AI Policy</h3><span class="step-tag">required</span></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">The current AI Policy is shown on the page. Scroll to the last page in the viewer, or use <strong>Download PDF</strong> / <strong>Open full policy</strong>. The acknowledgement checkboxes stay locked until you have done one of these.</p>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">3</div><h3>Acknowledge the provisions</h3><span class="step-tag">every box required</span></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">Tick each statement. The second statement (&ldquo;I further understand the key highlights&hellip;&rdquo;) has its own set of indented checkboxes &mdash; protect restricted data, human review, no discriminatory use, approved tools only, AI output is Company Data, Claude for internal productivity only, and when a new AI Use Case Intake Form is required. Every box, including the indented ones, must be ticked before you can sign.</p>
+        <div class="field-why"><span class="wy-icon">📌</span><p>The statements are the current Legal wording and may be updated. If a new version of the policy is published after you sign, the page will tell you a new acknowledgement is required when you next open it.</p></div>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">4</div><h3>Sign and submit</h3></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">Type your full name exactly as shown at the top of the page. Your typed name is your electronic signature; it confirms your acknowledgment of the AI Policy and the provisions above and is stored with the audit record. Click <strong>Submit acknowledgement</strong>.</p>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">5</div><h3>What happens next</h3></div>
+      <div class="step-body">
+        <div class="checkbox-group">
+          <div class="chk-item">You receive a confirmation email; your manager receives a copy.</div>
+          <div class="chk-item">IT is notified and provisions your Claude access &mdash; the confirmation page states the lead time (typically 2 business days). You are emailed when it is ready.</div>
+          <div class="chk-item">The next time you open the acknowledgement, you see your completed form read-only: your details, the exact policy you signed against, the statements you accepted and your signature. Nothing on it can be changed.</div>
+          <div class="chk-item">Nothing is sent for approval and nothing appears in &ldquo;Track Your Request&rdquo; &mdash; the acknowledgement is a record, not a request.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout success">
+      <span class="callout-icon">✅</span>
+      <div><strong>One acknowledgement covers every approved AI product</strong> until the policy is revised. When Legal publishes a new version you will be asked to read and acknowledge again; your earlier record is kept.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ===== WUA ===== -->
+  <section class="guide-section" id="wua">
+    <h2><span class="section-icon art"><span class="ga" style="background:linear-gradient(135deg,#0D4F4F,#0f766e)"><svg width="58" height="28" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="14" width="86" height="58" rx="5" fill="rgba(255,255,255,.07)" stroke="#14b8a6" stroke-width="1.5"/><rect x="20" y="14" width="86" height="14" rx="5" fill="rgba(20,184,166,.28)"/><circle cx="28" cy="21" r="2.5" fill="#ef4444"/><circle cx="35" cy="21" r="2.5" fill="#f59e0b"/><circle cx="42" cy="21" r="2.5" fill="#22c55e"/><rect x="48" y="16" width="46" height="8" rx="3" fill="rgba(255,255,255,.15)"/><rect x="28" y="36" width="64" height="5" rx="2" fill="rgba(255,255,255,.18)"/><rect x="28" y="46" width="48" height="4" rx="2" fill="rgba(255,255,255,.1)"/><rect x="28" y="56" width="54" height="4" rx="2" fill="rgba(255,255,255,.1)"/><path d="M130,22 L148,14 L166,22 L166,42 Q166,56 148,64 Q130,56 130,42 Z" fill="rgba(20,184,166,.2)" stroke="#14b8a6" stroke-width="1.5"/><path d="M137,40 L144,48 L160,32" stroke="#78BE20" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></span></span> Website / URL Access (WUA)</h2>
+    <div class="section-meta">A website is blocked by the IT proxy filter and you need it for legitimate work. This is the fastest form to complete.</div>
+
+    <div class="workflow-badge" data-workflow="wua">
+      <div class="wf-step"><span>Dept. Manager</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Security &amp; Compliance</span></div>
+      <div class="wf-time">⏱ 1–2 business days</div>
+    </div>
+
+    <!-- WUA Step 1 -->
+    <div class="step-card" id="wua-s1">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h3>URL Details</h3>
+        <span class="step-tag">Step 2 of 4</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">URL / Domain <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Enter the full URL or domain you need unblocked. Use the most specific URL possible — requesting a top-level domain (e.g., <code>github.com</code>) is fine if you need the whole site. Use the specific path if you only need one page.</p>
+            <div class="field-example"><div class="ex-label">Example – whole domain</div><div class="ex-val">https://registry.terraform.io</div></div>
+            <div class="field-example"><div class="ex-label">Example – specific path</div><div class="ex-val">https://pypi.org/project/requests/</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Category</div>
+          <div class="field-body">
+            <p>The type of site. This helps Security understand why the proxy blocked it and whether an exception is routine.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">DevOps Tools / Infrastructure Documentation</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Access Duration</div>
+          <div class="field-body">
+            <p>How long do you need access? Choose <strong>Temporary</strong> for one-off tasks; <strong>Project Duration</strong> if tied to a specific project; <strong>Permanent</strong> only if this is a recurring business tool.</p>
+            <div class="field-example"><div class="ex-label">Options</div><div class="ex-val">Temporary (30 days) · Project Duration · Permanent</div></div>
+            <div class="field-why"><span class="wy-icon">💡</span><p>Permanent unblocks require stronger justification. If unsure, start with Temporary — you can always request an extension.</p></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Priority Level</div>
+          <div class="field-body">
+            <div class="field-example"><div class="ex-label">Options</div><div class="ex-val">Low · Normal · High</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WUA Step 2 -->
+    <div class="step-card" id="wua-s2">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <h3>Business Justification</h3>
+        <span class="step-tag">Step 3 of 4</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Business Justification <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Explain what this URL is for and why you need it for your work. Include the specific task or project it supports.</p>
+            <div class="field-example">
+              <div class="ex-label">Strong Example</div>
+              <div class="ex-val">Need access to registry.terraform.io to download and verify Terraform provider modules for the AWS infrastructure migration project (Q3 2026). Our CI/CD pipeline pulls provider hashes from this registry during plan/apply runs. Without it, the pipeline fails and we cannot deploy infrastructure changes.</div>
+            </div>
+            <div class="field-example" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);margin-top:8px">
+              <div class="ex-label" style="color:#fca5a5">Weak Example</div>
+              <div class="ex-val">I need this site for my project.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ===== PAA ===== -->
+  <section class="guide-section" id="paa">
+    <h2><span class="section-icon art"><span class="ga" style="background:linear-gradient(135deg,#4a0000,#7f1d1d)"><svg width="58" height="28" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="12" width="60" height="64" rx="4" fill="rgba(255,255,255,.06)" stroke="rgba(239,68,68,.45)" stroke-width="1.5"/><rect x="26" y="20" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="24" r="2.5" fill="#ef4444"/><rect x="26" y="33" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="37" r="2.5" fill="#f59e0b"/><rect x="26" y="46" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="50" r="2.5" fill="#22c55e"/><rect x="26" y="59" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="63" r="2.5" fill="#22c55e"/><circle cx="130" cy="38" r="14" fill="none" stroke="#fbbf24" stroke-width="2"/><line x1="140" y1="48" x2="156" y2="66" stroke="#fbbf24" stroke-width="2.5"/><circle cx="130" cy="38" r="6" fill="rgba(251,191,36,.2)"/></svg></span></span> Privileged / Admin Access (PAA)</h2>
+    <div class="section-meta">Use this form when you need admin, root, sudo, or any elevated access to a system or server beyond your standard role.</div>
+
+    <div class="workflow-badge" data-workflow="paa">
+      <div class="wf-step"><span>Dept. Manager</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Security &amp; Compliance</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Human Resources</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Legal</span></div>
+      <div class="wf-time">⏱ 3–5 business days</div>
+    </div>
+
+    <div class="callout warn"><span class="callout-icon">⚠️</span><div>PAA requires the <strong>full 4-step approval chain</strong>. Your justification must be thorough — reviewers will specifically look for why standard access is insufficient and what controls will prevent misuse.</div></div>
+
+    <!-- PAA Step 1 -->
+    <div class="step-card" id="paa-s1">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h3>Access Details</h3>
+        <span class="step-tag">Step 2 of 4</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Access Level Requested <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Select the minimum level of access required to accomplish your task. Do not select Root or Superuser unless absolutely necessary — it will receive additional scrutiny.</p>
+            <div class="field-example"><div class="ex-label">Options</div><div class="ex-val">Read-Only · Administrator · Root / Superuser · Sudo</div></div>
+            <div class="field-why"><span class="wy-icon">💡</span><p>Principle of least privilege: if Read-Only would do, choose Read-Only. If Admin is needed for one task, note that in the justification so reviewers understand the scope.</p></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Duration (days) <span class="req">*</span></div>
+          <div class="field-body">
+            <p>How many days do you need this elevated access? Maximum is 365 days. If this is a permanent need, speak with your manager first — permanent privileged access has a separate policy.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">30</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Systems / Servers <span class="req">*</span></div>
+          <div class="field-body">
+            <p>List every specific server, system, or service that needs elevated access. Be exact — hostname, environment (prod/staging/dev), and cloud account where applicable.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">prod-db-01.auction.com (AWS us-east-1, account #123456789012)<br>prod-db-02.auction.com (AWS us-east-1, account #123456789012)<br>Internal Jira admin panel (jira.nrpi.local)</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAA Step 2 -->
+    <div class="step-card" id="paa-s2">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <h3>Business Justification</h3>
+        <span class="step-tag">Step 3 of 4</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Justification <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Answer these three questions in your justification: <strong>(1)</strong> What specific task requires elevated access? <strong>(2)</strong> Why can't standard access accomplish it? <strong>(3)</strong> What safeguards will prevent misuse?</p>
+            <div class="field-example">
+              <div class="ex-label">Strong Example</div>
+              <div class="ex-val">Need admin access to prod-db-01 and prod-db-02 to perform schema migrations for the Q3 platform upgrade (project PLAT-892). Standard read-only access cannot execute ALTER TABLE or CREATE INDEX statements required by the migration scripts. Access will be restricted to a 4-hour maintenance window on Sep 15 with a second engineer monitoring. All commands will be logged via AWS CloudTrail. Access will be surrendered immediately after the migration window.</div>
+            </div>
+          </div>
+        </div>
+        <div class="callout danger"><span class="callout-icon">🚨</span><div>Privileged access requests require the <strong>full 4-step approval chain</strong> including HR and Legal review. Incomplete or vague justifications will be returned. If your request is urgent, note the deadline and coordinate with your manager before submitting.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ===== SER ===== -->
+  <section class="guide-section" id="ser">
+    <h2><span class="section-icon art"><span class="ga" style="background:linear-gradient(135deg,#3d2000,#78350f)"><svg width="58" height="28" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><path d="M60,6 L90,0 L120,6 L120,44 Q120,66 90,76 Q60,66 60,44 Z" fill="rgba(245,158,11,.13)" stroke="#f59e0b" stroke-width="1.5"/><rect x="86" y="18" width="8" height="26" rx="4" fill="#fbbf24"/><circle cx="90" cy="54" r="5" fill="#fbbf24"/></svg></span></span> Security Exception Request (SER)</h2>
+    <div class="section-meta">Use this form only when a standard ADC security control cannot be followed for a documented business reason. This is a high-scrutiny form reviewed by 5 approvers including the CTO and CEO.</div>
+
+    <div class="workflow-badge" data-workflow="ser">
+      <div class="wf-step"><span>Dept. Manager</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Information Security</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Legal</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>CTO</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>CEO</span></div>
+      <div class="wf-time">⏱ 5–10 business days</div>
+    </div>
+
+    <div class="callout danger"><span class="callout-icon">🚨</span><div><strong>This is the most scrutinized form in the portal.</strong> All 5 executives must approve. Before submitting, discuss with your manager and consider whether the work can be re-scoped to comply with existing security controls. Submit only if there is no compliant alternative.</div></div>
+
+    <!-- SER Step 1 -->
+    <div class="step-card" id="ser-s1">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h3>Business Justification</h3>
+        <span class="step-tag">Step 2 of 4</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Why is this exception required? <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Explain the business need driving this exception. Include the project, the timeline, the business impact of NOT receiving the exception, and why no compliant alternative exists.</p>
+            <div class="field-example">
+              <div class="ex-label">Example</div>
+              <div class="ex-val">The vendor integration for Project ATLAS requires an unencrypted FTP connection to a legacy client system that does not support SFTP or HTTPS. This integration generates $2.4M in quarterly client revenue. The client has confirmed they will not upgrade their system until Q2 2027. We have no alternative mechanism to transfer the required data files. Exception requested for 6 months while a long-term secure solution is engineered in parallel.</div>
+            </div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Which standard control(s) cannot be followed? <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Reference the specific ADC security policy or control number that cannot be met. If you don't know the policy number, describe the control (e.g., "encryption-in-transit requirement").</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">ADC Security Policy §4.2 – Data Encryption in Transit: requires TLS 1.2+ for all data transfers. The legacy client FTP system does not support TLS and cannot be upgraded within the project timeline.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">What will be accessed or used? <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Describe exactly what systems, data, or resources will be involved in this exception.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Nightly batch file transfers of property auction results (CSV format) to the client's legacy FTP server at 203.0.113.45. Files contain auction IDs, bid amounts, and property addresses — no PII or financial account data.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Who will use this exception? <span class="req">*</span></div>
+          <div class="field-body">
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">2 members of the Data Integration team (ETL engineers John Smith and Maria Garcia)</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">How often will it be used? <span class="req">*</span></div>
+          <div class="field-body">
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Nightly automated job, 11:00 PM ET, Mon–Fri</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SER Step 2 -->
+    <div class="step-card" id="ser-s2">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <h3>Usage &amp; Data Exposure</h3>
+        <span class="step-tag">Step 3 of 4</span>
+      </div>
+      <div class="step-body">
+        <div class="callout info"><span class="callout-icon">📖</span><div><strong>Appendix A – Sensitive Data Definitions:</strong> Client Data = Loan Numbers, Borrower Names, Reserve/Credit Bid amounts. ADC Company Data = Employee NPI, IP, trade secrets. Customer Data = Customer NPI, Attorney Firm NPI.</div></div>
+
+        <div class="field-block">
+          <div class="field-label">Will ADC Sensitive Data be exposed? <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Select the most accurate option. If multiple types apply, select "Yes – Multiple sensitive data types."</p>
+            <div class="field-example"><div class="ex-label">Options</div><div class="ex-val">Yes – Client Data · Yes – ADC Company Data · Yes – Customer Data · Yes – Multiple types · No</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Describe ALL data types involved <span class="req">*</span></div>
+          <div class="field-body">
+            <p>List <em>every</em> data type that will be used — even non-sensitive data. This field is audited. Missing a data type here and having it discovered later will escalate the review.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Auction IDs (internal reference numbers), bid amounts (non-client financial data), property addresses (public record), auction result status (approved/rejected). No borrower names, loan numbers, or PII included.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Exception Expiration Date <span class="req">*</span></div>
+          <div class="field-body">
+            <p>The date this exception should expire. This will not auto-renew — you must submit a new SER before this date if the exception is still needed.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">2027-03-01</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Additional Notes</div>
+          <div class="field-body">
+            <p>Use this for compensating controls, monitoring plans, or anything that strengthens your request (e.g., IP allowlisting, audit logging, encryption at rest).</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Compensating control: transfers are IP-restricted to the client's static IP range (203.0.113.0/28). All file transfers are logged in our SIEM. Files are encrypted at rest on both ends. A parallel SFTP migration project is in progress (target: Q2 2027, project code ATLAS-SFTP).</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ===== SIR ===== -->
+  <section class="guide-section" id="sir">
+    <h2><span class="section-icon art"><span class="ga" style="background:linear-gradient(135deg,#1e1b4b,#3730a3)"><svg width="58" height="28" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><circle cx="72" cy="44" r="34" fill="none" stroke="rgba(129,140,248,.2)" stroke-width="1"/><circle cx="72" cy="44" r="24" fill="none" stroke="rgba(129,140,248,.3)" stroke-width="1"/><circle cx="72" cy="44" r="13" fill="none" stroke="rgba(129,140,248,.5)" stroke-width="1.5"/><circle cx="72" cy="44" r="4" fill="#818cf8"/><line x1="72" y1="44" x2="98" y2="20" stroke="rgba(99,102,241,.6)" stroke-width="1.5"/><circle cx="92" cy="24" r="3.5" fill="#ef4444" opacity=".9"/><circle cx="142" cy="32" r="14" fill="rgba(239,68,68,.18)" stroke="#ef4444" stroke-width="1.5"/><rect x="139" y="22" width="6" height="13" rx="3" fill="#ef4444"/><circle cx="142" cy="40" r="3.5" fill="#ef4444"/></svg></span></span> IT Security Incident Form (SIR)</h2>
+    <div class="section-meta">Use this form to document a security incident that has already occurred. Submit as soon as possible — early reporting reduces organizational risk.</div>
+
+    <div class="workflow-badge" data-workflow="sir">
+      <div class="wf-step"><span>Dept. Manager</span></div>
+      <div class="wf-arrow">→</div>
+      <div class="wf-step"><span>Information Security</span></div>
+      <div class="wf-time">⏱ 1–3 business days</div>
+    </div>
+
+    <div class="callout danger"><span class="callout-icon">🚨</span><div><strong>Submit immediately.</strong> ADC security policy requires incident reporting as soon as the incident is identified. Delayed reporting can result in compliance violations. If you're not sure whether something qualifies as an incident, contact IT Security first — they'll guide you.</div></div>
+
+    <!-- SIR Step 1 -->
+    <div class="step-card" id="sir-s1">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h3>Incident Details</h3>
+        <span class="step-tag">Step 2 of 5</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Date Incident Occurred <span class="req">*</span></div>
+          <div class="field-body">
+            <p>The date the incident happened — not the date you discovered it. If you're unsure, use your best estimate and note the uncertainty in your description.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">2026-08-15</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Time Incident Occurred <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Use 24-hour time in Eastern Time. If the incident was ongoing over a period, use the start time.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">14:32 (2:32 PM ET)</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Criticality Rating <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Select the severity level that best matches the incident. When in doubt, rate it higher — InfoSec will downgrade if appropriate.</p>
+            <div class="field-example">
+              <div class="ex-label">Scale</div>
+              <div class="ex-val">
+                🔴 SEVERE — Data breach, ransomware, complete system compromise, regulatory-reportable event<br>
+                🟠 HIGH — Significant data exposure, partial system compromise, active attacker<br>
+                🟡 MODERATE — Contained unauthorized access, policy violation with limited impact<br>
+                🟢 LOW — Near-miss, minor policy violation, no data exposed
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Executive Summary <span class="req">*</span></div>
+          <div class="field-body">
+            <p>A brief, non-technical summary of what happened. This is the first thing the CTO and CEO will read. Keep it to 2–4 sentences.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">On Aug 15 at 2:32 PM, an employee clicked a phishing link that compromised their M365 credentials. The attacker accessed the employee's email inbox for approximately 45 minutes before IT Security detected and terminated the session. No client data was accessed. The compromised account has been reset and additional MFA verification applied.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Root Cause <span class="req">*</span></div>
+          <div class="field-body">
+            <p>What directly caused the incident? Be factual and objective — not accusatory.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Employee received a convincing phishing email appearing to come from IT department requesting credential re-verification. The phishing page was not caught by existing email filters due to a newly registered domain.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Action Steps Taken During Incident <span class="req">*</span></div>
+          <div class="field-body">
+            <p>List the containment actions taken while the incident was occurring, in chronological order.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">1. IT Security alerted at 3:15 PM via SIEM alert.<br>2. Compromised account disabled at 3:18 PM.<br>3. Active session terminated at 3:19 PM.<br>4. Employee notified and device isolated at 3:25 PM.<br>5. Password reset and MFA re-enrollment completed at 3:45 PM.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Remediation Plan <span class="req">*</span></div>
+          <div class="field-body">
+            <p>What steps are being taken to prevent this type of incident from happening again?</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Phishing domain submitted to blocklist. All-hands security awareness email distributed. Targeted phishing simulation scheduled for affected department. Email filter rules updated to flag newly registered domains.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Services Impacted <span class="req">*</span></div>
+          <div class="field-body">
+            <p>List every service affected and the name of its service manager.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Service: Microsoft 365 Email (Outlook) — Service Manager: Rey Abad<br>Service: SharePoint (read access) — Service Manager: Alex Torres</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIR Step 2 -->
+    <div class="step-card" id="sir-s2">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <h3>Impact &amp; Outcome</h3>
+        <span class="step-tag">Step 3 of 5</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">What occurred and who was involved <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Full narrative of the incident — what happened step-by-step, who was involved (by role, not necessarily by name), and the timeline.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">At 2:32 PM on Aug 15, an Account Manager in the Sales department received a phishing email... [continue with full narrative]. The IT Security team identified the anomalous login from an unrecognized IP at 3:14 PM via SIEM alert and initiated containment immediately.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Who and what was affected <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Detail the full impact — people, systems, data, and any clients or customers involved. Be as complete as possible.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">1 employee account compromised. Email inbox (inbox only — sent items and drafts not accessed based on audit logs). No client records, loan data, or customer PII accessed. No client notifications required at this time. Impact confined to the compromised employee's Microsoft 365 account.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">How was the incident resolved? <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Describe the resolution and current status. Is the incident fully contained? Are there any remaining risks?</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Incident fully contained as of 4:00 PM Aug 15. Compromised account credentials reset, MFA re-enrolled, and access reviewed. No ongoing risk identified. Email audit log review complete — no sensitive data forwarded or exfiltrated.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">List Relevant Remediation <span class="req">*</span></div>
+          <div class="field-body">
+            <p>All remediation steps, both completed and planned. Include target completion dates for planned items.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">✅ Compromised credentials reset (completed 8/15)<br>✅ Phishing domain blocked (completed 8/15)<br>⏳ Security awareness training re-assigned to Sales team (due 8/29)<br>⏳ Email filter update to block newly registered domains (due 8/22)</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIR Step 3 -->
+    <div class="step-card" id="sir-s3">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <h3>Security Analysis</h3>
+        <span class="step-tag">Step 4 of 5</span>
+      </div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Security implications and controls that failed <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Technical details for the InfoSec team — what was accessed, what controls failed or were bypassed, and what the attacker could have done with the access they obtained.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Attacker gained read access to M365 email inbox via stolen session token (OAuth). MFA was bypassed via AiTM phishing (attacker acted as proxy). Existing email filter failed to block the phishing domain (registered 6 hours prior to attack). Conditional Access policy for unrecognized IPs generated a SIEM alert but did not auto-block — gap identified in response playbook.</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Detailed root cause analysis <span class="req">*</span></div>
+          <div class="field-body">
+            <p>Thorough RCA including contributing factors, exact timeline, and detailed resolution steps. This is the technical record used for compliance and future prevention.</p>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">Contributing factors: (1) Email filter relies on domain reputation scores — new domain had no history; (2) Conditional Access policy does not auto-block, only alerts; (3) Employee lacked awareness of AiTM phishing techniques.<br><br>Timeline: 14:30 — Phishing email delivered. 14:32 — Employee clicks link. 14:33 — Credentials harvested via proxy. 14:34 — Attacker establishes session. 15:14 — SIEM alert triggered (40-min dwell time). 15:18 — Account disabled...<br><br>Resolution: Session token revoked via Azure AD. Conditional Access policy updated to require re-authentication for new IP logins rather than just alerting.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- SIGNATURE -->
+  <section class="guide-section" id="sig">
+    <h2><span class="section-icon">✍️</span> Signature &amp; Submit <small style="font-size:14px;font-weight:500;color:var(--text-faint)">(All Forms — Final Step)</small></h2>
+    <div class="section-meta">The last step on every form. Review everything carefully before submitting — you cannot edit a submitted form.</div>
+
+    <div class="callout warn"><span class="callout-icon">⚠️</span><div>Once submitted, your request is locked &mdash; you cannot edit it, and there is no way to withdraw or cancel it yourself. If something is wrong, contact the IT Service Desk: an administrator can correct the details on a submitted request. Otherwise you will need to submit a new one.</div></div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">✓</div>
+        <h3>Pre-Submission Checklist</h3>
+      </div>
+      <div class="step-body">
+        <div class="checkbox-group">
+          <div class="chk-item">I've filled in all required fields (marked with *)</div>
+          <div class="chk-item">My manager's name is correct — they will be the first approver</div>
+          <div class="chk-item">My business justification is specific, not generic</div>
+          <div class="chk-item">I've listed ALL systems/data that will be involved, not just the primary one</div>
+          <div class="chk-item">I've acknowledged any required policy statements (AIA policy box, etc.)</div>
+          <div class="chk-item">If I only need Claude for my own work, I used the <a href="#cla" style="color:var(--blue-light)">AI Policy Acknowledgement</a> instead of a use-case request</div>
+          <div class="chk-item">For urgent requests: I've already notified my manager verbally</div>
+          <div class="chk-item">My manager's name came from the Directory Lookup &mdash; I did not overtype it</div>
+          <div class="chk-item">I know where my request ID appears on the confirmation screen, and I will save it</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">S</div>
+        <h3>Electronic Signature</h3>
+        <span class="step-tag">Required</span>
+      </div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">You can sign one of two ways — both are legally equivalent:</p>
+        <div class="field-block">
+          <div class="field-label">Option 1 — Type Your Name</div>
+          <div class="field-body">
+            <p>Click the <strong>"Type Name"</strong> tab. Type your full legal name in the field. A preview of your typed signature will appear below in italic script. This is the faster option.</p>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Option 2 — Draw Your Signature</div>
+          <div class="field-body">
+            <p>Click the <strong>"Draw Signature"</strong> tab. Use your mouse or touchpad to draw your signature in the box. Click <strong>Clear</strong> to start over if needed.</p>
+          </div>
+        </div>
+        <div class="callout info" style="margin-top:12px;margin-bottom:0"><span class="callout-icon">💡</span><div>By submitting, you confirm that all information in the form is accurate and that you accept Auction.com's access policies and IT security requirements.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- TRACKING -->
+  <section class="guide-section" id="tracking">
+    <h2><span class="section-icon">📍</span> Tracking Your Request</h2>
+    <div class="section-meta">After you submit, you can check the status of your request at any time.</div>
+
+    <div class="callout warn">
+      <span class="callout-icon">&#9888;&#65039;</span>
+      <div>Tracking works by <strong>request ID only</strong>. There is no requestor sign-in and no &ldquo;all my requests&rdquo; list &mdash; so keep the ID from your confirmation screen.</div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h3>Use "Track Your Request" on the Portal Home</h3>
+      </div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">From the portal homepage (<a href="/" style="color:var(--blue-light)">accessportal.nrpi.local</a>), click <strong>Track Your Request</strong>. Type your <strong>Request ID</strong> into the box &mdash; for example <strong>OCA-2026-00012</strong> &mdash; then click <strong>Track Request &rarr;</strong>.</p>
+        <p style="font-size:13px;color:var(--text-muted)">You will see the request ID, the form type, the status, and an <strong>Approval Steps</strong> timeline showing exactly which approver it is sitting with. Each step is marked Approved, Rejected, Awaiting review, Returned for changes, or Pending.</p>
+        <div class="field-why" style="margin-top:12px"><span class="wy-icon">&#128273;</span><p>The tracker deliberately shows no personal information: it does <strong>not</strong> display the answers you gave or the approvers&rsquo; comments. If you need the reason behind a decision, contact the approver or the IT Service Desk.</p></div>
+        <div class="field-why" style="margin-top:12px"><span class="wy-icon">📌</span><p>You can also see your request ID in the confirmation screen after submission &mdash; the format is <strong>AAA-YYYY-NNNNN</strong>, for example <strong>OCA-2026-00012</strong>. <strong>Save it</strong> &mdash; the request ID is the only way to track your request.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATUSES -->
+  <section class="guide-section" id="statuses">
+    <h2><span class="section-icon">🔄</span> Understanding Request Statuses</h2>
+    <div class="section-meta">Here's what each status means and what action — if any — you need to take.</div>
+
+    <div class="status-grid">
+      <div class="status-card">
+        <h4><span class="s-dot" style="background:#f59e0b"></span> Pending</h4>
+        <p>Your request is with an approver. The tracker shows which step it is waiting at. No action needed from you &mdash; check back in 1&ndash;2 business days if you haven't heard anything.</p>
+      </div>
+      <div class="status-card">
+        <h4><span class="s-dot" style="background:#22c55e"></span> Approved</h4>
+        <p>All approvers have approved your request. IT will provision access shortly. If you don't have access within 24 hours, contact the IT Service Desk.</p>
+      </div>
+      <div class="status-card">
+        <h4><span class="s-dot" style="background:#ef4444"></span> Rejected</h4>
+        <p>An approver declined the request and it is now closed. <strong>You receive an email</strong> with the decision. You may submit a new request addressing the concerns, or escalate through your manager.</p>
+      </div>
+      <div class="status-card">
+        <h4><span class="s-dot" style="background:#3b82f6"></span> Returned</h4>
+        <p>An approver sent it back because more information is needed. <strong>You receive an email</strong> naming the step that returned it and quoting exactly what the approver asked for. The request itself is closed, so read the email and <strong>submit a new request</strong> that addresses the point, quoting the original request ID.</p>
+      </div>
+    </div>
+
+    <div class="callout info" style="margin-top:16px">
+      <span class="callout-icon">&#128231;</span>
+      <div><strong>Every decision reaches you by email.</strong> Whichever way an approver decides &mdash; Approved, Rejected or Returned &mdash; the portal emails you automatically, with the request ID, the status, the step that decided, and the approver&rsquo;s comment where one was given. You are not emailed as the request passes each intermediate step, so use <strong>Track Your Request</strong> if you want to see where it currently sits.</div>
+    </div>
+  </section>
+
+  <!-- TIPS -->
+  <section class="guide-section" id="tips">
+    <h2><span class="section-icon">⚡</span> Tips for Faster Approval</h2>
+    <ul class="tips-list">
+      <li><span class="tip-n">1</span><strong>Use the Directory Lookup on Step 1</strong> &mdash; pre-filled forms with verified employee data are processed faster, and it is what captures your manager&rsquo;s address so the request routes to the right person.</li>
+      <li><span class="tip-n">2</span><strong>Write a specific justification.</strong> Vague answers like "needed for work" are the #1 cause of a request being &ldquo;Returned&rdquo;. Name the project, the client, or the deadline.</li>
+      <li><span class="tip-n">3</span><strong>Notify your manager verbally before submitting</strong> for urgent requests. Approvers who know a request is coming process it faster.</li>
+      <li><span class="tip-n">4</span>For OCA and PAA forms, submit at least 7 business days before the need date. Last-minute requests receive the same review time — they just arrive too late.</li>
+      <li><span class="tip-n">5</span><strong>List every system and data type upfront.</strong> Discovering you missed something after approval requires a new form.</li>
+      <li><span class="tip-n">6</span>For SER requests, include compensating controls — IP restrictions, audit logging, encryption at rest. These give approvers confidence that risk is being mitigated even without full compliance.</li>
+      <li><span class="tip-n">7</span><strong>Save your request ID.</strong> It is the only way to track the request &mdash; there is no &ldquo;my requests&rdquo; list to fall back on.</li>
+      <li><span class="tip-n">8</span><strong>Finish the form in one sitting.</strong> There is no draft save.</li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+// Scroll spy
+const sections=document.querySelectorAll('.guide-section,[id]');
+const navItems=document.querySelectorAll('.nav-item');
+function onScroll(){
+  let current='';
+  document.querySelectorAll('[id]').forEach(el=>{
+    if(el.getBoundingClientRect().top<=80) current=el.id;
+  });
+  navItems.forEach(a=>{
+    const href=a.getAttribute('href');
+    if(href&&href==='#'+current) a.classList.add('active');
+    else a.classList.remove('active');
+  });
+}
+window.addEventListener('scroll',onScroll,{passive:true});
+onScroll();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,2770 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>M365 Control Center · IT Command</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<script src="/vendor/chart.umd.min.js"></script>
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="tenant-sentinel"></script>
+<style>
+:root{
+  --bg:#0a0e14; --bg-2:#0f1521; --panel:#121a28; --panel-2:#16202f;
+  --line:#1e2c40; --line-2:#27374f;
+  --ink:#e6edf6; --ink-2:#9fb2cc; --ink-3:#647793;
+  --accent:#34d6c8; --accent-dim:#1c8a82;
+  --crit:#ff5470; --high:#ff9f45; --med:#ffd24a; --low:#5fb0ff; --pass:#3ddc97;
+  --grid:#152033;
+  --shadow:0 1px 0 rgba(255,255,255,.02), 0 10px 30px -12px rgba(0,0,0,.7);
+  --radius:14px;
+}
+[data-theme="light"]{
+  --bg:#eef1f6; --bg-2:#e6eaf2; --panel:#ffffff; --panel-2:#f7f9fc;
+  --line:#dde3ec; --line-2:#cbd5e3;
+  --ink:#0f1b2d; --ink-2:#41526b; --ink-3:#586a80;
+  --accent:#0e9b8f; --accent-dim:#7fd8d0;
+  --crit:#c01640; --high:#8f5106; --med:#7a5a06; --low:#175fbd; --pass:#0c6b46;
+  --grid:#e3e9f2;
+  --shadow:0 1px 0 rgba(0,0,0,.02), 0 12px 30px -16px rgba(20,40,80,.25);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(52,214,200,.06), transparent 60%),
+    radial-gradient(900px 500px at -5% 110%, rgba(95,176,255,.05), transparent 55%),
+    var(--bg);
+  color:var(--ink); font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"IBM Plex Mono",monospace}
+a{color:inherit;text-decoration:none}
+
+/* layout */
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+aside{
+  border-right:1px solid var(--line); background:linear-gradient(var(--bg-2),var(--bg));
+  padding:18px 14px; position:sticky;top:0;height:100vh;overflow:auto;
+}
+.brand{display:flex;gap:10px;align-items:center;padding:6px 8px 16px}
+.logo{width:30px;height:30px;border-radius:8px;background:
+  conic-gradient(from 210deg,var(--accent),var(--low),var(--accent));
+  display:grid;place-items:center;font-weight:700;color:#04121a;font-size:13px;box-shadow:0 0 0 1px var(--line-2)}
+.brand b{font-size:13px;letter-spacing:.3px;line-height:1.1}
+.brand span{display:block;font-size:10.5px;color:var(--ink-3);letter-spacing:.4px;text-transform:uppercase}
+.navlbl{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);padding:14px 10px 6px}
+nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;color:var(--ink-2);font-weight:500;font-size:13px;cursor:pointer;transition:.15s}
+nav a .ic{width:16px;text-align:center;opacity:.8}
+nav a:hover{background:var(--panel);color:var(--ink)}
+nav a.active{background:var(--panel-2);color:var(--ink);box-shadow:inset 2px 0 0 var(--accent)}
+.tag{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:20px;background:var(--panel);color:var(--ink-3);border:1px solid var(--line)}
+
+main{min-width:0}
+.topbar{
+  display:flex;align-items:center;gap:14px;padding:14px 26px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:color-mix(in srgb,var(--bg) 86%, transparent);backdrop-filter:blur(8px);z-index:5;
+}
+.switcher{position:relative}
+.switcher button{
+  display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line-2);
+  color:var(--ink);padding:8px 12px;border-radius:10px;cursor:pointer;font:inherit;min-width:236px
+}
+.switcher .dot{width:8px;height:8px;border-radius:50%;background:var(--pass)}
+.switcher .meta{text-align:left;line-height:1.15}
+.switcher .meta small{color:var(--ink-3);font-size:11px}
+.chev{margin-left:auto;color:var(--ink-3)}
+.menu{position:absolute;top:46px;left:0;width:300px;background:var(--panel);border:1px solid var(--line-2);
+  border-radius:12px;box-shadow:var(--shadow);padding:6px;display:none;z-index:20}
+.menu.open{display:block}
+.menu .item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer}
+.menu .item:hover{background:var(--panel-2)}
+.menu .item small{color:var(--ink-3)}
+.menu .score{margin-left:auto;font-weight:600}
+.search{flex:1;max-width:340px}
+.search input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+  padding:8px 12px;border-radius:10px;font:inherit}
+.search input::placeholder{color:var(--ink-3)}
+.tbtn{margin-left:auto;display:flex;gap:8px}
+.btn{background:var(--panel);border:1px solid var(--line-2);color:var(--ink-2);padding:8px 12px;
+  border-radius:10px;cursor:pointer;font:inherit;font-weight:500}
+.btn:hover{color:var(--ink);border-color:var(--accent-dim)}
+.btn.primary{background:linear-gradient(180deg,var(--accent),var(--accent-dim));color:#04121a;border:none;font-weight:600}
+
+.wrap{padding:24px 26px 60px;max-width:1320px}
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+.pagehead h1{margin:0;font-size:22px;letter-spacing:-.2px}
+.pagehead p{margin:4px 0 0;color:var(--ink-3);font-size:12.5px}
+.pagehead .stamp{font-size:11.5px;color:var(--ink-3)}
+
+.grid{display:grid;gap:16px}
+.g-12{grid-template-columns:repeat(12,minmax(0,1fr))}
+.grid>*{min-width:0}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);
+  border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 2px;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);font-weight:600}
+.card .sub{color:var(--ink-3);font-size:11.5px;margin-bottom:12px}
+.span3{grid-column:span 3}.span4{grid-column:span 4}.span5{grid-column:span 5}
+.span6{grid-column:span 6}.span7{grid-column:span 7}.span8{grid-column:span 8}.span12{grid-column:span 12}
+
+/* score gauge */
+.scorewrap{display:flex;align-items:center;gap:18px}
+.gauge{position:relative;width:132px;height:132px;flex:none}
+.gauge .val{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.gauge .val b{font-size:30px;font-weight:700;line-height:1}
+.gauge .val small{display:block;color:var(--ink-3);font-size:11px;margin-top:2px}
+.grade{font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;display:inline-block}
+.delta{font-size:12px;color:var(--ink-2);margin-top:8px}
+.delta b{color:var(--pass)}
+
+/* stat tiles */
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;min-width:0}
+.tiles>*{min-width:0}
+.tile{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:12px 13px}
+.tile .n{font-size:24px;font-weight:700;line-height:1.1}
+.tile .l{font-size:11px;color:var(--ink-3);margin-top:3px;text-transform:uppercase;letter-spacing:.07em}
+.tile .b{height:5px;border-radius:6px;margin-top:9px;background:var(--line)}
+.tile .b i{display:block;height:100%;border-radius:6px}
+.tile.cp{cursor:pointer;transition:border-color .15s,background .15s}
+.tile.cp:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,var(--panel-2))}
+
+/* severity bar */
+.sevbar{display:flex;height:14px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.sevbar i{display:block}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:12px;color:var(--ink-2)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend .sw{width:10px;height:10px;border-radius:3px}
+
+/* heatmap */
+.heat{display:grid;grid-template-columns:120px repeat(5,1fr);gap:5px;font-size:11px}
+.heat .hh{color:var(--ink-3);display:flex;align-items:center}
+.heat .cell{height:30px;border-radius:6px;display:grid;place-items:center;font-weight:600;color:#04121a;
+  font-family:"IBM Plex Mono";cursor:pointer;transition:.15s;border:1px solid transparent}
+.heat .cell:hover{transform:translateY(-1px);border-color:var(--ink)}
+.heat .rh{color:var(--ink-2);display:flex;align-items:center;font-size:11.5px}
+
+/* findings table */
+.fbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.chip{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2);padding:6px 11px;
+  border-radius:20px;font-size:12px;cursor:pointer;font-weight:500}
+.chip:hover{border-color:var(--line-2)}
+.chip.on{background:var(--accent);color:#04121a;border-color:transparent}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-3);
+  padding:8px 10px;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:11px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+tr.row{cursor:pointer;transition:.12s}
+tr.row:hover td{background:var(--panel-2)}
+.sev{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:6px;text-transform:uppercase;letter-spacing:.04em}
+.fwtags{display:flex;gap:5px;flex-wrap:wrap}
+.fw{font-size:10px;color:var(--ink-3);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+.cid{font-family:"IBM Plex Mono";font-size:12px;color:var(--ink-2)}
+.stat{font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(2,6,12,.55);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:.2s;z-index:40}
+.scrim.show{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:540px;max-width:92vw;background:var(--bg-2);
+  border-left:1px solid var(--line-2);box-shadow:-20px 0 60px -20px rgba(0,0,0,.7);
+  transform:translateX(100%);visibility:hidden;
+  transition:transform .25s cubic-bezier(.4,0,.2,1), visibility 0s linear .25s;
+  z-index:41;overflow:auto}
+.drawer.show{transform:none;visibility:visible;
+  transition:transform .25s cubic-bezier(.4,0,.2,1), visibility 0s}
+.dh{padding:20px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg-2);z-index:2}
+.dh .x{float:right;cursor:pointer;color:var(--ink-3);font-size:20px;line-height:1}
+.dh h2{margin:6px 0 4px;font-size:17px}
+.db{padding:18px 22px}
+.db section{margin-bottom:20px}
+.db section h4{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin:0 0 7px}
+.db p{margin:0;color:var(--ink-2);font-size:13px}
+.kv{display:flex;gap:10px;flex-wrap:wrap}
+.kv .k{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 12px;min-width:120px}
+.kv .k small{display:block;color:var(--ink-3);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+.kv .k b{font-size:16px}
+.steps{margin:0;padding-left:18px;color:var(--ink-2);font-size:13px}
+.steps li{margin-bottom:6px}
+.evid{background:#06090f;border:1px solid var(--line);border-radius:10px;padding:12px;font-family:"IBM Plex Mono";
+  font-size:12px;color:var(--ink-2);white-space:pre-wrap;overflow:auto}
+[data-theme="light"] .evid{background:#0f1b2d;color:#cdd9ea}
+.affected{display:flex;flex-direction:column;gap:6px}
+.affected .a{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-size:12.5px;display:flex;justify-content:space-between}
+.refbtn{display:inline-flex;gap:6px;align-items:center;color:var(--accent);font-size:12.5px;font-weight:500}
+
+footer{color:var(--ink-3);font-size:11.5px;padding:8px 26px 30px;border-top:1px solid var(--line);margin-top:30px}
+.note{background:color-mix(in srgb,var(--med) 12%,transparent);border:1px solid color-mix(in srgb,var(--med) 35%,transparent);
+  color:var(--ink);border-radius:10px;padding:10px 13px;font-size:12px;margin-bottom:18px}
+/* share modal */
+.share-scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:flex;align-items:center;justify-content:center}
+.share-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px 28px;width:100%;max-width:480px;box-shadow:var(--shadow)}
+.share-box h3{margin:0 0 6px;font-size:16px}
+.share-box .sub{color:var(--ink-3);font-size:12.5px;margin-bottom:18px}
+.share-url{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2);word-break:break-all;margin-bottom:14px;user-select:all}
+.share-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn-share{padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit;transition:border-color .15s,background .15s}
+.btn-share:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel-2))}
+.btn-share.primary{background:var(--accent);color:#04121a;border-color:transparent;font-weight:600}
+.btn-share.primary:hover{opacity:.9}
+#navToggle{display:none;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 auto;
+  border:1px solid var(--line);background:var(--panel-2);color:var(--ink);border-radius:9px;cursor:pointer;font-size:16px}
+/* A grid item's min-width defaults to auto, so every .card was floored at the
+   min-content width of its widest table and forced the page to scroll
+   sideways. Wide content now scrolls inside its own card. */
+.card{min-width:0}
+.card:has(> table){overflow-x:auto;overscroll-behavior-x:contain}
+/* The top bar could not wrap, so below ~820px it overflowed the viewport and
+   the whole page scrolled sideways. Search drops to its own row; the tenant
+   name truncates rather than forcing the row wider. */
+@media(max-width:820px){
+  .topbar{flex-wrap:wrap;row-gap:10px;gap:10px;padding:12px 16px}
+  .switcher{min-width:0}
+  .switcher button{max-width:100%}
+  .switcher .meta{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .search{flex:1 1 260px;max-width:none;min-width:0}
+}
+@media(max-width:1100px){.app{grid-template-columns:1fr}
+  /* aside was display:none, and every nav link lives inside it, so a narrow
+     viewport lost every view except the default Dashboard. It is now an
+     off-canvas drawer. visibility (not transform alone) keeps its links out
+     of the tab order while closed. */
+  aside{position:fixed;top:0;left:0;bottom:0;width:236px;z-index:70;overflow-y:auto;
+    transform:translateX(-100%);visibility:hidden;
+    transition:transform .2s ease, visibility 0s linear .2s}
+  aside.open{transform:none;visibility:visible;transition:transform .2s ease, visibility 0s}
+  #navToggle{display:flex}
+.span3,.span4,.span5,.span6,.span7,.span8{grid-column:span 12}.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print {
+  aside, .topbar, #briefPrintBtn { display: none !important; }
+  .view { display: none !important; }
+  #view-briefing { display: block !important; }
+  body, .wrap { background: #fff !important; color: #000 !important; margin: 0; padding: 20px; }
+  .card { border: 1px solid #ccc !important; background: #fff !important; break-inside: avoid; }
+  h1, h3 { color: #000 !important; }
+}
+</style>
+<link rel="stylesheet" href="/it-depth.css">
+</head>
+<body data-dp="tenant-sentinel">
+<div class="app">
+  <aside>
+    <div class="brand">
+      <div class="logo">⬡</div>
+      <div><b>M365 CONTROL CENTER</b></div>
+    </div>
+    <div class="navlbl">Dashboard</div>
+    <nav>
+      <a class="active" data-nav="view-dashboard" onclick="showView('view-dashboard')"><span class="ic">▣</span> Dashboard</a>
+      <a data-nav="view-briefing" onclick="showView('view-briefing');loadBriefing()"><span class="ic">▢</span> Executive Briefing</a>
+    </nav>
+    <div class="navlbl">Security areas</div>
+    <nav>
+      <a data-nav="grp-identity" onclick="showGroup('identity')"><span class="ic">⚷</span> Identity &amp; Access</a>
+      <a data-nav="view-signin" onclick="showView('view-signin');loadSigninAnalytics()"><span class="ic">⇄</span> Sign-In Analytics <span class="tag" data-feedbadge="entra_users">live</span></a>
+      <a data-nav="grp-threat" onclick="showGroup('threat')"><span class="ic">▲</span> Threat Protection</a>
+      <a data-nav="grp-devices" onclick="showGroup('devices')"><span class="ic">▦</span> Devices</a>
+      <a data-nav="grp-data" onclick="showGroup('data')"><span class="ic">▤</span> Data &amp; Apps</a>
+    </nav>
+    <div class="navlbl">Tenant insights</div>
+    <nav>
+      <a data-nav="view-licensing" onclick="showView('view-licensing');loadInsight('licensing')"><span class="ic">▤</span> Licensing &amp; Cost</a>
+      <a data-nav="view-paidusage" onclick="showView('view-paidusage');loadPaidUsage()"><span class="ic">◔</span> 30/60/90 Day Usage <span class="tag" style="color:var(--pass)">live</span></a>
+      <a data-nav="view-usage" onclick="showView('view-usage');loadInsight('usage')"><span class="ic">◔</span> Workload Activity</a>
+      <a data-nav="view-apps" onclick="showView('view-apps');loadInsight('apps')"><span class="ic">◧</span> App &amp; Automation</a>
+      
+    </nav>
+    <div class="navlbl">Governance</div>
+    <nav>
+      <a data-nav="view-priv" onclick="showView('view-priv');loadPrivAccess()"><span class="ic">⚿</span> Who Has the Keys? <span class="tag" data-feedbadge="priv_role_assignment,okta_user_factors,entra_users">live</span></a>
+    </nav>
+    <div class="navlbl">Reports</div>
+    <nav>
+      <a data-nav="view-changes" onclick="showView('view-changes');loadTenantChanges()"><span class="ic">⟲</span> Tenant Changes <span class="tag" data-feedbadge="entra_users">live</span></a>
+      <a data-nav="view-roadmap" onclick="showView('view-roadmap');renderRoadmap()"><span class="ic">➚</span> Improvement Roadmap</a>
+      <a data-nav="view-ownership" onclick="showView('view-ownership');renderOwnership()"><span class="ic">&#128100;</span> Ownership &amp; Accountability</a>
+      <a data-nav="view-findings" onclick="gotoFindings('all')"><span class="ic">⌗</span> All Findings <span class="tag" id="fcount">—</span></a>
+      <a data-nav="view-compliance" onclick="showView('view-compliance')"><span class="ic">◈</span> Compliance <span class="tag" data-feedbadge="derived" title="Derived from the findings above, so it is exactly as current as the feeds behind them.">derived</span></a>
+    </nav>
+    <div class="navlbl">About</div>
+    <nav>
+      <a onclick="showScopes()"><span class="ic">⚷</span> What We Monitor <span class="tag" title="A written description of the sources this dashboard reads. Not itself live data.">about</span></a>
+      <a onclick="showCollectors()"><span class="ic">◷</span> Data Freshness <span class="tag" style="color:var(--pass)" title="Measures every feed when opened.">live</span></a>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <button id="navToggle" aria-label="Open navigation" aria-expanded="false" onclick="toggleNav()">&#9776;</button>
+      <div class="switcher">
+        <button style="cursor:default">
+          <span class="dot" id="swDot"></span>
+          <span class="meta" id="swMeta">auction.com<br><small>Entra + Okta · checking feeds…</small></span>
+        </button>
+      </div>
+      <div class="search" style="position:relative"><input id="searchBox" placeholder="Search findings, controls, entities…"><div id="searchDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;max-height:360px;overflow-y:auto;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,0.3)"></div></div>
+      <div class="tbtn" style="position:relative;display:flex;gap:6px">
+        <button class="btn" onclick="toggleSavedViewsMenu()" id="savedViewsBtn">&#9733; Views</button>
+        <div id="savedViewsMenu" style="display:none;position:absolute;top:100%;right:0;margin-top:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;min-width:240px;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,0.3);padding:8px"></div>
+        <button class="btn" id="refreshBtn">↻ Refresh</button>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div id="breadcrumbBar" style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-3);margin-bottom:10px;flex-wrap:wrap"></div>
+      <div class="pagehead">
+        <div>
+          <h1>M365 Control Center</h1>
+          <p id="phSub"></p>
+        </div>
+        <div class="stamp" id="phStamp"></div>
+      </div>
+
+      <div class="note" id="noteBanner"><b>What is this?</b> An automated, continuously-updated security and operations view of our Microsoft 365, Entra ID, Okta and Power Platform environment. The score is overall health (higher is better); each <b>finding</b> below is a specific problem with evidence, affected accounts, and fix steps — click anything to drill in.<span id="noteFeeds"></span></div>
+
+      <div class="view" id="view-dashboard"><div class="grid g-12">
+        <!-- score -->
+        <div class="card span4">
+          <h3>Overall security score</h3>
+          <div class="sub" id="gaugeSub">Weighted across live modules</div>
+          <div class="scorewrap">
+            <div class="gauge"><canvas id="gauge" width="132" height="132"></canvas>
+              <div class="val"><b id="scoreNum">—</b><small>/ 100</small></div>
+            </div>
+            <div>
+              <span class="grade" id="grade"></span>
+              <div class="delta" id="deltaTxt"></div>
+              <div class="delta" id="critTxt"></div>
+            </div>
+          </div>
+          <div style="margin-top:10px;height:32px"><canvas id="scoreSpark" height="32"></canvas></div>
+          <div id="sparkNote" style="font-size:11px;color:var(--ink-3);margin-top:2px"></div>
+        </div>
+
+        <!-- key metrics tiles -->
+        <div class="card span8">
+          <h3>Key exposure metrics</h3>
+          <div class="sub">Live identity, sharing & device signals</div>
+          <div class="tiles" id="tiles"></div>
+        </div>
+
+        <!-- conditional access coverage: direct tie-in to spray-campaign remediation -->
+        <div class="card span4" style="cursor:pointer" onclick="showView('view-signin');loadSigninAnalytics()">
+          <h3>Conditional Access coverage</h3>
+          <div class="sub">Sign-ins with no CA policy applied — see Sign-in analytics</div>
+          <div id="caCoverageTile" style="margin-top:8px"><div style="color:var(--ink-3);font-size:13px">Loading…</div></div>
+        </div>
+
+        <!-- critical attention: top findings ranked across all modules -->
+        <div class="card span12">
+          <h3>Critical attention</h3>
+          <div class="sub">Highest-risk open findings, ranked across every module — click any row for evidence and remediation</div>
+          <div id="critAttn" style="margin-top:8px"></div>
+        </div>
+
+        <!-- who has the keys summary -->
+        <div class="card span12" id="keysCard" style="cursor:pointer" onclick="showView('view-priv');loadPrivAccess()">
+          <h3>Who has the keys?</h3>
+          <div class="sub">Privileged access at a glance — click to open the full report</div>
+          <div class="tiles" id="keysTiles" style="margin-top:8px"><div style="color:var(--ink-3);font-size:13px">Loading…</div></div>
+        </div>
+
+        <!-- security areas (group tiles) -->
+        <div class="card span12">
+          <h3>Security areas</h3>
+          <div class="sub">Click an area to see its score breakdown and findings</div>
+          <div class="tiles" id="modTiles"></div>
+        </div>
+
+        <!-- tenant insights tiles -->
+        <div class="card span12">
+          <h3>Tenant insights</h3>
+          <div class="sub">Licensing, adoption and application posture — click for detail</div>
+          <div class="tiles" id="insTiles"><div style="color:var(--ink-3);font-size:13px">Loading…</div></div>
+        </div>
+
+        <!-- severity breakdown -->
+        <div class="card span5">
+          <h3>Findings by severity</h3>
+          <div class="sub" id="findTotal"></div>
+          <div class="sevbar" id="sevbar"></div>
+          <div class="legend" id="sevlegend"></div>
+        </div>
+
+        <!-- legacy auth trend -->
+        <div class="card span7">
+          <h3>Legacy authentication sign-ins · 14-day trend</h3>
+          <div class="sub">From Entra sign-in logs (AuditLog.Read.All) — target is zero</div>
+          <div style="height:150px"><canvas id="trend"></canvas></div>
+        </div>
+
+      </div></div>
+
+      <div class="view" id="view-group" style="display:none">
+        <div class="grid g-12">
+          <div class="card span4" id="grpScoreCard" style="cursor:pointer" title="Click to jump to this area's findings" onclick="document.getElementById('gtbody').scrollIntoView({behavior:'smooth',block:'center'})">
+            <h3 id="grpTitle">—</h3>
+            <div class="sub" id="grpSub"></div>
+            <div class="scorewrap" style="margin-top:10px">
+              <div><b id="grpScore" style="font-size:40px">—</b><small style="color:var(--ink-3)"> /100</small>
+                <div class="delta" id="grpOpen"></div></div>
+            </div>
+          </div>
+          <div class="card span8">
+            <h3>Module scores</h3>
+            <div class="sub">Modules in this area</div>
+            <div class="affected" id="grpMods"></div>
+          </div>
+          <div class="card span12">
+            <h3>Findings in this area</h3>
+            <div class="sub">Click a row for evidence, remediation and tracking</div>
+            <table>
+              <thead><tr><th>Priority</th><th>What needs attention</th><th>Module</th><th>Affected</th><th>Who&#39;s on it</th><th>Status</th></tr></thead>
+              <tbody id="gtbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-briefing" style="display:none">
+        <div id="briefingPrintArea">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+            <div>
+              <h1 style="font-size:26px;margin:0">Microsoft 365 Security Assessment</h1>
+              <div style="color:var(--ink-3);font-size:13px;margin-top:4px">auction.com &middot; Executive Briefing &middot; <span id="briefDate"></span></div>
+            </div>
+            <button class="btn" onclick="window.print()" id="briefPrintBtn">Print / Save as PDF</button>
+          </div>
+
+          <div class="card span12" style="margin-bottom:16px">
+            <h3>Overall assessment</h3>
+            <div id="briefScore" style="display:flex;align-items:baseline;gap:16px;margin-top:8px">
+              <span style="font-size:48px;font-weight:700" id="briefScoreNum">-</span>
+              <span id="briefScoreGrade" style="font-size:16px;color:var(--ink-2)"></span>
+            </div>
+            <div id="briefScoreSub" style="color:var(--ink-3);font-size:13px;margin-top:8px"></div>
+          </div>
+
+          <div class="tiles" id="briefKpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px"></div>
+
+          <div class="card span12" style="margin-bottom:16px">
+            <h3>Top priorities</h3>
+            <div class="sub">Ranked by risk-reduction value &divide; effort &mdash; the most important five actions right now</div>
+            <div id="briefTop" style="margin-top:10px"></div>
+          </div>
+
+          <div class="card span12">
+            <h3>What this platform monitors</h3>
+            <div class="sub">Entra ID, Okta, Power Platform, and SharePoint/OneDrive &mdash; <span id="briefFindingCount"></span> findings tracked across 9 modules, updated continuously.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-signin" style="display:none">
+        <div class="grid g-12">
+          <div class="card span12">
+            <h3>Sign-in analytics</h3>
+            <div class="sub" id="siSub">Volume, failures, and geography — from Entra ID sign-in logs</div>
+            <div style="display:flex;gap:6px;margin-top:10px" id="siRangeBar"></div>
+          </div>
+          <div class="tiles span12" id="siTiles" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div>
+          <div class="card span12">
+            <h3 id="siVolumeTitle">Sign-in volume, last 30 days</h3>
+            <div class="sub">Total sign-ins vs. failures, by day</div>
+            <div style="height:220px;margin-top:12px"><canvas id="siVolumeChart"></canvas></div>
+          </div>
+          <div class="card span6">
+            <h3>Top failure reasons</h3>
+            <div id="siFailures" style="margin-top:8px"></div>
+          </div>
+          <div class="card span6">
+            <h3>Sign-ins by country</h3>
+            <div class="sub">Last 30 days · informational — not itself a finding of risk</div>
+            <div id="siCountries" style="margin-top:8px"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-priv" style="display:none">
+        <div class="grid g-12">
+          <div class="card span12">
+            <h3>Who has the keys?</h3>
+            <div class="sub">Every privileged directory role assignment in the tenant, with MFA and activity status · click a row for the full footprint</div>
+          </div>
+          <div class="tiles span12" id="privTiles" style="grid-template-columns:repeat(4,minmax(0,1fr))"></div>
+          <div class="card span12">
+            <h3>Privileged accounts</h3>
+            <div class="sub" id="privSub">Loading…</div>
+            <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
+              <input id="privSearch" placeholder="Search name, email, role…"
+                style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;min-width:220px">
+            </div>
+            <table>
+              <thead id="privThead"></thead>
+              <tbody id="privTbody"></tbody>
+            </table>
+            <div id="privCoverage" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-3)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-changes" style="display:none">
+        <div class="grid g-12">
+          <div class="card span12">
+            <h3>Tenant changes</h3>
+            <div class="sub" id="chgSub">What changed, who changed it — from Entra ID audit logs</div>
+            <div style="display:flex;gap:6px;margin-top:10px" id="chgRangeBar"></div>
+          </div>
+          <div class="tiles span12" id="chgTiles" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div>
+          <div class="card span6">
+            <h3>Most common changes</h3>
+            <div class="sub" id="chgActivitySub"></div>
+            <div id="chgByActivity" style="margin-top:8px"></div>
+          </div>
+          <div class="card span6">
+            <h3>Top initiators</h3>
+            <div class="sub">Who or what made the most changes</div>
+            <div id="chgByInitiator" style="margin-top:8px"></div>
+          </div>
+          <div class="card span12">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <h3>Recent activity</h3>
+              <button class="btn" onclick="downloadChangesCsv()" style="white-space:nowrap;font-size:12px">⬇ Export CSV</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
+              <input id="chgSearch" placeholder="Search activity, initiator, target…"
+                style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;min-width:240px">
+            </div>
+            <table>
+              <thead><tr><th>When</th><th>Activity</th><th>Category</th><th>Initiator</th><th>Target</th><th>Result</th></tr></thead>
+              <tbody id="chgTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-ownership" style="display:none">
+        <div class="grid g-12">
+          <div class="card span12">
+            <h3>Ownership &amp; accountability</h3>
+            <div class="sub" id="ownSub">Who is assigned to what, and what still has no owner</div>
+          </div>
+          <div class="tiles span12" id="ownTiles" style="grid-template-columns:repeat(4,minmax(0,1fr))"></div>
+          <div class="card span12">
+            <h3>Unassigned open findings</h3>
+            <div class="sub">These have no owner and status=open — the most actionable items right now</div>
+            <div id="ownUnassigned" style="margin-top:8px"></div>
+          </div>
+          <div class="card span12">
+            <h3>By owner</h3>
+            <div id="ownByOwner" style="margin-top:8px"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-roadmap" style="display:none">
+        <div class="grid g-12">
+          <div class="card span12">
+            <h3>Improvement roadmap</h3>
+            <div class="sub" id="rmHeadline"></div>
+          </div>
+          <div class="card span12"><h3>🔴 Do now</h3>
+            <div class="sub">High-impact security gaps — each of these materially reduces attack surface</div>
+            <div id="rmNow" style="display:grid;gap:10px;margin-top:12px"></div></div>
+          <div class="card span12"><h3>🟡 Plan next</h3>
+            <div class="sub">Meaningful improvements worth scheduling this quarter</div>
+            <div id="rmPlan" style="display:grid;gap:10px;margin-top:12px"></div></div>
+          <div class="card span12"><h3>🟢 Quick wins &amp; housekeeping</h3>
+            <div class="sub">Low effort cleanups — cheap points and tidier posture</div>
+            <div id="rmQuick" style="display:grid;gap:10px;margin-top:12px"></div></div>
+        </div>
+      </div>
+
+      <div class="view" id="view-paidusage" style="display:none">
+        <div class="grid g-12">
+          <div class="card span12">
+            <h3>30/60/90 Day Usage</h3>
+            <div class="sub">Paid subscriptions only (E3/E5/Copilot) — usage, not just assignment. Hierarchy: Department → Manager → Employee → Subscription.</div>
+            <div style="display:flex;gap:6px;margin-top:10px" id="puRangeBar"></div>
+            <div class="sub" id="puDateRange" style="margin-top:6px"></div>
+          </div>
+          <div class="card span12"><h3>Summary</h3>
+            <div class="sub" id="puSummaryIntro" style="margin-bottom:4px"></div>
+            <div class="tiles" id="puSummaryTiles" style="margin-top:10px"></div>
+          </div>
+          <div class="card span12">
+            <h3>By department</h3>
+            <div class="sub">Click a department to drill into managers, then employees</div>
+            <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
+              <input id="puSearch" placeholder="Search department, manager, employee…"
+                style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;min-width:260px">
+            </div>
+            <table>
+              <thead><tr><th>Department</th><th>Paid Users</th><th>Active</th><th>Low</th><th>Inactive</th><th>Utilization</th></tr></thead>
+              <tbody id="puDeptTbody"></tbody>
+            </table>
+            <div id="puNote" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-3)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-licensing" style="display:none">
+        <div class="grid g-12">
+          <div class="card span12"><h3>Licensing &amp; cost</h3>
+            <div class="sub">What we spend with Microsoft, who uses it, and where the savings are</div>
+            <div class="tiles" id="licKpis" style="margin-top:12px">Loading…</div></div>
+          <div class="card span12" id="renewalCard">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+              <h3>Microsoft Renewal Planning</h3>
+              <div style="display:flex;gap:6px" id="rpRangeBar"></div>
+            </div>
+            <div class="sub">30 / 60 / 90 Day Usage &amp; Renewal Analysis — how many paid licenses do we actually need for the next renewal year?</div>
+            <div class="sub" id="rpRange" style="margin-top:6px"></div>
+            <div class="tiles" id="rpTiles" style="margin-top:12px">Loading…</div>
+            <div style="overflow-x:auto;margin-top:14px"><table>
+              <thead><tr><th>Subscription</th><th>Purchased</th><th>Assigned</th><th>Active</th><th>Low</th><th>Inactive</th><th>Unknown</th><th>Needed</th><th>Recommended</th><th>Change</th><th>Monthly impact</th></tr></thead>
+              <tbody id="rpTbody"></tbody></table></div>
+            <div id="rpNote" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-3)"></div>
+          </div>
+          <div class="card span12" style="cursor:pointer" onclick="showView('view-paidusage');loadPaidUsage()">
+            <h3>30/60/90 Day Usage</h3>
+            <div class="sub">Not just who has a paid license — who is actually using it. Click to open the full report.</div>
+          </div>
+          <div class="card span7"><h3>Monthly spend by product</h3>
+            <div class="sub">Paid subscriptions and services</div>
+            <div style="height:220px"><canvas id="licChart"></canvas></div></div>
+          <div class="card span5"><h3>Savings opportunities</h3>
+            <div class="sub">Idle paid seats — click a row for who holds this license</div>
+            <div class="affected" id="licOver"></div></div>
+          <div class="card span12"><h3>Paid subscriptions</h3>
+            <div class="sub">Click any row to see who holds the license, by department</div>
+            <div class="affected" id="licSkus"></div>
+            <div class="sub" id="licFree" style="margin-top:10px"></div></div>
+          <div class="card span12" id="copilotCard" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <h3>Copilot</h3>
+              <a href="https://reporting.nrpi.local/ai-usage-credits.html" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent);text-decoration:none">Full department/manager/employee breakdown →</a>
+            </div>
+            <div class="sub" id="copilotSub">Loading…</div>
+            <div class="tiles" id="copilotTiles" style="margin-top:12px"></div>
+            <div id="copilotApps" style="margin-top:14px"></div></div>
+          <div class="card span12" id="sharePointCard" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <h3>SharePoint</h3>
+              <a href="https://corpit.nrpi.local/sharepoint-governance-dashboard.html" target="_blank" rel="noopener" style="font-size:12px;color:var(--accent);text-decoration:none">Full SharePoint Governance dashboard →</a>
+            </div>
+            <div class="sub" id="sharePointSub">Loading…</div>
+            <div class="tiles" id="sharePointTiles" style="margin-top:12px"></div>
+          </div>
+          <div class="card span12"><h3>Products &amp; services</h3>
+            <div class="sub">Non-license spend: storage, servers and infrastructure (from invoice)</div>
+            <div class="affected" id="licPS"></div></div>
+          <div class="card span12"><h3>Reclaim candidates — licensed but inactive 60+ days</h3>
+            <div class="sub" id="licReclaimSub">Employees holding paid licenses with no Microsoft 365 activity in two months</div>
+            <div id="licUnused"></div></div>
+        </div>
+      </div>
+
+      <div class="view" id="view-usage" style="display:none">
+        <div class="grid g-12">
+          <div class="card span12"><h3>Workload activity</h3>
+            <div class="sub"><b>Why this matters:</b> every licensed user costs the same whether they use the tools or not. These tiles show how many of our licensed users actually used each Microsoft service in the last 30 days. Consistently inactive users appear as reclaim candidates under Licensing &amp; Cost.</div>
+            <div class="sub" id="useHeadline" style="margin-top:8px">Loading…</div>
+            <div class="tiles" id="useTiles" style="margin-top:12px"></div></div>
+        </div>
+      </div>
+
+      <div class="view" id="view-apps" style="display:none">
+        <div class="grid g-12">
+          <div class="card span12">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <h3>App &amp; automation</h3>
+              <button class="btn" onclick="downloadAppsCsv()" style="white-space:nowrap;font-size:12px">⬇ Export CSV</button>
+            </div>
+            <div class="sub"><b>Why this matters:</b> every application listed here has been granted some level of access to company data, and every automation flow moves data unattended. This page answers two questions: <b>what software can touch our tenant</b>, and <b>is our automation still owned and maintained</b>. Click a category below to filter.</div>
+            <div class="fbar" id="appChips" style="margin-top:10px"></div>
+            <div id="appBody" style="margin-top:12px"></div></div>
+        </div>
+      </div>
+
+      <div class="view" id="view-findings" style="display:none"><div class="grid g-12">
+        <!-- heatmap -->
+        <div class="card span7">
+          <h3>Risk heatmap · module × severity</h3>
+          <div class="sub">Cell = count of open findings. Greyed modules pending Graph grants.</div>
+          <div class="heat" id="heat"></div>
+        </div>
+
+        <!-- module coverage -->
+        <div class="card span5">
+          <h3>Module coverage</h3>
+          <div class="sub">Live vs. pending permission grants</div>
+          <div class="affected" id="coverage"></div>
+        </div>
+
+        <!-- findings table -->
+        <div class="card span12">
+          <h3>Prioritized findings</h3>
+          <div class="sub">Sorted by risk-reduction value ÷ effort. Click a row for evidence &amp; remediation.</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="fbar" id="fbar"></div><button class="btn" onclick="downloadFindingsCsv()" style="white-space:nowrap">⬇ Export CSV</button></div>
+          <table>
+            <thead><tr><th>Severity</th><th>Control</th><th>Finding</th><th>Module</th><th>Affected</th><th>Frameworks</th><th>Status</th></tr></thead>
+            <tbody id="ftbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      </div>
+      <div class="view" id="view-compliance" style="display:none">
+      <div class="card span12" id="complianceCard" style="margin-top:18px">
+        <h3>Compliance frameworks</h3>
+        <div class="sub">How our findings map to security frameworks. A control "passes" when no related finding is failing. Click a framework to see its findings.</div>
+        <div id="complianceVerifiedSummary" style="margin-top:10px;font-size:12.5px;color:var(--ink-3)"></div>
+        <div id="compliance" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:14px"></div>
+      </div>
+      </div>
+      
+
+      <footer>M365 Control Center · read-only · auction.com IT</footer>
+    </div>
+  </main>
+</div>
+
+<!-- drawer -->
+<div class="scrim" id="scrim"></div>
+<div class="drawer" id="drawer"></div>
+
+
+
+<script>
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+// JSON.stringify produces a valid JS string literal; esc() then makes that
+// literal safe to sit inside an HTML attribute. Both contexts are closed.
+const jsAttr = (v) => esc(JSON.stringify(String(v ?? '')));
+const SEV = {critical:'--crit',high:'--high',medium:'--med',low:'--low'};
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+let OV = null;          // /api/sentinel/overview payload
+let TRK = {};           // finding_id -> tracking row (/api/sentinel/status)
+let charts = {};
+let filter = 'all';
+let search = '';
+
+function authHeaders(){
+  let idToken = '';
+  try{
+    const raw = sessionStorage.getItem('sso_user');
+    if(raw) idToken = JSON.parse(raw).idToken || '';
+  }catch(e){}
+  return idToken ? {Authorization: 'Bearer ' + idToken} : {};
+}
+
+async function load(){
+  try{
+    const r = await fetch('/api/sentinel/overview', {headers: authHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    OV = await r.json();
+    try{
+      const sr = await fetch('/api/sentinel/status', {headers: authHeaders()});
+      if(sr.ok){ TRK = {}; ((await sr.json()).statuses||[]).forEach(s=>TRK[s.finding_id]=s); }
+    }catch(e){}
+  }catch(e){
+    document.getElementById('noteBanner').innerHTML =
+      '⚠ Could not load live data ('+e.message+'). Check SSO session / RBAC access to page key <b>tenant-sentinel</b>.';
+    document.getElementById('noteBanner').style.borderColor = cssv('--crit');
+    return;
+  }
+  renderAll();
+  loadFeedState();
+}
+
+// Feed freshness, measured once and reused. Until it resolves FEEDS is null,
+// which renders as "checking feeds" -- not as "live". An unmeasured feed state
+// must never read the same as a healthy one.
+let FEEDS = null;
+async function loadFeedState(){
+  try{
+    const r = await fetch('/api/feeds/freshness?page=tenant-sentinel', {headers: authHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    const list = j.feeds || [];
+    const ages = list.map(f=>f.ageHours).filter(a=>typeof a === 'number');
+    const byKey = {};
+    list.forEach(function(f){ byKey[f.key] = f; });
+    FEEDS = { total:list.length, degraded:j.degraded||0, byKey:byKey,
+              oldestDays: ages.length ? Math.floor(Math.max.apply(null, ages)/24) : null };
+  }catch(e){ FEEDS = { error: e.message }; }
+  applyFeedWording();
+  applyNavBadges();
+}
+// One sentence describing feed health, used everywhere the page used to say
+// "live". Returns '' only when every feed is genuinely current.
+function feedNote(){
+  if(!FEEDS) return ' \u00b7 checking feed freshness\u2026';
+  if(FEEDS.error) return ' \u00b7 feed freshness could not be measured';
+  if(!FEEDS.total) return ' \u00b7 no feeds registered for this page';
+  if(!FEEDS.degraded) return ' \u00b7 all ' + FEEDS.total + ' feeds current';
+  return ' \u00b7 \u26a0 ' + FEEDS.degraded + ' of ' + FEEDS.total + ' feeds not current'
+       + (FEEDS.oldestDays ? ' (oldest ' + FEEDS.oldestDays + 'd)' : '');
+}
+// A rate the server could not measure comes back null, never 0. Rendering it as
+// an em-dash keeps an unmeasured rate from reading as the most reassuring value
+// the tile can show (0% failures, 0% without CA).
+function pctTxt(v){ return v == null ? '\u2014' : v + '%'; }
+// The sign-in window is relative to NOW(), but the feed behind it may have
+// stopped advancing -- "last 30 days" then really means the 19 days that ended
+// when the collector died. State the span actually observed.
+function spanNote(j){
+  const t = j && (j.totals || j);
+  if(!t || !t.observedTo) return 'no sign-ins recorded in this window';
+  const lagH = (Date.now() - new Date(t.observedTo).getTime()) / 36e5;
+  if(lagH < 36) return 'last ' + j.days + ' days';
+  return 'the ' + j.days + '-day window ending ' + Math.floor(lagH / 24)
+       + 'd ago \u2014 feed has stopped advancing';
+}
+function feedShort(){
+  if(!FEEDS) return 'checking feeds\u2026';
+  if(FEEDS.error) return 'feed status unknown';
+  if(!FEEDS.degraded) return 'feeds current';
+  return FEEDS.degraded + '/' + FEEDS.total + ' feeds stale';
+}
+// Re-applied whenever the measurement or the overview lands, in either order.
+// A nav badge states the measured currency of the feeds behind that view --
+// never a fixed word. "derived" views inherit the worst state on the page.
+function applyNavBadges(){
+  document.querySelectorAll('[data-feedbadge]').forEach(function(el){
+    const spec = el.getAttribute('data-feedbadge');
+    if(!FEEDS || FEEDS.error){
+      el.textContent = 'freshness unknown';
+      el.style.color = 'var(--ink-3)';
+      el.title = 'Could not read the freshness API' + (FEEDS && FEEDS.error ? ': ' + FEEDS.error : '') + '.';
+      return;
+    }
+    const keys = spec === 'derived' ? Object.keys(FEEDS.byKey || {}) : spec.split(',');
+    const feeds = keys.map(function(k){ return (FEEDS.byKey || {})[k]; });
+    const missing = feeds.filter(function(f){ return !f; }).length;
+    const known = feeds.filter(Boolean);
+    if(missing || !known.length){
+      el.textContent = 'not measured';
+      el.style.color = 'var(--ink-3)';
+      el.title = 'No freshness entry is registered for the data behind this view.';
+      return;
+    }
+    const bad = known.filter(function(f){ return f.state !== 'ok'; });
+    if(!bad.length){
+      el.textContent = spec === 'derived' ? 'derived · current' : 'live';
+      el.style.color = 'var(--pass)';
+      el.title = known.map(function(f){ return f.label + ': current'; }).join('\n');
+      return;
+    }
+    const aged = bad.filter(function(f){ return typeof f.ageHours === 'number'; });
+    const oldest = aged.length ? Math.max.apply(null, aged.map(function(f){ return f.ageHours; })) : null;
+    el.textContent = oldest === null ? 'no data'
+                   : oldest < 48 ? Math.round(oldest) + 'h behind'
+                   : Math.floor(oldest / 24) + 'd behind';
+    el.style.color = 'var(--med)';
+    el.title = bad.map(function(f){
+      return f.label + ': ' + f.state
+        + (typeof f.ageHours === 'number' ? ' (' + Math.floor(f.ageHours / 24) + 'd)' : '')
+        + ' \u2014 ' + (f.collector || 'no collector recorded');
+    }).join('\n');
+  });
+}
+function applyFeedWording(){
+  const nf = document.getElementById('noteFeeds');
+  if(nf){
+    if(!FEEDS)            nf.textContent = ' Checking whether the feeds behind it are current\u2026';
+    else if(FEEDS.error)  nf.textContent = ' Feed freshness could not be measured, so treat every count below as unverified.';
+    else if(!FEEDS.degraded) nf.textContent = ' All ' + FEEDS.total + ' feeds behind it are current.';
+    else nf.textContent = ' \u26a0 ' + FEEDS.degraded + ' of ' + FEEDS.total
+       + ' feeds behind it have stopped advancing, so counts and "no results" states below are not current.';
+  }
+  const m = document.querySelector('#swMeta small');
+  if(m) m.textContent = 'Entra + Okta \u00b7 ' + feedShort();
+  // The switcher dot used to be a hardcoded green: it now follows the same feed verdict as the text beside it.
+  const sd = document.getElementById('swDot');
+  if(sd){
+    const rung = !FEEDS ? 'unknown' : FEEDS.error ? 'unknown' : FEEDS.degraded ? 'stale' : 'ok';
+    sd.style.background = rung==='ok' ? 'var(--pass)' : rung==='stale' ? 'var(--med)' : 'var(--ink-3)';
+    sd.title = rung==='ok' ? 'all feeds current' : rung==='stale' ? (FEEDS.degraded+' of '+FEEDS.total+' feeds have stopped advancing') : 'feed freshness not measured';
+  }
+  if(typeof OV !== 'undefined' && OV){ renderHead(); renderScore(); }
+  if(document.querySelector('#tiles .tile[data-feedkeys]')) applyTileFreshness();
+}
+
+const STAT_LABEL={fail:'Needs attention',partial:'Watch',pass:'Healthy'};
+const statLabel=(s)=>STAT_LABEL[s]||s;
+function gradeColor(g){return g==='Good'?cssv('--pass'):g==='Fair'?cssv('--med'):cssv('--crit');}
+
+function renderHead(){
+  document.getElementById('phSub').textContent =
+    'auction.com · Entra ID + Okta + SDP telemetry · assessed against CIS / NIST / Zero Trust';
+  document.getElementById('phStamp').innerHTML =
+    'Generated <b class="mono">'+esc(OV.generatedAt.replace('T',' ').slice(0,16))+' UTC</b>'+esc(feedNote());
+  document.getElementById('fcount').textContent = OV.findings.filter(f=>f.status!=='pass').length;
+}
+
+function renderScore(){
+  document.getElementById('scoreNum').textContent = OV.score;
+  const g = document.getElementById('grade');
+  g.textContent = OV.grade;
+  g.style.background = 'color-mix(in srgb,'+gradeColor(OV.grade)+' 20%,transparent)';
+  g.style.color = gradeColor(OV.grade);
+  document.getElementById('deltaTxt').textContent = 'Average of '+OV.modulesAvailable.length+' module scores';
+  const gs=document.getElementById('gaugeSub');
+  if(gs) gs.textContent='Weighted across '+OV.modulesAvailable.length+' modules ('+OV.modulesPending.length+' pending)'+feedNote();
+  document.getElementById('critTxt').textContent =
+    OV.crit>0 ? '⚠ '+OV.crit+' critical finding'+(OV.crit>1?'s':'')+' cap the grade' : '✓ no critical findings';
+  // Microsoft Secure Score companion line (from DEF-SCORE-031 evidence)
+  const mss=OV.findings.find(f=>f.id==='DEF-SCORE-031');
+  let mssEl=document.getElementById('mssLine');
+  if(!mssEl){mssEl=document.createElement('div');mssEl.id='mssLine';mssEl.style.cssText='margin-top:8px;font-size:12px;color:var(--ink-3);cursor:pointer';
+    document.getElementById('critTxt').parentNode.appendChild(mssEl);}
+  if(mss&&mss.evidence&&mss.evidence.percent!==undefined){
+    mssEl.innerHTML='Microsoft Secure Score: <b style="color:var(--ink-2)">'+mss.evidence.percent+'%</b> · a different measure — click to compare';
+    mssEl.onclick=()=>openDrawer(mss);
+  } else { mssEl.textContent=''; mssEl.onclick=null; }
+  drawGauge(OV.score);
+}
+
+function drawGauge(score){
+  if(charts.gauge) charts.gauge.destroy();
+  const col = score>=85?cssv('--pass'):score>=70?cssv('--med'):cssv('--crit');
+  charts.gauge = new Chart(document.getElementById('gauge'),{
+    type:'doughnut',
+    data:{datasets:[{data:[score,100-score],backgroundColor:[col,cssv('--line')],
+      borderWidth:0,circumference:360,cutout:'78%'}]},
+    options:{plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:600}}
+  });
+}
+
+function renderTiles(){
+  const tileFinding=['IAM-LEG-002','IAM-SPRAY-003','HYG-DIS-011','OFF-GAP-020'];
+  document.getElementById('tiles').innerHTML = OV.tiles.map((t,i)=>`
+    <div class="tile" data-fid="${tileFinding[i]||''}" data-feedkeys="${esc((t.feeds||[]).join(','))}" data-windowh="${t.windowH==null?'':t.windowH}" data-zero="${String(t.n).trim()==='0'?'1':'0'}" data-basecolor="${cssv(t.c)}" style="cursor:pointer" title="Click to open the related finding">
+      <div class="n" style="color:${cssv(t.c)}">${t.n}<span style="font-size:12px;color:var(--ink-3)">${t.sfx||''}</span></div>
+      <div class="l" style="font-weight:600;color:var(--ink);text-transform:none;font-size:12px;margin-top:4px">${t.l}</div>
+      <div class="tile-fresh" style="font-size:11px;line-height:1.35;margin-top:5px;color:var(--ink-3)"></div></div>`).join('');
+  document.querySelectorAll('#tiles .tile[data-fid]').forEach(el=>el.onclick=()=>{
+    const f=OV.findings.find(x=>x.id===el.dataset.fid); if(f) openDrawer(f);
+  });
+  applyTileFreshness();
+}
+
+// A number is only as current as the feed under it. The overview route names
+// that feed per tile (t.feeds) and how far back the number looks (t.windowH),
+// so this can tell a measured zero apart from a zero that no longer had any
+// data to count -- and refuse to draw the second one in the "all clear" green.
+function applyTileFreshness(){
+  document.querySelectorAll('#tiles .tile[data-feedkeys]').forEach(function(el){
+    const n = el.querySelector('.n'), note = el.querySelector('.tile-fresh');
+    if(!n || !note) return;
+    const base = el.getAttribute('data-basecolor') || '';
+    const isZero = el.getAttribute('data-zero') === '1';
+    const winH = el.getAttribute('data-windowh') === '' ? null : Number(el.getAttribute('data-windowh'));
+    const keys = (el.getAttribute('data-feedkeys') || '').split(',').filter(Boolean);
+    const clickHint = 'Click to open the related finding';
+    if(!keys.length){ return; }
+
+    if(!FEEDS || FEEDS.error || !FEEDS.byKey){
+      if(isZero) n.style.color = 'var(--ink-3)';
+      note.textContent = FEEDS ? 'freshness unknown' : 'checking freshness\u2026';
+      note.style.color = 'var(--ink-3)';
+      el.title = clickHint + '\n\nThe freshness of the feed behind this number could not be measured, so it is neither confirmed current nor confirmed stale.';
+      return;
+    }
+    const feeds = keys.map(function(k){ return FEEDS.byKey[k]; });
+    if(feeds.some(function(f){ return !f; })){
+      if(isZero) n.style.color = 'var(--ink-3)';
+      note.textContent = 'feed not measured';
+      note.style.color = 'var(--ink-3)';
+      el.title = clickHint + '\n\nNo freshness row was returned for: '
+        + keys.filter(function(k){ return !FEEDS.byKey[k]; }).join(', ');
+      return;
+    }
+    const bad = feeds.filter(function(f){ return f.state !== 'ok'; });
+    if(!bad.length){
+      n.style.color = base;
+      note.textContent = '';
+      el.title = clickHint;
+      return;
+    }
+    const aged = bad.filter(function(f){ return typeof f.ageHours === 'number'; });
+    const oldest = aged.length ? Math.max.apply(null, aged.map(function(f){ return f.ageHours; })) : null;
+    const days = oldest === null ? null : Math.floor(oldest / 24);
+    const blind = oldest !== null && winH !== null && oldest >= winH;
+    if(blind){
+      n.style.color = 'var(--ink-3)';
+      note.textContent = 'no data in this window \u2014 feed ' + days + 'd behind';
+      note.style.color = 'var(--med)';
+    } else if(isZero){
+      n.style.color = 'var(--ink-3)';
+      note.textContent = oldest === null ? 'not a measured zero' : 'not a measured zero \u2014 feed ' + days + 'd behind';
+      note.style.color = 'var(--med)';
+    } else {
+      n.style.color = base;
+      note.textContent = oldest === null ? 'currency unknown' : 'as of ' + days + 'd ago';
+      note.style.color = 'var(--med)';
+    }
+    el.title = clickHint + '\n\n' + bad.map(function(f){
+      return f.label + ': ' + f.state
+        + (typeof f.ageHours === 'number' ? ' (' + Math.floor(f.ageHours / 24) + 'd behind)' : '')
+        + ' \u2014 ' + (f.collector || 'no collector recorded');
+    }).join('\n')
+    + (blind ? '\n\nThe whole window this number covers ends before the newest row, so it counted nothing that exists rather than finding nothing.' : '');
+  });
+}
+
+function renderSeverity(){
+  const counts = OV.severity, total = Object.values(counts).reduce((a,b)=>a+b,0);
+  const mods = [...new Set(OV.findings.filter(f=>f.status!=='pass').map(f=>f.module))].length;
+  document.getElementById('findTotal').textContent = total+' open findings across '+mods+' modules';
+  document.getElementById('sevbar').innerHTML = Object.entries(counts)
+    .map(([k,v])=>`<i style="flex:${v||0.001};background:${cssv(SEV[k])}" title="${k}: ${v}"></i>`).join('');
+  const SEVWORD={critical:'Urgent',high:'High',medium:'Medium',low:'Minor'};
+  document.getElementById('sevlegend').innerHTML = Object.entries(counts)
+    .map(([k,v])=>`<span><span class="sw" style="background:${cssv(SEV[k])}"></span>${SEVWORD[k]||k} <b>${v}</b></span>`).join('');
+}
+
+function renderHeat(){
+  const modules=[...OV.modulesAvailable, ...OV.modulesPending];
+  const sevs=['critical','high','medium','low'];
+  let html = `<div class="hh"></div>` + sevs.map(s=>`<div class="hh" style="justify-content:center">${s[0].toUpperCase()+s.slice(1)}</div>`).join('');
+  modules.forEach(m=>{
+    const pending = OV.modulesPending.includes(m);
+    html += `<div class="rh" style="${pending?'opacity:.4':''}">${m}${pending?' ·':''}</div>`;
+    sevs.forEach(s=>{
+      if(pending){ html += `<div class="cell" style="background:var(--line);color:var(--ink-3);opacity:.35;cursor:default">—</div>`; return; }
+      const v = OV.findings.filter(f=>f.module===m && f.sev===s && f.status!=='pass').length;
+      const col = v===0?cssv('--line'):cssv(SEV[s]);
+      const ink = v===0?cssv('--ink-3'):'#04121a';
+      html += `<div class="cell" data-s="${s}" style="background:${col};color:${ink};opacity:${v===0?.5:1}">${v}</div>`;
+    });
+  });
+  const el=document.getElementById('heat'); el.innerHTML=html;
+  el.querySelectorAll('.cell[data-s]').forEach(c=>c.onclick=()=>{
+    setFilter(c.dataset.s); document.getElementById('ftbody').scrollIntoView({behavior:'smooth',block:'center'});
+  });
+}
+
+function renderCoverage(){
+  const ms = OV.moduleScores || {};
+  const sc = (m)=>{const v=ms[m]; if(v===undefined) return '';
+    const c=v>=85?cssv('--pass'):v>=70?cssv('--med'):cssv('--crit');
+    return `<b class="mono" style="color:${c};margin-right:10px">${v}</b>`;};
+  const row=(m,live)=>`<div class="a" data-mod="${live?m:''}" style="${live?'cursor:pointer':''}" title="${live?'Click to see this module\'s findings':''}"><span>${m}</span>
+    <span>${live?sc(m):''}<span style="color:${live?cssv('--pass'):cssv('--ink-3')}">${live?'live':'pending grant'}</span></span></div>`;
+  document.getElementById('coverage').innerHTML =
+    OV.modulesAvailable.map(m=>row(m,true)).join('') + OV.modulesPending.map(m=>row(m,false)).join('');
+  document.querySelectorAll('#coverage .a[data-mod]').forEach(el=>{ if(!el.dataset.mod) return;
+    el.onclick=()=>{ gotoFindings('mod:'+el.dataset.mod); };
+  });
+}
+
+function renderTrend(){
+  if(charts.trend) charts.trend.destroy();
+  const ctx=document.getElementById('trend');
+  const grad=ctx.getContext('2d').createLinearGradient(0,0,0,150);
+  grad.addColorStop(0,'rgba(52,214,200,.35)');grad.addColorStop(1,'rgba(52,214,200,0)');
+  charts.trend=new Chart(ctx,{type:'line',
+    data:{labels:OV.trend.labels,datasets:[{data:OV.trend.data,borderColor:cssv('--accent'),
+      backgroundColor:grad,fill:true,tension:.4,pointRadius:3,pointBackgroundColor:cssv('--accent'),borderWidth:2}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+      y:{beginAtZero:true,grid:{color:cssv('--grid')},ticks:{color:cssv('--ink-3'),precision:0}},
+      x:{grid:{display:false},ticks:{color:cssv('--ink-3')}}}}});
+}
+
+function setFilter(f){filter=f;renderFbar();renderTable();}
+function renderFbar(){
+  const opts=['all','critical','high','medium','low'];
+  let html=opts.map(o=>
+    `<div class="chip ${filter===o?'on':''}" data-f="${o}">${o==='all'?'All findings':o[0].toUpperCase()+o.slice(1)}</div>`).join('');
+  if(filter.startsWith('mod:')) html+=`<div class="chip on" data-f="all">${filter.slice(4)} ✕</div>`;
+  if(filter.startsWith('fw:')) html+=`<div class="chip on" data-f="all">${(FW_GROUPS.find(g=>g[0]===filter.slice(3))||['','Operational'])[1]} ✕</div>`;
+  if(filter.startsWith('grp:')) html+=`<div class="chip on" data-f="all">${GRP[filter.slice(4)].label} ✕</div>`;
+  document.getElementById('fbar').innerHTML=html;
+  document.querySelectorAll('#fbar .chip').forEach(c=>c.onclick=()=>setFilter(c.dataset.f));
+}
+function statColor(s){return s==='fail'?cssv('--crit'):s==='partial'?cssv('--med'):cssv('--pass');}
+function csvEscape(v){ const s=String(v==null?'':v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+function downloadFindingsCsv(){
+  const rows=window._lastFilteredFindings||[];
+  const header=['ID','Severity','Title','Module','Affected','Status','Frameworks','Tracking Status','Owner'];
+  const lines=[header.join(',')];
+  for(const f of rows){
+    const t=TRK[f.id];
+    lines.push([f.id,f.sev,f.title,f.module,f.affected||'',statLabel(f.status),f.fw.join('; '),t?t.status:'open',t?(t.owner||''):''].map(csvEscape).join(','));
+  }
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='findings-'+filter.replace(/[^a-z0-9]/gi,'_')+'-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function renderTable(){
+  const rows = OV.findings.filter(f=>
+      (filter==='all' ? true : filter.startsWith('mod:') ? f.module===filter.slice(4) : filter.startsWith('fw:') ? f.fw.some(t=>fwGroupOf(t)===filter.slice(3)) : filter.startsWith('grp:') ? GRP[filter.slice(4)].mods.includes(f.module) : f.sev===filter) &&
+      (!search || (f.title+' '+f.id+' '+f.module).toLowerCase().includes(search)))
+    .sort((a,b)=>b.rr-a.rr);
+  window._lastFilteredFindings=rows;
+  document.getElementById('ftbody').innerHTML = rows.map(f=>`
+    <tr class="row" data-i="${OV.findings.indexOf(f)}">
+      <td><span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${f.sev}</span></td>
+      <td class="cid">${f.id}</td>
+      <td style="max-width:280px">${f.title}</td>
+      <td style="color:var(--ink-2)">${f.module}</td>
+      <td class="mono">${f.affected||'—'}</td>
+      <td><div class="fwtags">${f.fw.slice(0,3).map(x=>`<span class="fw">${x}</span>`).join('')}${f.fw.length>3?`<span class="fw">+${f.fw.length-3}</span>`:''}</div></td>
+      <td><span class="stat" style="background:color-mix(in srgb,${statColor(f.status)} 16%,transparent);color:${statColor(f.status)}">${statLabel(f.status)}</span>${trkChip(f)}</td>
+    </tr>`).join('');
+  document.querySelectorAll('#ftbody .row').forEach(r=>r.onclick=()=>openDrawer(OV.findings[r.dataset.i]));
+}
+
+const TRK_LABEL={open:'open',in_progress:'in progress',risk_accepted:'risk accepted',resolved:'resolved'};
+const TRK_COLOR={open:'--ink-3',in_progress:'--accent',risk_accepted:'--med',resolved:'--pass'};
+function trkChip(f){
+  const t=TRK[f.id]; if(!t||t.status==='open') return '';
+  const warn = t.status==='resolved' && f.status==='fail';
+  const col = cssv(warn?'--crit':TRK_COLOR[t.status]);
+  const txt = warn ? 'resolved? still failing' : TRK_LABEL[t.status]+(t.owner?' · '+t.owner.split('@')[0]:'');
+  return `<br><span class="stat" style="margin-top:4px;display:inline-block;background:color-mix(in srgb,${col} 14%,transparent);color:${col}">${txt}</span>`;
+}
+async function saveTracking(fid){
+  const body={
+    status: document.getElementById('trkStatus').value,
+    owner: document.getElementById('trkOwner').value.trim(),
+    notes: document.getElementById('trkNotes').value.trim(),
+  };
+  const msg=document.getElementById('trkMsg');
+  msg.textContent='saving…';
+  try{
+    const r=await fetch('/api/sentinel/status/'+fid,{method:'POST',
+      headers:{...authHeaders(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.status===403){msg.textContent='read-only access — ask an admin to update';return;}
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    TRK[fid]={finding_id:fid,...body,updated_by:'you',updated_at:new Date().toISOString()};
+    msg.textContent='saved ✓'; renderTable();
+  }catch(e){ msg.textContent='save failed ('+e.message+')'; }
+}
+function trackingSection(f){
+  const t=TRK[f.id]||{status:'open',owner:'',notes:''};
+  const opts=Object.entries(TRK_LABEL).map(([v,l])=>
+    `<option value="${v}" ${t.status===v?'selected':''}>${l}</option>`).join('');
+  const meta=t.updated_by?`<div style="color:var(--ink-3);font-size:11px;margin-top:6px">last updated by ${esc(t.updated_by)} · ${String(t.updated_at).replace('T',' ').slice(0,16)}</div>`:'';
+  return `<section><h4>Tracking</h4>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="trkStatus" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px">${opts}</select>
+      <input id="trkOwner" placeholder="owner (email)" value="${esc(t.owner||'')}" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;flex:1;min-width:160px">
+      <button onclick="saveTracking('${f.id}')" style="background:var(--accent);color:#04121a;border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer;font-size:13px">Save</button>
+      <span id="trkMsg" style="font-size:12px;color:var(--ink-3)"></span>
+    </div>
+    <textarea id="trkNotes" placeholder="notes" style="margin-top:8px;width:100%;box-sizing:border-box;background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;min-height:54px">${esc(t.notes||'')}</textarea>
+    ${meta}</section>`;
+}
+function openDrawer(f){
+  breadcrumbDrawerLabel=(f&&(f.title||f.id))||null;
+  renderBreadcrumb(document.querySelector('nav a.active')?.dataset.nav);
+  const d=document.getElementById('drawer');
+  const evid = typeof f.evidence==='string' ? f.evidence : JSON.stringify(f.evidence,null,2);
+  d.innerHTML=`
+   <div class="dh">
+     <span class="x" id="dx">✕</span>
+     <span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${f.sev}</span>
+     <span class="cid" style="margin-left:8px">${f.id}</span>
+     <h2>${f.title}</h2>
+     <div style="color:var(--ink-3);font-size:12px">${f.module} · auction.com</div>
+   </div>
+   <div class="db">
+     <section><div class="kv">
+       <div class="k"><small>Difficulty</small><b style="text-transform:capitalize">${f.diff}</b></div>
+       <div class="k"><small>Risk reduction</small><b>${f.rr}/100</b></div>
+       <div class="k"><small>Affected</small><b>${f.affected||0}</b></div>
+       <div class="k"><small>Status</small><b style="color:${statColor(f.status)}">${statLabel(f.status)}</b></div>
+     </div></section>
+     ${trackingSection(f)}
+     <section><h4>The issue</h4><p>${f.issue}</p></section>
+     <section><h4>Business impact</h4><p>${f.impact}</p></section>
+     <section><h4>Technical risk</h4><p>${f.risk}</p></section>
+     <section><h4>Remediation steps</h4><ol class="steps">${f.steps.map(s=>`<li>${s}</li>`).join('')}</ol></section>
+     <section><h4>Affected entities</h4><div class="affected">${(f.affectedList||[]).map(a=>`<div class="a"><span>${esc(a.n)}</span><span style="color:var(--ink-3)">${esc(a.d)}</span></div>`).join('')||'<p style="color:var(--ink-3)">None</p>'}</div></section>
+     <section><h4>Evidence (observed values)</h4><div class="evid">${evid}</div></section>
+     <section><h4>Framework mapping</h4><div class="fwtags">${f.fw.map(x=>`<span class="fw">${x}</span>`).join('')}</div></section>
+     <section><h4>References ${f.verifiedRef?'<span class="stat" style="background:color-mix(in srgb,'+cssv('--pass')+' 16%,transparent);color:'+cssv('--pass')+'">verified</span>':'<span class="stat" style="background:var(--panel-2);color:var(--ink-3)" title="Framework tags are indicative pattern-matches, not an individually verified control-ID lookup">indicative</span>'}</h4><span class="refbtn">↗ ${f.ref}</span></section>
+   </div>`;
+  d.classList.add('show');document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+}
+function closeDrawer(){document.getElementById('drawer').classList.remove('show');document.getElementById('scrim').classList.remove('show');breadcrumbDrawerLabel=null;renderBreadcrumb(document.querySelector('nav a.active')?.dataset.nav);}
+
+const GRP={
+  identity:{label:'Identity & Access',mods:['Identity','Accounts','Offboarding']},
+  threat:{label:'Threat Protection',mods:['Defender']},
+  devices:{label:'Devices',mods:['Intune']},
+  data:{label:'Data & Apps',mods:['Exchange','SharePoint','Purview','Power Platform']}};
+const BREADCRUMB_LABELS={
+  'view-dashboard':'Dashboard','grp-identity':'Identity & Access','view-signin':'Sign-In Analytics',
+  'grp-threat':'Threat Protection','grp-devices':'Devices','grp-data':'Data & Apps',
+  'view-licensing':'Licensing & Cost','view-usage':'Workload Activity','view-apps':'App & Automation',
+  'view-priv':'Who Has the Keys?','view-changes':'Tenant Changes','view-roadmap':'Improvement Roadmap',
+  'view-findings':'All Findings','view-compliance':'Compliance',
+  // [2026-09-09] These two nav keys had no label, so their breadcrumb showed
+  // the raw view id. Text matches the sidebar link for each.
+  'view-briefing':'Executive Briefing','view-ownership':'Ownership & Accountability',
+};
+let breadcrumbDrawerLabel=null;
+function renderBreadcrumb(navKey){
+  const bar=document.getElementById('breadcrumbBar'); if(!bar) return;
+  const segs=[{label:'Dashboard', action:"showView('view-dashboard')"}];
+  if(navKey && navKey!=='view-dashboard'){
+    segs.push({label: BREADCRUMB_LABELS[navKey]||navKey, action: null});
+  }
+  if(breadcrumbDrawerLabel){
+    segs.push({label: breadcrumbDrawerLabel, action: null});
+  }
+  bar.innerHTML=segs.map((s,i)=>{
+    const sep=i>0?'<span style="color:var(--ink-3);opacity:.5">/</span>':'';
+    const isLast=i===segs.length-1;
+    const text=s.action&&!isLast?`<span style="cursor:pointer;color:var(--accent)" onclick="${s.action}">${s.label}</span>`:`<span style="${isLast?'color:var(--ink-2)':''}">${s.label}</span>`;
+    return sep+text;
+  }).join(' ');
+}
+function showView(id, navKey){
+  document.querySelectorAll('.view').forEach(v=>v.style.display = v.id===id?'':'none');
+  document.querySelectorAll('nav a[data-nav]').forEach(a=>a.classList.toggle('active', a.dataset.nav===(navKey||id)));
+  breadcrumbDrawerLabel=null;
+  renderBreadcrumb(navKey||id);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function showGroup(g){ showView('view-group','grp-'+g); renderGroupView(g); }
+function gotoFindings(f){ showView('view-findings'); if(f) setFilter(f); }
+function grpScore(g){
+  const ms=OV.moduleScores||{}; const vals=GRP[g].mods.map(m=>ms[m]).filter(v=>v!==undefined);
+  return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):null;
+}
+function renderGroupView(g){
+  const def=GRP[g], ms=OV.moduleScores||{};
+  const fs=OV.findings.filter(f=>def.mods.includes(f.module));
+  const open=fs.filter(f=>f.status!=='pass').length;
+  const s=grpScore(g);
+  document.getElementById('grpTitle').textContent=def.label;
+  document.getElementById('grpSub').textContent='Average of '+def.mods.length+' module score'+(def.mods.length>1?'s':'');
+  const el=document.getElementById('grpScore');
+  el.textContent=s===null?'—':s;
+  el.style.color=s===null?cssv('--ink-3'):s>=85?cssv('--pass'):s>=70?cssv('--med'):cssv('--crit');
+  document.getElementById('grpOpen').textContent=open+' open finding'+(open===1?'':'s')+' · '+fs.length+' assessed';
+  document.getElementById('grpMods').innerHTML=def.mods.map(m=>{
+    const v=ms[m];
+    const c=v===undefined?cssv('--ink-3'):v>=85?cssv('--pass'):v>=70?cssv('--med'):cssv('--crit');
+    const word=v===undefined?'':v>=85?' · healthy':v>=70?' · watch':' · needs attention';
+    return `<div class="a" data-mod="${m}" style="cursor:pointer" title="See ${m} findings in All Findings">
+      <span>${m}</span><span><b class="mono" style="color:${c}">${v===undefined?'—':v}</b><small style="color:${c}">${word}</small></span></div>`;
+  }).join('');
+  document.querySelectorAll('#grpMods .a[data-mod]').forEach(a=>a.onclick=()=>gotoFindings('mod:'+a.dataset.mod));
+  const SEVW={critical:'Urgent',high:'High',medium:'Medium',low:'Minor'};
+  document.getElementById('gtbody').innerHTML = fs.sort((a,b)=>b.rr-a.rr).map(f=>{
+    const t=TRK[f.id];
+    const who=t&&t.status==='in_progress'?(t.owner?t.owner.split('@')[0]:'assigned'):'—';
+    return `<tr class="row" data-i="${OV.findings.indexOf(f)}">
+      <td><span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${SEVW[f.sev]||f.sev}</span></td>
+      <td style="max-width:360px">${esc(f.title)}</td>
+      <td style="color:var(--ink-2)">${f.module}</td>
+      <td class="mono">${f.affected||'—'}</td>
+      <td style="color:${who==='—'?'var(--ink-3)':cssv('--accent')}">${who}</td>
+      <td><span class="stat" style="background:color-mix(in srgb,${statColor(f.status)} 16%,transparent);color:${statColor(f.status)}">${statLabel(f.status)}</span>${trkChip(f)}</td>
+    </tr>`;}).join('');
+  document.querySelectorAll('#gtbody .row').forEach(r=>r.onclick=()=>openDrawer(OV.findings[r.dataset.i]));
+}
+const DIFF_LABEL={trivial:'trivial effort',low:'low effort',medium:'medium effort',high:'major effort'};
+function rmCard(f){
+  const t=TRK[f.id];
+  const trk = t&&t.status!=='open' ? `<span class="stat" style="background:color-mix(in srgb,${cssv(TRK_COLOR[t.status])} 14%,transparent);color:${cssv(TRK_COLOR[t.status])}">${TRK_LABEL[t.status]}${t.owner?' · '+esc(t.owner.split('@')[0]):''}</span>` : '';
+  const gain = f.scoreImpact>0 ? `<b style="color:${cssv('--pass')}">+${f.scoreImpact} pts</b>` : '';
+  return `<div class="a" data-i="${OV.findings.indexOf(f)}" style="cursor:pointer;display:block;padding:12px 14px">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+      <div><span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${f.sev}</span>
+        <b style="margin-left:8px">${f.title}</b>
+        <span style="color:var(--ink-3);font-size:12px;margin-left:6px">${f.module}</span></div>
+      <div style="display:flex;gap:8px;align-items:center">${trk}${gain}
+        <span class="fw">${DIFF_LABEL[f.diff]||f.diff}</span></div>
+    </div>
+    <div style="color:var(--ink-2);font-size:12.5px;margin-top:6px"><b>Why:</b> ${f.impact}</div>
+    <div style="color:var(--ink-3);font-size:12.5px;margin-top:4px"><b>First step:</b> ${f.steps[0]}</div>
+  </div>`;
+}
+function renderRoadmap(){
+  const open=OV.findings.filter(f=>f.status!=='pass' && !(TRK[f.id]&&['resolved','risk_accepted'].includes(TRK[f.id].status)));
+  const effort={trivial:1,low:2,medium:3,high:4};
+  const now=[],plan=[],quick=[];
+  for(const f of open){
+    if((f.sev==='critical'||f.sev==='high') && f.rr>=70) now.push(f);
+    else if((effort[f.diff]||3)<=2 && f.rr<70) quick.push(f);
+    else plan.push(f);
+  }
+  const byPri=(a,b)=>(b.scoreImpact||0)-(a.scoreImpact||0)||b.rr-a.rr;
+  now.sort(byPri);plan.sort(byPri);quick.sort(byPri);
+  const top3=now.slice(0,3).reduce((a,f)=>a+(f.scoreImpact||0),0);
+  document.getElementById('rmHeadline').innerHTML =
+    `Current score: <b>${OV.score}/100</b>. Completing the top ${Math.min(3,now.length)} "Do now" items would raise it to approximately <b style="color:${cssv('--pass')}">${Math.min(100,OV.score+top3)}/100</b>. Items marked resolved or risk-accepted in tracking are hidden.`;
+  const fill=(id,arr)=>{
+    document.getElementById(id).innerHTML = arr.length?arr.map(rmCard).join(''):'<div style="color:var(--ink-3);font-size:13px">Nothing here — all clear.</div>';
+    document.querySelectorAll('#'+id+' .a[data-i]').forEach(el=>el.onclick=()=>openDrawer(OV.findings[el.dataset.i]));
+  };
+  fill('rmNow',now);fill('rmPlan',plan);fill('rmQuick',quick);
+}
+const INS = {};  // cached insight payloads
+async function prefetchInsights(){
+  for(const k of ['licensing','usage','apps']){
+    if(INS[k]) continue;
+    try{ const r=await fetch('/api/insights/'+k,{headers:authHeaders()}); if(r.ok) INS[k]=await r.json(); }catch(e){}
+  }
+  renderInsTiles();
+}
+function renderInsTiles(){
+  const el=document.getElementById('insTiles'); if(!el) return;
+  const L=INS.licensing,U=INS.usage,A=INS.apps;
+  if(!L&&!U&&!A){ el.innerHTML='<div style="color:var(--ink-3);font-size:13px">Insights unavailable — check session.</div>'; return; }
+  const t=(label,big,small,view,kind,warn)=>`<div class="tile" data-v="${view}" data-k="${kind}" style="cursor:pointer">
+    <div class="n">${big}</div>
+    <div class="l" style="font-weight:600;color:var(--ink)">${label}</div>
+    <div class="l" style="margin-top:6px;color:${warn?cssv('--med'):'var(--ink-3)'}">${small}</div></div>`;
+  let html='';
+  const money=(v)=>'$'+(+v).toLocaleString('en-US',{maximumFractionDigits:0});
+  if(L){html+=t('Licensing & Cost',money(L.totalMonthly||0)+'/mo',
+    (L.reclaimMonthly?money(L.reclaimMonthly)+'/mo reclaimable · ':'')+L.unusedCount+' inactive license holders',
+    'view-licensing','licensing',L.reclaimMonthly>0);}
+  if(U){const a=U.active30d,t0=U.totalUsers;
+    const ws=[['Exchange',+a.exchange30],['Teams',+a.teams30],['OneDrive',+a.onedrive30],['SharePoint',+a.sharepoint30]];
+    const low=ws.sort((x,y)=>x[1]-y[1])[0];
+    html+=t('Workload Activity',pct(low[1],t0)+'%','lowest adoption: '+low[0]+' ('+low[1]+' of '+t0+' users, 30d)','view-usage','usage',pct(low[1],t0)<40);}
+  if(A){html+=t('App & Automation',A.counts.thirdParty,'third-party apps with access · '+A.inactiveFlows.length+' unmaintained flows','view-apps','apps',A.inactiveFlows.length>0);}
+  el.innerHTML=html;
+  el.querySelectorAll('.tile[data-v]').forEach(x=>x.onclick=()=>{showView(x.dataset.v);renderInsight(x.dataset.k);});
+}
+function downloadAppsCsv(){
+  const d=INS.apps; if(!d) return;
+  const f=window.appFilter;
+  const lines=[];
+  if(f==='flows'){
+    lines.push(['Flow name','Environment','Owner','Last modified','State','Recommended action'].join(','));
+    for(const fl of (d.inactiveFlows||[])){
+      lines.push([fl.name,fl.env||'',fl.owner,String(fl.modified).slice(0,10),fl.state,fl.action].map(csvEscape).join(','));
+    }
+  }else if(f){
+    const tiers={review:d.thirdParty.filter(a=>a.tier==='review'),abandoned:d.thirdParty.filter(a=>a.tier==='abandoned'),healthy:d.thirdParty.filter(a=>a.tier==='healthy')};
+    lines.push(['Name','Access','Last sign-in','Verified','Publisher','Added','Consent'].join(','));
+    for(const a of (tiers[f]||[])){
+      lines.push([a.name,a.access,a.lastSignIn?String(a.lastSignIn).slice(0,10):'never',a.verified?'yes':'no',a.publisher||'',String(a.added).slice(0,10),a.consent||''].map(csvEscape).join(','));
+    }
+  }else{ return; }
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a2=document.createElement('a');
+  a2.href=url; a2.download='app-automation-'+(f||'all')+'-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
+  URL.revokeObjectURL(url);
+}
+async function loadInsight(kind){
+  if(INS[kind]) return renderInsight(kind);
+  try{
+    const r = await fetch('/api/insights/'+kind, {headers: authHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    INS[kind] = await r.json();
+    renderInsight(kind);
+  }catch(e){
+    const el = document.getElementById(kind==='licensing'?'licHeadline':kind==='usage'?'useHeadline':'appHeadline');
+    if(el) el.textContent = 'Could not load ('+e.message+') — check your session.';
+  }
+}
+function pct(a,b){return b?Math.round(a/b*100):0;}
+function renderInsight(kind){
+  const d = INS[kind];
+  if(kind==='licensing'){
+    const money=(v)=>'$'+(+v).toLocaleString('en-US',{maximumFractionDigits:0});
+    // Usage/server-category costs (e.g. SharePoint per-GB storage add-ons)
+    // are capacity purchases, not per-user seats -- a "0/25000 seats, $X/mo
+    // idle" framing is meaningless for them (Graph's consumed-seat count is
+    // 0 by design). Excluded from both buckets here; shown correctly, with
+    // real capacity framing, under Products & Services instead.
+    const seatBased=s=>s.category!=='usage'&&s.category!=='server';
+    const paid=d.skus.filter(s=>s.paid&&seatBased(s)), free=d.skus.filter(s=>!s.paid&&seatBased(s));
+    const emp=INS.usage?INS.usage.paidLicenseUsers:null;
+    window._licData=d;
+    loadRenewal();
+    // KPI tiles
+    document.getElementById('licKpis').innerHTML =
+      `<div class="tile" style="cursor:pointer" title="See spend by product" onclick="document.getElementById('licSkus').scrollIntoView({behavior:'smooth',block:'center'})"><div class="n">${money(d.totalMonthly)}</div><div class="l" style="font-weight:600;color:var(--ink)">Monthly spend</div><div class="l" style="margin-top:6px;color:var(--ink-3)">all Microsoft products &amp; services · click for detail</div></div>`
+      +`<div class="tile" style="cursor:pointer" title="Click for supporting data" onclick="openAnnualizedDrawer()"><div class="n">${money(d.totalMonthly*12)}</div><div class="l" style="font-weight:600;color:var(--ink)">Annualized</div><div class="l" style="margin-top:6px;color:var(--ink-3)">at current usage</div></div>`
+      +`<div class="tile" style="cursor:pointer" title="See the reclaim candidates" onclick="document.getElementById('licUnused').scrollIntoView({behavior:'smooth',block:'center'});if(!licUnusedShown)renderUnused(25)"><div class="n" style="color:${d.reclaimMonthly>0?cssv('--med'):cssv('--pass')}">${money(d.reclaimMonthly||0)}</div><div class="l" style="font-weight:600;color:var(--ink)">Reclaimable / mo</div><div class="l" style="margin-top:6px;color:var(--ink-3)">${d.unusedCount} inactive license holders · click to review</div></div>`
+      +(emp?`<div class="tile" style="cursor:pointer" title="Click for supporting data" onclick="openCostPerUserDrawer()"><div class="n">${money(d.totalMonthly/emp)}</div><div class="l" style="font-weight:600;color:var(--ink)">Cost per user / mo</div><div class="l" style="margin-top:6px;color:var(--ink-3)">${emp} paid-license users</div></div>`:'')
+      +(d.downgrade&&d.downgrade.candidates>0?`<div class="tile" title="E3 holders active only in Exchange for 90+ days across other workloads"><div class="n" style="color:${cssv('--med')}">${d.downgrade.candidates}</div><div class="l" style="font-weight:600;color:var(--ink)">Downgrade candidates</div><div class="l" style="margin-top:6px;color:var(--ink-3)">${d.downgrade.totalPotentialSavings!=null?money(d.downgrade.totalPotentialSavings)+'/mo potential':'E3 users, Exchange-only activity'}</div></div>`:'');
+    // chart: paid spend by product
+    const rows=[...paid.filter(s=>s.monthlySpend>0).map(s=>[s.name,s.monthlySpend]),
+                ...(d.productsServices||[]).filter(x=>x.monthly).map(x=>[x.product,x.monthly])]
+      .sort((a,b)=>b[1]-a[1]).slice(0,10);
+    if(charts.lic) charts.lic.destroy();
+    charts.lic=new Chart(document.getElementById('licChart'),{type:'bar',
+      data:{labels:rows.map(r=>r[0]),datasets:[{data:rows.map(r=>r[1]),backgroundColor:cssv('--accent')}]},
+      options:{maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>money(c.raw)+'/mo'}}},
+        scales:{x:{grid:{color:cssv('--grid')},ticks:{color:cssv('--ink-3'),callback:v=>money(v)}},
+                y:{grid:{display:false},ticks:{color:cssv('--ink-2'),font:{size:11}}}}}});
+    // paid table with holder drill-down
+    document.getElementById('licSkus').innerHTML = paid.map(s=>{
+      const denom=s.purchased||s.enabled, p=pct(s.consumed,denom), c=p>=95?cssv('--crit'):p>=75?cssv('--pass'):cssv('--med');
+      const cost=s.monthlySpend!==undefined?` · <b>${money(s.monthlySpend)}/mo</b>${s.unassignedCost>0?` <small style="color:${cssv('--med')}">(${money(s.unassignedCost)}/mo idle)</small>`:''}`:'';
+      return `<div class="a" data-sku="${s.sku}" style="cursor:pointer" title="Who holds this license?">
+        <span>${s.name}</span><span><b class="mono" style="color:${c}">${s.consumed}/${denom}</b> <small style="color:var(--ink-3)">seats</small>${cost}</span></div>`;
+    }).join('');
+    document.querySelectorAll('#licSkus .a[data-sku]').forEach(el=>el.onclick=()=>openHolders(el.dataset.sku));
+    document.getElementById('licFree').textContent =
+      free.length+' additional free and trial products in the tenant at $0/mo (Power Automate Free, Power BI Free, trial previews and similar).';
+    if(d.copilot){
+      const cp=d.copilot;
+      document.getElementById('copilotCard').style.display='';
+      const pctActive=cp.seats?Math.round(cp.activeUsers30d/cp.seats*100):0;
+      document.getElementById('copilotSub').innerHTML=
+        `${cp.seats} seats · ${money(cp.monthlySpend||0)}/mo · usage report as of ${cp.reportRefreshDate||'unknown'} <small style="color:var(--ink-3)">(Microsoft's own report has a multi-day lag — not a live number)</small>`;
+      document.getElementById('copilotTiles').innerHTML=
+        `<div class="tile"><div class="n">${cp.seats}</div><div class="l" style="font-weight:600;color:var(--ink)">Licensed seats</div><div class="l" style="margin-top:4px">${money(cp.monthlySpend||0)}/mo</div></div>`
+        +`<div class="tile"><div class="n" style="color:${pctActive<50?cssv('--med'):cssv('--pass')}">${cp.activeUsers30d}</div><div class="l" style="font-weight:600;color:var(--ink)">Active in any app (30d)</div><div class="l" style="margin-top:4px">${pctActive}% of seats</div></div>`
+        +`<div class="tile"><div class="n">${cp.seats-cp.activeUsers30d}</div><div class="l" style="font-weight:600;color:var(--ink)">Seats not used (30d)</div><div class="l" style="margin-top:4px">reclaim candidates</div></div>`;
+      const appLabels={chat:'Copilot Chat',teams:'Teams',word:'Word',excel:'Excel',powerpoint:'PowerPoint',outlook:'Outlook',onenote:'OneNote',loop:'Loop'};
+      const maxApp=Math.max(1,...Object.values(cp.perApp));
+      document.getElementById('copilotApps').innerHTML='<div class="sub" style="margin-bottom:8px">Active users by app, last 30 days</div>'+
+        Object.entries(cp.perApp).sort((a,b)=>b[1]-a[1]).map(([k,v])=>
+          `<div style="display:flex;align-items:center;gap:10px;padding:5px 0">
+            <span style="width:90px;font-size:12.5px;color:var(--ink-2)">${appLabels[k]||k}</span>
+            <div style="flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.round(v/maxApp*100)}%;background:${cssv('--accent')}"></div></div>
+            <span style="width:30px;text-align:right;font-size:12px;color:var(--ink-3)">${v}</span>
+          </div>`).join('');
+    }
+    if(d.sharePoint){
+      const sp=d.sharePoint;
+      document.getElementById('sharePointCard').style.display='';
+      const tb=(sp.totalStorageGb/1024).toFixed(1);
+      const extraGb=sp.extraStorageGb?sp.extraStorageGb.toLocaleString():null;
+      document.getElementById('sharePointSub').innerHTML=
+        `${sp.totalSites} sites · ${tb} TB in use \u00b7 site data as of ${sp.seedAsOf||'unknown'} <small style="color:var(--ink-3)">(from SharePoint Governance \u2014 same live data, not a separate calculation)</small>`;
+      const critHigh=sp.inactiveCritical+sp.inactiveHigh;
+      document.getElementById('sharePointTiles').innerHTML=
+        `<div class="tile"><div class="n">${tb}<span style="font-size:12px;color:var(--ink-3)"> TB</span></div><div class="l" style="font-weight:600;color:var(--ink)">Storage in use</div><div class="l" style="margin-top:4px">across ${sp.totalSites} sites</div></div>`
+        +`<div class="tile"><div class="n" style="color:${critHigh>0?cssv('--high'):cssv('--pass')}">${critHigh}</div><div class="l" style="font-weight:600;color:var(--ink)">Sites inactive 1+ years</div><div class="l" style="margin-top:4px">${sp.inactiveCritical} never/2+ yrs, ${sp.inactiveHigh} 1-2 yrs</div></div>`
+        +`<div class="tile"><div class="n" style="color:${sp.extSharingOnCount>0?cssv('--med'):cssv('--pass')}">${sp.extSharingOnCount}</div><div class="l" style="font-weight:600;color:var(--ink)">Sites with external sharing on</div><div class="l" style="margin-top:4px">worth a periodic review</div></div>`;
+    }
+    // savings opportunities (paid, idle)
+    const over=(d.overProvisioned||[]).filter(s=>s.unassigned>0);
+    document.getElementById('licOver').innerHTML = over.length?over.map(s=>
+      `<div class="a" data-sku="${s.sku}" style="cursor:pointer"><span>${s.name}</span>
+        <b class="mono" style="color:${cssv('--med')}">${s.unassigned} idle seat${s.unassigned===1?'':'s'}${s.unassignedCost?' · '+money(s.unassignedCost)+'/mo':''}</b></div>`).join('')
+      :'<div style="color:var(--ink-3);font-size:13px">All paid subscriptions are ≥90% assigned. 🎉</div>';
+    document.querySelectorAll('#licOver .a[data-sku]').forEach(el=>el.onclick=()=>openHolders(el.dataset.sku));
+    // reclaim list
+    if(d.reclaimMonthly) document.getElementById('licReclaimSub').innerHTML =
+      `Reclaiming these licenses would save approximately <b style="color:${cssv('--med')}">${money(d.reclaimMonthly)}/mo (${money(d.reclaimMonthly*12)}/yr)</b>`;
+    document.getElementById('licPS').innerHTML = (d.productsServices||[]).length?d.productsServices.map(x=>
+      `<div class="a"><span>${x.product}<small style="color:var(--ink-3)"> · ${x.category}${x.notes?' · '+x.notes:''}</small></span><b class="mono">${x.monthly!==null?money(x.monthly)+'/mo':'variable'}</b></div>`).join('')
+      :'<div style="color:var(--ink-3);font-size:13px">No cost data loaded.</div>';
+    // (A second, duplicate write to #licOver used to sit here, silently
+    // overwriting the richer version above with raw SKU codes and no dollar
+    // figure -- removed; the real one above (friendly names, unassignedCost,
+    // click-through) is what should actually render.)
+    window.licUnusedShown = 0;
+    window.renderUnused = (more) => {
+      const box=document.getElementById('licUnused');
+      if(!d.unusedLicenses.length){box.innerHTML='<div style="color:var(--ink-3);font-size:13px">Every licensed user has recent activity. 🎉</div>';return;}
+      if(!more && !window.licUnusedShown){
+        box.innerHTML=`<div class="a" style="cursor:pointer" onclick="renderUnused(25)">
+          <span><b>${d.unusedCount} inactive license holders</b> — click to show the list</span>
+          <span style="color:var(--ink-3);font-size:12px">sorted by longest inactive first ▸</span></div>`;
+        return;
+      }
+      window.licUnusedShown = Math.min(d.unusedLicenses.length, window.licUnusedShown + (more||25));
+      const rows = d.unusedLicenses.slice(0, window.licUnusedShown).map(u=>
+        `<div class="a"><span>${esc(u.upn)}</span><span style="color:var(--ink-3);font-size:12px">last active ${String(u.lastAny).slice(0,10)} · ${esc((u.licenses||'').split('+').slice(0,2).join(', '))}</span></div>`).join('');
+      const remaining = d.unusedCount - window.licUnusedShown;
+      box.innerHTML='<div class="affected">'+rows+'</div>'
+        +(remaining>0?`<div class="a" style="cursor:pointer;margin-top:6px;color:${cssv('--accent')}" onclick="renderUnused(25)"><span>…and ${remaining} more — click to show</span><span>▾</span></div>`
+          :`<div style="color:var(--ink-3);font-size:12px;margin-top:6px">All ${d.unusedCount} shown · <span style="cursor:pointer;color:${cssv('--accent')}" onclick="licUnusedShown=0;renderUnused()">collapse</span></div>`);
+    };
+    renderUnused();
+  }
+  if(kind==='usage'){
+    const a=d.active30d, t=d.totalUsers;
+    document.getElementById('useHeadline').innerHTML = `<b>${t}</b> licensed users · workload adoption over the last 30 days:`;
+    const tile=(l,v)=>{const p=pct(v,t);const c=p>=70?cssv('--pass'):p>=40?cssv('--med'):cssv('--crit');
+      return `<div class="tile" style="cursor:pointer" title="Low adoption? Review reclaim candidates in Licensing & Cost" onclick="showView('view-licensing');loadInsight('licensing').then(()=>{document.getElementById('licUnused').scrollIntoView({behavior:'smooth',block:'center'})})"><div class="n">${p}%<span style="font-size:12px;color:var(--ink-3)"> · ${v} users</span></div>
+        <div class="l" style="font-weight:600;color:var(--ink)">${l}</div>
+        <div class="b"><i style="width:${p}%;background:${c}"></i></div></div>`;};
+    document.getElementById('useTiles').innerHTML =
+      tile('Exchange',+a.exchange30)+tile('Teams',+a.teams30)+tile('OneDrive',+a.onedrive30)+tile('SharePoint',+a.sharepoint30);
+  }
+  if(kind==='apps'){
+    const tiers={review:d.thirdParty.filter(a=>a.tier==='review'),
+                 abandoned:d.thirdParty.filter(a=>a.tier==='abandoned'),
+                 healthy:d.thirdParty.filter(a=>a.tier==='healthy')};
+    const TIER_META={review:['⚠ Needs review','--crit'],abandoned:['◌ Dormant','--med'],healthy:['✓ Looks healthy','--pass'],flows:['↻ Unmaintained flows','--med']};
+    if(window.appFilter===undefined) window.appFilter='review';  // null = all collapsed
+    const appRow=(a,idx)=>{
+      const [,col]=TIER_META[a.tier];
+      return `<div class="a" data-app="${idx}" style="cursor:pointer;border-left:3px solid ${cssv(col)}">
+        <span>${esc(a.name)}<small style="color:var(--ink-3)"> · ${esc(a.access)}</small></span>
+        <span style="color:var(--ink-3);font-size:12px">last used ${a.lastSignIn?String(a.lastSignIn).slice(0,10):'never'}</span></div>`;
+    };
+    const flowRow=(f,idx)=>`<div class="a" data-flow="${idx}" style="cursor:pointer;border-left:3px solid ${cssv('--med')}">
+        <span>${esc(f.name)}<small style="color:var(--ink-3)"> · ${esc(f.env||'')}</small></span>
+        <span style="color:var(--ink-3);font-size:12px">owner: ${esc(f.owner)}</span></div>`;
+    const renderAppBody=()=>{
+      const f=window.appFilter;
+      const chips=[['review',tiers.review.length],['abandoned',tiers.abandoned.length],['healthy',tiers.healthy.length],['flows',d.inactiveFlows.length]];
+      document.getElementById('appChips').innerHTML=chips.map(([k,n])=>{
+        const [label,col]=TIER_META[k];
+        return `<div class="chip ${f===k?'on':''}" data-af="${k}" style="color:${cssv(col)}">${label} <b>${n}</b></div>`;
+      }).join('');
+      document.querySelectorAll('#appChips .chip').forEach(c=>c.onclick=()=>{window.appFilter=(window.appFilter===c.dataset.af?null:c.dataset.af);renderAppBody();});
+      let body='';
+      if(f===null){ document.getElementById('appBody').innerHTML='<div style="color:var(--ink-3);font-size:13px">All categories collapsed — click a category above to expand.</div>'; return; }
+      if(f==='flows') body=d.inactiveFlows.length?d.inactiveFlows.slice(0,60).map(flowRow).join('')
+        :'<div style="color:var(--ink-3);font-size:13px">No enabled flows are stale — automation estate is active.</div>';
+      else body=tiers[f].length?tiers[f].map(appRow).join('')
+        :'<div style="color:var(--ink-3);font-size:13px">Nothing in this category.</div>';
+      document.getElementById('appBody').innerHTML='<div class="affected">'+body+'</div>';
+      document.querySelectorAll('#appBody .a[data-app]').forEach(el=>el.onclick=()=>openAppDrawer(tiers[window.appFilter][el.dataset.app]));
+      document.querySelectorAll('#appBody .a[data-flow]').forEach(el=>el.onclick=()=>openFlowDrawer(d.inactiveFlows[el.dataset.flow]));
+    };
+    window.openAppDrawer=(a)=>{
+      const [label,col]=TIER_META[a.tier];
+      const dr=document.getElementById('drawer');
+      dr.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span>
+        <span class="sev" style="background:color-mix(in srgb,${cssv(col)} 18%,transparent);color:${cssv(col)}">${label}</span>
+        <h2>${a.name}</h2>
+        <div style="color:var(--ink-3);font-size:12px">${a.verified?'Verified publisher: '+a.publisher:'Unverified publisher'} · third-party application</div></div>
+       <div class="db">
+        <section><div class="kv">
+          <div class="k"><small>Added to tenant</small><b>${String(a.added).slice(0,10)}</b></div>
+          <div class="k"><small>Last used</small><b>${a.lastSignIn?String(a.lastSignIn).slice(0,10):'never / 90d+'}</b></div>
+          <div class="k"><small>Consent</small><b style="text-transform:capitalize">${a.consent||'—'}</b></div>
+        </div></section>
+        <section><h4>What it can access</h4><p>${a.access}</p></section>
+        ${a.consentedBy?`<section><h4>Consented by</h4><p>${a.consentedBy}</p></section>`:''}
+        ${a.tier!=='healthy'?`<section><h4>Recommended action</h4><p style="color:${cssv(col)}">${a.action}</p></section>`:''}
+        <section><h4>How to act</h4><p>Entra admin center → Enterprise applications → ${a.name} → Properties: set "Enabled for users to sign in" to No to disable, or delete to remove consent entirely.</p></section>
+       </div>`;
+      dr.classList.add('show');document.getElementById('scrim').classList.add('show');
+      document.getElementById('dx').onclick=closeDrawer;
+    };
+    window.openFlowDrawer=(f)=>{
+      const dr=document.getElementById('drawer');
+      dr.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span>
+        <span class="sev" style="background:color-mix(in srgb,${cssv('--med')} 18%,transparent);color:${cssv('--med')}">↻ Unmaintained</span>
+        <h2>${esc(f.name)}</h2>
+        <div style="color:var(--ink-3);font-size:12px">Power Automate flow · ${esc(f.env||'unknown environment')}</div></div>
+       <div class="db">
+        <section><div class="kv">
+          <div class="k"><small>Owner</small><b>${esc(f.owner)}</b></div>
+          <div class="k"><small>Last modified</small><b>${String(f.modified).slice(0,10)}</b></div>
+          <div class="k"><small>State</small><b>${esc(f.state)}</b></div>
+        </div></section>
+        <section><h4>Recommended action</h4><p style="color:${cssv('--med')}">${f.action}</p></section>
+        <section><h4>How to act</h4><p>Power Platform admin center → Environments → ${esc(f.env||'the environment')} → Flows: reassign ownership or turn the flow off.</p></section>
+       </div>`;
+      dr.classList.add('show');document.getElementById('scrim').classList.add('show');
+      document.getElementById('dx').onclick=closeDrawer;
+    };
+    renderAppBody();
+  }
+}
+async function openHolders(sku){
+  const d=document.getElementById('drawer');
+  d.innerHTML='<div class="dh"><span class="x" id="dx">✕</span><h2>Loading…</h2></div>';
+  d.classList.add('show');document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+  try{
+    const r=await fetch('/api/insights/licensing/holders/'+encodeURIComponent(sku),{headers:authHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const h=await r.json();
+    const depts=Object.entries(h.byDept).sort((a,b)=>b[1]-a[1]);
+    window.holderDept=null;
+    const renderHolders=()=>{
+      const list=window.holderDept?h.holders.filter(x=>x.department===window.holderDept):h.holders;
+      document.getElementById('deptList').innerHTML=depts.map(([k,v])=>
+        `<div class="a" data-dept="${k.replace(/"/g,'&quot;')}" style="cursor:pointer;${window.holderDept===k?'background:#16233a;border-radius:6px':''}" title="Click to filter holders">
+          <span>${k}</span><b class="mono">${v}</b></div>`).join('')
+        +(window.holderDept?`<div class="a" data-dept="" style="cursor:pointer;color:var(--accent)"><span>✕ Clear filter — show all departments</span><span></span></div>`:'');
+      document.getElementById('holderList').innerHTML=list.slice(0,300).map(x=>
+        `<div class="a"><span>${esc(x.name||x.upn)}<small style="color:var(--ink-3)"> · ${esc(x.department)}</small></span>
+         <span style="color:var(--ink-3);font-size:12px">last active ${String(x.lastActive).slice(0,10)}</span></div>`).join('')
+        +(list.length>300?`<div style="color:var(--ink-3);font-size:12px;margin-top:6px">…and ${list.length-300} more</div>`:'')
+        +(!list.length?'<div style="color:var(--ink-3);font-size:13px">No holders'+(window.holderDept?' in this department':'')+'.</div>':'');
+      document.getElementById('holderTitle').textContent='Holders'+(window.holderDept?' — '+window.holderDept+' ('+list.length+')':'');
+      document.querySelectorAll('#deptList .a[data-dept]').forEach(el=>el.onclick=()=>{
+        const dv=el.dataset.dept||null;
+        window.holderDept=(window.holderDept===dv)?null:dv;
+        renderHolders();
+      });
+    };
+    d.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span>
+      <h2>${h.name}</h2>
+      <div style="color:var(--ink-3);font-size:12px">${h.total} license holders${h.assignedPerMicrosoft&&h.assignedPerMicrosoft>h.total?' shown · '+h.assignedPerMicrosoft+' assigned per Microsoft (the rest are typically service accounts not in usage reports)':''}</div></div>
+     <div class="db">
+      <section><h4>By department — click to filter</h4><div class="affected" id="deptList"></div></section>
+      <section><h4 id="holderTitle">Holders</h4><div class="affected" id="holderList"></div></section>
+     </div>`;
+    renderHolders();
+    document.getElementById('dx').onclick=closeDrawer;
+  }catch(e){
+    d.querySelector('h2').textContent='Could not load holders ('+e.message+')';
+  }
+}
+function renderModTiles(){
+  document.getElementById('modTiles').innerHTML = Object.entries(GRP).map(([g,def])=>{
+    const s=grpScore(g);
+    const col = s===null?cssv('--ink-3'):s>=85?cssv('--pass'):s>=70?cssv('--med'):cssv('--crit');
+    const open=OV.findings.filter(f=>def.mods.includes(f.module)&&f.status!=='pass').length;
+    return `<div class="tile" data-grp="${g}" style="cursor:pointer" title="Open ${def.label}">
+      <div class="n">${s===null?'—':s}<span style="font-size:12px;color:var(--ink-3)"> /100</span></div>
+      <div class="l" style="font-weight:600;color:var(--ink)">${def.label}</div>
+      <div class="b"><i style="width:${s||0}%;background:${col}"></i></div>
+      <div class="l" style="margin-top:6px">${def.mods.join(' · ')} — ${open} open finding${open===1?'':'s'}</div>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('#modTiles .tile[data-grp]').forEach(el=>el.onclick=()=>showGroup(el.dataset.grp));
+}
+function infoDrawer(title, rows){
+  const d=document.getElementById('drawer');
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span><h2>${title}</h2></div>
+   <div class="db">${rows.map(r=>`<section><h4 style="margin:0 0 4px">${r[0]}</h4>
+     <p style="margin:0;color:var(--ink-2);font-size:13px;line-height:1.5">${r[1]}</p></section>`).join('')}</div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+}
+function showScopes(){
+  infoDrawer('What this dashboard monitors', [
+    ['Sign-ins & lockouts','Entra ID sign-in logs — legacy authentication and account lockout patterns (password-spray detection).'],
+    ['Account hygiene','Every employee account in Entra ID and Okta — disabled/active mismatches, offboarding gaps, dormant accounts.'],
+    ['Threat intelligence','Microsoft Defender — tenant Secure Score and Identity Protection risk flags on users.'],
+    ['Devices','All Intune-managed phones and computers — compliance, encryption, and check-in status.'],
+    ['Email & files','Exchange mailbox usage and SharePoint site activity, including external file sharing.'],
+    ['Two different scores','Our score (0–100) measures observed problems in live data across 9 modules. Microsoft Secure Score measures how many of Microsoft\'s recommended settings are enabled. They answer different questions and will not match — ours is tracked here; Microsoft\'s appears as a finding under Threat Protection.'],
+    ['Read-only','The dashboard only reads data. It never changes anything in any system.'],
+  ]);
+}
+let privSortKey='tier', privSortDir=1, privSearch='';
+// null = the factor table has never been collected on this host.
+let MFA_MEASURED = null;
+function aggregatePriv(j){
+  if(j && j.coverage) MFA_MEASURED = j.coverage.mfaMeasured !== false;
+  const byUser={};
+  for(const a of j.assignments){
+    const k=a.member_entra_id;
+    const isApp = a.member_type!=='user';
+    if(!byUser[k]) byUser[k]={upn:a.upn||('(unnamed '+a.member_type+' '+String(k).slice(0,8)+'…)'),
+      dn:a.dn||a.upn||('(unnamed '+a.member_type+')'),
+      roles:[],tier:99,hasStrongMfa:false,hasSmsOnly:false,lastLogin:a.last_login,
+      enabled:a.account_enabled,unclassified:false,isApp:isApp,memberType:a.member_type,appId:a.app_id,publisher:a.publisher};
+    const u=byUser[k];
+    u.roles.push(a.role_name);
+    u.tier=Math.min(u.tier,a.tier);
+    if(a.unclassified) u.unclassified=true;
+    if(a.hasStrongMfa) u.hasStrongMfa=true;
+    if(a.hasSmsOnly) u.hasSmsOnly=true;
+    if(a.hasStrongMfa===null) u.mfaUnknown=true;
+  }
+  return Object.values(byUser);
+}
+async function loadPrivAccess(){
+  document.getElementById('privSub').textContent='Loading…';
+  try{
+    const r=await fetch('/api/sentinel/priv-access',{headers:authHeaders()});
+    const j=await r.json();
+    window._privRaw=j;
+    window._privUsers=aggregatePriv(j);
+    renderPrivTiles(j, window._privUsers);
+    renderPrivTable();
+    document.getElementById('privCoverage').textContent=j.coverage.note;
+    const s=document.getElementById('privSearch');
+    if(!s._wired){ s._wired=true; s.oninput=(e)=>{ privSearch=e.target.value.toLowerCase(); renderPrivTable(); }; }
+  }catch(e){
+    document.getElementById('privSub').textContent='Could not load privileged access data: '+e.message;
+  }
+}
+function renderPrivTiles(j, users){
+  const humans=users.filter(u=>!u.isApp);
+  const apps=users.filter(u=>u.isApp);
+  const noMfa=humans.filter(u=>!u.hasStrongMfa).length;
+  const dormant=users.filter(u=>!u.lastLogin||new Date(u.lastLogin)<Date.now()-60*86400e3).length;
+  const tier0=users.filter(u=>u.tier===0).length;
+  const trend=j.gaTrend||[];
+  const tiles=[
+    {n:tier0, l:'Global Administrators', sub:'Microsoft guidance: 2\u20134', c:tier0>4?'--crit':tier0>2?'--high':'--pass', spark:true},
+    {n:MFA_MEASURED===false?'\u2014':noMfa, l:'Without strong MFA',
+     sub:MFA_MEASURED===false?'MFA enrolment not collected here':'of '+humans.length+' accounts; apps excluded',
+     c:MFA_MEASURED===false?'--ink-3':(noMfa>0?'--crit':'--pass')},
+    {n:dormant, l:'Dormant 60+ days', sub:'no recent sign-in', c:dormant>0?'--high':'--pass'},
+    {n:users.length, l:'Total privileged accounts', sub:'across all tiers', c:'--ink-2'},
+  ];
+  document.getElementById('privTiles').innerHTML=tiles.map((t,i)=>`
+    <div class="tile"><div class="n" style="color:${cssv(t.c)}">${t.n}</div>
+      <div class="l" style="font-weight:600;color:var(--ink);text-transform:none;font-size:12px;margin-top:4px">${t.l}</div>
+      <div class="l" style="margin-top:4px">${t.sub}</div>
+      ${t.spark?`<div style="height:20px;margin-top:6px"><canvas id="gaSpark"></canvas></div><div id="gaSparkNote" style="font-size:10px;color:var(--ink-3);margin-top:2px"></div>`:''}
+    </div>`).join('');
+  const note=document.getElementById('gaSparkNote');
+  if(note) note.textContent=trend.length>1?trend.length+'-day trend':(trend.length===1?'history started today':'');
+  if(trend.length>1){
+    if(charts.gaSpark) charts.gaSpark.destroy();
+    charts.gaSpark=new Chart(document.getElementById('gaSpark'),{
+      type:'line',
+      data:{labels:trend.map(t=>t.date.slice(5)),datasets:[{data:trend.map(t=>t.count),
+        borderColor:cssv('--crit'),backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:0.3}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:true}},scales:{x:{display:false},y:{display:false}},animation:false}
+    });
+  }
+}
+function privSetSort(key){ if(privSortKey===key) privSortDir*=-1; else { privSortKey=key; privSortDir=1; } renderPrivTable(); }
+function privArrow(key){ return privSortKey!==key?'<span style="opacity:.25">\u2195</span>':(privSortDir===1?'\u2191':'\u2193'); }
+function renderPrivTable(){
+  document.getElementById('privThead').innerHTML=`<tr>
+    <th style="cursor:pointer" onclick="privSetSort('dn')">Principal ${privArrow('dn')}</th>
+    <th>Role(s)</th>
+    <th style="cursor:pointer" onclick="privSetSort('tier')">Tier ${privArrow('tier')}</th>
+    <th>MFA</th>
+    <th style="cursor:pointer" onclick="privSetSort('lastLogin')">Last sign-in ${privArrow('lastLogin')}</th>
+    <th>Status</th></tr>`;
+  const TIER_LABEL={0:'Tier 0 \u2014 tenant-takeover',1:'Tier 1 \u2014 high',2:'Tier 2 \u2014 service admin',3:'Tier 3 \u2014 read-only'};
+  const TIER_COL={0:'--crit',1:'--high',2:'--med',3:'--ink-3'};
+  let rows=(window._privUsers||[]).filter(u=>!privSearch||(u.dn+' '+u.upn+' '+u.roles.join(' ')).toLowerCase().includes(privSearch));
+  rows=[...rows].sort((a,b)=>{
+    const av=privSortKey==='lastLogin'?(a.lastLogin?new Date(a.lastLogin).getTime():0):privSortKey==='dn'?a.dn.toLowerCase():a[privSortKey];
+    const bv=privSortKey==='lastLogin'?(b.lastLogin?new Date(b.lastLogin).getTime():0):privSortKey==='dn'?b.dn.toLowerCase():b[privSortKey];
+    if(typeof av==='string') return av.localeCompare(bv)*privSortDir;
+    return (av-bv)*privSortDir;
+  });
+  document.getElementById('privSub').textContent=rows.length+' of '+(window._privUsers||[]).length+' privileged accounts';
+  document.getElementById('privTbody').innerHTML=rows.length?rows.map(u=>{
+    const dormant=!u.lastLogin||new Date(u.lastLogin)<Date.now()-60*86400e3;
+    const mfaChip=u.isApp
+      ?`<span class="stat" style="background:var(--panel-2);color:var(--ink-3)" title="A service principal authenticates with a credential, not MFA">n/a \u00b7 app</span>`
+      :(MFA_MEASURED===false||u.mfaUnknown)
+      ?`<span class="stat" style="background:var(--panel-2);color:var(--ink-3)" title="okta_user_factors has not been collected on this host">not measured</span>`
+      :u.hasStrongMfa?`<span class="stat" style="background:color-mix(in srgb,${cssv('--pass')} 16%,transparent);color:${cssv('--pass')}">strong</span>`
+      :u.hasSmsOnly?`<span class="stat" style="background:color-mix(in srgb,${cssv('--high')} 16%,transparent);color:${cssv('--high')}">SMS only</span>`
+      :`<span class="stat" style="background:color-mix(in srgb,${cssv('--crit')} 16%,transparent);color:${cssv('--crit')}">none</span>`;
+    return `<tr class="row" onclick='openPrivDrawer(${jsAttr(u.upn)})'>
+      <td><b>${esc(u.dn)}</b>${(u.isApp?' <span class="stat" style="background:color-mix(in srgb,'+cssv('--med')+' 16%,transparent);color:'+cssv('--med')+'">app</span>':'')+
+      (u.unclassified?' <span class="stat" style="background:var(--panel-2);color:var(--ink-3)">unclassified role</span>':'')}</td>
+      <td style="font-size:12px;color:var(--ink-2)">${esc(u.roles.join(', '))}</td>
+      <td><span style="color:${cssv(TIER_COL[u.tier]||'--ink-3')}">${TIER_LABEL[u.tier]||'Tier '+u.tier}</span></td>
+      <td>${mfaChip}</td>
+      <td class="mono" style="font-size:12px;color:${dormant?cssv('--high'):'var(--ink-2)'}">${u.lastLogin?fmtAge(Math.round((Date.now()-new Date(u.lastLogin).getTime())/60000)):'never'}</td>
+      <td>${u.enabled?'<span class="stat" style="background:color-mix(in srgb,'+cssv('--pass')+' 14%,transparent);color:'+cssv('--pass')+'">active</span>':'<span class="stat" style="background:color-mix(in srgb,'+cssv('--crit')+' 14%,transparent);color:'+cssv('--crit')+'">disabled</span>'}</td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="6" style="color:var(--ink-3);padding:14px">No accounts match this search.</td></tr>';
+}
+async function openPrivDrawer(upn){
+  const u=(window._privUsers||[]).find(x=>x.upn===upn); if(!u) return;
+  const d=document.getElementById('drawer');
+  const mfaText=u.isApp
+    ? 'This is a '+u.memberType+', not a person. It signs in with a client secret or certificate, so MFA does not apply \u2014 review its credentials and owners instead.'
+    :(MFA_MEASURED===false||u.mfaUnknown)
+    ?'MFA enrolment has not been collected on this host \u2014 this is not a finding, it is a gap in collection. Run collect-okta-factors.js.'
+    :u.hasStrongMfa?'Has a strong MFA method registered (Authenticator, Windows Hello, FIDO2, or TOTP).'
+    :u.hasSmsOnly?'Only SMS/voice MFA registered \u2014 phishable, should be upgraded.'
+    :'No MFA method registered beyond password.';
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${esc(u.dn)}</h2>
+      <div style="color:var(--ink-3);font-size:12px;margin-top:2px">${esc(u.upn)} \u00b7 ${u.enabled?'active':'disabled'} account</div></div>
+    <div class="db">
+      <h4>Privileged roles (${u.roles.length})</h4>
+      <div class="affected">${u.roles.map(r=>`<div class="a"><span>${r}</span></div>`).join('')}</div>
+      <h4 style="margin-top:16px">Protection</h4>
+      <p style="color:var(--ink-2);font-size:13px;margin:0 0 10px">${mfaText}</p>
+      <h4>Activity</h4>
+      <p style="color:var(--ink-2);font-size:13px;margin:0">${u.lastLogin?'Last sign-in '+String(u.lastLogin).slice(0,10):'No sign-in recorded'}.</p>
+      <div id="u360Section" style="margin-top:16px"><div style="color:var(--ink-3);font-size:12px">${u.isApp?'':'Loading full profile\u2026'}</div></div>
+    </div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+  if(u.isApp){
+    // user360 reads entra_users, which holds no row for a service principal.
+    // Asking it anything here can only ever return "not found".
+    const sec=document.getElementById('u360Section');
+    if(sec) sec.innerHTML=`
+      <h4>Application</h4>
+      <p style="color:var(--ink-2);font-size:13px;margin:0 0 10px">Client ID ${esc(u.appId||'not recorded')}</p>
+      <h4>Publisher</h4>
+      <p style="color:var(--ink-2);font-size:13px;margin:0 0 10px">${esc(u.publisher||'none recorded in the tenant')}</p>
+      <p style="color:var(--ink-3);font-size:12px;margin:0">Department, licensing and per-person findings do not apply to a ${esc(u.memberType)}. Review its credentials, owners and consented permissions in Entra ID.</p>`;
+    return;
+  }
+  try{
+    const r=await fetch('/api/sentinel/user360?upn='+encodeURIComponent(upn),{headers:authHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    const sec=document.getElementById('u360Section'); if(!sec) return;
+    const findingsHtml=j.relatedFindings.length?j.relatedFindings.map(f=>{
+      const SEVW={critical:'Urgent',high:'High',medium:'Medium',low:'Minor'};
+      return `<div class="a"><span>${f.title}</span><span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${SEVW[f.sev]}</span></div>`;
+    }).join(''):'<div style="color:var(--ink-3);font-size:12px">No open findings reference this person.</div>';
+    sec.innerHTML=`
+      <h4>Department</h4>
+      <p style="color:var(--ink-2);font-size:13px;margin:0 0 10px">${j.identity.department||'\u2014'}${j.identity.managerName?' \u00b7 reports to '+j.identity.managerName:''}</p>
+      <h4>Licensing &amp; usage</h4>
+      <p style="color:var(--ink-2);font-size:13px;margin:0 0 10px">${esc(j.activity?(j.activity.licenses||'no licenses on record'):'not found in usage report')}</p>
+      <h4>Related findings (${j.relatedFindings.length})</h4>
+      <div class="affected">${findingsHtml}</div>`;
+  }catch(e){
+    const sec=document.getElementById('u360Section'); if(sec) sec.innerHTML='<div style="color:var(--ink-3);font-size:12px">Could not load full profile.</div>';
+  }
+}
+let chgSearch='';
+let chgDays=30;
+function renderRangeBar(elId, current, onPick){
+  const opts=[7,30,90];
+  document.getElementById(elId).innerHTML=opts.map(d=>
+    `<div class="chip ${d===current?'on':''}" onclick="(${onPick})(${d})">${d}D</div>`).join('');
+}
+async function loadTenantChanges(days){
+  if(days) chgDays=days;
+  renderRangeBar('chgRangeBar', chgDays, 'loadTenantChanges');
+  document.getElementById('chgSub').textContent='Loading…';
+  try{
+    const r=await fetch('/api/sentinel/tenant-changes?days='+chgDays,{headers:authHeaders()});
+    const j=await r.json();
+    window._chgData=j;
+    document.getElementById('chgSub').textContent=j.total.toLocaleString()+' changes recorded \u00b7 '+spanNote(j);
+    document.getElementById('chgTiles').innerHTML=[
+      {n:j.total.toLocaleString(),l:'Total changes',sub:spanNote(j),c:'--ink-2'},
+      {n:j.byCategory.length,l:'Categories affected',sub:j.byCategory.slice(0,3).map(c=>c.category).join(', ')||'none',c:'--ink-2'},
+      {n:j.byInitiator.length,l:'Distinct initiators',sub:'users and apps combined',c:'--ink-2'},
+    ].map(t=>`<div class="tile"><div class="n" style="color:${cssv(t.c)}">${t.n}</div>
+      <div class="l" style="font-weight:600;color:var(--ink);text-transform:none;font-size:12px;margin-top:4px">${t.l}</div>
+      <div class="l" style="margin-top:4px">${t.sub}</div></div>`).join('');
+    const maxAct=Math.max(1,...j.byActivity.map(a=>a.c));
+    document.getElementById('chgByActivity').innerHTML=j.byActivity.map(a=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <span title="${esc(a.activity)} · ${esc(a.category||'—')}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px">${esc(a.activity)}<small style="color:var(--ink-3)"> · ${esc(a.category||'—')}</small></span>
+        <div style="width:70px;flex:0 0 auto;height:5px;background:var(--line);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.round(a.c/maxAct*100)}%;background:${cssv('--accent')}"></div></div>
+        <span style="width:34px;flex:0 0 auto;text-align:right;font-size:12px;color:var(--ink-3)">${a.c}</span>
+      </div>`).join('');
+    const maxInit=Math.max(1,...j.byInitiator.map(i=>i.c));
+    document.getElementById('chgByInitiator').innerHTML=j.byInitiator.map(i=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <span title="${esc(i.initiator)}" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px">${esc(i.initiator)}${i.isApp?' <small style="color:var(--ink-3)">(app)</small>':''}</span>
+        <div style="width:70px;flex:0 0 auto;height:5px;background:var(--line);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.round(i.c/maxInit*100)}%;background:${cssv('--accent')}"></div></div>
+        <span style="width:34px;flex:0 0 auto;text-align:right;font-size:12px;color:var(--ink-3)">${i.c}</span>
+      </div>`).join('');
+    renderChgTable();
+    const s=document.getElementById('chgSearch');
+    if(!s._wired){ s._wired=true; s.oninput=(e)=>{ chgSearch=e.target.value.toLowerCase(); renderChgTable(); }; }
+  }catch(e){
+    document.getElementById('chgSub').textContent='Could not load tenant changes: '+e.message;
+  }
+}
+function downloadChangesCsv(){
+  const j=window._chgData; if(!j) return;
+  const rows=j.recent.filter(r=>!chgSearch||(r.activity+' '+r.initiator+' '+(r.targetName||'')).toLowerCase().includes(chgSearch));
+  const header=['When','Activity','Category','Initiator','Target','Result'];
+  const lines=[header.join(',')];
+  for(const r of rows){
+    lines.push([r.dt,r.activity,r.category||'',r.initiator,r.targetName||'',r.result||''].map(csvEscape).join(','));
+  }
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='tenant-changes-'+chgDays+'d-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function renderChgTable(){
+  const j=window._chgData; if(!j) return;
+  const rows=j.recent.filter(r=>!chgSearch||(r.activity+' '+r.initiator+' '+(r.targetName||'')).toLowerCase().includes(chgSearch));
+  document.getElementById('chgTbody').innerHTML=rows.length?rows.slice(0,200).map(r=>{
+    const resCol=r.result==='success'?cssv('--pass'):r.result==='failure'?cssv('--crit'):'var(--ink-3)';
+    return `<tr class="row">
+      <td class="mono" style="font-size:12px;color:var(--ink-3)">${String(r.dt).slice(0,16).replace('T',' ')}</td>
+      <td style="font-size:13px">${esc(r.activity)}</td>
+      <td style="font-size:12px;color:var(--ink-2)">${r.category||'—'}</td>
+      <td style="font-size:12px">${esc(r.initiator)}${r.isApp?' <small style="color:var(--ink-3)">(app)</small>':''}</td>
+      <td style="font-size:12px;color:var(--ink-2)">${esc(r.targetName||'—')}</td>
+      <td style="font-size:12px;color:${resCol}">${r.result||'—'}</td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="6" style="color:var(--ink-3);padding:14px">No changes match this search.</td></tr>';
+}
+let siDays=30;
+async function loadSigninAnalytics(days){
+  if(days) siDays=days;
+  renderRangeBar('siRangeBar', siDays, 'loadSigninAnalytics');
+  document.getElementById('siSub').textContent='Loading…';
+  try{
+    const r=await fetch('/api/sentinel/signin-analytics?days='+siDays,{headers:authHeaders()});
+    const j=await r.json();
+    document.getElementById('siSub').textContent=j.totals.total.toLocaleString()+' sign-ins recorded \u00b7 '+spanNote(j);
+    document.getElementById('siVolumeTitle').textContent='Sign-in volume \u00b7 '+spanNote(j);
+    document.getElementById('siTiles').innerHTML=[
+      {n:j.totals.total.toLocaleString(),l:'Total sign-ins',sub:spanNote(j),c:'--ink-2'},
+      {n:pctTxt(j.totals.failureRate),l:'Failure rate',sub:j.totals.failureRate==null?'nothing recorded to measure':j.totals.failures.toLocaleString()+' failed attempts',c:j.totals.failureRate==null?'--ink-3':j.totals.failureRate>10?'--high':'--pass'},
+      {n:pctTxt(j.totals.caNotAppliedRate),l:'No CA policy applied',sub:j.totals.caNotAppliedRate==null?'nothing recorded to measure':'see Sign-in analytics',c:j.totals.caNotAppliedRate==null?'--ink-3':j.totals.caNotAppliedRate>40?'--high':'--med'},
+    ].map(t=>`<div class="tile"><div class="n" style="color:${cssv(t.c)}">${t.n}</div>
+      <div class="l" style="font-weight:600;color:var(--ink);text-transform:none;font-size:12px;margin-top:4px">${t.l}</div>
+      <div class="l" style="margin-top:4px">${t.sub}</div></div>`).join('');
+
+    if(charts.siVolume) charts.siVolume.destroy();
+    charts.siVolume=new Chart(document.getElementById('siVolumeChart'),{
+      type:'bar',
+      data:{labels:j.byDay.map(d=>d.date.slice(5)),datasets:[
+        {label:'Total',data:j.byDay.map(d=>d.total),backgroundColor:cssv('--line')},
+        {label:'Failures',data:j.byDay.map(d=>d.failures),backgroundColor:cssv('--crit')},
+      ]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:cssv('--ink-2')}}},
+        scales:{x:{ticks:{color:cssv('--ink-3')},grid:{display:false}},y:{ticks:{color:cssv('--ink-3')},grid:{color:cssv('--line')}}}}
+    });
+
+    const maxF=Math.max(1,...j.topFailures.map(f=>f.c));
+    document.getElementById('siFailures').innerHTML=j.topFailures.length?j.topFailures.map(f=>`
+      <div style="padding:7px 0;border-bottom:1px solid var(--line)">
+        <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px"><span>${f.reason.length>70?f.reason.slice(0,70)+'…':f.reason}</span><span style="color:var(--ink-3)">${f.c}</span></div>
+        <div style="height:4px;background:var(--line);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.round(f.c/maxF*100)}%;background:${cssv('--high')}"></div></div>
+      </div>`).join(''):'<div style="color:var(--ink-3);font-size:13px">No failures recorded.</div>';
+
+    const maxC=Math.max(1,...j.byCountry.map(c=>c.c));
+    document.getElementById('siCountries').innerHTML=j.byCountry.map(c=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <span style="width:36px;font-size:12.5px;color:var(--ink-2)">${c.country||'—'}</span>
+        <div style="flex:1;height:5px;background:var(--line);border-radius:3px;overflow:hidden"><div style="height:100%;width:${Math.round(c.c/maxC*100)}%;background:${cssv('--accent')}"></div></div>
+        <span style="width:50px;text-align:right;font-size:12px;color:var(--ink-3)">${c.c.toLocaleString()}</span>
+      </div>`).join('');
+  }catch(e){
+    document.getElementById('siSub').textContent='Could not load sign-in analytics: '+e.message;
+  }
+}
+async function loadBriefing(){
+  document.getElementById('briefDate').textContent=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  if(!OV||!OV.findings){ return; }
+  document.getElementById('briefScoreNum').textContent=OV.score;
+  document.getElementById('briefScoreNum').style.color=OV.score>=80?cssv('--pass'):OV.score>=60?cssv('--med'):cssv('--crit');
+  document.getElementById('briefScoreGrade').textContent=OV.grade||'';
+  const critCount=OV.findings.filter(f=>f.sev==='critical'&&f.status!=='pass').length;
+  document.getElementById('briefScoreSub').textContent='Weighted across '+((OV&&OV.modulesAvailable)?OV.modulesAvailable.length:'?')+' modules \u2014 '+critCount+' critical finding'+(critCount===1?'':'s')+' currently open.'+feedNote();
+  document.getElementById('briefFindingCount').textContent=OV.findings.length;
+
+  // KPI tiles: pull real numbers from already-built endpoints
+  let caPct='\u2014', gaCount='\u2014';
+  try{
+    const r=await fetch('/api/sentinel/signin-analytics?days=30',{headers:authHeaders()});
+    const j=await r.json();
+    caPct=pctTxt(j.totals.caNotAppliedRate);
+  }catch(e){}
+  // The GA count is the tier-0 count from the privileged-access feed -- the same
+  // figure the Privileged Access view shows. The finding's 'affected' number was a
+  // different measure and the two disagreed on the same screen.
+  try{
+    let pj=window._privRaw;
+    if(!pj){ const pr=await fetch('/api/sentinel/priv-access',{headers:authHeaders()}); if(!pr.ok) throw new Error('HTTP '+pr.status); pj=await pr.json(); }
+    if(!pj||pj.ok===false||pj.error) throw new Error('priv-access unavailable');
+    gaCount=aggregatePriv(pj).filter(u=>u.tier===0).length;
+  }catch(e){}
+
+  document.getElementById('briefKpis').innerHTML=[
+    {n:caPct,l:'Sign-ins with no Conditional Access',c:'--crit'},
+    {n:gaCount,l:'Global Administrators (target 2\u20134)',c:'--crit'},
+  ].map(t=>`<div class="tile"><div class="n" style="color:${cssv(t.c)};font-size:32px">${t.n}</div>
+    <div class="l" style="font-weight:600;color:var(--ink);text-transform:none;font-size:12.5px;margin-top:6px">${t.l}</div></div>`).join('');
+
+  // Top 5 priorities, plain-language framing
+  const top=[...OV.findings].filter(f=>f.status!=='pass').sort((a,b)=>b.rr-a.rr).slice(0,5);
+  document.getElementById('briefTop').innerHTML=top.length?top.map((f,i)=>{
+    const SEVW={critical:'Critical',high:'High',medium:'Medium',low:'Minor'};
+    return `<div style="padding:14px 0;border-bottom:1px solid var(--line)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+        <span style="font-size:15px;font-weight:600">${i+1}. ${f.title}</span>
+        <span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${SEVW[f.sev]}</span>
+      </div>
+      <div style="color:var(--ink-2);font-size:13px;margin-top:6px">${f.impact||f.issue}</div>
+    </div>`;
+  }).join(''):'<div style="color:var(--ink-3);font-size:13px">No open findings above minor severity.</div>';
+}
+function daysAgo(iso){
+  if(!iso) return null;
+  return Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+}
+function renderOwnership(){
+  const open=OV.findings.filter(f=>f.status!=='pass');
+  const unassigned=open.filter(f=>!TRK[f.id]||!TRK[f.id].owner);
+  const assigned=open.filter(f=>TRK[f.id]&&TRK[f.id].owner);
+  const inProgress=open.filter(f=>TRK[f.id]&&TRK[f.id].status==='in_progress').length;
+  const resolved=OV.findings.filter(f=>TRK[f.id]&&TRK[f.id].status==='resolved').length;
+
+  document.getElementById('ownSub').textContent=open.length+' open findings \u2014 '+assigned.length+' assigned, '+unassigned.length+' unassigned';
+  document.getElementById('ownTiles').innerHTML=[
+    {n:open.length,l:'Total open findings',c:'--ink-2'},
+    {n:unassigned.length,l:'Unassigned',c:unassigned.length>0?'--crit':'--pass'},
+    {n:inProgress,l:'In progress',c:'--accent'},
+    {n:resolved,l:'Resolved',c:'--pass'},
+  ].map(t=>`<div class="tile"><div class="n" style="color:${cssv(t.c)}">${t.n}</div>
+    <div class="l" style="font-weight:600;color:var(--ink);text-transform:none;font-size:12px;margin-top:4px">${t.l}</div></div>`).join('');
+
+  const unassignedSorted=[...unassigned].sort((a,b)=>b.rr-a.rr).slice(0,15);
+  document.getElementById('ownUnassigned').innerHTML=unassignedSorted.length?unassignedSorted.map((f,i)=>{
+    const idx=OV.findings.indexOf(f);
+    const SEVW={critical:'Urgent',high:'High',medium:'Medium',low:'Minor'};
+    return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)">
+      <span style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;min-width:0" onclick="openDrawer(OV.findings[${idx}])">
+        <span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${SEVW[f.sev]}</span>
+        <span style="font-size:13px">${f.title}</span>
+        <span style="font-size:11px;color:var(--ink-3)">${f.module}</span>
+      </span>
+      <input type="email" id="qa-${f.id}" placeholder="owner email" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;width:150px" onkeydown="if(event.key==='Enter')quickAssign('${f.id}')">
+      <button class="btn" style="font-size:11px;padding:5px 10px" onclick="quickAssign('${f.id}')">Assign</button>
+    </div>`;
+  }).join(''):'<div style="color:var(--ink-3);font-size:13px;padding:8px 0">Every open finding has an owner. \u2713</div>';
+
+  const byOwner={};
+  for(const f of assigned){
+    const owner=TRK[f.id].owner;
+    if(!byOwner[owner]) byOwner[owner]=[];
+    byOwner[owner].push(f);
+  }
+  const ownerEntries=Object.entries(byOwner).sort((a,b)=>b[1].length-a[1].length);
+  const STATUS_OPTS=['open','in_progress','risk_accepted','resolved'];
+  document.getElementById('ownByOwner').innerHTML=ownerEntries.length?ownerEntries.map(([owner,items])=>{
+    const rows=items.map(f=>{
+      const idx=OV.findings.indexOf(f);
+      const t=TRK[f.id];
+      const age=daysAgo(t.updated_at);
+      const opts=STATUS_OPTS.map(s=>`<option value="${s}" ${s===t.status?'selected':''}>${TRK_LABEL[s]}</option>`).join('');
+      return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
+        <span style="font-size:12.5px;cursor:pointer;flex:1;min-width:0" onclick="openDrawer(OV.findings[${idx}])">${f.title}</span>
+        <span style="font-size:10.5px;color:var(--ink-3);white-space:nowrap">${age!=null?age+'d ago':''}</span>
+        <select onchange="quickStatus('${f.id}',this.value)" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:11px">${opts}</select>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:16px"><div style="font-weight:600;font-size:13px;margin-bottom:4px">${esc(owner)} <span style="color:var(--ink-3);font-weight:400">(${items.length})</span></div>${rows}</div>`;
+  }).join(''):'<div style="color:var(--ink-3);font-size:13px">No findings currently assigned to anyone.</div>';
+}
+async function quickStatus(fid,status){
+  try{
+    const r=await fetch('/api/sentinel/status/'+fid,{method:'POST',
+      headers:{...authHeaders(),'Content-Type':'application/json'},
+      body:JSON.stringify({status,owner:(TRK[fid]&&TRK[fid].owner)||'',notes:(TRK[fid]&&TRK[fid].notes)||''})});
+    if(r.status===403){ alert('Read-only access — ask an admin to update tracking.'); renderOwnership(); return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    TRK[fid]={finding_id:fid,status,owner:(TRK[fid]&&TRK[fid].owner)||'',notes:(TRK[fid]&&TRK[fid].notes)||'',updated_by:'you',updated_at:new Date().toISOString()};
+    renderOwnership();
+  }catch(e){ alert('Could not save: '+e.message); }
+}
+async function quickAssign(fid){
+  const input=document.getElementById('qa-'+fid);
+  const owner=input.value.trim();
+  if(!owner){ input.focus(); return; }
+  try{
+    const r=await fetch('/api/sentinel/status/'+fid,{method:'POST',
+      headers:{...authHeaders(),'Content-Type':'application/json'},
+      body:JSON.stringify({status:'open',owner,notes:(TRK[fid]&&TRK[fid].notes)||''})});
+    if(r.status===403){ alert('Read-only access — ask an admin to update tracking.'); return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    TRK[fid]={finding_id:fid,status:'open',owner,notes:(TRK[fid]&&TRK[fid].notes)||'',updated_by:'you',updated_at:new Date().toISOString()};
+    renderOwnership();
+  }catch(e){ alert('Could not save: '+e.message); }
+}
+function getSavedViews(){
+  try{ return JSON.parse(localStorage.getItem('sentinelSavedViews')||'[]'); }catch(e){ return []; }
+}
+function setSavedViews(list){ localStorage.setItem('sentinelSavedViews', JSON.stringify(list)); }
+function captureCurrentState(){
+  const navKey=document.querySelector('nav a.active')?.dataset.nav || 'view-dashboard';
+  const extra={};
+  if(navKey==='view-findings'){ extra.filter=filter; extra.search=search; }
+  if(navKey==='view-changes'){ extra.chgDays=chgDays; }
+  if(navKey==='view-signin'){ extra.siDays=siDays; }
+  return {navKey, extra};
+}
+function saveCurrentView(){
+  const name=prompt('Name this view (e.g. "Critical findings" or "30-day CA trend"):');
+  if(!name||!name.trim()) return;
+  const list=getSavedViews();
+  list.push({name:name.trim(), ...captureCurrentState(), savedAt:new Date().toISOString()});
+  setSavedViews(list);
+  renderSavedViewsMenu();
+}
+function deleteSavedView(idx){
+  const list=getSavedViews();
+  list.splice(idx,1);
+  setSavedViews(list);
+  renderSavedViewsMenu();
+}
+function restoreSavedView(idx){
+  const v=getSavedViews()[idx];
+  if(!v) return;
+  document.getElementById('savedViewsMenu').style.display='none';
+  if(v.navKey.startsWith('grp-')){ showGroup(v.navKey.slice(4)); return; }
+  if(v.navKey==='view-findings'){
+    showView('view-findings');
+    search=v.extra.search||''; document.getElementById('searchBox').value=search;
+    setFilter(v.extra.filter||'all');
+    return;
+  }
+  if(v.navKey==='view-changes'){ showView('view-changes'); loadTenantChanges(v.extra.chgDays||30); return; }
+  if(v.navKey==='view-signin'){ showView('view-signin'); loadSigninAnalytics(v.extra.siDays||30); return; }
+  const LOADERS={
+    'view-priv':()=>loadPrivAccess(),'view-licensing':()=>loadInsight('licensing'),
+    'view-usage':()=>loadInsight('usage'),'view-apps':()=>loadInsight('apps'),
+    'view-roadmap':()=>renderRoadmap(),'view-ownership':()=>renderOwnership(),
+    'view-compliance':()=>renderCompliance(),'view-briefing':()=>loadBriefing(),
+  };
+  showView(v.navKey);
+  if(LOADERS[v.navKey]) LOADERS[v.navKey]();
+}
+function toggleSavedViewsMenu(){
+  const m=document.getElementById('savedViewsMenu');
+  if(m.style.display==='none'){ renderSavedViewsMenu(); m.style.display='block'; }
+  else m.style.display='none';
+}
+function renderSavedViewsMenu(){
+  const list=getSavedViews();
+  const m=document.getElementById('savedViewsMenu');
+  const rows=list.map((v,i)=>
+    `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line)">
+      <span style="font-size:12.5px;cursor:pointer;flex:1;min-width:0" onclick="restoreSavedView(${i})">${v.name}</span>
+      <span style="font-size:14px;color:var(--ink-3);cursor:pointer" onclick="deleteSavedView(${i})" title="Delete">&times;</span>
+    </div>`).join('');
+  m.innerHTML=(rows||'<div style="color:var(--ink-3);font-size:12px;padding:6px 4px">No saved views yet.</div>')
+    +'<div style="padding-top:8px;margin-top:4px;border-top:1px solid var(--line)"><button class="btn" style="width:100%;font-size:12px" onclick="saveCurrentView()">+ Save current view</button></div>';
+}
+document.addEventListener('click',(e)=>{
+  const menu=document.getElementById('savedViewsMenu'), btn=document.getElementById('savedViewsBtn');
+  if(menu && menu.style.display==='block' && !menu.contains(e.target) && e.target!==btn){ menu.style.display='none'; }
+});
+let puDays=30, puSearch='';
+async function loadPaidUsage(days){
+  if(days) puDays=days;
+  document.getElementById('puRangeBar').innerHTML=[30,60,90].map(d=>`<div class="chip ${d===puDays?'on':''}" onclick="loadPaidUsage(${d})">${d} Days</div>`).join('');
+  document.getElementById('puDateRange').textContent='Loading…';
+  try{
+    const r=await fetch('/api/insights/paid-usage?days='+puDays,{headers:authHeaders()});
+    const j=await r.json();
+    window._puData=j;
+    document.getElementById('puDateRange').textContent=j.rangeStart+' \u2192 '+j.rangeEnd+' ('+puDays+' days)';
+    const s=j.summary;
+    document.getElementById('puSummaryTiles').innerHTML=[
+      {n:s.totalPaidSubscriptionSeats,l:'Paid subscriptions',sub:'E3/E5/Copilot',c:'--ink-2',click:"openPuSkuDrawer()"},
+      {n:s.active,l:'Active users',sub:'3-4 workloads',c:'--pass',click:"openPuStatusDrawer('active')"},
+      {n:s.low,l:'Low usage',sub:'1-2 workloads',c:'--med',click:"openPuStatusDrawer('low')"},
+      {n:s.inactive,l:'Inactive',sub:'0 workloads',c:s.inactive>0?'--crit':'--pass',click:"openPuStatusDrawer('inactive')"},
+      {n:s.utilizationRate+'%',l:'Utilization',sub:s.active+' of '+s.totalUsersWithPaidLicense,c:s.utilizationRate<60?'--high':'--pass',click:"openPuUtilizationDrawer()"},
+    ].map(t=>`<div class="tile" style="min-width:0;cursor:pointer" title="Click for supporting data" onclick="${t.click}"><div class="n" style="color:${cssv(t.c)};font-size:28px">${t.n}</div>
+      <div class="l" style="font-weight:600;color:var(--ink);text-transform:none;font-size:12px;margin-top:4px;white-space:nowrap">${t.l}</div>
+      <div class="l" style="margin-top:4px;white-space:nowrap">${t.sub}</div></div>`).join('');
+    document.getElementById('puSummaryIntro').innerHTML=
+      `Of the <b>${s.totalUsersWithPaidLicense}</b> employees holding a paid Microsoft license, <b style="color:${cssv('--pass')}">${s.active}</b> are actually using it day-to-day, <b style="color:${cssv('--med')}">${s.low}</b> use it occasionally, and <b style="color:${cssv(s.inactive>0?'--crit':'--pass')}">${s.inactive}</b> haven\'t touched Exchange, Teams, SharePoint, or OneDrive at all in the last ${puDays} days \u2014 that\'s ${s.inactive>0?'paid-for seats sitting unused':'nobody sitting idle right now'}. Click any tile below for the full list.`;
+    document.getElementById('puNote').textContent=j.note;
+    renderPuDeptTable();
+    const search=document.getElementById('puSearch');
+    if(!search._wired){ search._wired=true; search.oninput=(e)=>{ puSearch=e.target.value.toLowerCase(); renderPuDeptTable(); }; }
+  }catch(e){
+    document.getElementById('puDateRange').textContent='Could not load: '+e.message;
+  }
+}
+function renderPuDeptTable(){
+  const j=window._puData; if(!j) return;
+  const rows=j.departments.filter(d=>!puSearch||d.department.toLowerCase().includes(puSearch));
+  document.getElementById('puDeptTbody').innerHTML=rows.length?rows.map(d=>`
+    <tr class="row" style="cursor:pointer" onclick="openPuDeptDrawer('${d.department.replace(/'/g,"\\'")}')">
+      <td><b>${d.department}</b></td>
+      <td class="mono">${d.total}</td>
+      <td class="mono" style="color:${cssv('--pass')}">${d.active}</td>
+      <td class="mono" style="color:${cssv('--med')}">${d.low}</td>
+      <td class="mono" style="color:${d.inactive>0?cssv('--crit'):'var(--ink-3)'}">${d.inactive}</td>
+      <td class="mono">${d.utilizationRate}%</td>
+    </tr>`).join(''):'<tr><td colspan="6" style="color:var(--ink-3);padding:14px">No matches.</td></tr>';
+}
+const PU_STATUS_LABEL={active:'Active users',low:'Low-usage users',inactive:'Inactive users'};
+const PU_STATUS_EXPLAIN={
+  active: 'These employees are getting real value from their paid Microsoft license \u2014 they touched 3 or 4 of the 4 tracked workloads (Exchange, Teams, SharePoint, OneDrive) in the last <b>PERIOD</b> days.',
+  low: 'These employees hold a paid license but only used 1 or 2 of the 4 tracked workloads in the last <b>PERIOD</b> days \u2014 worth checking whether the license fits how they actually work.',
+  inactive: 'These employees hold a paid Microsoft license but touched <b>none</b> of the 4 tracked workloads in the last <b>PERIOD</b> days. Unless there\'s a known reason (leave, recent hire, role change), the company is paying for seats nobody is using.',
+};
+function openPuStatusDrawer(status){
+  const j=window._puData; if(!j||!j.employees) return;
+  const rows=j.employees.filter(e=>e.status===status);
+  const d=document.getElementById('drawer');
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${PU_STATUS_LABEL[status]}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">${rows.length} of ${j.employees.length} paid-license users \u00b7 last ${puDays} days</div></div>
+    <div class="db">
+      <p style="color:var(--ink-2);font-size:13px;margin:0 0 14px">${PU_STATUS_EXPLAIN[status].replace(/PERIOD/g,puDays)}</p>
+      <button class="btn" style="font-size:11px;margin-bottom:10px" onclick='csvDownloadRows("${status}-users.csv",["Employee","Department","Manager","Status"],${JSON.stringify(rows.map(r=>[r.name,r.department,r.manager,r.status]))})'>\u2b07 Export CSV</button>
+      ${rows.slice(0,300).map(r=>`<div class="row" style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">
+        <span style="font-size:13px">${r.name}</span>
+        <span style="font-size:11.5px;color:var(--ink-3)">${r.department} \u00b7 ${r.manager}</span>
+      </div>`).join('')||'<div style="color:var(--ink-3);font-size:13px">No users in this category.</div>'}
+      ${rows.length>300?`<div style="color:var(--ink-3);font-size:12px;margin-top:8px">Showing first 300 of ${rows.length} \u2014 export CSV for the full list.</div>`:''}
+    </div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+}
+function openPuUtilizationDrawer(){
+  const j=window._puData; if(!j) return;
+  const s=j.summary;
+  const d=document.getElementById('drawer');
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>How ${s.utilizationRate}% was calculated</h2></div>
+    <div class="db">
+      <h4>Formula</h4>
+      <p style="color:var(--ink-2);font-size:13px">Utilization % = Active users \u00f7 Total paid-license users \u00d7 100</p>
+      <h4 style="margin-top:14px">This calculation</h4>
+      <p style="color:var(--ink-2);font-size:13px">${s.active} active \u00f7 ${s.totalUsersWithPaidLicense} total \u00d7 100 = <b>${s.utilizationRate}%</b></p>
+      <h4 style="margin-top:14px">What counts as "active"</h4>
+      <p style="color:var(--ink-2);font-size:13px">Touched 3 or 4 of the 4 tracked workloads (Exchange, OneDrive, SharePoint, Teams) within the selected ${puDays}-day period, based on each workload's last-recorded activity date.</p>
+      <p style="color:var(--ink-3);font-size:11.5px;margin-top:10px">${j.note}</p>
+    </div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+}
+function openPuSkuDrawer(){
+  const j=window._puData; if(!j||!j.skuBreakdown) return;
+  const d=document.getElementById('drawer');
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Paid subscription seats</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">${j.summary.totalPaidSubscriptionSeats} total seats across ${j.skuBreakdown.length} SKUs</div></div>
+    <div class="db">
+      <p style="color:var(--ink-2);font-size:13px;margin:0 0 14px">This is every paid Microsoft license currently assigned to an employee \u2014 the ${j.summary.totalUsersWithPaidLicense} people counted in this report all hold at least one of these.</p>
+      ${j.skuBreakdown.map(s=>`<div class="row" style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">
+        <span style="font-size:13px">${s.sku}</span><span class="mono" style="font-size:13px">${s.seats} seats</span>
+      </div>`).join('')}
+    </div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+}
+function openAnnualizedDrawer(){
+  const d=window._licData; if(!d) return;
+  const money=(v)=>'$'+(+v).toLocaleString('en-US',{maximumFractionDigits:0});
+  const d2=document.getElementById('drawer');
+  d2.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>How the annualized figure is calculated</h2></div>
+    <div class="db">
+      <h4>Formula</h4>
+      <p style="color:var(--ink-2);font-size:13px">Annualized = current month\'s total spend \u00d7 12</p>
+      <h4 style="margin-top:14px">This calculation</h4>
+      <p style="color:var(--ink-2);font-size:13px">${money(d.totalMonthly)}/mo \u00d7 12 = <b>${money(d.totalMonthly*12)}</b></p>
+      <h4 style="margin-top:14px">What "at current usage" means</h4>
+      <p style="color:var(--ink-2);font-size:13px">This is a projection, not a contracted or guaranteed annual cost. It assumes this month\'s spend mix holds steady for the full year. Most license costs (E3, Copilot, Power BI) are fixed seat counts and won\'t change unless seats are added or removed. But some line items under Products &amp; Services are genuinely usage-based (billed per GB, variable month to month) -- if those fluctuate, the real annual total will differ from this projection.</p>
+    </div>`;
+  d2.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+}
+function openCostPerUserDrawer(){
+  const d=window._licData; if(!d) return;
+  const money=(v)=>'$'+(+v).toLocaleString('en-US',{maximumFractionDigits:0});
+  const emp=INS.usage?INS.usage.paidLicenseUsers:null;
+  const allUsers=INS.usage?INS.usage.totalUsers:null;
+  const d2=document.getElementById('drawer');
+  d2.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>How cost per user is calculated</h2></div>
+    <div class="db">
+      <h4>Formula</h4>
+      <p style="color:var(--ink-2);font-size:13px">Cost per user = total monthly spend \u00f7 paid-license users</p>
+      <h4 style="margin-top:14px">This calculation</h4>
+      <p style="color:var(--ink-2);font-size:13px">${money(d.totalMonthly)} \u00f7 ${emp} = <b>${money(d.totalMonthly/emp)}</b>/mo</p>
+      <h4 style="margin-top:14px">What "${emp} paid-license users" means</h4>
+      <p style="color:var(--ink-2);font-size:13px">This counts employees holding at least one PAID Microsoft license (E3, E5, Copilot, or Power BI Pro) -- the same population used throughout the 30/60/90 Day Usage report.</p>
+      ${allUsers&&allUsers!==emp?`<p style="color:var(--ink-3);font-size:12px;margin-top:8px">Note: the tenant has ${allUsers} total licensed users when free/trial-only licenses (Power Automate Free, trial previews, etc.) are included. This tile intentionally excludes those ${allUsers-emp} people, since they hold no paid license and including them would understate the real cost per paid user.</p>`:''}
+    </div>`;
+  d2.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+}
+/* ---------- Microsoft Renewal Planning (Licensing & Cost) ----------
+ * Data: GET /api/insights/renewal-planning (all three periods in one call).
+ * Changing the period re-renders every number from that period's data.
+ * Recommended = ceil((active + low + unknown) x 1.05); the 5% is a policy
+ * assumption and is stated wherever the number appears. */
+let rpDays = 90;
+const rpEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rpMoney = (v) => { const n = Math.round(+v || 0); return (n < 0 ? '−' : '') + '$' + Math.abs(n).toLocaleString('en-US'); };
+const rpSigned = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n).toLocaleString('en-US');
+const rpLong = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'}) : 'unknown';
+async function loadRenewal(){
+  const el = document.getElementById('rpTiles'); if(!el) return;
+  try{
+    const r = await fetch('/api/insights/renewal-planning', {headers: authHeaders()});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    window._rpData = await r.json();
+    renderRenewal();
+  }catch(e){ el.innerHTML = '<div style="color:var(--ink-3);font-size:13px">Could not load renewal planning (' + rpEsc(e.message) + ').</div>'; }
+}
+function setRpDays(d){ rpDays = d; renderRenewal(); }
+function rpTotals(){
+  const j = window._rpData, ok = j.skus.filter(s => s.status === 'ok');
+  const t = {ok, excluded: j.skus.filter(s => s.status !== 'ok'), purchased:0, assigned:0, active:0, low:0, inactive:0, disabled:0, unknown:0, holders:0, needed:0, recommended:0, monthly:0};
+  for(const s of ok){ const p = s.periods[rpDays];
+    t.purchased += s.purchased; t.assigned += s.assigned;
+    for(const k of ['active','low','inactive','disabled','unknown','holders','needed','recommended']) t[k] += p[k];
+    t.monthly += p.monthlyImpact; }
+  t.change = t.recommended - t.purchased;
+  t.util = t.holders ? Math.round(t.active / t.holders * 100) : 0;
+  return t;
+}
+function renderRenewal(){
+  const j = window._rpData; if(!j) return;
+  document.getElementById('rpRangeBar').innerHTML = [30,60,90].map(d =>
+    `<div class="chip ${d===rpDays?'on':''}" onclick="setRpDays(${d})">${d} Days</div>`).join('');
+  const p = j.periods[rpDays], f = j.freshness;
+  document.getElementById('rpRange').textContent =
+    `Analyzing ${rpDays} days: ${rpLong(p.start)} – ${rpLong(p.end)} · usage report as of ${rpLong(f.activityReportDate)}` +
+    (f.copilotReportDate ? ` (Copilot: ${rpLong(f.copilotReportDate)})` : '') + ' · Microsoft reports lag 2–3 days.';
+  const t = rpTotals();
+  const tile = (n, l, sub, color, click) =>
+    `<div class="tile"${click ? ` style="cursor:pointer" title="Click for supporting data" onclick="${click}"` : ''}><div class="n"${color ? ` style="color:${cssv(color)}"` : ''}>${n}</div>` +
+    `<div class="l" style="font-weight:600;color:var(--ink);text-transform:none;font-size:12px;margin-top:4px">${l}</div>` +
+    `<div class="l" style="margin-top:4px">${sub}</div></div>`;
+  const avail = t.purchased - t.assigned;
+  document.getElementById('rpTiles').innerHTML =
+      tile(t.purchased.toLocaleString(), 'Paid seats purchased', `${t.ok.length} subscriptions evaluated`, null, 'openRenewalTotalsDrawer()')
+    + tile(t.assigned.toLocaleString(), 'Assigned', avail >= 0 ? `${avail.toLocaleString()} available` : `over-assigned by ${(-avail).toLocaleString()}`, null, 'openRenewalTotalsDrawer()')
+    + tile(t.active.toLocaleString(), 'Active users', `${t.util}% of users with usage data`, '--pass', 'openRenewalTotalsDrawer()')
+    + tile(t.low.toLocaleString(), 'Underutilized (low)', 'still need the license', '--med', 'openRenewalTotalsDrawer()')
+    + tile((t.inactive + t.disabled).toLocaleString(), 'Inactive / disabled', 'reduction candidates · click for list', (t.inactive + t.disabled) ? '--crit' : '--pass', 'openRenewalCandidatesDrawer()')
+    + tile(t.unknown.toLocaleString(), 'Usage unknown', 'counted as needed', null, 'openRenewalTotalsDrawer()')
+    + tile(t.recommended.toLocaleString(), 'Recommended renewal', 'click: why this number', '--accent', 'openRenewalTotalsDrawer()')
+    + tile(rpSigned(t.change), 'Change vs purchased', `${rpMoney(t.monthly)}/mo · ${rpMoney(t.monthly * 12)}/yr`, t.change < 0 ? '--pass' : t.change > 0 ? '--high' : null, 'openRenewalTotalsDrawer()');
+  document.getElementById('rpTbody').innerHTML = j.skus.map(s => {
+    if(s.status !== 'ok') return `<tr class="row" style="cursor:pointer" onclick="openRenewalDrawer('${rpEsc(s.sku)}')"><td><b>${rpEsc(s.name)}</b></td>` +
+      `<td class="mono">${s.purchased}</td><td class="mono">${s.assigned}</td>` +
+      `<td colspan="8" style="color:var(--ink-3)">Insufficient data to recommend — ${rpEsc(s.reason)}</td></tr>`;
+    const q = s.periods[rpDays];
+    return `<tr class="row" style="cursor:pointer" onclick="openRenewalDrawer('${rpEsc(s.sku)}')"><td><b>${rpEsc(s.name)}</b>${s.contractQtyDiffers ? ' <span title="Contract qty on file differs from Microsoft" style="color:' + cssv('--med') + '">⚠</span>' : ''}</td>` +
+      `<td class="mono">${s.purchased}</td><td class="mono">${s.assigned}</td>` +
+      `<td class="mono" style="color:${cssv('--pass')}">${q.active}</td><td class="mono" style="color:${cssv('--med')}">${q.low}</td>` +
+      `<td class="mono" style="color:${(q.inactive+q.disabled)?cssv('--crit'):'var(--ink-3)'}">${q.inactive + q.disabled}</td>` +
+      `<td class="mono">${q.unknown}</td><td class="mono">${q.needed}</td><td class="mono"><b>${q.recommended}</b></td>` +
+      `<td class="mono" style="color:${q.change<0?cssv('--pass'):q.change>0?cssv('--high'):'var(--ink-3)'}">${rpSigned(q.change)}</td>` +
+      `<td class="mono">${rpMoney(q.monthlyImpact)}</td></tr>`;
+  }).join('');
+  document.getElementById('rpNote').innerHTML =
+    `<b>How the recommendation is calculated:</b> Needed = active + low usage + usage unknown. Recommended = Needed × ${1 + j.bufferPct/100} (a ${j.bufferPct}% growth buffer — a policy assumption, not a measured value), rounded up. ` +
+    `Inactive users and disabled accounts are <b>reduction candidates</b> to review, not automatic removals. Users with no usage data are counted as needed, never as inactive. ` +
+    `Purchased and Assigned come from Microsoft (Graph); ⚠ marks a SKU whose manually entered contract quantity differs. Totals cover evaluated subscriptions only` +
+    (t.excluded.length ? ` — not evaluated: ${t.excluded.map(s => rpEsc(s.name)).join(', ')}.` : '.') + ' Click any row or tile for the supporting data.';
+}
+function rpOpen(title, sub, body){
+  const d = document.getElementById('drawer');
+  d.innerHTML = `<div class="dh"><span class="x" id="dx">✕</span><h2>${title}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">${sub}</div></div><div class="db">${body}</div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick = closeDrawer;
+}
+const rpStep = (label, value, note) =>
+  `<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)"><span style="font-size:13px">${label}${note ? `<div style="font-size:11.5px;color:var(--ink-3);margin-top:2px">${note}</div>` : ''}</span><b class="mono" style="font-size:13px;white-space:nowrap">${value}</b></div>`;
+function openRenewalDrawer(sku){
+  const j = window._rpData; const s = j && j.skus.find(x => x.sku === sku); if(!s) return;
+  if(s.status !== 'ok'){
+    rpOpen(rpEsc(s.name), 'Renewal recommendation',
+      `<p style="color:${cssv('--med')};font-size:13px;font-weight:600">Insufficient data to recommend</p>` +
+      `<p style="color:var(--ink-2);font-size:13px">${rpEsc(s.reason)}</p>` +
+      `<h4 style="margin-top:14px">What is known</h4>` + rpStep('Purchased (Microsoft)', s.purchased) + rpStep('Assigned', s.assigned) +
+      (s.contractQty != null ? rpStep('Contract qty on file', s.contractQty, 'manually entered') : '') +
+      `<p style="color:var(--ink-3);font-size:12px;margin-top:12px">Renew at the current quantity unless the business owner confirms otherwise. Measuring usage for this subscription requires a usage data source that is not collected today.</p>`);
+    return;
+  }
+  const p = s.periods[rpDays], buf = 1 + j.bufferPct/100;
+  const trend = [30,60,90].map(d => { const x = s.periods[d];
+    return `<tr${d===rpDays?' style="font-weight:600"':''}><td>${d} days</td><td class="mono">${x.active}</td><td class="mono">${x.low}</td><td class="mono">${x.inactive + x.disabled}</td><td class="mono">${x.unknown}</td><td class="mono">${x.needed}</td><td class="mono">${x.recommended}</td></tr>`; }).join('');
+  const depts = s.byDept[rpDays].slice(0, 15).map(dp =>
+    `<tr><td>${rpEsc(dp.department)}</td><td class="mono">${dp.holders}</td><td class="mono">${dp.needed}</td><td class="mono" style="color:${dp.reduce?cssv('--crit'):'var(--ink-3)'}">${dp.reduce}</td></tr>`).join('');
+  const cands = s.candidates[rpDays];
+  const candRows = cands.slice(0, 200).map(c =>
+    `<div class="row" style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openPuEmployeeDrawer('${rpEsc(c.upn)}')">` +
+    `<span style="font-size:13px">${rpEsc(c.name)}<div style="font-size:11.5px;color:var(--ink-3)">${rpEsc(c.department)} · ${rpEsc(c.manager)}</div></span>` +
+    `<span style="font-size:11.5px;color:${cssv('--crit')};white-space:nowrap">${c.status === 'disabled' ? 'account disabled' : 'inactive'}<div style="color:var(--ink-3)">last: ${c.lastActivity || 'never'}</div></span></div>`).join('');
+  rpOpen(rpEsc(s.name), `Why this number · last ${rpDays} days (${rpLong(j.periods[rpDays].start)} – ${rpLong(j.periods[rpDays].end)})`,
+    `<h4>Calculation</h4>` +
+    rpStep('Purchased (Microsoft)', s.purchased, s.contractQtyDiffers ? `⚠ Contract qty on file is ${s.contractQty} (manually entered) — differs from Microsoft. Confirm before renewal.` : 'Graph-synced seat count') +
+    rpStep('Assigned', s.assigned, `${p.holders} license holders found in the usage report`) +
+    rpStep('Active', p.active) + rpStep('Underutilized (low)', p.low) +
+    rpStep('Inactive', p.inactive, 'reduction candidate') + rpStep('Account disabled', p.disabled, 'reduction candidate') +
+    rpStep('Usage unknown', p.unknown, `${p.unmatched} assigned but missing from the usage report, plus holders with no usage row — counted as needed`) +
+    rpStep('Needed = active + low + unknown', p.needed) +
+    rpStep(`× ${buf} growth buffer, rounded up`, p.recommended, `${j.bufferPct}% is a policy assumption`) +
+    rpStep('<b>Recommended renewal</b>', p.recommended) +
+    rpStep('Change vs purchased', rpSigned(p.change), `${rpMoney(p.monthlyImpact)}/mo · ${rpMoney(p.annualImpact)}/yr at $${s.unitMonthly}/seat (${rpEsc(s.unitSource)})`) +
+    `<h4 style="margin-top:16px">30 / 60 / 90 day trend</h4><div style="overflow-x:auto"><table><thead><tr><th>Period</th><th>Active</th><th>Low</th><th>Inactive</th><th>Unknown</th><th>Needed</th><th>Rec.</th></tr></thead><tbody>${trend}</tbody></table></div>` +
+    `<h4 style="margin-top:16px">How usage is measured</h4><p style="color:var(--ink-2);font-size:12.5px">${rpEsc(s.method)}</p>` +
+    `<h4 style="margin-top:16px">By department</h4><div style="overflow-x:auto"><table><thead><tr><th>Department</th><th>Holders</th><th>Needed</th><th>Reduce</th></tr></thead><tbody>${depts}</tbody></table></div>` +
+    `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px"><h4 style="margin:0">Reduction candidates (${cands.length})</h4>` +
+    (cands.length ? `<button class="btn" style="font-size:11px" onclick="exportRenewalCandidates('${rpEsc(s.sku)}')">⬇ Export CSV</button>` : '') + `</div>` +
+    `<p style="color:var(--ink-3);font-size:11.5px">Review with the manager before removing a license — leave, new role or seasonal work can explain inactivity. Click a person for their usage detail.</p>` +
+    (candRows || '<div style="color:var(--ink-3);font-size:13px">None in this period.</div>') +
+    (cands.length > 200 ? `<div style="color:var(--ink-3);font-size:12px;margin-top:8px">Showing 200 of ${cands.length} — export for the full list.</div>` : ''));
+}
+function exportRenewalCandidates(sku){
+  const j = window._rpData; const list = [];
+  for(const s of j.skus.filter(x => x.status === 'ok' && (!sku || x.sku === sku)))
+    for(const c of s.candidates[rpDays]) list.push([s.name, c.name, c.upn, c.department, c.manager, c.status, c.lastActivity || 'never']);
+  csvDownloadRows(`renewal-candidates-${sku || 'all'}-${rpDays}d.csv`, ['Subscription','Employee','UPN','Department','Manager','Status','Last activity'], list);
+}
+function openRenewalCandidatesDrawer(){
+  const j = window._rpData; if(!j) return;
+  const ok = j.skus.filter(s => s.status === 'ok');
+  const total = ok.reduce((a, s) => a + s.candidates[rpDays].length, 0);
+  rpOpen('Reduction candidates', `${total} license holders inactive or disabled · last ${rpDays} days`,
+    `<p style="color:var(--ink-2);font-size:13px">These people hold a paid license but showed no qualifying activity in the period, or their account is disabled. They are candidates for review — not automatic removals.</p>` +
+    (total ? `<button class="btn" style="font-size:11px;margin-bottom:10px" onclick="exportRenewalCandidates()">⬇ Export all (CSV)</button>` : '') +
+    ok.map(s => rpStep(rpEsc(s.name), s.candidates[rpDays].length, 'click the subscription row in the table for names')).join(''));
+}
+function openRenewalTotalsDrawer(){
+  const j = window._rpData; if(!j) return;
+  const t = rpTotals();
+  rpOpen(`Recommended renewal: ${t.recommended.toLocaleString()} seats`, `Why this number · last ${rpDays} days`,
+    `<h4>Calculation (evaluated subscriptions)</h4>` +
+    rpStep('Purchased (Microsoft)', t.purchased) + rpStep('Assigned', t.assigned) +
+    rpStep('Active', t.active) + rpStep('Underutilized (low)', t.low) +
+    rpStep('Inactive + disabled', t.inactive + t.disabled, 'reduction candidates') + rpStep('Usage unknown', t.unknown, 'counted as needed') +
+    rpStep('Needed', t.needed) + rpStep(`Recommended (each SKU: needed × ${1 + j.bufferPct/100}, rounded up)`, t.recommended) +
+    rpStep('Change vs purchased', rpSigned(t.change), `${rpMoney(t.monthly)}/mo · ${rpMoney(t.monthly * 12)}/yr`) +
+    `<h4 style="margin-top:16px">By subscription</h4>` +
+    t.ok.map(s => { const p = s.periods[rpDays]; return rpStep(rpEsc(s.name), `${s.purchased} → ${p.recommended}`, `needed ${p.needed} · change ${rpSigned(p.change)} · ${rpMoney(p.monthlyImpact)}/mo`); }).join('') +
+    (t.excluded.length ? `<h4 style="margin-top:16px">Not evaluated</h4>` + t.excluded.map(s => rpStep(rpEsc(s.name), `${s.purchased} seats`, rpEsc(s.reason))).join('') : '') +
+    `<p style="color:var(--ink-3);font-size:11.5px;margin-top:12px">Change the period above to see how the recommendation moves. 90 days is the most conservative basis for an annual commitment.</p>`);
+}
+
+function csvDownloadRows(filename, header, rows){
+  const lines=[header.join(',')];
+  for(const r of rows) lines.push(r.map(csvEscape).join(','));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+async function openPuDeptDrawer(dept){
+  const d=document.getElementById('drawer');
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${dept}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">By manager, last ${puDays} days</div></div><div class="db"><div style="color:var(--ink-3);font-size:13px">Loading\u2026</div></div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+  try{
+    const r=await fetch('/api/insights/paid-usage/department?dept='+encodeURIComponent(dept)+'&days='+puDays,{headers:authHeaders()});
+    const j=await r.json();
+    const rows=j.managers.map(m=>`
+      <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openPuManagerDrawer('${m.manager_upn.replace(/'/g,"\\'")}','${m.managerName.replace(/'/g,"\\'")}')">
+        <span style="font-size:13px">${m.managerName}</span>
+        <span style="font-size:11.5px;color:var(--ink-3)">${m.active} active \u00b7 ${m.low} low \u00b7 ${m.inactive} inactive \u00b7 ${m.utilizationRate}%</span>
+      </div>`).join('');
+    d.querySelector('.db').innerHTML=`
+      <button class="btn" style="font-size:11px;margin-bottom:10px" onclick='csvDownloadRows("dept-${dept.replace(/[^a-z0-9]/gi,"_")}.csv",["Manager","Total","Active","Low","Inactive","Utilization"],${JSON.stringify(j.managers.map(m=>[m.managerName,m.total,m.active,m.low,m.inactive,m.utilizationRate+"%"]))})'>\u2b07 Export CSV</button>
+      ${rows||'<div style="color:var(--ink-3);font-size:13px">No managers found.</div>'}`;
+  }catch(e){ d.querySelector('.db').innerHTML='<div style="color:var(--ink-3);font-size:13px">Could not load.</div>'; }
+}
+async function openPuManagerDrawer(mgrUpn, mgrName){
+  const d=document.getElementById('drawer');
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${mgrName}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">Direct reports, last ${puDays} days</div></div><div class="db"><div style="color:var(--ink-3);font-size:13px">Loading\u2026</div></div>`;
+  document.getElementById('dx').onclick=closeDrawer;
+  try{
+    const r=await fetch('/api/insights/paid-usage/manager?manager='+encodeURIComponent(mgrUpn)+'&days='+puDays,{headers:authHeaders()});
+    const j=await r.json();
+    const STAT_COL={active:cssv('--pass'),low:cssv('--med'),inactive:cssv('--crit')};
+    const rows=j.employees.map(e=>`
+      <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openPuEmployeeDrawer('${e.upn.replace(/'/g,"\\'")}')">
+        <span style="font-size:13px">${e.display_name}</span>
+        <span style="font-size:11.5px;color:${STAT_COL[e.status]}">${e.status}</span>
+      </div>`).join('');
+    d.querySelector('.db').innerHTML=`
+      <button class="btn" style="font-size:11px;margin-bottom:10px" onclick='csvDownloadRows("manager-${mgrName.replace(/[^a-z0-9]/gi,"_")}.csv",["Employee","Status"],${JSON.stringify(j.employees.map(e=>[e.display_name,e.status]))})'>\u2b07 Export CSV</button>
+      ${rows||'<div style="color:var(--ink-3);font-size:13px">No direct reports with a paid license.</div>'}`;
+  }catch(e){ d.querySelector('.db').innerHTML='<div style="color:var(--ink-3);font-size:13px">Could not load.</div>'; }
+}
+async function openPuEmployeeDrawer(upn){
+  const d=document.getElementById('drawer');
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Loading\u2026</h2></div><div class="db"></div>`;
+  document.getElementById('dx').onclick=closeDrawer;
+  try{
+    const r=await fetch('/api/insights/paid-usage/employee?upn='+encodeURIComponent(upn),{headers:authHeaders()});
+    const j=await r.json();
+    const w=j.workloads;
+    const wRow=(label,x)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px">${label}</span><span style="font-size:12px;color:var(--ink-3)">${x.lastActive?x.daysSince+'d ago ('+String(x.lastActive).slice(0,10)+')':'never'}</span></div>`;
+    const periodRow=(p)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px">Last ${p.period} days</span><span style="font-size:12px;color:${p.status==='active'?cssv('--pass'):p.status==='low'?cssv('--med'):cssv('--crit')}">${p.status}</span></div>`;
+    d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${j.identity.displayName}</h2>
+        <div style="color:var(--ink-3);font-size:12px;margin-top:2px">${upn} \u00b7 ${j.identity.department||'no department'} \u00b7 reports to ${j.identity.managerName||'unknown'}</div></div>
+      <div class="db">
+        <h4>Licenses</h4>
+        <div class="affected">${j.licenses.map(l=>`<div class="a"><span>${l}</span></div>`).join('')}</div>
+        <h4 style="margin-top:16px">Workload activity</h4>
+        ${wRow('Exchange',w.exchange)}${wRow('OneDrive',w.onedrive)}${wRow('SharePoint',w.sharepoint)}${wRow('Teams',w.teams)}
+        <h4 style="margin-top:16px">30/60/90 day comparison</h4>
+        <div style="color:var(--ink-3);font-size:11px;margin-bottom:6px">Based on the same last-activity date, bucketed into each window \u2014 not independent daily counts.</div>
+        ${j.periodComparison.map(periodRow).join('')}
+        ${j.sharepointDetail?`<h4 style="margin-top:16px">SharePoint detail</h4><p style="color:var(--ink-2);font-size:13px;margin:0">${j.sharepointDetail.viewedEditedFiles} files viewed/edited, ${j.sharepointDetail.sharedExternally} shared externally</p>`:''}
+        ${j.copilotDetail?`<h4 style="margin-top:16px">Copilot activity</h4><p style="color:var(--ink-2);font-size:13px;margin:0">Chat last active: ${j.copilotDetail.chatLastActive?String(j.copilotDetail.chatLastActive).slice(0,10):'never'}</p>`:''}
+      </div>`;
+    document.getElementById('dx').onclick=closeDrawer;
+  }catch(e){ d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Not found</h2></div><div class="db"><p style="color:var(--ink-3);font-size:13px">Could not load usage detail for this person.</p></div>`; document.getElementById('dx').onclick=closeDrawer; }
+}
+function fmtAge(m){
+  if(m==null) return 'unknown';
+  if(m<60) return m+'m ago';
+  if(m<1440) return Math.round(m/60)+'h ago';
+  return Math.round(m/1440)+'d ago';
+}
+async function showCollectors(){
+  const d=document.getElementById('drawer');
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span><h2>How fresh is this data?</h2></div>
+   <div class="db"><div style="color:var(--ink-3);font-size:13px;padding:20px 0;text-align:center">Loading live status…</div></div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+  try{
+    const r=await fetch('/api/sentinel/freshness',{headers:authHeaders()});
+    const j=await r.json();
+    const rows=j.sources.map(s=>{
+      const tierBadge = s.tier==='run-log-entra' ? '<span class="stat" style="background:color-mix(in srgb,'+cssv('--accent')+' 16%,transparent);color:'+cssv('--accent')+'">verified run log</span>'
+        : s.tier==='count-only' ? '<span class="stat" style="background:var(--panel-2);color:var(--ink-3)">count only</span>'
+        : s.tier==='event-only' ? '<span class="stat" style="background:var(--panel-2);color:var(--ink-3)" title="No ingestion timestamp exists for this table — cannot verify collector health">event age, not collector health</span>'
+        : '<span class="stat" style="background:color-mix(in srgb,'+cssv('--pass')+' 14%,transparent);color:'+cssv('--pass')+'">ingestion age</span>';
+      const staleTag = s.stale===true ? ` <span style="color:${cssv('--crit')};font-weight:600">STALE</span>` : s.stale===false ? ` <span style="color:${cssv('--pass')}">fresh</span>` : '';
+      const age = s.tier==='count-only' ? (s.rowCount+' rows') : s.tier==='event-only' ? ('last event '+fmtAge(s.ageMinutes)) : fmtAge(s.ageMinutes)+staleTag;
+      const entra = s.entraJobs ? '<div style="margin-top:6px;font-size:11.5px;color:var(--ink-3)">'+
+        s.entraJobs.map(j2=>`${j2.job}: <b style="color:${j2.status==='success'?cssv('--pass'):j2.status==='failure'?cssv('--crit'):cssv('--ink-2')}">${j2.status}</b> (${fmtAge(Math.round((Date.now()-new Date(j2.startedAt).getTime())/60000))})${j2.error?' — '+j2.error.slice(0,80):''}`).join('<br>')
+        +'</div>' : '';
+      return `<div class="a" style="display:block;padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;gap:8px">
+          <span><b>${s.label}</b> ${tierBadge}</span>
+          <span class="mono" style="font-size:12px">${age}</span>
+        </div>
+        <div style="font-size:11px;color:var(--ink-3);margin-top:3px">used by: ${s.usedBy.join(', ')}</div>
+        ${entra}
+      </div>`;
+    }).join('');
+    const relRow=(r)=>{
+      const ok=r.rate==null||r.rate>=95;
+      const barCol=ok?cssv('--pass'):cssv('--crit');
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+        <span style="width:7px;height:7px;border-radius:50%;background:${barCol};flex-shrink:0"></span>
+        <span style="flex:1;font-size:12.5px">${r.name}</span>
+        <span style="width:60px;height:4px;background:var(--line);border-radius:2px;overflow:hidden;flex-shrink:0"><span style="display:block;height:100%;width:${r.rate??0}%;background:${barCol}"></span></span>
+        <span style="width:36px;text-align:right;font-size:11.5px;color:var(--ink-2)">${r.rate!=null?r.rate+'%':'—'}</span>
+        <span style="width:60px;text-align:right;font-size:11px;color:var(--ink-3)">${fmtAge(Math.round((Date.now()-new Date(r.lastRun).getTime())/60000))}</span>
+      </div>`;
+    };
+    const rel=j.reliability;
+    const relHtml = rel ? `
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:2px">Collector reliability</div>
+        <div style="font-size:11px;color:var(--ink-3);margin-bottom:10px">success rate, trailing ${rel.windowHours}h</div>
+        <div style="font-size:11px;color:var(--ink-3);margin-bottom:4px">entra-sync jobs</div>
+        ${rel.entra.map(relRow).join('')}
+        <div style="font-size:11px;color:var(--ink-3);margin:10px 0 4px">SDOps collectors</div>
+        ${rel.sdops.map(relRow).join('')}
+        <div style="font-size:11px;color:var(--ink-3);margin-top:10px;line-height:1.5">${rel.note}</div>
+      </div>` : '';
+    d.querySelector('.db').innerHTML = `<div style="color:var(--ink-3);font-size:12px;margin-bottom:12px;line-height:1.5">${j.note}</div>${rows}${relHtml}`;
+  }catch(e){
+    d.querySelector('.db').innerHTML = `<div style="color:${cssv('--crit')};font-size:13px">Could not load live freshness data: ${e.message}</div>`;
+  }
+}
+const FW_GROUPS=[
+  ['NIST','NIST CSF'],['CIS','CIS Benchmarks'],['ISO','ISO 27001'],['SOX','SOX ITGC'],['CISA ZTMM','Zero Trust (CISA ZTMM)'],
+];
+function fwGroupOf(tag){
+  for(const [pre] of FW_GROUPS) if(tag.startsWith(pre)) return pre;
+  return 'OPS';
+}
+function renderCompliance(){
+  const groups={};
+  for(const [pre,label] of FW_GROUPS) groups[pre]={label,total:0,fail:0,partial:0,pass:0,verified:0};
+  groups['OPS']={label:'Operational hygiene',total:0,fail:0,partial:0,pass:0,verified:0};
+  for(const f of OV.findings){
+    const seen=new Set();
+    for(const tag of f.fw){
+      const g=fwGroupOf(tag);
+      if(seen.has(g)) continue; seen.add(g);
+      groups[g].total++;
+      if(f.status==='fail') groups[g].fail++;
+      else if(f.status==='partial') groups[g].partial++;
+      else groups[g].pass++;
+      if(f.verifiedRef) groups[g].verified++;
+    }
+  }
+  const totalFindings=OV.findings.length;
+  const totalVerified=OV.findings.filter(f=>f.verifiedRef).length;
+  document.getElementById('complianceVerifiedSummary').innerHTML=
+    `<b style="color:${cssv('--pass')}">${totalVerified}</b> of <b>${totalFindings}</b> findings carry an individually-verified citation (checked against the published standard, not asserted from memory). The remainder show framework tags that are indicative pattern-matches, not yet individually checked.`;
+  document.getElementById('compliance').innerHTML = Object.entries(groups)
+    .filter(([,g])=>g.total>0)
+    .map(([pre,g])=>{
+      const ok=g.pass, pr=Math.round(ok/g.total*100);
+      const col = g.fail>0?cssv('--crit'):g.partial>0?cssv('--med'):cssv('--pass');
+      const FW_DESC={NIST:'US federal cybersecurity framework',CIS:'Industry secure-configuration benchmarks','ISO':'International security management standard',SOX:'Financial-controls audit requirements','CISA ZTMM':'Zero Trust Maturity Model 2.0',OPS:'General operational upkeep'};
+      return `<div class="tile" data-fw="${pre}" style="cursor:pointer" title="Click to see ${g.label} findings">
+        <div class="l" style="font-weight:600;color:var(--ink)">${g.label}</div>
+        <div class="l" style="color:var(--ink-3);font-size:10px">${FW_DESC[pre]||''}</div>
+        <div class="n" style="font-size:20px">${ok}/${g.total} <span style="font-size:12px;color:var(--ink-3)">controls passing</span></div>
+        <div class="b"><i style="width:${pr}%;background:${col}"></i></div>
+        <div class="l" style="margin-top:6px">${g.fail} failing · ${g.partial} partial</div>
+        <div class="l" style="margin-top:4px;color:${g.verified>0?cssv('--pass'):'var(--ink-3)'}">${g.verified}/${g.total} citation${g.total===1?'':'s'} verified</div>
+      </div>`;
+    }).join('');
+  document.querySelectorAll('#compliance .tile[data-fw]').forEach(el=>el.onclick=()=>{
+    gotoFindings('fw:'+el.dataset.fw);
+  });
+}
+function renderCriticalAttention(){
+  const SEVW={critical:'Urgent',high:'High',medium:'Medium',low:'Minor'};
+  const top=[...OV.findings].filter(f=>f.status!=='pass')
+    .sort((a,b)=>b.rr-a.rr).slice(0,5);
+  document.getElementById('critAttn').innerHTML=top.length?top.map(f=>{
+    const i=OV.findings.indexOf(f);
+    return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer" onclick='openDrawer(OV.findings[${i}])'>
+      <span style="display:flex;align-items:center;gap:10px">
+        <span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${SEVW[f.sev]||f.sev}</span>
+        <span style="font-size:13px">${f.title}</span>
+      </span>
+      <span style="font-size:11px;color:var(--ink-3)">${f.module}</span>
+    </div>`;
+  }).join(''):'<div style="color:var(--ink-3);font-size:13px;padding:8px 0">No open findings above minor severity ✓</div>';
+}
+async function renderCaCoverageTile(){
+  try{
+    const r=await fetch('/api/sentinel/signin-analytics?days=30',{headers:authHeaders()});
+    const j=await r.json();
+    const pct=j.totals.caNotAppliedRate;
+    // null (no rows in the window) must not fall through to --pass: a rate with
+    // nothing behind it is not a passing rate.
+    const col=pct==null?'--ink-3':pct>70?'--crit':pct>40?'--high':'--pass';
+    document.getElementById('caCoverageTile').innerHTML=
+      `<div class="n" style="color:${cssv(col)};font-size:28px">${pctTxt(pct)}</div>
+       <div class="l" style="margin-top:4px;color:var(--ink-3)">${j.totals.total.toLocaleString()} sign-ins checked \u00b7 ${spanNote(j)}</div>`;
+  }catch(e){ document.getElementById('caCoverageTile').innerHTML='<div style="color:var(--ink-3);font-size:13px">Could not load.</div>'; }
+}
+async function renderKeysTile(){
+  try{
+    const r=await fetch('/api/sentinel/priv-access',{headers:authHeaders()});
+    const j=await r.json();
+    const users=aggregatePriv(j);
+    const tier0=users.filter(u=>u.tier===0).length;
+    const humans=users.filter(u=>!u.isApp);
+    const noMfa=humans.filter(u=>!u.hasStrongMfa).length;
+    const dormant=users.filter(u=>!u.lastLogin||new Date(u.lastLogin)<Date.now()-60*86400e3).length;
+    document.getElementById('keysTiles').innerHTML=[
+      {n:tier0,l:'Global admins',sub:'target 2\u20134',c:tier0>4?'--crit':tier0>2?'--high':'--pass'},
+      {n:MFA_MEASURED===false?'\u2014':noMfa,l:'Without strong MFA',
+       sub:MFA_MEASURED===false?'not collected here':'of '+humans.length+' accounts; apps excluded',
+       c:MFA_MEASURED===false?'--ink-3':(noMfa>0?'--crit':'--pass')},
+      {n:dormant,l:'Dormant 60+ days',sub:'no recent sign-in',c:dormant>0?'--high':'--pass'},
+      {n:users.length,l:'Total privileged',sub:'across all tiers',c:'--ink-2'},
+    ].map(t=>`<div class="tile"><div class="n" style="color:${cssv(t.c)}">${t.n}</div>
+      <div class="l" style="font-weight:600;color:var(--ink);text-transform:none;font-size:12px;margin-top:4px">${t.l}</div>
+      <div class="l" style="margin-top:4px">${t.sub}</div></div>`).join('');
+  }catch(e){ document.getElementById('keysTiles').innerHTML='<div style="color:var(--ink-3);font-size:13px">Could not load.</div>'; }
+}
+async function renderScoreTrend(){
+  try{
+    const r=await fetch('/api/sentinel/history?days=30',{headers:authHeaders()});
+    const j=await r.json();
+    const note=document.getElementById('sparkNote');
+    if(note) note.textContent=j.note||(j.points+' day'+(j.points===1?'':'s')+' of history');
+    if(charts.spark) charts.spark.destroy();
+    if(!j.history.length) return;
+    charts.spark=new Chart(document.getElementById('scoreSpark'),{
+      type:'line',
+      data:{labels:j.history.map(h=>h.date.slice(5)),datasets:[{data:j.history.map(h=>h.score),
+        borderColor:cssv('--med'),backgroundColor:'transparent',borderWidth:2,pointRadius:0,tension:0.3}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:true}},scales:{x:{display:false},y:{display:false,min:0,max:100}},animation:false}
+    });
+  }catch(e){ /* non-critical — leave sparkline empty */ }
+}
+function renderAll(){
+  renderHead();renderScore();renderTiles();renderSeverity();
+  renderHeat();renderCoverage();renderTrend();renderFbar();renderTable();renderCompliance();renderModTiles();prefetchInsights();
+  renderCriticalAttention();renderKeysTile();renderScoreTrend();renderCaCoverageTile();
+}
+
+/* events */
+document.getElementById('scrim').onclick=closeDrawer;
+/* The ◐ Theme control now lives in the shared fixed dock (it-theme-toggle.js),
+   so it sits in the same place on every console and the choice persists.
+   Charts still need a repaint when the palette flips. */
+window.addEventListener('itcolormodechange',()=>{
+  if(OV){renderScore();renderTrend();renderHeat();}
+});
+document.getElementById('refreshBtn').onclick=load;
+document.getElementById('searchBox').addEventListener('input',e=>{search=e.target.value.toLowerCase();renderTable();runGlobalSearch(e.target.value);});
+document.getElementById('searchBox').addEventListener('blur',()=>setTimeout(()=>{const dd=document.getElementById('searchDropdown');if(dd)dd.style.display='none';},200));
+let _searchTimer=null;
+async function openEmployeeDrawer(upn){
+  const d=document.getElementById('drawer');
+  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Loading\u2026</h2></div><div class="db"></div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+  try{
+    const r=await fetch('/api/sentinel/user360?upn='+encodeURIComponent(upn),{headers:authHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    breadcrumbDrawerLabel=j.identity.display_name||upn;
+    renderBreadcrumb(document.querySelector('nav a.active')?.dataset.nav);
+    const findingsHtml=j.relatedFindings.length?j.relatedFindings.map(f=>{
+      const SEVW={critical:'Urgent',high:'High',medium:'Medium',low:'Minor'};
+      return `<div class="a"><span>${f.title}</span><span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${SEVW[f.sev]}</span></div>`;
+    }).join(''):'<div style="color:var(--ink-3);font-size:12px">No open findings reference this person.</div>';
+    const rolesHtml=j.roles.length?`<h4>Privileged roles (${j.roles.length})</h4><div class="affected">${j.roles.map(r=>`<div class="a"><span>${esc(r.role_name)}</span></div>`).join('')}</div>`:'';
+    const mfaText=j.mfa.measured===false
+      ?'MFA enrolment has not been collected on this host \u2014 not measured, rather than absent.'
+      :j.mfa.hasActiveFactor?'Has an active MFA factor registered in Okta.':'No active MFA factor found in Okta.';
+    d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${esc(j.identity.display_name||upn)}</h2>
+        <div style="color:var(--ink-3);font-size:12px;margin-top:2px">${esc(j.identity.user_principal_name)} \u00b7 ${j.identity.account_enabled?'active':'disabled'} account</div></div>
+      <div class="db">
+        ${rolesHtml}
+        <h4 style="margin-top:${rolesHtml?'16px':'0'}">Department</h4>
+        <p style="color:var(--ink-2);font-size:13px;margin:0 0 10px">${j.identity.department||'\u2014'}${j.identity.managerName?' \u00b7 reports to '+j.identity.managerName:''}</p>
+        <h4>Protection</h4>
+        <p style="color:var(--ink-2);font-size:13px;margin:0 0 10px">${mfaText}</p>
+        <h4>Licensing &amp; usage</h4>
+        <p style="color:var(--ink-2);font-size:13px;margin:0 0 10px">${esc(j.activity?(j.activity.licenses||'no licenses on record'):'not found in usage report')}</p>
+        <h4>Related findings (${j.relatedFindings.length})</h4>
+        <div class="affected">${findingsHtml}</div>
+      </div>`;
+    document.getElementById('dx').onclick=closeDrawer;
+  }catch(e){
+    d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Not found</h2></div><div class="db"><p style="color:var(--ink-3);font-size:13px">Could not load a profile for this person.</p></div>`;
+    document.getElementById('dx').onclick=closeDrawer;
+  }
+}
+function runGlobalSearch(term){
+  clearTimeout(_searchTimer);
+  const dd=document.getElementById('searchDropdown');
+  const t=term.trim();
+  if(t.length<2){ dd.style.display='none'; return; }
+  _searchTimer=setTimeout(async ()=>{
+    const findingMatches=(OV?OV.findings:[]).filter(f=>(f.id+' '+f.title+' '+f.module).toLowerCase().includes(t.toLowerCase())).slice(0,5);
+    let priv=[], activity=[], employees=[];
+    try{
+      const r=await fetch('/api/sentinel/search?q='+encodeURIComponent(t),{headers:authHeaders()});
+      const j=await r.json();
+      priv=j.privilegedAccounts||[]; activity=j.recentActivity||[]; employees=j.employees||[];
+    }catch(e){}
+    const section=(label,items,renderRow)=>items.length?`<div style="padding:8px 12px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)">${label}</div>${items.map(renderRow).join('')}`:'';
+    const html=
+      section('Findings',findingMatches,f=>`<div class="row" style="padding:8px 12px;cursor:pointer" onmousedown="gotoFindings('all');setTimeout(()=>openDrawer(OV.findings.find(x=>x.id==='${f.id}')),150);document.getElementById('searchDropdown').style.display='none'"><b style="font-size:13px">${f.title}</b><div style="font-size:11px;color:var(--ink-3)">${f.id} \u00b7 ${f.module}</div></div>`)
+      +section('Privileged accounts',priv,p=>`<div class="row" style="padding:8px 12px;cursor:pointer" onmousedown="showView('view-priv');loadPrivAccess().then(()=>openPrivDrawer(${jsAttr(p.upn)}));document.getElementById('searchDropdown').style.display='none'"><b style="font-size:13px">${esc(p.dn)}</b><div style="font-size:11px;color:var(--ink-3)">${esc(p.role_name)}</div></div>`)
+      +section('Employees',employees,p=>`<div class="row" style="padding:8px 12px;cursor:pointer" onmousedown="openEmployeeDrawer(${jsAttr(p.upn)});document.getElementById('searchDropdown').style.display='none'"><b style="font-size:13px">${esc(p.dn)}</b><div style="font-size:11px;color:var(--ink-3)">${esc(p.department||'no department on record')}</div></div>`)
+      +section('Recent activity',activity,a=>`<div class="row" style="padding:8px 12px;cursor:pointer" onmousedown="showView('view-changes');loadTenantChanges().then(()=>{chgSearch=${jsAttr((a.initiator||'').toLowerCase())};document.getElementById('chgSearch').value=${jsAttr(a.initiator||'')};renderChgTable();});document.getElementById('searchDropdown').style.display='none'"><b style="font-size:13px">${esc(a.initiator)}${a.isApp?' (app)':''}</b><div style="font-size:11px;color:var(--ink-3)">recent tenant activity</div></div>`);
+    dd.innerHTML=html||'<div style="padding:12px;color:var(--ink-3);font-size:12px">No matches.</div>';
+    dd.style.display='block';
+  },250);
+}
+function toggleNav(force){
+  const a=document.querySelector('aside'), b=document.getElementById('navToggle');
+  const open = force===undefined ? !a.classList.contains('open') : force;
+  a.classList.toggle('open', open);
+  b.setAttribute('aria-expanded', String(open));
+}
+// Picking a destination should close the drawer, or the choice stays hidden behind it.
+document.querySelectorAll('aside nav a').forEach(a=>a.addEventListener('click',()=>{
+  if(window.matchMedia('(max-width:1100px)').matches) toggleNav(false);
+}));
+window.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  const a=document.querySelector('aside');
+  if(a && a.classList.contains('open')) { toggleNav(false); return; }
+  closeDrawer();
+});
+
+
+renderBreadcrumb('view-dashboard');
+load();
+
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/feed-freshness.js" data-page="tenant-sentinel" defer></script>
+<script src="/it-version.js" data-app-key="tenant-sentinel" defer></script>
+</body>
+</html>

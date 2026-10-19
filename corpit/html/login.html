@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in &middot; CorpIT</title>
+<script src="/login.js" defer></script>
+<style>
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:300 700;font-display:swap;src:url(/fonts/files/plex-ae1d854fefa1.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:300 700;font-display:swap;src:url(/fonts/files/plex-056e4e2459f5.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/files/plex-c36f509c0a8f.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/files/plex-a76f53ca6612.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+:root{
+  --bg:#1c2836; --bg-2:#243342; --panel:#26364a; --panel-2:#31435a;
+  --line:#3a4d63; --line-2:#4d6480;
+  --ink:#f3f7fc; --ink-2:#bccbdd; --ink-3:#a0b1c6;
+  --blue:#4a86ff; --blue-2:#8ab2ff; --blue-dim:#2f5697;
+  --blue-cta:#036eb5; --blue-cta-h:#0a7cc9;
+  --ok:#22c55e;
+  --ease:cubic-bezier(.23,1,.32,1);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;min-height:100vh;
+}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace}
+
+/* ---------- chrome ---------- */
+.top{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:22px 34px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#2b3d52 0%,#223143 100%);
+}
+.brand{display:flex;align-items:center;gap:13px;min-width:0}
+.mark{display:grid;grid-template-columns:9px 9px;grid-template-rows:9px 9px;gap:2px;flex:0 0 auto}
+.mark i{display:block;border-radius:1px;background:var(--blue)}
+.mark i:nth-child(2){background:#8fb6ff}
+.mark i:nth-child(3){background:#1e4fae}
+.mark i:nth-child(4){background:#c9dcff}
+.brand b{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.brand span{color:var(--ink-3);font-weight:400}
+.brand em{font-style:normal;color:var(--ink-2);font-weight:400}
+.status{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2);letter-spacing:.02em}
+.dot-ok{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(34,197,94,.16);transition:background-color 200ms ease,box-shadow 200ms ease}
+/* The status line states what was MEASURED. It opens making no claim and only */
+/* turns green once /api/health has actually answered -- a hardcoded "operational" */
+/* would keep saying so straight through an outage. */
+/* Four states, and the distinction matters: "measured and bad" is NOT the same */
+/* claim as "could not measure". Reporting sign-in down when it is actually up  */
+/* is exactly as wrong as the hardcoded green this replaced.                    */
+#svc-status[data-state="checking"] .dot-ok,
+#svc-status[data-state="unknown"] .dot-ok{background:var(--ink-3);box-shadow:0 0 0 3px rgba(160,177,198,.16)}
+#svc-status[data-state="checking"] #svc-status-text,
+#svc-status[data-state="unknown"] #svc-status-text{color:var(--ink-3)}
+#svc-status[data-state="ok"] .dot-ok{background:var(--ok);box-shadow:0 0 0 3px rgba(34,197,94,.16)}
+#svc-status[data-state="degraded"] .dot-ok{background:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.18)}
+#svc-status[data-state="degraded"] #svc-status-text{color:#f3d08a}
+#svc-status[data-state="down"] .dot-ok{background:#f87171;box-shadow:0 0 0 3px rgba(248,113,113,.18)}
+#svc-status[data-state="down"] #svc-status-text{color:#ffb3ac}
+
+/* ---------- split ---------- */
+/* No min-height:0 here. It let .split shrink below its content, so at narrow */
+/* widths the card overflowed the grid box and the footer painted over it. */
+/* CORPIT-HERO-FULLBLEED 2026-09-03. The hero lives on .split, not .left, so
+   the photograph spans the whole width and fades out behind the card instead
+   of stopping at a hard panel edge.
+   Layer order below is TOPMOST-FIRST:
+     1 --hfade   horizontal dissolve toward the right
+     2,3 grid    the survey overlay, so it fades out with the photo
+     4 --scrim   vertical scrim, legibility for the headline and the rail
+     5 photo
+     6 --bg-2    a floor, so the panel is never bare if the image 404s
+   The grid sits UNDER --hfade on purpose: crisp over the skyline where it
+   reads as a technical overlay, gone by the time it reaches the card. */
+.split{
+  flex:1;display:grid;grid-template-columns:1.05fr .95fr;
+
+  /* Heaviest where the headline sits, lightest across the skyline, then
+     closing again so the flow labels and rail stay legible. */
+  --scrim:linear-gradient(180deg,
+      rgba(33,47,64,.91) 0%,
+      rgba(35,50,68,.85) 26%,
+      rgba(35,50,68,.82) 50%,
+      rgba(38,54,73,.50) 60%,
+      rgba(38,54,73,.44) 68%,
+      rgba(33,47,64,.66) 82%,
+      rgba(33,47,64,.86) 100%);
+
+  /* Stops at .95, not 1 -- a trace of skyline still reads behind the card,
+     which is the point of carrying the image across at all. */
+  --hfade:linear-gradient(90deg,
+      rgba(28,40,54,0)   0%,
+      rgba(28,40,54,0)   36%,
+      rgba(28,40,54,.18) 54%,
+      rgba(28,40,54,.42) 70%,
+      rgba(28,40,54,.62) 86%,
+      rgba(28,40,54,.70) 100%);
+
+  background:
+    var(--hfade),
+    repeating-linear-gradient(0deg,transparent 0 79px,rgba(130,170,225,.05) 79px 80px),
+    repeating-linear-gradient(90deg,transparent 0 79px,rgba(130,170,225,.05) 79px 80px),
+    var(--scrim),
+    url(/city-hero.jpg) center 45% / cover no-repeat,
+    var(--bg-2);
+}
+/* City hero. Layer order is topmost-first: the survey grid stays crisp ON TOP */
+/* of the photo so it reads as a technical overlay rather than decoration; the */
+/* scrim below it is heaviest where the headline sits and lightest across the  */
+/* skyline, then closes down again so the flow labels and rail stay legible.   */
+/* The photo is the BASE layer, with --bg-2 under it so the panel is never     */
+/* bare if the image fails to load.                                            */
+/* Layout only now -- the image and both scrims moved up to .split. The
+   border-right went with them: a hard rule is exactly what "blend it all the
+   way over" rules out. */
+.left{
+  position:relative;padding:64px 56px 40px;display:flex;flex-direction:column;
+}
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;
+  letter-spacing:.16em;color:var(--blue-2);margin:0 0 26px;
+}
+h1{
+  margin:0 0 22px;font-size:clamp(34px,4.4vw,54px);line-height:1.06;
+  font-weight:500;letter-spacing:-.025em;text-wrap:balance;max-width:12ch;
+}
+.lede{margin:0;font-size:17px;line-height:1.6;color:var(--ink-2);max-width:34ch}
+.flow{margin-top:auto;padding-top:48px}
+.flow svg{width:100%;max-width:560px;height:auto;overflow:visible}
+.node{fill:#16212e;stroke:var(--blue-2);stroke-width:2.5;filter:drop-shadow(0 2px 4px rgba(0,0,0,.8))}
+.wire{fill:none;stroke:#93a9c4;stroke-width:1.5;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+.flow-dot{fill:#fff;offset-path:path("M 30 30 L 250 78 L 400 62 L 530 44");
+  animation:flow 4.6s var(--ease) infinite;filter:drop-shadow(0 0 7px rgba(255,255,255,.75))}
+@keyframes flow{0%{offset-distance:0%}45%{offset-distance:100%}
+  55%{offset-distance:100%;opacity:1}62%{opacity:0}63%{offset-distance:0%;opacity:0}70%{opacity:1}100%{offset-distance:0%}}
+.flabel{font-family:'IBM Plex Mono',monospace;font-size:11px;fill:#d4dfec;letter-spacing:.13em;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.85))}
+.rail{margin-top:40px;display:flex;flex-wrap:wrap;gap:10px 28px;font-size:12.5px;color:var(--ink-2);letter-spacing:.04em}
+.rail span::before{content:"\2014\00A0";color:var(--line-2)}
+
+/* ---------- card ---------- */
+.right{display:flex;align-items:center;justify-content:center;padding:48px 44px}
+.card{
+  width:100%;max-width:436px;position:relative;
+  background:rgba(43,60,80,.90);
+  -webkit-backdrop-filter:blur(22px) saturate(115%);
+  backdrop-filter:blur(22px) saturate(115%);
+  border:1px solid var(--line-2);border-radius:16px;
+  padding:34px 34px 30px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 30px 70px -34px rgba(0,0,0,.8);
+}
+.card::before{
+  content:"";position:absolute;top:-1px;left:26px;right:46%;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,var(--blue),rgba(47,111,237,0));
+}
+.shield{
+  width:48px;height:48px;border-radius:12px;background:var(--panel-2);
+  border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;margin-bottom:26px;
+}
+.card .eyebrow{margin-bottom:14px}
+h2{margin:0 0 12px;font-size:31px;font-weight:500;letter-spacing:-.022em;line-height:1.15}
+.sub{margin:0 0 26px;color:var(--ink-2);font-size:15px;line-height:1.55}
+
+.ms{
+  display:flex;align-items:center;gap:14px;width:100%;
+  background:var(--blue-cta);color:#fff;border:0;border-radius:10px;
+  padding:15px 18px;font:inherit;font-size:15.5px;font-weight:600;
+  text-decoration:none;cursor:pointer;
+  transition:background-color 150ms ease,transform 150ms var(--ease);
+}
+@media (hover:hover) and (pointer:fine){.ms:hover{background:var(--blue-cta-h)}}
+.ms:active{transform:scale(.985)}
+.ms:focus-visible{outline:2px solid #9dc0ff;outline-offset:3px}
+.ms .lbl{flex:1;text-align:center}
+.ms .arw{opacity:.92}
+.msq{display:grid;grid-template-columns:9px 9px;grid-template-rows:9px 9px;gap:2px;flex:0 0 auto}
+.msq i{display:block}
+.msq i:nth-child(1){background:#f25022}.msq i:nth-child(2){background:#7fba00}
+.msq i:nth-child(3){background:#00a4ef}.msq i:nth-child(4){background:#ffb900}
+
+details{margin-top:20px}
+details>summary{
+  list-style:none;cursor:pointer;text-align:center;font-size:14.5px;color:var(--ink);
+  text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--line-2);
+  padding:6px 0;border-radius:6px;transition:color 140ms ease,text-decoration-color 140ms ease;
+}
+details>summary::-webkit-details-marker{display:none}
+@media (hover:hover) and (pointer:fine){
+  details>summary:hover{color:#fff;text-decoration-color:var(--ink-3)}
+}
+details>summary:focus-visible{outline:2px solid var(--blue-2);outline-offset:2px}
+/* The toggle animated but the thing it revealed did not. */
+details[open]>.pwform,details[open]>.help-body{animation:reveal 180ms var(--ease) both}
+details[open]>summary{color:var(--ink-2)}
+.pwform{margin-top:18px;display:flex;flex-direction:column;gap:12px}
+label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-family:'IBM Plex Mono',monospace}
+input[type=text],input[type=password]{
+  width:100%;background:#16212e;border:1px solid var(--line-2);border-radius:9px;
+  padding:12px 13px;color:var(--ink);font:inherit;font-size:15px;margin-top:6px;
+  transition:border-color 140ms ease,box-shadow 140ms ease;
+}
+input:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 3px rgba(47,111,237,.22)}
+.btn-local{
+  background:var(--panel-2);color:var(--ink);border:1px solid var(--line-2);border-radius:9px;
+  padding:13px 16px;font:inherit;font-size:15px;font-weight:500;cursor:pointer;
+  transition:background-color 140ms ease,transform 140ms var(--ease);
+}
+@media (hover:hover) and (pointer:fine){.btn-local:hover{background:#3a4d65}}
+.btn-local:active{transform:scale(.985)}
+.btn-local:focus-visible{outline:2px solid var(--blue-2);outline-offset:2px}
+.btn-local[disabled]{opacity:.55;cursor:default}
+@media (hover:hover) and (pointer:fine){.btn-local[disabled]:hover{background:var(--panel-2)}}
+.btn-local[disabled]:active{transform:none}
+
+.hr{height:1px;background:var(--line);margin:26px 0 20px}
+.foot-note{display:flex;align-items:center;gap:11px;color:var(--ink-2);font-size:13.5px}
+.help{display:block;margin-top:16px;color:var(--ink);font-size:14px;text-decoration:underline;
+  text-underline-offset:4px;text-decoration-color:var(--line-2)}
+@media (hover:hover) and (pointer:fine){.help:hover{text-decoration-color:var(--ink-3)}}
+
+/* One entrance vocabulary for everything JS reveals after first paint. A
+   keyframe, not a transition: a display:none -> block flip cannot be
+   transitioned without @starting-style, and these are entrances, not
+   toggles. 160-220ms, opacity + a short travel, on the page's --ease. */
+@keyframes reveal{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.flash{border-radius:9px;padding:11px 14px;font-size:14px;margin-bottom:18px;line-height:1.45;
+  animation:reveal 200ms var(--ease) both}
+.flash.error{background:rgba(220,60,50,.12);border:1px solid rgba(220,60,50,.42);color:#ffb3ac}
+.flash.ok{background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.40);color:#9be8b8}
+.flash.info{background:rgba(47,111,237,.10);border:1px solid rgba(47,111,237,.38);color:#b9cdf5}
+
+/* inline field error inside the local/dev reveals */
+.ferr{font-size:13.5px;line-height:1.45;color:#ffb3ac;animation:reveal 180ms var(--ease) both}
+
+/* the "signing you in" state that replaces the controls after a local sign-in */
+.redirect{display:flex;align-items:center;gap:12px;color:var(--ink-2);font-size:15px;padding:6px 0 2px;
+  animation:reveal 200ms var(--ease) both}
+.spin{
+  width:16px;height:16px;border-radius:50%;flex:0 0 auto;
+  border:2px solid var(--line-2);border-top-color:var(--blue-2);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* "Need help signing in?" opens in place - no dead-end link on a page you */
+/* reach precisely because you cannot get anywhere yet. */
+.help-d{margin-top:16px}
+.help-d>summary{text-align:left;font-size:14px}
+.help-body{margin:12px 0 0;color:var(--ink-2);font-size:13.5px;line-height:1.6}
+
+/* Break-glass toggle: a quiet + in the card's bottom-right. Rotates to an x */
+/* when open so the control reads as a toggle rather than an "add" action. */
+/* The + is revealed by JS only after /api/breakglass/status answers. Keep
+   it in flow the whole time and fade it in, so the card does not grow by
+   28px after first paint and shove the heading and CTA upward.
+   visibility:hidden (not pointer-events) keeps it out of the a11y tree
+   and unfocusable until it is real. */
+.bg-toggle{margin-top:2px;opacity:1;transition:opacity 200ms var(--ease)}
+.bg-toggle[hidden]{display:block;visibility:hidden;opacity:0}
+.bg-toggle>summary{
+  list-style:none;cursor:pointer;
+  width:26px;height:26px;margin-left:auto;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid transparent;border-radius:7px;
+  color:var(--ink-3);font-family:'IBM Plex Mono',monospace;font-size:16px;line-height:1;
+  transition:color 140ms ease,border-color 140ms ease,background-color 140ms ease;
+}
+.bg-toggle>summary::-webkit-details-marker{display:none}
+@media (hover:hover) and (pointer:fine){
+  .bg-toggle>summary:hover{color:var(--ink-2);border-color:var(--line-2);background:var(--panel-2)}
+}
+.bg-toggle>summary:focus-visible{outline:2px solid var(--blue-2);outline-offset:2px}
+.bg-toggle[open]>summary{color:var(--ink-2);border-color:var(--line-2);background:var(--panel-2)}
+.bg-toggle .pl{display:block;transition:transform 160ms var(--ease)}
+.bg-toggle[open] .pl{transform:rotate(45deg)}
+.bg-toggle .pwform{margin-top:14px}
+
+/* Version comes from /api/health (source of truth: /etc/corpit/VERSION), so it */
+/* cannot drift from what is deployed. Empty until the API answers -- better to */
+/* show no version than a hardcoded one that quietly goes stale. */
+/* Was --line-2: a BORDER token used as text, 1.61:1 - not dim, unreadable. */
+.ver{color:var(--ink-3)}
+.bottom{
+  display:flex;justify-content:space-between;gap:16px;padding:18px 34px;
+  border-top:1px solid var(--line);color:var(--ink-3);font-size:12px;letter-spacing:.05em;
+}
+
+@media (max-width:940px){
+  /* Stacked: there is no "right" to fade toward, so the horizontal dissolve
+     is switched off and the vertical scrim does all the work -- dark through
+     the copy, open over the skyline, then solid before the card so the form
+     never sits on a busy backdrop. Retuning two custom properties, which is
+     why they are custom properties. */
+  .split{grid-template-columns:1fr;
+    --hfade:linear-gradient(90deg,rgba(28,40,54,0) 0%,rgba(28,40,54,0) 100%);
+    /* Band positions are MEASURED against .split, not guessed: the copy ends
+       at 45.4%, the card runs 48.6%->95.8%, and the flow diagram sits at
+       24.7%->34.3%. So the skyline gets exactly one window -- behind the flow
+       diagram, whose labels already carry drop-shadows -- and the scrim is
+       solid from 46% down, before the card can ever reach it. An earlier
+       version opened at 52% and put the brightest part of the photo directly
+       behind the sign-in form. */
+    --scrim:linear-gradient(180deg,
+        rgba(33,47,64,.95) 0%,
+        rgba(33,47,64,.90) 15%,
+        rgba(33,47,64,.85) 24%,
+        rgba(38,54,73,.52) 32%,
+        rgba(33,47,64,.83) 38%,
+        rgba(33,47,64,.96) 43%,
+        rgba(33,47,64,1)   46%,
+        rgba(33,47,64,1)   100%)}
+  .left{border-right:0;border-bottom:1px solid var(--line);padding:44px 30px 34px}
+  .flow{padding-top:34px}
+  .right{padding:34px 24px 44px}
+}
+@media (prefers-reduced-motion:reduce){
+  /* Reduced motion means less MOVEMENT, not less feedback. The old blanket
+     killed .ms/.btn-local/input/summary/.dot-ok transitions, which are
+     colour-only - so hover, focus rings and the live status dot hard-cut for
+     exactly the users least tolerant of pops. Only movement is removed here. */
+  .flow-dot{animation:none;offset-distance:52%}
+  .spin{animation:none}
+  .ms:active,.btn-local:active{transform:none}
+  .bg-toggle .pl{transition:none}          /* keep the rotated state, drop the travel */
+  @keyframes reveal{from{opacity:0}to{opacity:1}}   /* fade, no slide */
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <b>CorpIT</b>
+  </div>
+  <div class="status" id="svc-status" data-state="checking">
+    <span class="dot-ok" aria-hidden="true"></span>
+    <span class="mono" id="svc-status-text" role="status" aria-live="polite">Checking services</span></div>
+</header>
+
+<main class="split">
+  <section class="left">
+    <p class="eyebrow">CORPIT / SERVICE OPERATIONS</p>
+    <h1>Every request.<br>One clear path.</h1>
+    <p class="lede">Secure access to the workspace that keeps people, assets,
+      and service delivery moving.</p>
+
+    <div class="flow">
+      <svg viewBox="-14 -12 588 118" role="img" aria-label="Request flows through triage to resolution">
+        <path class="wire" d="M 30 30 L 250 78 L 400 62 L 530 44"/>
+        <circle class="node" cx="30"  cy="30" r="9"/>
+        <circle class="node" cx="250" cy="78" r="9"/>
+        <circle class="node" cx="530" cy="44" r="9"/>
+        <circle class="flow-dot" r="4.5"/>
+        <text class="flabel" x="30"  y="56" text-anchor="middle">REQUEST</text>
+        <text class="flabel" x="250" y="104" text-anchor="middle">TRIAGE</text>
+        <text class="flabel" x="530" y="70" text-anchor="middle">RESOLUTION</text>
+      </svg>
+    </div>
+
+    <div class="rail mono">
+      <span>Assets</span><span>Requests</span><span>Access</span><span>Incidents</span>
+    </div>
+  </section>
+
+  <section class="right">
+    <div class="card">
+      <div id="status-msg" class="flash" style="display:none" role="status" aria-live="polite"></div>
+
+      <div class="shield" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+             stroke="#7ea6f0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l7 3v5.5c0 4.3-2.9 8.2-7 9.5-4.1-1.3-7-5.2-7-9.5V6z"/>
+          <path d="M9.2 12.2l1.9 1.9 3.7-3.9"/>
+        </svg>
+      </div>
+
+      <p class="eyebrow">SECURE WORKSPACE</p>
+      <h2>Welcome back</h2>
+
+      <div id="login-form">
+        <p class="sub">Sign in with your corporate work account to continue.</p>
+
+        <a class="ms" id="btn-sso" href="/api/auth/login">
+          <span class="msq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="lbl">Continue with Microsoft</span>
+          <span class="arw" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+
+      </div>
+
+      <div id="redirect-msg" style="display:none">
+        <div class="redirect"><span class="spin" aria-hidden="true"></span>
+          <span>Signing you in&hellip;</span></div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="foot-note">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 018 0v3.5"/></svg>
+        <span>Protected by Microsoft Entra ID</span>
+      </div>
+
+      <details class="help-d">
+        <summary class="help">Need help signing in?</summary>
+        <p class="help-body">Access to each site is granted by Active Directory
+          security group. If &ldquo;Continue with Microsoft&rdquo; returns you here, your
+          account may not be assigned to CorpIT Hub yet &mdash; ask the IT service desk
+          to add you.</p>
+      </details>
+
+      <!-- Break-glass. Deliberately unobtrusive: it is the emergency path, not a
+           second front door, and there is no reason to advertise that a local
+           administrator account exists. Still a real control - keyboard
+           reachable, with an accessible name, not a decoration. -->
+      <details class="bg-toggle" id="local-details" hidden>
+        <summary aria-label="Local administrator sign-in"
+                 title="Local administrator sign-in"><span class="pl" aria-hidden="true">+</span></summary>
+        <form class="pwform" id="local-section" novalidate>
+          <div><label for="login-pass">Password</label>
+            <input id="login-pass" type="password" autocomplete="current-password"></div>
+          <div><label for="login-otp">Authenticator code</label>
+            <input id="login-otp" type="text" inputmode="numeric" pattern="[0-9]*"
+                   maxlength="6" autocomplete="one-time-code"></div>
+          <p class="ferr" id="local-error" style="display:none" role="alert"></p>
+          <button class="btn-local" type="submit" id="btn-local">Sign in</button>
+        </form>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="bottom mono">
+  <span>CorpIT internal systems<span id="app-version" class="ver"></span></span>
+  <span>Authorized use only</span>
+</footer>
+
+</body>
+</html>

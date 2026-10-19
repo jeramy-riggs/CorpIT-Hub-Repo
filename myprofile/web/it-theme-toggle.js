@@ -1,0 +1,1 @@
+/var/www/html/it-theme-toggle.js

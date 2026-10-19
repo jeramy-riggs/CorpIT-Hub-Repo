@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Subdomains{% endblock %}
+{% block content %}
+
+<div class="card">
+  <h2>Request a new subdomain</h2>
+  <div class="body">
+    <form method="post" action="{{ url_for('create_subdomain') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <div class="row">
+        <div>
+          <label for="label">Subdomain <span class="hint">— the part before .{{ base_domain }}</span></label>
+          <input id="label" type="text" name="label" placeholder="hr" maxlength="40"
+                 pattern="[a-z0-9-]+" required>
+          <div class="fqdn-prev">e.g. <strong>hr</strong>.{{ base_domain }} &rarr; {{ host_ip }}</div>
+        </div>
+        <div>
+          <label for="dept">Department / owner <span class="hint">(optional)</span></label>
+          <input id="dept" type="text" name="department" placeholder="Human Resources" maxlength="120">
+        </div>
+      </div>
+      {# CORPIT-SITE-ACCESS-CONSOLE Access is decided here, at registration, rather than
+         left as a later step. A site with no answer is reachable only by platform
+         owners - it is never open to everyone by default. #}
+      <fieldset style="margin-top:20px;border:1px solid var(--line,#e3e4e8);border-radius:8px;padding:14px 16px">
+        <legend class="hint" style="padding:0 6px">Who may open this site</legend>
+        <label style="display:block;margin:0 0 6px">
+          <input type="radio" name="access_mode" value="groups" checked>
+          Members of these AD security groups
+        </label>
+        <input id="access_groups" type="text" name="access_groups" list="ad-groups"
+               placeholder="NRPI-HR-Staff, NRPI-Finance" maxlength="600"
+               style="width:100%">
+        <datalist id="ad-groups">
+          {% for g in group_suggestions %}<option value="{{ g }}"></option>{% endfor %}
+        </datalist>
+        <div class="hint" style="margin-top:6px">
+          Comma-separated. Names are checked against Active Directory before the site
+          is created &mdash; a group that does not exist would lock everyone out.
+        </div>
+        <label style="display:block;margin:12px 0 6px">
+          <input type="radio" name="access_mode" value="authenticated">
+          Anyone who can sign in to the CorpIT platform
+        </label>
+        <label style="display:block;margin:0">
+          <input type="radio" name="access_mode" value="superadmin">
+          Platform owners only <span class="hint">&mdash; decide the audience later</span>
+        </label>
+        <div class="hint" style="margin-top:10px">
+          Platform owners (<span class="mono">SaaS-ITH-SA</span>) can open every
+          site on this server regardless of what is set here.
+        </div>
+      </fieldset>
+
+      <label for="notes" style="margin-top:16px">Notes <span class="hint">(optional)</span></label>
+      <textarea id="notes" name="notes" maxlength="500" placeholder="What is this site for?"></textarea>
+      <button class="btn" type="submit" style="margin-top:16px">Create subdomain</button>
+      <span class="hint" style="margin-left:12px">Serves the parked page immediately over a self-signed cert; go-live needs DNS + NRPI-CA cert.</span>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Provisioned subdomains <span class="hint">({{ subs|length }})</span></h2>
+  {% if subs %}
+  <table>
+    <thead><tr>
+      <th>Subdomain</th><th>Status</th><th>DNS</th><th>Certificate</th><th class="hide">Department</th>
+      <th class="hide">Created</th><th></th>
+    </tr></thead>
+    <tbody>
+      {% for s in subs %}
+      <tr>
+        <td class="mono"><a href="{{ url_for('detail', sub_id=s['id']) }}">{{ s['fqdn'] }}</a></td>
+        <td><span class="pill {{ s['status'] }}">{{ s['status'] }}</span></td>
+        <td>{{ s['dns_status'] or '—' }}</td>
+        <td>{{ s['cert_type'] }}{% if s['cert_expires'] %}<br><span class="hint">to {{ s['cert_expires'] }}</span>{% endif %}</td>
+        <td class="hide">{{ s['department'] or '—' }}</td>
+        <td class="hide">{{ s['created_at'] }}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <a class="btn ghost sm" href="{{ url_for('detail', sub_id=s['id']) }}">Details</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No subdomains yet. Create one above to get started.</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Recent activity</h2>
+  {% if audit %}
+  <table>
+    <thead><tr><th>When</th><th>User</th><th>Action</th><th class="hide">Detail</th></tr></thead>
+    <tbody>
+      {% for a in audit %}
+      <tr><td class="mono">{{ a['ts'] }}</td><td>{{ a['user'] }}</td>
+          <td>{{ a['action'] }}</td><td class="hide mono">{{ a['detail'] }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<div class="empty">No activity recorded.</div>{% endif %}
+</div>
+{% endblock %}

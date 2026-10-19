@@ -1,0 +1,337 @@
+{# SYSTEM - the server, cleanup, settings and the audit log. Replaces Operations + System. #}
+<section class="page" data-view="system" hidden>
+<div class="ledger-identity-nav"><a href="#landing">Tool catalog</a><a href="#sites">Web app configuration</a><a href="#operations">Host operations</a></div>
+  <div class="page-h">
+    <div><h2 id="administration-title">Console administration</h2>
+      <p>The server itself: services and scheduled jobs, disk cleanup, the console's settings, and the log of everything the console has done.</p></div>
+  </div>
+
+  <div class="tabs" role="tablist" data-tabs="system">
+    <button class="tab" role="tab" data-tab="overview" aria-selected="true">Server</button>
+    <button class="tab" role="tab" data-tab="cleanup" aria-selected="false">Cleanup{% if housekeeping.candidate_bytes %} <span class="pill p-warn">{{ hk_human(housekeeping.candidate_bytes) }}</span>{% endif %}</button>
+    <button class="tab" role="tab" data-tab="settings" aria-selected="false">Settings{% if settings_problems %} <span class="pill p-crit">{{ settings_problems|length }}</span>{% endif %}</button>
+    {% if updates_available() and is_platform_owner() %}<button class="tab" role="tab" data-tab="updates" aria-selected="false">Updates <span class="pill" data-updates-badge hidden></span></button>{% endif %}
+    {% if webwatch_available() and is_platform_owner() %}<button class="tab" role="tab" data-tab="webwatch" aria-selected="false">Web watch <span class="pill" data-webwatch-badge hidden></span></button>{% endif %}
+    <button class="tab" role="tab" data-tab="audit" aria-selected="false">Audit log</button>
+  </div>
+
+  {# ---------------- server ---------------- #}
+  <div data-tabpanel="overview">
+    <div class="g2">
+      <div class="card">
+        <div class="card-h"><h3>Services</h3><span class="meta mono">{{ host_name }}</span></div>
+        {% for s in services %}
+        <div class="row"><span class="st {{ 'good' if s.state == 'active' else 'crit' }}"><i></i></span>
+          <div class="main"><b class="mono">{{ s.unit }}</b><small>{{ s.what }}</small></div>
+          <div class="end"><span class="pill {{ 'p-good' if s.state == 'active' else 'p-crit' }}">{{ 'running' if s.state == 'active' else s.state }}</span></div></div>
+        {% endfor %}
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Capacity</h3><span class="meta">read at page load</span></div>
+        <div class="card-b"><dl class="kv">
+          <dt>Disk</dt><dd>{{ host_disk }}</dd>
+          <dt>Memory</dt><dd>{{ host_mem }}</dd>
+          <dt>Load</dt><dd class="mono">{{ host_load }}</dd>
+          <dt>Up for</dt><dd>{{ host_uptime }}</dd>
+          <dt>Console DB</dt><dd><span class="mono">subdomains.db</span> · {{ db_size }}</dd>
+        </dl>
+        <div class="note warn" style="margin:14px 0 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+          <div><b>No off-server backup.</b> The console database, the access rules and the directory lists exist only on this machine.</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Scheduled jobs</h3><span class="meta">times are UTC</span></div>
+      {% if timers %}
+      <div class="tblwrap"><table class="grid">
+        <thead><tr><th>Job</th><th>Next run</th><th>Last run</th></tr></thead>
+        <tbody>{% for t in timers %}<tr><td class="mono">{{ t.unit }}</td><td class="mono">{{ t.next }}</td><td class="mono">{{ t.last }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+      {% else %}<div class="empty"><b>No scheduled jobs could be read.</b></div>{% endif %}
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>How this server is set up</h3></div>
+      <div class="card-b"><dl class="kv">
+        <dt>Base domain</dt><dd><span class="mono">{{ base_domain }}</span> → {{ host_ip }}</dd>
+        <dt>Reserved names</dt><dd class="mono">{{ reserved_labels }}</dd>
+        <dt>Console</dt><dd><span class="mono">/opt/subdomain-admin</span> · runs as an ordinary user behind nginx</dd>
+        <dt>Root actions</dt><dd>go through one helper, <span class="mono">/usr/local/sbin/nrpi-subdomain</span>{% if updates_available() %}, and server updates go to the root <span class="mono">corpit-updates</span> service over <span class="mono">/run/corpit-updates/updates.sock</span>, which accepts a fixed set of requests and checks the operator itself. {% if webwatch_available() %}, and the prod web watch goes to the root <span class="mono">corpit-webwatch</span> service over <span class="mono">/run/corpit-webwatch/webwatch.sock</span>, which can do one thing to prod (clear a fence device's failure) and checks the operator itself{% endif %}. Those are the only ways the console reaches root{% else %} — the only thing the console is allowed to run as root{% endif %}</dd>
+        <dt>Sign-in</dt><dd>{{ 'CorpIT Hub single sign-in (on)' if hub_sso else 'CorpIT Hub single sign-in (off for this request)' }} · roles come from Active Directory groups, not from the token</dd>
+      </dl></div>
+    </div>
+  </div>
+
+  {# ---------------- cleanup ---------------- #}
+  <div data-tabpanel="cleanup" hidden>
+    <div class="card" id="housekeeping">
+      <div class="card-h"><h3>Old backups and copies</h3><span class="meta">keeping {{ hk_keep_days }} days · {{ hk_human(housekeeping.total_bytes) }} tracked</span>
+        {% if can('housekeeping.run') %}
+        <div class="actions">
+          <form method="post" action="{{ url_for('housekeeping_run') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#ops">
+            <button class="btn{% if housekeeping.candidate_bytes or hk_audit_prunable %} pri{% endif %}" type="submit"
+                    {% if not housekeeping['removable'] and not hk_audit_prunable %}disabled title="Nothing is old enough to remove"{% endif %}
+                    data-confirm="Delete {{ housekeeping['removable']|length }} backup item(s) ({{ hk_human(housekeeping.candidate_bytes) }}) and age out {{ hk_audit_prunable }} routine audit row(s)? This cannot be undone.">Clean up now</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      <div class="stats" style="margin:16px 18px 0">
+        <div class="stat"><div class="k">Tracked</div><div class="v" style="font-size:20px">{{ hk_human(housekeeping.total_bytes) }}</div><div class="n">{{ housekeeping['items']|length }} items</div></div>
+        <div class="stat"><div class="k">Can be removed now</div><div class="v{% if housekeeping.candidate_bytes %} warn{% endif %}" style="font-size:20px">{{ hk_human(housekeeping.candidate_bytes) }}</div><div class="n">{{ housekeeping['removable']|length }} older than {{ hk_keep_days }} days</div></div>
+        <div class="stat"><div class="k">Needs root</div><div class="v" style="font-size:20px">{{ housekeeping['needs_root']|length }}</div><div class="n">old, but not owned by the console</div></div>
+        <div class="stat"><div class="k">Old audit rows</div><div class="v" style="font-size:20px">{{ hk_audit_prunable }}</div><div class="n">routine, older than {{ hk_audit_days }} days</div></div>
+      </div>
+      <div class="card-b">
+        <p><b>What gets deleted is exactly what is marked "will be removed" below</b>, recomputed the moment you press the button. The {{ hk_keep_newest }} newest copies in each group are always kept, and nothing under {{ hk_floor_days }} days old is ever touched.</p>
+      </div>
+      {% if housekeeping['items'] %}
+      <div class="tblwrap"><table class="grid">
+        <thead><tr><th>Path</th><th>Kind</th><th>Size</th><th>Age</th><th>Owner</th><th>Status</th></tr></thead>
+        <tbody>{% for i in housekeeping['items'][:40] %}
+          <tr><td class="mono">{{ i.path }}{% if i.is_dir %}/{% endif %}</td><td>{{ i.label }}</td><td class="mono">{{ hk_human(i.bytes) }}</td><td class="mono">{{ i.age_days }}d</td><td class="mono">{{ i.owner }}</td>
+            <td>{% if i.candidate %}<span class="pill p-warn">will be removed</span>{% elif i.needs_root %}<span class="pill p-crit">needs root</span>{% else %}<span class="pill p-mut">{{ i.why }}</span>{% endif %}</td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+      {% if housekeeping['items']|length > 40 %}<div class="card-b" style="padding-top:8px;color:var(--ink-3);font-size:12.5px">Showing the 40 largest of {{ housekeeping['items']|length }}.</div>{% endif %}
+      {% else %}<div class="empty">{% if housekeeping.unlisted_roots %}<b>Nothing tracked in the folders the console can read.</b> Some watched folders could not be read - see below.{% else %}<b>Nothing tracked.</b> No backup files in the watched locations.{% endif %}</div>{% endif %}
+      {% if housekeeping['needs_root'] %}
+      <div class="card-b" style="padding-top:8px"><details class="why"><summary>{{ housekeeping['needs_root']|length }} item(s) need root to remove</summary>
+        <div>The console does not run as root and will not pretend to. From a shell on the server:<br><span class="mono" style="user-select:all">sudo rm -rf {% for i in housekeeping['needs_root'][:6] %}{{ i.path }} {% endfor %}</span></div></details></div>
+      {% endif %}
+      {% if housekeeping.unlisted_roots %}
+      <div class="card-b" style="padding-top:8px"><details class="why" open><summary>{{ housekeeping.unlisted_roots|length }} watched folder(s) the console cannot read</summary>
+        <div>The console runs as its own service user and cannot list these, so anything in them is not counted above. Check them from a shell on the server:<br><span class="mono" style="user-select:all">sudo ls -la {% for r in housekeeping.unlisted_roots %}{{ r }} {% endfor %}</span></div></details></div>
+      {% endif %}
+      {% if not can('housekeeping.run') %}<div class="card-b" style="padding-top:0;color:var(--ink-3);font-size:12.5px">You do not have permission to run cleanup.</div>{% endif %}
+    </div>
+  </div>
+
+  {# ---------------- settings ---------------- #}
+  <div data-tabpanel="settings" hidden>
+    {% if can('settings.manage') %}
+      {% if settings_advisories %}
+      <div class="note warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        <div><b>Heads up.</b><ul>{% for level, msg in settings_advisories %}<li{% if level == 'urgent' %} style="font-weight:600"{% endif %}>{{ msg }}</li>{% endfor %}</ul></div></div>
+      {% endif %}
+      {% if settings_problems %}
+      <div class="note crit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <div><b>Needs attention.</b><ul>{% for p in settings_problems %}<li>{{ p }}</li>{% endfor %}</ul></div></div>
+      {% endif %}
+      <form method="post" action="{{ url_for('settings_page') }}" data-console-settings{% if settings_restore_draft %} data-restore-draft{% endif %}>
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#system/settings"><input type="hidden" name="config_rev" value="{{ settings_rev }}">
+        <div class="console-settings-workbench"><nav aria-label="Console setting sections">{% for group in setting_groups %}<button type="button" data-settings-section="{{ loop.index0 }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ group }}</button>{% endfor %}</nav><div>
+        {% for group in setting_groups %}
+        <section class="card" data-settings-panel="{{ loop.index0 }}"{% if not loop.first %} hidden{% endif %}>
+          <div class="card-h"><h3>{{ group }}</h3></div>
+          <div class="card-b">
+            {% for s in settings if s.group == group %}
+            <div class="f">
+              {% if s.kind == 'bool' %}
+                <label class="f-inline" for="set-{{ s.key }}"><input id="set-{{ s.key }}" type="checkbox" name="{{ s.key }}" value="1" {% if setting_values[s.key] %}checked{% endif %}><span>{{ s.label }}</span></label>
+              {% elif s.kind == 'secret' %}
+                <label for="set-{{ s.key }}">{{ s.label }} <span class="hint">{% if setting_secrets[s.key] %}set — leave blank to keep it{% else %}not set{% endif %}</span></label>
+                <input id="set-{{ s.key }}" type="password" name="{{ s.key }}" value="" autocomplete="new-password" placeholder="••••••••">
+              {% elif s.kind == 'email_list' %}
+                <label for="set-{{ s.key }}">{{ s.label }}</label><textarea id="set-{{ s.key }}" name="{{ s.key }}" rows="2">{{ setting_values[s.key] }}</textarea>
+              {% elif s.kind == 'date' %}
+                <label for="set-{{ s.key }}">{{ s.label }}</label><input id="set-{{ s.key }}" type="date" name="{{ s.key }}" value="{{ setting_values[s.key] }}">
+              {% elif s.kind == 'int' %}
+                <label for="set-{{ s.key }}">{{ s.label }}</label><input id="set-{{ s.key }}" type="number" name="{{ s.key }}" value="{{ setting_values[s.key] }}" min="{{ s.minimum }}" max="{{ s.maximum }}">
+              {% else %}
+                <label for="set-{{ s.key }}">{{ s.label }}</label><input id="set-{{ s.key }}" type="text" name="{{ s.key }}" value="{{ setting_values[s.key] }}" spellcheck="false" autocapitalize="none">
+              {% endif %}
+              {% if s.help or s.restart_hint %}<details class="setting-help"><summary>Details{% if s.restart_hint %} · restart guidance{% endif %}</summary>{% if s.help %}<p class="hint">{{ s.help }}</p>{% endif %}{% if s.restart_hint %}<p class="hint">{{ s.restart_hint }}</p>{% endif %}</details>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endfor %}
+        </div></div>
+        <div class="form-foot settings-save" style="margin:0 0 22px"><button class="btn pri" type="submit">Save settings</button><span class="hint">Every change is logged with who made it. Secret values are never shown back.</span></div>
+      </form>
+    {% else %}
+      <div class="note quiet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <div><b>You do not have permission to change settings.</b> They decide how everyone signs in, so the bar is higher. The permission is granted under People &amp; Access.</div></div>
+    {% endif %}
+
+    <div class="g2">
+      <div class="card">
+        <div class="card-h"><h3>Your session</h3></div>
+        <div class="card-b"><dl class="kv">
+          <dt>Signed in as</dt><dd class="mono">{{ user }}</dd>
+          <dt>Role</dt><dd>{{ role or 'break-glass local account' }}{% if is_platform_owner() %} · platform owner{% endif %}</dd>
+          {% if sso_groups %}<dt>AD groups</dt><dd>{% for g in sso_groups %}<span class="mono">{{ g }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</dd>{% endif %}
+          <dt>Signed in with</dt><dd>{{ 'CorpIT Hub single sign-in' if sso_session else 'the local break-glass password' }}</dd>
+          <dt>Times out</dt><dd>after 8 hours idle, and always after {{ session_cap_hours }} hours</dd>
+        </dl></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Break-glass account</h3><span class="meta">the way in if Entra or AD is down</span></div>
+        {% if local_account %}
+        <div class="card-b">
+          <form method="post" action="{{ url_for('account') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#system">
+            <input type="text" name="username" value="{{ user }}" autocomplete="username" hidden aria-hidden="true">
+            <div class="f"><label for="cur">Current password</label><input id="cur" type="password" name="current" autocomplete="current-password" required></div>
+            <div class="f-row">
+              <div class="f"><label for="newpw">New password <span class="hint">at least {{ min_password_len }} characters</span></label><input id="newpw" type="password" name="new" autocomplete="new-password" minlength="{{ min_password_len }}" required></div>
+              <div class="f"><label for="cf">Confirm</label><input id="cf" type="password" name="confirm" autocomplete="new-password" minlength="{{ min_password_len }}" required></div>
+            </div>
+            <button class="btn" type="submit">Update password</button>
+          </form>
+        </div>
+        {% else %}
+        <div class="row"><span class="st good"><i></i></span><div class="main"><b>You are signed in through SSO</b><small>the break-glass password is a separate account. Sign in with it directly to change it, or reset it on the server with <span class="mono">setpw.py</span>.</small></div></div>
+        {% endif %}
+      </div>
+    </div>
+    {% if settings_recent %}
+    <div class="card">
+      <div class="card-h"><h3>Recent settings changes</h3></div>
+      <div class="tblwrap"><table class="grid">
+        <thead><tr><th>When</th><th>Who</th><th>Change</th></tr></thead>
+        <tbody>{% for r in settings_recent %}<tr><td class="mono" style="white-space:nowrap">{{ r['ts'] }}</td><td>{{ r['user'] }}</td><td class="mono">{{ r['detail'] }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    {% endif %}
+  </div>
+
+
+  {# ---------------- updates (itam only: the root corpit-updates service) ---------------- #}
+  {% if updates_available() and is_platform_owner() %}
+  <div data-tabpanel="updates" hidden>
+    <div class="upd" data-updates-panel data-csrf="{{ csrf_token() }}">
+      <div class="card">
+        <div class="card-h"><h3>Server updates</h3><span class="meta" data-upd-checked>reading…</span>
+          <div class="actions"><button class="btn" type="button" data-upd-start="refresh" disabled>Check for updates</button></div></div>
+        <div class="card-b upd-lede"><p>Packages and kernels for <b>itam</b> and the prod web pair <b>A</b>/<b>B</b>. Nothing installs on its own once automatic upgrades are off: the service reads each server every few hours and you decide here when to install and when to reboot. Every step is recorded below.</p>
+          <p class="upd-msg" data-upd-msg role="status" aria-live="polite"></p></div>
+        <div class="upd-nodes" data-upd-nodes>
+          {% for label in ('A', 'B', 'itam') %}<article class="upd-node is-loading" aria-busy="true"><header><b>{{ label }}</b><span class="upd-skel"></span></header><div class="upd-skel w60"></div><div class="upd-skel w80"></div><div class="upd-skel w40"></div></article>{% endfor %}
+        </div>
+      </div>
+
+      <div class="card" data-upd-job hidden>
+        <div class="card-h"><h3 data-upd-job-title>Running</h3><span class="meta mono" data-upd-job-meta></span>
+          <div class="actions"><button class="btn" type="button" data-upd-cancel hidden>Stop after this step</button></div></div>
+        <ol class="upd-steps" data-upd-steps></ol>
+      </div>
+
+      <div class="g2 upd-actions">
+        <div class="card">
+          <div class="card-h"><h3>itam</h3><span class="meta">this server</span></div>
+          <div class="card-b">
+            <div class="upd-act"><div><b>Install updates</b><small>apt upgrade on itam. Services keep running; a kernel needs the reboot below.</small></div>
+              <button class="btn" type="button" data-upd-start="apply-itam" disabled>Install on itam</button></div>
+            <div class="upd-act"><div><b>Reboot itam</b><small>The console, the launch pad and the dev sites go away for 1-3 minutes. Refused while a release is publishing or an HA switch is running.</small></div>
+              <button class="btn" type="button" data-upd-start="reboot-itam" disabled>Reboot itam…</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Prod web pair</h3><span class="meta" data-upd-pair>A / B</span></div>
+          <div class="card-b">
+            <div class="upd-act"><div><b>Install updates on the standby</b><small>Only the node not serving web. The cluster stack (pacemaker, corosync, DRBD) is held back and goes in with the reboot below.</small></div>
+              <button class="btn" type="button" data-upd-start="apply-standby" disabled>Install on standby</button></div>
+            <div class="upd-act upd-switch"><div><b>Kernel reboot with switch</b><small data-upd-switch-plan>Install and reboot the standby, switch web to it, install and reboot the old owner, then switch back if chosen. Web is down about a minute at each switch.</small></div>
+              <button class="btn pri" type="button" data-upd-start="switch-reboot" disabled>Reboot pair…</button></div>
+          </div>
+        </div>
+      </div>
+      <p class="upd-who hint" data-upd-who></p>
+
+      <div class="card">
+        <div class="card-h"><h3>Recent runs</h3><span class="meta">newest first</span></div>
+        <div class="tblwrap"><table class="grid">
+          <thead><tr><th>Started</th><th>What</th><th>Who</th><th>Result</th><th>Why</th></tr></thead>
+          <tbody data-upd-jobs><tr><td colspan="5" class="hint">reading…</td></tr></tbody>
+        </table></div>
+      </div>
+
+      <dialog class="upd-dialog" data-upd-dialog aria-labelledby="upd-dlg-title">
+        <form method="dialog" data-upd-form>
+          <h3 id="upd-dlg-title" data-upd-dlg-title>Confirm</h3>
+          <ol class="upd-plan" data-upd-dlg-plan></ol>
+          <label class="f-inline upd-back" data-upd-back-row hidden><input type="checkbox" data-upd-back> <span data-upd-back-label>Switch back afterwards</span></label>
+          <div class="f"><label for="upd-reason">Why <span class="hint">recorded with the run, 3-500 characters</span></label>
+            <textarea id="upd-reason" rows="2" maxlength="500" required data-upd-reason></textarea></div>
+          <div class="f" data-upd-confirm-row hidden><label for="upd-confirm">Type <b class="mono" data-upd-phrase></b> to confirm</label>
+            <input id="upd-confirm" type="text" autocomplete="off" spellcheck="false" autocapitalize="characters" data-upd-confirm></div>
+          <p class="upd-dlg-err" data-upd-dlg-err role="alert"></p>
+          <div class="form-foot"><button class="btn" type="button" value="cancel" data-upd-dlg-cancel>Cancel</button>
+            <button class="btn pri" type="submit" value="go" data-upd-go disabled>Start</button></div>
+        </form>
+      </dialog>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ---------------- web watch (itam only: the root corpit-webwatch service) ---------------- #}
+  {% if webwatch_available() and is_platform_owner() %}
+  <div data-tabpanel="webwatch" hidden>
+    <div class="ww" data-webwatch-panel data-csrf="{{ csrf_token() }}">
+      <div class="card">
+        <div class="card-h"><h3>Prod web</h3><span class="ww-verdict" data-ww-verdict><span class="pill p-mut">reading…</span></span><span class="meta" data-ww-read></span></div>
+        <div class="card-b ww-lede"><p>Whether the load balancer has a node to send corpit traffic to, as the HA monitor on itam last saw it. Each node answers the NLB check on <span class="mono">:9089/ready/web</span>: <b>200</b> on the node that owns web, <b>503</b> on the standby. If both answer 503 every corpit name is down.</p>
+          <p class="ww-msg" data-ww-msg role="status" aria-live="polite"></p></div>
+        <div class="ww-nodes" data-ww-nodes>
+          {% for label in ('A', 'B') %}<article class="ww-node is-loading" aria-busy="true"><header><b>{{ label }}</b><span class="ww-skel"></span></header><div class="ww-skel w60"></div><div class="ww-skel w80"></div></article>{% endfor %}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Fence devices</h3><span class="meta">Pacemaker, via the monitor</span></div>
+        <div class="card-b ww-lede"><p>A fence device that has failed and is stopped makes the owner's readiness check answer 503, which takes prod web down even though the applications are fine. That is what happened on 10-13. Clearing the failure makes Pacemaker forget it and start the device again. It moves nothing, fences nothing and does not touch DRBD.</p></div>
+        <div class="ww-fences" data-ww-fences><p class="hint ww-pad">reading…</p></div>
+        <div class="ww-running" data-ww-running hidden></div>
+        <p class="ww-who hint ww-pad" data-ww-who></p>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>HA alerts</h3><span class="meta" data-ww-alerts-meta></span></div>
+        <div class="card-b"><div data-ww-active></div><p class="hint ww-repeat" data-ww-repeat></p></div>
+        <div class="tblwrap"><table class="grid">
+          <thead><tr><th>When</th><th>What</th><th>Alert</th><th>Mail</th></tr></thead>
+          <tbody data-ww-recent><tr><td colspan="4" class="hint">reading…</td></tr></tbody>
+        </table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Clears from here</h3><span class="meta">newest first</span></div>
+        <div class="tblwrap"><table class="grid">
+          <thead><tr><th>When</th><th>Device</th><th>Who</th><th>Result</th><th>Why</th></tr></thead>
+          <tbody data-ww-clears><tr><td colspan="5" class="hint">reading…</td></tr></tbody>
+        </table></div>
+      </div>
+
+      <dialog class="ww-dialog" data-ww-dialog aria-labelledby="ww-dlg-title">
+        <form method="dialog" data-ww-form>
+          <h3 id="ww-dlg-title" data-ww-dlg-title>Clear fence failure</h3>
+          <ol class="ww-plan" data-ww-dlg-plan></ol>
+          <div class="f"><label for="ww-reason">Why <span class="hint">recorded with the clear, 3-500 characters</span></label>
+            <textarea id="ww-reason" rows="2" maxlength="500" required data-ww-reason></textarea></div>
+          <div class="f"><label for="ww-confirm">Type <b class="mono" data-ww-phrase></b> to confirm</label>
+            <input id="ww-confirm" type="text" autocomplete="off" spellcheck="false" data-ww-confirm></div>
+          <p class="ww-dlg-err" data-ww-dlg-err role="alert"></p>
+          <div class="form-foot"><button class="btn" type="button" value="cancel" data-ww-dlg-cancel>Cancel</button>
+            <button class="btn pri" type="submit" value="go" data-ww-go disabled>Clear the failure</button></div>
+        </form>
+      </dialog>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ---------------- audit ---------------- #}
+  <div data-tabpanel="audit" hidden>
+    <div class="card">
+      <div class="card-h"><h3>Everything the console has done</h3><span class="meta">{{ audit_total }} events · showing the latest {{ audit_full|length }}</span></div>
+      <div class="tblwrap"><table class="grid">
+        <thead><tr><th>When</th><th>Who</th><th>What</th><th>Detail</th></tr></thead>
+        <tbody data-collection="Audit events" data-filter-column="2">{% for a in audit_full %}
+          <tr><td class="mono" style="white-space:nowrap">{{ a['ts'] }}</td><td>{{ a['user'] }}</td><td><span class="pill p-mut">{{ a['action'] }}</span></td><td class="mono">{{ a['detail'] }}</td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+      <div class="card-b" style="padding-top:8px;color:var(--ink-3);font-size:12.5px">Successful actions are recorded too, not just refusals — so the log can answer who actually did something.</div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,189 @@
+{# SITES - every *.nrpi.local name on this server: DNS, certificate, who can open it.
+   Replaces the old Subdomains + Hosts & Servers pages. Same routes as before. #}
+<section class="page" data-view="sites" hidden>
+  <div class="page-h">
+    <div><h2>Web app configuration</h2>
+      <p>Every <span class="mono">*.{{ base_domain }}</span> site on this server, with its DNS, its certificate and who can open it. Click <b>Manage</b> on a site to change any of that.</p></div>
+    <div class="actions">
+      {% if can('subdomain.create') %}<button class="btn pri" data-goto="sites" data-open="new-site">New site</button>{% endif %}
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Sites</div><div class="v">{{ subs|length }}</div><div class="n">all on {{ host_ip }}</div></div>
+    <div class="stat"><div class="k">DNS live</div><div class="v{% if dns_live_count < subs|length %} warn{% endif %}">{{ dns_live_count }}<span style="font-size:15px;color:var(--ink-3)"> / {{ subs|length }}</span></div><div class="n">name resolves on the domain controllers</div></div>
+    <div class="stat"><div class="k">Real certificate</div><div class="v{% if cert_ca_count < subs|length %} warn{% endif %}">{{ cert_ca_count }}<span style="font-size:15px;color:var(--ink-3)"> / {{ subs|length }}</span></div><div class="n">signed by NRPI-CA, no browser warning</div></div>
+    <div class="stat"><div class="k">Behind the sign-in</div><div class="v">{{ vhosts|selectattr('gated')|list|length }}<span style="font-size:15px;color:var(--ink-3)"> / {{ vhosts|length }}</span></div><div class="n">of all hosts nginx serves here</div></div>
+  </div>
+
+  {% if can('subdomain.create') %}
+  <details class="card" id="new-site" style="padding:0">
+    <summary style="list-style:none;cursor:pointer;padding:14px 18px;display:flex;align-items:center;gap:10px">
+      <svg style="width:16px;height:16px;color:var(--accent)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <b style="font-size:15px">New site</b><span class="meta" style="color:var(--ink-3);font-size:12.5px">creates the site, its certificate request and its DNS record in one go</span>
+    </summary>
+    <div class="drawer-body" style="padding:18px">
+      <form method="post" action="{{ url_for('create_subdomain') }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="_back" value="/console#sites">
+        <div class="f-row">
+          <div class="f">
+            <label for="label">Site name <span class="hint">the part before .{{ base_domain }} — lowercase letters, numbers and dashes</span></label>
+            <input id="label" type="text" name="label" placeholder="hr" maxlength="40" pattern="[a-z0-9-]+" spellcheck="false" autocapitalize="none" required>
+            <div class="fqdn-prev">becomes <b>hr</b>.{{ base_domain }} → {{ host_ip }}</div>
+          </div>
+          <div class="f">
+            <label for="dept">Who owns it <span class="hint">optional — a team or department</span></label>
+            <input id="dept" type="text" name="department" placeholder="Human Resources" maxlength="120">
+          </div>
+        </div>
+        <fieldset>
+          <legend>Who can open this site</legend>
+          <label class="f-inline"><input type="radio" name="access_mode" value="groups" checked> People in these AD groups</label>
+          <input id="access_groups" type="text" name="access_groups" list="ad-groups" placeholder="NRPI-HR-Staff, NRPI-Finance" maxlength="600" spellcheck="false" autocapitalize="none">
+          <span class="hint">Separate names with commas. Each group is checked against Active Directory first.</span>
+          <label class="f-inline" style="margin-top:12px"><input type="radio" name="access_mode" value="authenticated"> Anyone who can sign in to CorpIT</label>
+          <label class="f-inline"><input type="radio" name="access_mode" value="superadmin"> Platform owners only <span style="color:var(--ink-3)">— decide later</span></label>
+        </fieldset>
+        <div class="f">
+          <label for="notes">Notes <span class="hint">optional</span></label>
+          <textarea id="notes" name="notes" maxlength="500" placeholder="What is this site for?"></textarea>
+        </div>
+        <div class="form-foot">
+          <button class="btn pri" type="submit">Create site</button>
+          <span class="hint">It works right away with a temporary certificate. Upload the real one from <b>Manage</b> when NRPI-CA returns it.</span>
+        </div>
+      </form>
+    </div>
+  </details>
+  <datalist id="ad-groups">{% for g in group_suggestions %}<option value="{{ g }}"></option>{% endfor %}</datalist>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-h"><h3>Your sites</h3><span class="meta">{{ subs|length }} site{{ '' if subs|length == 1 else 's' }}</span></div>
+    {% for s in subs %}
+    {% set a = access_map.get(s['fqdn'], {'mode':'superadmin','groups':[],'inherited':True}) %}
+    {% set live = site_state.get(s['fqdn'], {}) %}
+    {% set ok = live.get('ok', false) %}
+    <div class="row" id="site-row-{{ s['id'] }}">
+      <span class="st {{ 'good' if ok else 'warn' }}"><i></i></span>
+      <div class="main"><b class="mono">{{ s['fqdn'] }}</b><small>{{ s['department'] or 'no owner set' }}{% if s['notes'] %} · {{ s['notes'] }}{% endif %}</small></div>
+      <div class="fact" style="min-width:110px"><div class="k">DNS</div><div class="v{% if not live.get('dns_live') %} warn{% endif %}">{{ live.get('dns_summary', 'could not be checked') }}</div></div>
+      <div class="fact" style="min-width:170px"><div class="k">Certificate</div><div class="v{% if not live.get('cert_ok') %} warn{% endif %}">{{ live.get('cert_summary', 'could not be read') }}{% if live.get('cert_expires') %} · to {{ live.get('cert_expires')[:10] }}{% endif %}</div></div>
+      <div class="fact" style="min-width:150px"><div class="k">Who can open</div><div class="v">{% if a.mode == 'authenticated' %}anyone signed in{% elif a.mode == 'groups' %}{{ a.groups|length }} AD group{{ '' if a.groups|length == 1 else 's' }}{% else %}owners only{% endif %}</div></div>
+      <div class="end">
+        {% if can('subdomain.dns') and not live.get('dns_live') %}
+        <form method="post" action="{{ url_for('push_dns', sub_id=s['id']) }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#sites">
+          <button class="btn sm pri" type="submit">Push DNS</button>
+        </form>
+        {% endif %}
+        <a class="btn sm" href="https://{{ s['fqdn'] }}/" target="_blank" rel="noopener">Open</a>
+      </div>
+    </div>
+    <details class="drawer" id="sub-{{ s['id'] }}">
+      <summary><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6l6 6-6 6"/></svg>Manage {{ s['fqdn'] }}</summary>
+      <div class="drawer-body">
+        <div class="drawer-grid">
+
+          <div class="box">
+            <h5>{% if s['fqdn'] == 'accessportal.nrpi.local' %}Approver site restriction{% else %}Who can open it{% endif %}</h5>
+            {% if s['fqdn'] == 'accessportal.nrpi.local' %}<p>This is an additional restriction on protected approver routes. It does not grant approval rights or protect public requester forms. Manage departments, AD membership and person exceptions in <a href="https://accessportal.nrpi.local/approver.html">Administrator → Approval Access</a>.</p>{% endif %}
+            <p>Today: {% if a.mode == 'authenticated' %}anyone who can sign in to CorpIT.{% elif a.mode == 'groups' %}members of {% for g in a.groups %}<span class="mono">{{ g }}</span>{% if not loop.last %}, {% endif %}{% endfor %}.{% else %}platform owners only.{% endif %}{% if a.inherited %} (No rule set for this site yet, so the default applies.){% endif %}</p>
+            {% if can('subdomain.access') %}
+            <form method="post" action="{{ url_for('set_access', sub_id=s['id']) }}">
+              <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#sites">
+              <label class="f-inline"><input type="radio" name="access_mode" value="groups" {% if a.mode == 'groups' %}checked{% endif %}> People in these AD groups</label>
+              <input type="text" name="access_groups" list="ad-groups" maxlength="600" value="{{ a.groups|join(', ') }}" placeholder="NRPI-HR-Staff, NRPI-Finance" spellcheck="false" autocapitalize="none">
+              <label class="f-inline" style="margin-top:10px"><input type="radio" name="access_mode" value="authenticated" {% if a.mode == 'authenticated' %}checked{% endif %}> Anyone who can sign in to CorpIT</label>
+              <label class="f-inline"><input type="radio" name="access_mode" value="superadmin" {% if a.mode == 'superadmin' %}checked{% endif %}> Platform owners only</label>
+              <button class="btn sm pri" type="submit" style="margin-top:8px">Save</button>
+              <span class="hint">Takes effect for each person the next time they sign in.</span>
+            </form>
+            {% else %}
+            <p style="color:var(--ink-3)">You do not have permission to change this.</p>
+            {% endif %}
+          </div>
+
+          <div class="box">
+            <h5>Certificate</h5>
+            <p>{% if live.get('cert_issuer') %}Signed by <span class="mono">{{ live.get('cert_issuer') }}</span>{% if live.get('cert_expires') %}, good until {{ live.get('cert_expires') }}{% endif %}.{% else %}The certificate nginx serves could not be read. Treat this as unknown until the file or its permissions are repaired.{% endif %}</p>
+            {% if can('subdomain.cert') %}
+            <form method="post" action="{{ url_for('deploy_cert', sub_id=s['id']) }}" enctype="multipart/form-data">
+              <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#sites">
+              <div class="f"><label>Upload the certificate NRPI-CA returned <span class="hint">.p7b is best; .cer or .pem also works</span></label>
+                <input type="file" name="cert_file" accept=".p7b,.cer,.crt,.pem" required></div>
+              <button class="btn sm pri" type="submit">Check and install</button>
+              <span class="hint">It is checked against this site's key and name before anything changes.</span>
+            </form>
+            {% else %}
+            <p style="color:var(--ink-3)">You do not have permission to install certificates.</p>
+            {% endif %}
+            {% if csr_map.get(s['id']) %}
+            <details class="why"><summary>Need the request file for NRPI-CA?</summary>
+              <div><p>Paste this into NRPI-CA web enrollment (<span class="mono">http://pki04awsw2us.nrpi.local/certsrv/</span>, template <b>Web Server</b>), then upload the answer above.</p>
+              <pre class="csr">{{ csr_map[s['id']] }}</pre></div></details>
+            {% endif %}
+          </div>
+
+          <div class="box">
+            <h5>Details</h5>
+            <dl class="kv">
+              <dt>Points to</dt><dd class="mono">{{ host_ip }}</dd>
+              <dt>DNS now</dt><dd>{{ live.get('dns_summary', 'could not be checked') }}{% if live.get('dns_addresses') %} · {{ live.get('dns_addresses')|join(', ') }}{% endif %}</dd>
+              <dt>Last DNS push</dt><dd>{{ s['dns_status'] or 'not recorded' }}{% if s['dns_pushed_at'] %} · {{ s['dns_pushed_at'] }}{% endif %}</dd>
+              <dt>Created</dt><dd>{{ s['created_at'] }} by {{ s['created_by'] }}</dd>
+              <dt>Status</dt><dd>{{ s['status'] }}</dd>
+              {% if s['cert_deployed_at'] %}<dt>Cert installed</dt><dd>{{ s['cert_deployed_at'] }}</dd>{% endif %}
+            </dl>
+            {% if can('subdomain.dns') %}
+            <form method="post" action="{{ url_for('push_dns', sub_id=s['id']) }}" style="margin-top:12px">
+              <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#sites">
+              <button class="btn sm" type="submit">{{ 'Re-check DNS' if live.get('dns_live') else 'Push DNS' }}</button>
+            </form>
+            {% endif %}
+            <details class="why"><summary>What "parked" means</summary>
+              <div>A new site shows a shared "coming soon" page until someone points its nginx config (<span class="mono">/etc/nginx/corpit-ha/available/sub-{{ s['label'] }}</span>) at the real content. That step is done on the server, not here.</div></details>
+          </div>
+
+          {% if can('subdomain.delete') %}
+          <div class="box danger">
+            <h5>Remove this site</h5>
+            <p>Deletes the site and its certificate from this server. The DNS name is left in place.</p>
+            <form method="post" action="{{ url_for('delete_subdomain', sub_id=s['id']) }}">
+              <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="_back" value="/console#sites">
+              <button class="btn sm danger" type="submit" data-confirm="Remove {{ s['fqdn'] }}? Its site and certificate are deleted. This cannot be undone from the console.">Remove {{ s['fqdn'] }}</button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </details>
+    {% else %}
+    <div class="empty"><b>No sites yet.</b> Create one above — it is live within seconds.</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3>Everything nginx serves here</h3><span class="meta">read from the server's config at page load</span></div>
+    <div class="tblwrap"><table class="grid">
+      <thead><tr><th>Host</th><th>Sign-in</th><th>Certificate</th><th>Expires</th></tr></thead>
+      <tbody>{% for v in vhosts %}
+        <tr>
+          <td class="mono">{{ v.server_name }}</td>
+          <td>{% if v.gated %}<span class="st good"><i></i>required</span>{% else %}<span class="st warn"><i></i>open</span>{% endif %}</td>
+          <td{% if v.cert_level != 'good' %} style="color:var(--warn)"{% endif %}>{{ v.cert_summary }}</td>
+          <td class="mono">{{ v.cert_expires or '—' }}</td>
+        </tr>
+      {% endfor %}</tbody>
+    </table></div>
+    <div class="card-b" style="padding-top:10px">
+      <details class="why"><summary>How DNS and certificates work here</summary>
+        <div>
+          <p><b>DNS</b> is written to all three domain controllers (adcoredc16009, adcohidc16009, dcw13sna01us). A zone backup is taken first, and a name that already points somewhere else is never changed. "Pending" means the first controller has it and the others are catching up — push again in a few minutes.</p>
+          <p><b>Certificates</b> come from <span class="mono">NRPI-PKI04AWSW2US-CA</span>. The console makes the request file when a site is created; you take it to <span class="mono">http://pki04awsw2us.nrpi.local/certsrv/</span> and upload the answer. Before installing, the console confirms the certificate matches the site's key, then checks nginx is really serving it.</p>
+          <p>One host must never go behind the sign-in: <span class="mono">directory.{{ base_domain }}</span>. Phones and Macs talk to it with a plain password and cannot follow a login redirect.</p>
+        </div></details>
+    </div>
+  </div>
+</section>

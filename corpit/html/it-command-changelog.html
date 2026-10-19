@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<!-- CorpIT Hub deployment. Ported from itam.nrpi.local/it-command-changelog.html
+     (source sha256 3e57a0684305d87cfa806a9eb10f2914fcec21e4175a09934c3178e8249d1d1e) on 2026-09-07.
+     The ITAM copy is untouched and still live.
+
+     ITAM defects corrected here:
+       1. showNotice() stripped .active from every panel and tab. Nothing put it
+          back, so a failed load followed by a SUCCESSFUL retry hid the notice and
+          left an empty page - the retry button looked broken. The notice is now
+          a sibling that hides itself; panels are never deactivated.
+       2. showNotice() interpolated its `body` argument raw into innerHTML. Only
+          pre-escaped callers existed, so it was a sink waiting for a third
+          caller. It now takes text and sets textContent.
+       3. Inline onclick handlers built as onclick="openDrawer('${escapeAttr(k)}')".
+          escapeAttr is escapeHtml, which turns ' into &#39; - and the HTML parser
+          decodes that back to a real quote BEFORE the JS is parsed, so an
+          app_key or app_name containing a quote breaks out of the string and
+          executes. app_registry is admin-written, so this was privilege
+          escalation from registry-write to script-in-an-admin-browser. All
+          inline handlers are gone; every row is bound with addEventListener and
+          carries its key in a data- attribute.
+       4. app_url went into href through escapeHtml, which escapes markup but
+          does not restrict a URL scheme. A registry row with a javascript: URL
+          put a live script URL behind "Open app". Only http/https is linked now.
+       5. The sidebar footer carried a hardcoded green dot with a glow. Nothing
+          ever wrote to it: it read "healthy" while the registry API was down.
+          It now reports the actual load state (ok / stale / failed).
+       6. GET /api/bugs/changelog never selected released_by, but the page
+          rendered it in three places. "Released by" has never displayed on
+          either host. The corpit route now selects it.
+       7. The drawer sat at translateX(100%) with no visibility change, so its
+          links and buttons stayed in the tab order while closed.
+       8. escapeStrip() was named like an escaper and returned its input
+          unchanged. Removed.
+       9. Releases with a NULL date grouped under '0000-00', which
+          monthLabel() rendered as "December 1899". They now group under
+          "Date unknown".
+      10. APP_VERSION was hardcoded in the page AND in two markup pills. On the
+          one page whose subject is version truth, the version now comes from
+          the app_registry row for this app.
+      11. The render ran inside the fetch's try block, so any exception in a
+          chart or a table was caught by the network handler and shown to the
+          operator as "the registry API didn't respond". Rendering has its own
+          try and its own message now: the data arrived, the page failed to draw it.
+      12. The category filter was built from a hardcoded four-value constant.
+          app_registry holds nine distinct values, so eight apps displayed a
+          category in their row that the filter could not select. The filter is
+          derived from the data; the constant only decides sort order.
+
+     Corpit conventions added: data-theme + light palette, it-theme/
+     it-theme-toggle, it-depth, it-observe beacon, it-topbar, it-version
+     watermark. /it-nav.js is NOT loaded - it does not exist on corpit and
+     it-topbar mounts into this page's own header.topbar. -->
+<meta charset="UTF-8">
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Changelog — IT Command</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5' fill='%2306b6d4'/%3E%3C/svg%3E">
+<link href="/fonts/fonts.css" rel="stylesheet">
+<style>
+/* ═══ Deep Ocean palette — suite standard, 1:1 with zscaler-command-center (LIVE) ═══
+   bg #0A1628 · panels #0F1F35/#18304E · lines #1F3A5C/#2D4D7A · text #EEF4FB/#8FA3BE/#5A6F8E
+   accent #0EA5E9/#38BDF8 · status #10B981 #F59E0B #EF4444 #F97316 */
+:root {
+  --bg: #0A1628;
+  --panel: #0F1F35;
+  --surface: #0F1F35;
+  --surface-2: #18304E;
+  --surface3: #21406A;
+  --border: #1F3A5C;
+  --border2: #2D4D7A;
+
+  --text: #EEF4FB;
+  --text2: #8FA3BE;
+  --muted: #5A6F8E;
+
+  --blue: #38BDF8;
+  --blue-dim: rgba(56,189,248,.10);
+  --peach: #F97316;
+  --peach-dim: rgba(249,115,22,.10);
+  --lavender: #A78BFA;
+  --lavender-dim: rgba(167,139,250,.12);
+  --salmon: #EF4444;
+  --salmon-dim: rgba(239,68,68,.10);
+  --teal: #2DD4BF;
+  --teal-dim: rgba(45,212,191,.10);
+  --green: #10B981;
+  --green-dim: rgba(16,185,129,.12);
+  --accent: #0EA5E9;
+  --amber-dim: rgba(14,165,233,.10);
+
+  --font: 'IBM Plex Sans', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --sidebar-w: 260px;
+  --header-h: 48px;
+  --radius: 10px;
+  --radius2: 6px;
+
+  --surface2: var(--surface-2);
+  --text3: var(--muted);
+  --accent2: #38BDF8;
+  --cyan: #0EA5E9;
+  --cyan-dim: rgba(14,165,233,.12);
+  --red: var(--salmon);
+  --red-dim: rgba(239,68,68,.12);
+  --yellow: #F59E0B;
+  --yellow-dim: rgba(245,158,11,.12);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --dur-fast: 160ms;
+  --dur-base: 220ms;
+}
+/* Light mode. Same token names, light values - every rule below reads through
+   the tokens, so no rule needs a second declaration. --accent and --blue are
+   absent deliberately: it-theme.js writes them as INLINE styles on :root, which
+   outranks any stylesheet rule, and it-theme-toggle.js re-asserts the darkened
+   twin per mode. Status hues are darkened here because the dark-mode values do
+   not clear AA on a light ground. */
+[data-theme="light"] {
+  --bg: #F4F6F9;
+  --panel: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-2: #EDF1F6;
+  --surface3: #E2E8F0;
+  --border: #D3DBE5;
+  --border2: #BAC6D4;
+
+  --text: #16212F;
+  --text2: #4A5A70;
+  --muted: #6B7C93;
+
+  --blue-dim: rgba(14,124,134,.10);
+  --peach: #B45309;
+  --peach-dim: rgba(180,83,9,.10);
+  --lavender: #6D4AC4;
+  --lavender-dim: rgba(109,74,196,.11);
+  --salmon: #B3312C;
+  --salmon-dim: rgba(179,49,44,.09);
+  --teal: #0E7C86;
+  --teal-dim: rgba(14,124,134,.10);
+  --green: #0F7A54;
+  --green-dim: rgba(15,122,84,.10);
+  --amber-dim: rgba(154,102,8,.10);
+
+  --cyan: #0E7C86;
+  --cyan-dim: rgba(14,124,134,.11);
+  --red-dim: rgba(179,49,44,.10);
+  --yellow: #9A6608;
+  --yellow-dim: rgba(154,102,8,.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+}
+a { color: var(--accent2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ─── Sidebar (fixed-left cockpit) ─── */
+.sidebar {
+  width: var(--sidebar-w); min-width: var(--sidebar-w);
+  background: var(--panel);
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+}
+.sidebar-header {
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.sidebar-header .brand-dot {
+  width: 8px; height: 8px; background: var(--cyan);
+  border-radius: 50%; box-shadow: 0 0 8px var(--cyan); flex-shrink: 0;
+}
+.sidebar-header h1 { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: .3px; line-height: 1.2; }
+.sidebar-header h1 span {
+  display: block; font-size: 10px; font-weight: 600;
+  color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px;
+}
+.sidebar-body {
+  flex: 1; padding: 16px 16px 12px;
+  display: flex; flex-direction: column; gap: 18px;
+  overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.sidebar-footer {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  font-size: 11px; font-weight: 500; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+/* The dot reports the registry load state. It used to be hardcoded green
+   with a glow, which read "healthy" while the API was down. */
+.sidebar-footer .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.sidebar-footer .dot.ok   { background: var(--green); box-shadow: 0 0 6px var(--green-dim); }
+.sidebar-footer .dot.warn { background: var(--yellow); box-shadow: 0 0 6px var(--yellow-dim); }
+.sidebar-footer .dot.bad  { background: var(--salmon); box-shadow: 0 0 6px var(--salmon-dim); }
+.sidebar-footer .ver {
+  margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text2);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 1px 8px; letter-spacing: .3px;
+}
+.sidebar-section { display: flex; flex-direction: column; gap: 8px; }
+.badurl { color: var(--yellow); cursor: help; text-decoration: underline dotted; }
+.sidebar-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--text3); font-weight: 600; padding-left: 2px;
+}
+.stat-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius2); padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 2px;
+  cursor: pointer; transition: all .15s;
+}
+.stat-card:hover { border-color: var(--border2); background: var(--surface3); }
+.stat-card .v { font-size: 20px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+.stat-card .l { font-size: 11px; color: var(--text2); letter-spacing: .3px; }
+.stat-card.warn .v { color: var(--yellow); }
+.stat-card.bad  .v { color: var(--red); }
+.stat-card.good .v { color: var(--green); }
+.stat-card.cyan .v { color: var(--cyan); }
+.stat-card.lav  .v { color: var(--lavender); }
+.sidebar-meta { font-size: 11px; color: var(--text3); font-family: var(--mono); padding: 6px 2px; line-height: 1.6; }
+.sidebar-meta b { color: var(--text2); font-weight: 500; }
+.side-release {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: var(--radius2);
+  font-size: 11px; color: var(--text2); cursor: pointer; transition: background .12s;
+}
+.side-release:hover { background: var(--surface2); }
+.side-release .app { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text2); }
+.side-release .v { font-family: var(--mono); font-size: 10px; color: var(--cyan); flex-shrink: 0; }
+.side-release .d { font-family: var(--mono); font-size: 10px; color: var(--text3); flex-shrink: 0; }
+
+/* ─── Main / topbar ─── */
+.main-wrap {
+  margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh;
+  /* min-width:0 defeats the flex automatic minimum size. Without it this
+     column floors at its content's min-content width, so the off-canvas
+     sidebar could not actually narrow the shell and the page scrolled
+     sideways on a phone. */
+  min-width: 0;
+}
+.topbar {
+  height: var(--header-h); background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; gap: 16px;
+  position: sticky; top: 0; z-index: 40;
+  min-width: 0; /* same floor as .main-wrap, one level down */
+}
+.topbar-title { font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: .2px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* .ittb (the shared account dock from it-topbar.js) is flex-shrink:0 and is
+   not this page's to reflow. Something ahead of it has to yield, so the app
+   name is the part that truncates. */
+.topbar-title .tb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.topbar-title .version-pill {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  color: var(--accent); background: var(--amber-dim);
+  border: 1px solid var(--accent); border-radius: 10px;
+  padding: 1px 8px; letter-spacing: .3px;
+}
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.topbar-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; font-size: 12px; font-weight: 500; font-family: var(--font);
+  border: 1px solid var(--border); border-radius: var(--radius2);
+  background: transparent; color: var(--text2);
+  cursor: pointer; transition: all 150ms; text-decoration: none; white-space: nowrap;
+}
+.topbar-btn:hover { border-color: var(--border2); color: var(--text); background: var(--surface-2); }
+#itNav { display: flex; align-items: center; gap: 6px; }
+.content-area { flex: 1; padding: 20px 24px 48px; min-width: 0; }
+.page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.page-head h1 { font-size: 22px; font-weight: 600; letter-spacing: -.2px; }
+.page-head .sub { font-size: 12px; color: var(--text2); margin-top: 3px; font-family: var(--mono); }
+
+/* ─── Tabs ─── */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+.tab {
+  background: none; border: none; color: var(--text2);
+  padding: 10px 14px; font-family: var(--font); font-size: 13px; font-weight: 500;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  display: flex; align-items: center; gap: 8px; white-space: nowrap;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+.tab .count { background: var(--surface3); color: var(--text2); font-size: 11px; padding: 1px 7px; border-radius: 9px; font-family: var(--mono); }
+.tab.active .count { background: var(--accent); color: #fff; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ─── Cards, tables, filters ─── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.card-head {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+.card-head h2 { font-size: 14px; font-weight: 600; }
+.card-head .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.section-note { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+.filter-input, .filter-select {
+  background: var(--surface2); border: 1px solid var(--border2); color: var(--text);
+  border-radius: var(--radius2); padding: 6px 10px; font-family: var(--font); font-size: 12px; min-width: 140px;
+}
+.filter-input:focus, .filter-select:focus { outline: none; border-color: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  background: var(--surface2); color: var(--text2); text-align: left;
+  padding: 10px 14px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px;
+  border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; white-space: nowrap;
+}
+thead th:hover { color: var(--text); }
+thead th .sort { margin-left: 4px; color: var(--text3); font-size: 10px; }
+tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+tbody tr:hover { background: var(--surface2); }
+tbody td { padding: 10px 14px; vertical-align: top; }
+tbody td.mono { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; letter-spacing: .2px; }
+.badge.ok { background: var(--green-dim); color: var(--green); }
+.badge.bad { background: var(--red-dim); color: var(--red); }
+.badge.warn { background: var(--yellow-dim); color: var(--yellow); }
+.badge.info { background: var(--cyan-dim); color: var(--cyan); }
+.badge.muted { background: var(--surface3); color: var(--text2); }
+.empty-state { padding: 40px 20px; text-align: center; color: var(--text2); font-size: 14px; }
+.pending-state { padding: 34px 22px; text-align: center; color: var(--text2); font-size: 13px; line-height: 1.6; }
+.pending-state .pi { font-size: 22px; display: block; margin-bottom: 8px; color: var(--text3); }
+.pending-state code { font-family: var(--mono); background: var(--surface3); color: var(--cyan); padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid var(--border2); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.hidden { display: none !important; }
+
+/* ─── Overview stat tiles + chart primitives ─── */
+.v2-grid { display: grid; gap: 16px; }
+.v2-cols-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.ov-stats { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 12px; }
+.ov-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius2); padding: 12px 14px; cursor: pointer; transition: all .15s; }
+.ov-tile:hover { border-color: var(--border2); background: var(--surface2); }
+.ov-tile .v { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--text); }
+.ov-tile .l { font-size: 11px; color: var(--text2); margin-top: 2px; letter-spacing: .3px; }
+.ov-tile.warn .v { color: var(--yellow); } .ov-tile.bad .v { color: var(--red); }
+.ov-tile.good .v { color: var(--green); } .ov-tile.cyan .v { color: var(--cyan); }
+.ov-tile.lav .v { color: var(--lavender); }
+.chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+.chart-card h3 { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
+.donut-wrap { display: flex; align-items: center; gap: 18px; }
+.donut { width: 120px; height: 120px; flex-shrink: 0; transform: rotate(-90deg); }
+.donut-legend { flex: 1; display: flex; flex-direction: column; gap: 7px; font-size: 12px; }
+.donut-legend .li { display: flex; align-items: center; gap: 8px; color: var(--text2); }
+.donut-legend .sw { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.donut-legend .li b { color: var(--text); font-family: var(--mono); margin-left: auto; }
+.hbars { display: flex; flex-direction: column; gap: 9px; }
+.hbar { display: grid; grid-template-columns: 150px 1fr 38px; gap: 10px; align-items: center; font-size: 12px; }
+.hbar .hb-label { color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.hbar .hb-label:hover { color: var(--accent2); }
+.hbar .hb-track { display: block; background: var(--surface3); border-radius: 5px; height: 10px; overflow: hidden; }
+.hbar .hb-fill { display: block; height: 100%; border-radius: 5px; transition: width .6s var(--ease-out); }
+.hbar .hb-val { font-family: var(--mono); color: var(--text); text-align: right; }
+.histo { display: flex; align-items: flex-end; gap: 8px; height: 130px; padding-top: 8px; }
+.histo .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; height: 100%; }
+.histo .col .bar { width: 100%; background: linear-gradient(180deg, var(--accent), var(--blue)); border-radius: 4px 4px 0 0; min-height: 2px; transition: height .6s var(--ease-out); }
+.histo .col .cv { font-family: var(--mono); font-size: 11px; color: var(--text); }
+.histo .col .cl { font-size: 10px; color: var(--text3); text-align: center; white-space: nowrap; }
+
+/* ─── Change-type tags (SemVer / Keep-a-Changelog vocabulary) ─── */
+.tag {
+  display: inline-block; min-width: 74px; text-align: center;
+  font-size: 9.5px; letter-spacing: 1px; font-weight: 700;
+  padding: 3px 8px; border-radius: 4px; text-transform: uppercase;
+  flex-shrink: 0; line-height: 1.3;
+}
+.tag.added      { background: var(--green-dim);    color: var(--green); }
+.tag.changed    { background: var(--blue-dim);     color: var(--blue); }
+.tag.fixed      { background: var(--yellow-dim);   color: var(--yellow); }
+.tag.removed    { background: var(--red-dim);      color: var(--salmon); }
+.tag.security   { background: var(--lavender-dim); color: var(--lavender); }
+.tag.deprecated { background: var(--surface3);     color: var(--text2); }
+.type-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 11px; border-radius: 999px;
+  border: 1px solid var(--border2); background: var(--surface2);
+  color: var(--text2); font-size: 11px; font-weight: 600; letter-spacing: .3px;
+  cursor: pointer; user-select: none; transition: all .12s; text-transform: capitalize;
+}
+.type-chip .sw { width: 8px; height: 8px; border-radius: 50%; }
+.type-chip:hover { border-color: var(--border2); color: var(--text); background: var(--surface3); }
+.type-chip.on { border-color: var(--accent); color: var(--text); background: var(--amber-dim); }
+.major-flag {
+  font-size: 9.5px; padding: 2px 8px; border-radius: 999px;
+  background: var(--peach-dim); color: var(--peach); border: 1px solid rgba(251,146,60,.35);
+  letter-spacing: .8px; text-transform: uppercase; font-weight: 700; white-space: nowrap;
+}
+.vpill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: 999px;
+  background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(6,182,212,.35);
+  font-size: 11px; font-weight: 600; letter-spacing: .3px; font-family: var(--mono); white-space: nowrap;
+}
+
+/* ─── Timeline (release feed) ─── */
+.month-head {
+  display: flex; align-items: center; gap: 12px;
+  margin: 22px 0 10px; position: sticky; top: calc(var(--header-h)); z-index: 5;
+  background: linear-gradient(180deg, var(--bg) 70%, transparent);
+  padding: 8px 0 6px;
+}
+.month-head:first-child { margin-top: 0; }
+.month-head .m { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: .3px; }
+.month-head .n { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.month-head .rule { flex: 1; height: 1px; background: var(--border); }
+@keyframes rel-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.release-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 12px; overflow: hidden;
+  opacity: 0; animation: rel-in var(--dur-base) var(--ease-out) forwards;
+}
+.release-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 13px 18px; border-bottom: 1px solid var(--border);
+}
+.release-head .app {
+  font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer;
+}
+.release-head .app:hover { color: var(--accent2); }
+.release-head .cat { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); font-weight: 600; }
+.release-head .date { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text3); white-space: nowrap; }
+.release-body { padding: 8px 18px 12px; }
+ul.changes { list-style: none; }
+ul.changes li { display: flex; gap: 12px; padding: 6px 0; font-size: 13px; color: var(--text2); align-items: flex-start; line-height: 1.55; }
+ul.changes li .desc { flex: 1; min-width: 0; }
+ul.changes li .by { font-family: var(--mono); font-size: 10px; color: var(--text3); white-space: nowrap; padding-top: 2px; }
+
+/* ─── Apps table extras ─── */
+td.appcell b { color: var(--text); font-weight: 600; }
+td.appcell .desc {
+  display: block; color: var(--text3); font-size: 11px; margin-top: 2px;
+  max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cat-pill { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--surface3); color: var(--text2); white-space: nowrap; }
+.cat-pill.dashboards { background: var(--cyan-dim); color: var(--cyan); }
+.cat-pill.diagnostics { background: var(--teal-dim); color: var(--teal); }
+.cat-pill.actions { background: var(--lavender-dim); color: var(--lavender); }
+
+/* ─── Drawer (app detail) ─── */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 90; display: none; }
+.drawer-backdrop.open { display: block; }
+.drawer {
+  position: fixed; top: 0; right: 0; width: min(720px, 100%); height: 100vh;
+  background: var(--surface); border-left: 1px solid var(--border); z-index: 100;
+  transform: translateX(100%); overflow-y: auto;
+  /* visibility, not just transform: a transformed panel is still painted, still
+     hit-testable and still in the tab order, so every link and button inside it
+     was reachable by Tab while the drawer was closed. The delay keeps the slide
+     animation visible on the way out. */
+  visibility: hidden;
+  transition: transform .2s, visibility 0s linear .2s;
+}
+.drawer.open { transform: translateX(0); visibility: visible; transition: transform .2s, visibility 0s; }
+.drawer-head {
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  position: sticky; top: 0; background: var(--surface); z-index: 2;
+}
+.drawer-head h2 { font-size: 16px; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.drawer-head .sub { color: var(--text2); font-size: 12px; font-family: var(--mono); }
+.drawer-close { background: none; border: none; color: var(--text2); font-size: 22px; cursor: pointer; padding: 0 6px; }
+.drawer-close:hover { color: var(--text); }
+.drawer-body { padding: 20px 24px; }
+.drawer-body h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); margin: 20px 0 10px; font-weight: 600; }
+.drawer-body h3:first-child { margin-top: 0; }
+.kv { font-size: 13px; line-height: 1.8; }
+.kv b { color: var(--text2); font-weight: 500; min-width: 130px; display: inline-block; }
+.drawer-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.drawer-actions .act {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: var(--radius2);
+  border: 1px solid var(--border2); background: var(--surface2); color: var(--text2);
+  cursor: pointer; text-decoration: none; font-family: var(--font); transition: all .12s;
+}
+.drawer-actions .act:hover { border-color: var(--accent); color: var(--accent2); text-decoration: none; }
+.ver-block { padding: 14px 0; border-top: 1px dashed var(--border); }
+.ver-block:first-of-type { border-top: 0; }
+.ver-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.ver-head .v { font-family: var(--mono); font-weight: 700; color: var(--text); font-size: 14px; }
+.ver-head .date { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+/* ─── Auth / error notice ─── */
+.notice-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 40px 24px; text-align: center;
+}
+.notice-card .ico { font-size: 26px; margin-bottom: 10px; color: var(--text3); }
+.notice-card h2 { font-size: 16px; margin-bottom: 6px; }
+.notice-card p { color: var(--text2); font-size: 13px; max-width: 460px; margin: 0 auto 16px; line-height: 1.6; }
+.notice-card .btn {
+  background: var(--accent); color: #fff; border: none; border-radius: var(--radius2);
+  padding: 9px 20px; font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.notice-card .btn:hover { background: var(--accent2); }
+
+/* ─── Toast ─── */
+#clToast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 10000; padding: 11px 18px; border-radius: 8px; font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4); transition: opacity .3s; opacity: 0; pointer-events: none;
+  background: var(--surface2); border: 1px solid var(--border2); color: var(--text);
+}
+
+/* ─── Responsive + sidebar collapse ─── */
+.sb-toggle { display: none; }
+.sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 49; display: none; }
+.sidebar-backdrop.open { display: block; }
+@media (max-width: 1100px) {
+  .sidebar { transform: translateX(-100%); transition: transform .2s; }
+  .sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,.5); }
+  .main-wrap { margin-left: 0; }
+  .sb-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 30px; border: 1px solid var(--border); border-radius: var(--radius2);
+    background: transparent; color: var(--text2); cursor: pointer; font-size: 16px; margin-right: 6px;
+  }
+  .ov-stats { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .v2-cols-2 { grid-template-columns: 1fr; }
+  .hbar { grid-template-columns: 110px 1fr 38px; }
+}
+@media (max-width: 640px) {
+  .ov-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  /* Header budget at 375px: 375 - 24 padding - 16 gaps = 335 for the three
+     children, of which the account dock is a fixed 115. Reclaim the rest
+     from our own chrome: tighter padding/gap, and Refresh drops to its
+     glyph. The button keeps its aria-label and title, so the control still
+     announces what it does. */
+  .topbar { padding: 0 12px; gap: 8px; }
+  .topbar-btn .btn-label { display: none; }
+  .topbar-btn { padding: 5px 9px; }
+}
+
+/* ─── Accessible focus + reduced motion ─── */
+.tab:focus-visible, .topbar-btn:focus-visible, .ov-tile:focus-visible, .type-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .release-card { animation: none; opacity: 1; }
+  .drawer { transition: none; }
+  .hbar .hb-fill, .histo .col .bar { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══ -->
+<div class="sidebar-backdrop" id="sbBackdrop" onclick="setSidebar(false)"></div>
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <span class="brand-dot"></span>
+    <h1>IT Command<span>Changelog</span></h1>
+  </div>
+  <div class="sidebar-body">
+    <div class="sidebar-section">
+      <div class="sidebar-label">At A Glance</div>
+      <div class="stat-card cyan" onclick="switchTab('apps')">
+        <div class="v" id="sc-apps">–</div>
+        <div class="l">Apps tracked</div>
+      </div>
+      <div class="stat-card" onclick="switchTab('timeline')">
+        <div class="v" id="sc-releases">–</div>
+        <div class="l">Releases (all time)</div>
+      </div>
+      <div class="stat-card good" onclick="filterTimeline({days:30})">
+        <div class="v" id="sc-recent">–</div>
+        <div class="l">Releases · last 30 days</div>
+      </div>
+      <div class="stat-card lav" onclick="filterTimeline({type:'security'})">
+        <div class="v" id="sc-security">–</div>
+        <div class="l">Security changes</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Latest Releases</div>
+      <div id="sideReleases" class="sidebar-meta">–</div>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <span class="dot" id="regDot" title="Registry state unknown - not loaded yet"></span>
+    <span id="regState">Release Registry</span>
+    <span class="ver" id="sidebarVersion">&mdash;</span>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="topbar-title">
+      <button class="sb-toggle" onclick="toggleSidebar()" aria-label="Toggle menu" title="Menu">☰</button>
+      <span class="tb-name">Changelog</span>
+      <span class="version-pill" id="topbarVersion">&mdash;</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="topbar-btn" onclick="loadData()" aria-label="Refresh"
+              title="Re-fetch the changelog from the registry">
+        <span id="refreshIcon" aria-hidden="true">↻</span><span class="btn-label">&nbsp;Refresh</span>
+      </button>
+    </div>
+  </header>
+  <div class="content-area">
+    <div class="page-head">
+      <div>
+        <h1>Release Center</h1>
+        <div class="sub" id="pageSub">Release history across the IT Command platform · SemVer (MAJOR.MINOR.PATCH)</div>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Changelog sections">
+      <button class="tab active" role="tab" aria-selected="true" aria-controls="panel-overview" data-panel="overview">Overview</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="panel-timeline" data-panel="timeline">Timeline <span class="count" id="tc-timeline">–</span></button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="panel-apps" data-panel="apps">Apps <span class="count" id="tc-apps">–</span></button>
+    </div>
+
+    <!-- Global load / auth / error states -->
+    <div id="stateNotice" class="notice-card hidden"></div>
+
+    <!-- ═══ Overview ═══ -->
+    <section class="panel active" id="panel-overview" role="tabpanel">
+      <div class="ov-stats" style="margin-bottom:16px">
+        <div class="ov-tile cyan" tabindex="0" onclick="switchTab('apps')"><div class="v" id="ov-apps">–</div><div class="l">Apps tracked</div></div>
+        <div class="ov-tile" tabindex="0" onclick="switchTab('timeline')"><div class="v" id="ov-releases">–</div><div class="l">Releases</div></div>
+        <div class="ov-tile" tabindex="0" onclick="switchTab('timeline')"><div class="v" id="ov-entries">–</div><div class="l">Changelog entries</div></div>
+        <div class="ov-tile good" tabindex="0" onclick="filterTimeline({days:30})"><div class="v" id="ov-recent">–</div><div class="l">Releases · 30d</div></div>
+        <div class="ov-tile warn" tabindex="0" onclick="filterTimeline({major:true})"><div class="v" id="ov-major">–</div><div class="l">Major releases</div></div>
+        <div class="ov-tile lav" tabindex="0" onclick="filterTimeline({type:'security'})"><div class="v" id="ov-security">–</div><div class="l">Security changes</div></div>
+      </div>
+
+      <div class="v2-grid v2-cols-2" style="margin-bottom:16px">
+        <div class="chart-card">
+          <h3>Release cadence · last 12 months</h3>
+          <div class="histo" id="cadenceHisto"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Change mix</h3>
+          <div class="donut-wrap">
+            <svg class="donut" id="typeDonut" viewBox="0 0 42 42"></svg>
+            <div class="donut-legend" id="typeLegend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="v2-grid v2-cols-2">
+        <div class="chart-card">
+          <h3>Most active apps</h3>
+          <div class="hbars" id="activeBars"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Latest releases</h2><span class="section-note">Most recent first</span></div>
+          <div id="latestFeed" style="padding:6px 4px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ Timeline ═══ -->
+    <section class="panel" id="panel-timeline" role="tabpanel">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head">
+          <h2>Filters</h2>
+          <div class="filters">
+            <input class="filter-input" id="tlSearch" placeholder="Search entries, apps, versions…">
+            <select class="filter-select" id="tlApp"><option value="">All apps</option></select>
+            <select class="filter-select" id="tlCat"><option value="">All categories</option></select>
+            <select class="filter-select" id="tlRange">
+              <option value="">All time</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="365">Last 12 months</option>
+            </select>
+          </div>
+        </div>
+        <div style="padding:12px 18px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;" id="typeChips"></div>
+      </div>
+      <div id="timelineBody"><div class="empty-state">Loading…</div></div>
+    </section>
+
+    <!-- ═══ Apps ═══ -->
+    <section class="panel" id="panel-apps" role="tabpanel">
+      <div class="card">
+        <div class="card-head">
+          <h2>Registered apps</h2>
+          <div class="filters">
+            <input class="filter-input" id="appSearch" placeholder="Search apps…">
+            <select class="filter-select" id="appCat"><option value="">All categories</option></select>
+          </div>
+        </div>
+        <div style="overflow:auto;">
+          <table id="appsTable">
+            <thead><tr>
+              <th data-sort="name">App</th>
+              <th data-sort="category">Category</th>
+              <th data-sort="version">Version</th>
+              <th data-sort="entries">Entries</th>
+              <th data-sort="last">Last release</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="appsBody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ═══ Drawer ═══ -->
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <div class="drawer-head">
+    <div>
+      <h2 id="drawerTitle">App</h2>
+      <div class="sub" id="drawerKey"></div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">×</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<div id="clToast"></div>
+
+<link rel="stylesheet" href="/it-depth.css">
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="it-command-changelog"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// IT Command — Changelog v2 (Release Center)
+// Read-only. Single data source: GET /api/bugs/changelog (contract unchanged).
+// ═══════════════════════════════════════════════════════════════════════
+// This page's own version comes from the registry it renders, not from a
+// constant beside it. A changelog that hardcodes its own version is asserting
+// the one fact it exists to look up, and the ITAM copy proved the point: the
+// constant said 2.0.1 while both markup pills said v2.0.0.
+const APP_KEY = 'it-command-changelog';
+function syncVersionPills() {
+  const me = state.apps.find(a => a.app_key === APP_KEY);
+  const tag = me && me.current_version ? 'v' + me.current_version : '\u2014';
+  const title = me && me.current_version
+    ? 'Version from the app_registry row for ' + APP_KEY
+    : 'No app_registry row for ' + APP_KEY + ' - version unknown';
+  ['topbarVersion', 'sidebarVersion'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = tag; el.title = title; }
+  });
+  if (me && me.current_version) document.documentElement.setAttribute('data-version', me.current_version);
+}
+
+const CHANGE_TYPES = ['added', 'changed', 'fixed', 'removed', 'security', 'deprecated'];
+const TYPE_COLORS = {
+  added: 'var(--green)', changed: 'var(--blue)', fixed: 'var(--yellow)',
+  removed: 'var(--salmon)', security: 'var(--lavender)', deprecated: 'var(--muted)'
+};
+const CAT_ORDER = ['Dashboards', 'Diagnostics', 'Actions', 'Other'];
+
+let state = {
+  apps: [], entries: [], releases: [],
+  loaded: false,
+  tl: { search: '', app: '', cat: '', range: '', types: new Set(), major: false },
+  appSort: { col: 'last', dir: 'desc' }
+};
+
+// ── Utilities ─────────────────────────────────────────────────────────
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+function dateKey(d) { return d ? String(d).slice(0, 10) : ''; }
+function fmtDate(d) {
+  const k = dateKey(d);
+  if (!k) return '—';
+  const p = k.split('-');
+  if (p.length < 3) return k;
+  const dt = new Date(+p[0], +p[1] - 1, +p[2]);
+  if (isNaN(dt.getTime())) return k;
+  return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+function monthLabel(ym) {
+  // A release row with a NULL released_at used to fall into the '0000-00'
+  // bucket, which this function rendered as "December 1899".
+  if (ym === 'unknown') return 'Date unknown';
+  const p = ym.split('-');
+  const dt = new Date(+p[0], +p[1] - 1, 1);
+  if (isNaN(dt.getTime())) return 'Date unknown';
+  return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+}
+function semverDesc(a, b) {
+  const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pb[i] || 0) - (pa[i] || 0);
+  return 0;
+}
+function daysAgo(d) {
+  const k = dateKey(d);
+  if (!k) return Infinity;
+  return (Date.now() - new Date(k + 'T00:00:00').getTime()) / 86400000;
+}
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+function catClass(c) { return (c || 'other').toLowerCase(); }
+function appByKey(k) { return state.apps.find(a => a.app_key === k); }
+function toast(msg) {
+  const t = document.getElementById('clToast');
+  t.textContent = msg; t.style.opacity = '1';
+  clearTimeout(t.__timer); t.__timer = setTimeout(() => { t.style.opacity = '0'; }, 2600);
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────
+const TAB_ORDER = ['overview', 'timeline', 'apps'];
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => switchTab(t.dataset.panel));
+  t.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    const i = TAB_ORDER.indexOf(t.dataset.panel);
+    const next = TAB_ORDER[(i + (e.key === 'ArrowRight' ? 1 : TAB_ORDER.length - 1)) % TAB_ORDER.length];
+    const btn = document.querySelector(`.tab[data-panel="${next}"]`);
+    if (btn) { switchTab(next); btn.focus(); }
+  });
+});
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => {
+    const on = t.dataset.panel === name;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+    t.tabIndex = on ? 0 : -1;
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  if (window.innerWidth <= 1100) setSidebar(false);
+}
+function setSidebar(open) {
+  document.querySelector('.sidebar')?.classList.toggle('open', open);
+  document.getElementById('sbBackdrop')?.classList.toggle('open', open && window.innerWidth <= 1100);
+}
+function toggleSidebar() { setSidebar(!document.querySelector('.sidebar')?.classList.contains('open')); }
+
+// ── Data load ─────────────────────────────────────────────────────────
+// The sidebar dot reports what actually happened to the last fetch. On ITAM it
+// was a hardcoded green dot with a glow: it read "healthy" while the registry
+// was unreachable. 'unknown' is a real rung - not-yet-measured is not the same
+// answer as measured-and-fine.
+function setRegState(rung, detail) {
+  const dot = document.getElementById('regDot');
+  const txt = document.getElementById('regState');
+  if (dot) { dot.className = 'dot' + (rung ? ' ' + rung : ''); dot.title = detail; }
+  if (txt) txt.textContent = {
+    ok:   'Release Registry',
+    warn: 'Registry · stale',
+    bad:  'Registry unreachable',
+  }[rung] || 'Registry · checking…';
+  if (rung !== 'ok' && window.ITObserve && typeof ITObserve.degraded === 'function') {
+    try { ITObserve.degraded('changelog-registry', detail); } catch (e) { /* never break the page */ }
+  }
+}
+
+async function loadData() {
+  const icon = document.getElementById('refreshIcon');
+  if (icon) icon.textContent = '⟳';
+  try {
+    const r = await fetch('/api/bugs/changelog');
+    if (r.status === 401 || r.status === 403) {
+      setRegState('bad', 'HTTP ' + r.status + ' from /api/bugs/changelog - session not authenticated');
+      showNotice('lock', 'Session required',
+        'Your session isn’t authenticated, so the release registry can’t be read. Sign in from the IT Command hub in this tab, then come back and retry.',
+        'Retry', () => loadData());
+      return;
+    }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    state.apps = data.apps || [];
+    state.entries = data.entries || [];
+    state.loaded = true;
+    hideNotice();
+    setRegState('ok', state.apps.length + ' apps, ' + state.entries.length + ' entries');
+    // Rendering gets its own try. On ITAM the render ran inside the fetch's try,
+    // so ANY exception in a chart or a table was caught by the network handler
+    // and reported to the operator as "the registry API didn't respond" - a page
+    // bug wearing a backend outage's clothes. The data did arrive; say so.
+    try {
+      syncVersionPills();
+      buildReleases();
+      renderAll();
+    } catch (renderErr) {
+      setRegState('warn', 'registry loaded, page failed to render it: ' + (renderErr && renderErr.message));
+      showNotice('warn', 'Changelog loaded but could not be drawn',
+        'The registry returned ' + state.apps.length + ' apps and ' + state.entries.length +
+        ' entries, but rendering failed (' + (renderErr && renderErr.message) +
+        '). This is a fault in this page, not in the API.', 'Retry', () => loadData());
+      throw renderErr;
+    }
+  } catch (err) {
+    setRegState('bad', String(err && err.message || err));
+    if (!state.loaded) {
+      showNotice('warn', 'Unable to load changelog',
+        'The registry API didn’t respond (' + err.message + '). Check that corpit-hub-api is up, then retry.',
+        'Retry', () => loadData());
+    } else {
+      toast('Refresh failed: ' + err.message);
+    }
+  } finally {
+    if (icon) icon.textContent = '↻';
+  }
+}
+// Two ITAM bugs lived here.
+//
+// 1. `body` was interpolated raw into innerHTML. Every existing caller happened
+//    to pre-escape, so it was a sink waiting for a third caller. It now takes
+//    plain text and is set with textContent.
+// 2. It stripped .active from every panel and every tab. Nothing put them back,
+//    so a failed load followed by a SUCCESSFUL retry hid the notice and left a
+//    blank content area - the Retry button looked broken to the operator. The
+//    notice is a sibling of the panels; hiding it is enough.
+function showNotice(kind, title, body, btnLabel, onClick) {
+  const n = document.getElementById('stateNotice');
+  n.classList.remove('hidden');
+  n.textContent = '';
+  const ico = document.createElement('div'); ico.className = 'ico';
+  ico.textContent = kind === 'lock' ? '🔒' : '⚠';
+  const h = document.createElement('h2'); h.textContent = title;
+  const p = document.createElement('p'); p.textContent = body;
+  const b = document.createElement('button'); b.className = 'btn'; b.textContent = btnLabel;
+  b.addEventListener('click', onClick);
+  n.append(ico, h, p, b);
+}
+function hideNotice() { document.getElementById('stateNotice').classList.add('hidden'); }
+
+// Group flat entries into releases: one card per (app, version)
+function buildReleases() {
+  const map = {};
+  for (const e of state.entries) {
+    const k = e.app_key + '|' + e.version;
+    const rel = map[k] || (map[k] = {
+      appKey: e.app_key, version: e.version, entries: [], date: '', isMajor: false, by: new Set()
+    });
+    rel.entries.push(e);
+    if (e.is_major) rel.isMajor = true;
+    const d = dateKey(e.released_at);
+    if (d > rel.date) rel.date = d;
+    if (e.released_by) rel.by.add(e.released_by);
+  }
+  state.releases = Object.values(map);
+  state.releases.forEach(r => {
+    r.entries.sort((x, y) => CHANGE_TYPES.indexOf(x.change_type) - CHANGE_TYPES.indexOf(y.change_type));
+  });
+  state.releases.sort((a, b) => (b.date || '').localeCompare(a.date || '') || semverDesc(a.version, b.version));
+}
+
+// ── Render everything ─────────────────────────────────────────────────
+function renderAll() {
+  renderStats();
+  renderOverviewCharts();
+  renderFilterOptions();
+  renderTypeChips();
+  renderTimeline();
+  renderApps();
+  renderSidebarReleases();
+  handleDeepLink();
+}
+
+function renderStats() {
+  const relCount = state.releases.length;
+  const recent = state.releases.filter(r => daysAgo(r.date) <= 30).length;
+  const major = state.releases.filter(r => r.isMajor).length;
+  const sec = state.entries.filter(e => e.change_type === 'security').length;
+  setText('sc-apps', state.apps.length); setText('ov-apps', state.apps.length);
+  setText('sc-releases', relCount); setText('ov-releases', relCount);
+  setText('ov-entries', state.entries.length);
+  setText('sc-recent', recent); setText('ov-recent', recent);
+  setText('ov-major', major);
+  setText('sc-security', sec); setText('ov-security', sec);
+  setText('tc-timeline', relCount);
+  setText('tc-apps', state.apps.length);
+  const latest = state.releases[0];
+  setText('pageSub', relCount
+    ? `${state.apps.length} apps · ${relCount} releases · latest ${fmtDate(latest.date)} — ${appName(latest.appKey)} v${latest.version}`
+    : 'Release history across the IT Command platform · SemVer (MAJOR.MINOR.PATCH)');
+}
+function appName(k) { const a = appByKey(k); return a ? a.app_name : k; }
+// safeUrl(): escapeHtml makes a string safe as markup; it does NOT restrict a
+// URL scheme, so "javascript:..." survived it intact and went straight into an
+// href. app_url is written by whoever can edit app_registry. Only http/https
+// gets linked; anything else is shown as text so an admin can still see the
+// value that was stored.
+function safeUrl(u) {
+  if (!u) return null;
+  try {
+    const p = new URL(String(u), location.origin);
+    return (p.protocol === 'http:' || p.protocol === 'https:') ? p.href : null;
+  } catch (e) { return null; }
+}
+
+function renderOverviewCharts() {
+  // Cadence: releases per month, last 12 months
+  const buckets = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.push({ ym: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'), n: 0, label: d.toLocaleDateString('en-US', { month: 'short' }) });
+  }
+  const byYm = {};
+  buckets.forEach(b => byYm[b.ym] = b);
+  state.releases.forEach(r => { const b = byYm[(r.date || '').slice(0, 7)]; if (b) b.n++; });
+  const max = Math.max(...buckets.map(b => b.n), 1);
+  const c = document.getElementById('cadenceHisto');
+  if (c) c.innerHTML = buckets.map(b =>
+    `<div class="col"><div class="cv">${b.n || ''}</div><div class="bar" style="height:${(b.n / max * 100).toFixed(0)}%"></div><div class="cl">${b.label}</div></div>`
+  ).join('');
+
+  // Change mix donut
+  const mix = {};
+  CHANGE_TYPES.forEach(t => mix[t] = 0);
+  state.entries.forEach(e => { if (mix[e.change_type] !== undefined) mix[e.change_type]++; else mix[e.change_type] = (mix[e.change_type] || 0) + 1; });
+  paintDonut('typeDonut', 'typeLegend', CHANGE_TYPES.filter(t => mix[t]).map(t => ({
+    label: t.charAt(0).toUpperCase() + t.slice(1), value: mix[t], color: TYPE_COLORS[t], type: t
+  })));
+
+  // Most active apps
+  const per = {};
+  state.entries.forEach(e => per[e.app_key] = (per[e.app_key] || 0) + 1);
+  const rows = Object.entries(per).sort((a, b) => b[1] - a[1]).slice(0, 8)
+    .map(([k, n]) => ({ key: k, label: appName(k), value: n }));
+  const bars = document.getElementById('activeBars');
+  if (bars) {
+    if (!rows.length) { bars.innerHTML = '<div class="empty-state" style="padding:14px">No entries yet.</div>'; }
+    else {
+      const bmax = Math.max(...rows.map(r => r.value), 1);
+      bars.innerHTML = rows.map(r => `
+        <div class="hbar">
+          <span class="hb-label" title="${escapeAttr(r.label)}" data-app="${escapeAttr(r.key)}" role="button" tabindex="0">${escapeHtml(r.label)}</span>
+          <span class="hb-track"><span class="hb-fill" style="width:${(r.value / bmax * 100).toFixed(1)}%;background:var(--accent)"></span></span>
+          <span class="hb-val">${r.value}</span>
+        </div>`).join('');
+    }
+  }
+
+  // Latest releases feed
+  const feed = document.getElementById('latestFeed');
+  if (feed) {
+    const latest = state.releases.slice(0, 8);
+    feed.innerHTML = latest.length ? latest.map(r => {
+      const a = appByKey(r.appKey);
+      const chips = summarizeTypes(r.entries);
+      return `<div class="side-release" style="padding:9px 14px;font-size:12px" data-app="${escapeAttr(r.appKey)}" role="button" tabindex="0">
+        <span class="app" style="font-size:13px;color:var(--text)">${escapeHtml(a ? a.app_name : r.appKey)}</span>
+        <span class="vpill">v${escapeHtml(r.version)}</span>
+        ${r.isMajor ? '<span class="major-flag">Major</span>' : ''}
+        <span style="display:flex;gap:4px">${chips}</span>
+        <span class="d">${fmtDate(r.date)}</span>
+      </div>`;
+    }).join('') : '<div class="empty-state">No releases yet.</div>';
+  }
+}
+function summarizeTypes(entries) {
+  const seen = [];
+  entries.forEach(e => { if (!seen.includes(e.change_type)) seen.push(e.change_type); });
+  return seen.slice(0, 4).map(t => `<span class="sw" title="${escapeAttr(t)}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${TYPE_COLORS[t] || 'var(--muted)'}"></span>`).join('');
+}
+
+function paintDonut(svgId, legendId, segs) {
+  const svg = document.getElementById(svgId);
+  const legend = document.getElementById(legendId);
+  if (!svg || !legend) return;
+  const total = segs.reduce((a, s) => a + s.value, 0);
+  const r = 15.9155, cx = 21, cy = 21;
+  let html = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface3)" stroke-width="6"></circle>`;
+  let offset = 0;
+  if (total > 0) segs.forEach(s => {
+    if (!s.value) return;
+    const pct = s.value / total * 100;
+    html += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="6" stroke-dasharray="${pct.toFixed(2)} ${(100 - pct).toFixed(2)}" stroke-dashoffset="${(-offset).toFixed(2)}"></circle>`;
+    offset += pct;
+  });
+  svg.innerHTML = html;
+  legend.innerHTML = segs.map(s =>
+    `<div class="li" style="cursor:pointer" data-filter-type="${escapeAttr(s.type)}" role="button" tabindex="0"><span class="sw" style="background:${s.color}"></span>${escapeHtml(s.label)}<b>${s.value}</b></div>`
+  ).join('') + (total === 0 ? '<div class="li" style="color:var(--text3)">No entries yet</div>' : '');
+}
+
+// ── Timeline ──────────────────────────────────────────────────────────
+function renderFilterOptions() {
+  const appSel = document.getElementById('tlApp');
+  const catSel = document.getElementById('tlCat');
+  const appsCatSel = document.getElementById('appCat');
+  const sorted = state.apps.slice().sort((a, b) => (a.app_name || '').localeCompare(b.app_name || ''));
+  appSel.innerHTML = '<option value="">All apps</option>' + sorted.map(a => `<option value="${escapeAttr(a.app_key)}">${escapeHtml(a.app_name)}</option>`).join('');
+  // CAT_ORDER is a display PREFERENCE, not the set of categories that exist.
+  // app_registry currently holds nine distinct values (app, identity, platform,
+  // security and NULL alongside the four listed), so filtering by the constant
+  // left eight apps with a category shown in their row and no way to filter to
+  // it - a control that could not do its job. Derived from the data now;
+  // CAT_ORDER only decides what sorts first.
+  const present = [...new Set(state.apps.map(a => a.category || 'Other'))];
+  const cats = CAT_ORDER.filter(c => present.includes(c))
+    .concat(present.filter(c => !CAT_ORDER.includes(c)).sort((a, b) => a.localeCompare(b)));
+  const catOpts = '<option value="">All categories</option>' + cats.map(c => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+  catSel.innerHTML = catOpts;
+  appsCatSel.innerHTML = catOpts;
+}
+function renderTypeChips() {
+  const wrap = document.getElementById('typeChips');
+  const chips = CHANGE_TYPES.map(t => {
+    const on = state.tl.types.has(t);
+    return `<button class="type-chip${on ? ' on' : ''}" data-type="${t}" data-chip-type="${t}">
+      <span class="sw" style="background:${TYPE_COLORS[t]}"></span>${t}</button>`;
+  }).join('');
+  const majorOn = state.tl.major;
+  wrap.innerHTML = `<span style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:600;margin-right:4px">Change type</span>
+    ${chips}
+    <button class="type-chip${majorOn ? ' on' : ''}" onclick="toggleMajorChip()" style="margin-left:8px">
+      <span class="sw" style="background:var(--peach)"></span>major only</button>
+    <button class="type-chip" onclick="clearTimelineFilters()" title="Clear all filters">✕ clear</button>`;
+}
+function toggleTypeChip(t) {
+  if (state.tl.types.has(t)) state.tl.types.delete(t); else state.tl.types.add(t);
+  renderTypeChips(); renderTimeline();
+}
+function toggleMajorChip() { state.tl.major = !state.tl.major; renderTypeChips(); renderTimeline(); }
+function clearTimelineFilters() {
+  state.tl = { search: '', app: '', cat: '', range: '', types: new Set(), major: false };
+  document.getElementById('tlSearch').value = '';
+  document.getElementById('tlApp').value = '';
+  document.getElementById('tlCat').value = '';
+  document.getElementById('tlRange').value = '';
+  renderTypeChips(); renderTimeline();
+}
+function filterTimeline(opts) {
+  clearTimelineFilters();
+  if (opts.type) state.tl.types = new Set([opts.type]);
+  if (opts.days) { state.tl.range = String(opts.days); document.getElementById('tlRange').value = String(opts.days); }
+  if (opts.major) state.tl.major = true;
+  if (opts.app) { state.tl.app = opts.app; document.getElementById('tlApp').value = opts.app; }
+  renderTypeChips(); renderTimeline();
+  switchTab('timeline');
+}
+
+function timelineMatches(rel) {
+  const f = state.tl;
+  const a = appByKey(rel.appKey);
+  if (f.app && rel.appKey !== f.app) return false;
+  if (f.cat && ((a && a.category) || 'Other') !== f.cat) return false;
+  if (f.range && daysAgo(rel.date) > +f.range) return false;
+  if (f.major && !rel.isMajor) return false;
+  let entries = rel.entries;
+  if (f.types.size) entries = entries.filter(e => f.types.has(e.change_type));
+  if (!entries.length) return false;
+  if (f.search) {
+    const q = f.search.toLowerCase();
+    const hay = [(a && a.app_name) || rel.appKey, rel.version, ...entries.map(e => e.description || '')].join(' ').toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function renderTimeline() {
+  const body = document.getElementById('timelineBody');
+  if (!state.loaded) { body.innerHTML = '<div class="empty-state">Loading…</div>'; return; }
+  const f = state.tl;
+  const rels = state.releases.filter(timelineMatches);
+  setText('tc-timeline', rels.length);
+  if (!rels.length) {
+    body.innerHTML = '<div class="card"><div class="empty-state">No releases match the current filters.</div></div>';
+    return;
+  }
+  // Group by month
+  const byMonth = {};
+  const order = [];
+  rels.forEach(r => {
+    const ym = r.date ? r.date.slice(0, 7) : 'unknown';
+    if (!byMonth[ym]) { byMonth[ym] = []; order.push(ym); }
+    byMonth[ym].push(r);
+  });
+  let idx = 0;
+  body.innerHTML = order.map(ym => {
+    const items = byMonth[ym];
+    const cards = items.map(r => {
+      const a = appByKey(r.appKey);
+      const visEntries = f.types.size ? r.entries.filter(e => f.types.has(e.change_type)) : r.entries;
+      const delay = Math.min(idx++, 12) * 40;
+      const by = [...r.by];
+      return `<div class="release-card" style="animation-delay:${delay}ms">
+        <div class="release-head">
+          <span class="app" data-app="${escapeAttr(r.appKey)}" role="button" tabindex="0">${escapeHtml(a ? a.app_name : r.appKey)}</span>
+          <span class="vpill">v${escapeHtml(r.version)}</span>
+          ${r.isMajor ? '<span class="major-flag">Major Release</span>' : ''}
+          <span class="cat">${escapeHtml((a && a.category) || 'Other')}</span>
+          <span class="date">${fmtDate(r.date)}</span>
+        </div>
+        <div class="release-body">
+          <ul class="changes">
+            ${visEntries.map(e => `<li>
+              <span class="tag ${escapeAttr(e.change_type)}">${escapeHtml(e.change_type)}</span>
+              <span class="desc">${escapeHtml(e.description)}</span>
+              ${e.released_by ? `<span class="by" title="Released by">${escapeHtml(e.released_by)}</span>` : ''}
+            </li>`).join('')}
+          </ul>
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="month-head"><span class="m">${monthLabel(ym)}</span><span class="n">${items.length} release${items.length > 1 ? 's' : ''}</span><span class="rule"></span></div>${cards}`;
+  }).join('');
+}
+document.getElementById('tlSearch').addEventListener('input', e => { state.tl.search = e.target.value; renderTimeline(); });
+document.getElementById('tlApp').addEventListener('change', e => { state.tl.app = e.target.value; renderTimeline(); });
+document.getElementById('tlCat').addEventListener('change', e => { state.tl.cat = e.target.value; renderTimeline(); });
+document.getElementById('tlRange').addEventListener('change', e => { state.tl.range = e.target.value; renderTimeline(); });
+
+// ── Apps table ────────────────────────────────────────────────────────
+function appRowData() {
+  return state.apps.map(a => {
+    const rels = state.releases.filter(r => r.appKey === a.app_key);
+    const entryCount = state.entries.filter(e => e.app_key === a.app_key).length;
+    return {
+      app: a,
+      entries: entryCount,
+      releases: rels.length,
+      last: rels.length ? rels[0].date : ''
+    };
+  });
+}
+function renderApps() {
+  const body = document.getElementById('appsBody');
+  if (!state.loaded) { body.innerHTML = '<tr><td colspan="6" class="empty-state">Loading…</td></tr>'; return; }
+  const search = (document.getElementById('appSearch').value || '').toLowerCase();
+  const cat = document.getElementById('appCat').value;
+  let rows = appRowData();
+  if (search) rows = rows.filter(r =>
+    (r.app.app_name || '').toLowerCase().includes(search) ||
+    (r.app.app_key || '').toLowerCase().includes(search) ||
+    (r.app.description || '').toLowerCase().includes(search));
+  if (cat) rows = rows.filter(r => ((r.app.category || 'Other') === cat));
+  const s = state.appSort;
+  rows.sort((x, y) => {
+    let av, bv;
+    switch (s.col) {
+      case 'category': av = x.app.category || 'Other'; bv = y.app.category || 'Other'; break;
+      case 'version': return s.dir === 'asc' ? semverDesc(y.app.current_version, x.app.current_version) : semverDesc(x.app.current_version, y.app.current_version);
+      case 'entries': av = x.entries; bv = y.entries; break;
+      case 'last': av = x.last; bv = y.last; break;
+      default: av = (x.app.app_name || '').toLowerCase(); bv = (y.app.app_name || '').toLowerCase();
+    }
+    const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+    return s.dir === 'asc' ? cmp : -cmp;
+  });
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="empty-state">No apps match.</td></tr>'; return; }
+  body.innerHTML = rows.map(r => {
+    const a = r.app;
+    return `<tr data-app="${escapeAttr(a.app_key)}" role="button" tabindex="0">
+      <td class="appcell"><b>${escapeHtml(a.app_name)}</b><span class="desc">${escapeHtml(a.description || '')}</span></td>
+      <td><span class="cat-pill ${catClass(a.category)}">${escapeHtml(a.category || 'Other')}</span></td>
+      <td><span class="vpill">v${escapeHtml(a.current_version)}</span></td>
+      <td class="mono">${r.entries}</td>
+      <td class="mono">${r.last ? fmtDate(r.last) : '—'}</td>
+      <td class="mono" onclick="event.stopPropagation()">
+        ${safeUrl(a.app_url) ? `<a href="${escapeAttr(safeUrl(a.app_url))}" target="_blank" rel="noopener">Open ↗</a>&nbsp;·&nbsp;`
+          : a.app_url ? `<span class="badurl" title="Registered URL is not http(s), so it is not linked">Open ↗</span>&nbsp;·&nbsp;` : ''}
+        <a href="/report-bug.html?app=${encodeURIComponent(a.app_name)}" target="_blank" rel="noopener">Report bug</a>
+      </td>
+    </tr>`;
+  }).join('');
+}
+document.getElementById('appSearch').addEventListener('input', renderApps);
+document.getElementById('appCat').addEventListener('change', renderApps);
+document.querySelectorAll('#appsTable thead th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.sort;
+    if (state.appSort.col === col) state.appSort.dir = state.appSort.dir === 'asc' ? 'desc' : 'asc';
+    else { state.appSort.col = col; state.appSort.dir = col === 'last' || col === 'entries' ? 'desc' : 'asc'; }
+    renderApps();
+  });
+});
+
+// ── Sidebar recent releases ───────────────────────────────────────────
+function renderSidebarReleases() {
+  const el = document.getElementById('sideReleases');
+  const latest = state.releases.slice(0, 5);
+  el.innerHTML = latest.length ? latest.map(r => `
+    <div class="side-release" data-app="${escapeAttr(r.appKey)}" role="button" tabindex="0">
+      <span class="app">${escapeHtml(appName(r.appKey))}</span>
+      <span class="v">v${escapeHtml(r.version)}</span>
+      <span class="d">${dateKey(r.date).slice(5)}</span>
+    </div>`).join('') : 'None yet.';
+}
+
+// ── Drawer (app detail) ───────────────────────────────────────────────
+function openDrawer(appKey) {
+  const a = appByKey(appKey);
+  if (!a) return;
+  const drawer = document.getElementById('drawer');
+  const backdrop = document.getElementById('drawerBackdrop');
+  const body = document.getElementById('drawerBody');
+  document.getElementById('drawerTitle').innerHTML = `${escapeHtml(a.app_name)} <span class="vpill">v${escapeHtml(a.current_version)}</span>`;
+  document.getElementById('drawerKey').textContent = a.app_key;
+  const rels = state.releases.filter(r => r.appKey === appKey);
+  const entryCount = state.entries.filter(e => e.app_key === appKey).length;
+  const first = rels.length ? rels[rels.length - 1].date : '';
+  const last = rels.length ? rels[0].date : '';
+  let html = '';
+  if (a.description) html += `<p style="color:var(--text2);font-size:13px;line-height:1.6;margin-bottom:14px">${escapeHtml(a.description)}</p>`;
+  html += `<div class="drawer-actions">
+    ${safeUrl(a.app_url) ? `<a class="act" href="${escapeAttr(safeUrl(a.app_url))}" target="_blank" rel="noopener">↗ Open app</a>`
+      : a.app_url ? `<span class="act badurl" title="Registered URL is not http(s), so it is not linked">↗ ${escapeHtml(a.app_url)}</span>` : ''}
+    <a class="act" href="/report-bug.html?app=${encodeURIComponent(a.app_name)}" target="_blank" rel="noopener">⚑ Report a bug</a>
+    <button class="act" data-copy-app="${escapeAttr(a.app_key)}">⧉ Copy link</button>
+  </div>`;
+  html += '<h3>Registry</h3>';
+  html += `<div class="kv">
+    <div><b>Category</b><span class="cat-pill ${catClass(a.category)}">${escapeHtml(a.category || 'Other')}</span></div>
+    <div><b>Current version</b><span style="font-family:var(--mono)">v${escapeHtml(a.current_version)}</span></div>
+    <div><b>Releases</b>${rels.length}</div>
+    <div><b>Changelog entries</b>${entryCount}</div>
+    <div><b>First release</b>${first ? fmtDate(first) : '—'}</div>
+    <div><b>Latest release</b>${last ? fmtDate(last) : '—'}</div>
+  </div>`;
+  html += `<h3>Version history</h3>`;
+  if (!rels.length) {
+    html += '<div class="empty-state">No entries yet.</div>';
+  } else {
+    const sorted = rels.slice().sort((x, y) => semverDesc(x.version, y.version));
+    html += sorted.map(r => `
+      <div class="ver-block">
+        <div class="ver-head">
+          <span class="v">v${escapeHtml(r.version)}</span>
+          <span class="date">${fmtDate(r.date)}</span>
+          ${r.isMajor ? '<span class="major-flag">Major Release</span>' : ''}
+        </div>
+        <ul class="changes">
+          ${r.entries.map(e => `<li>
+            <span class="tag ${escapeAttr(e.change_type)}">${escapeHtml(e.change_type)}</span>
+            <span class="desc">${escapeHtml(e.description)}</span>
+            ${e.released_by ? `<span class="by" title="Released by">${escapeHtml(e.released_by)}</span>` : ''}
+          </li>`).join('')}
+        </ul>
+      </div>`).join('');
+  }
+  body.innerHTML = html;
+  drawer.classList.add('open');
+  backdrop.classList.add('open');
+  drawer.scrollTop = 0;
+  if (history.replaceState) history.replaceState(null, '', '#' + encodeURIComponent(appKey));
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerBackdrop').classList.remove('open');
+  if (history.replaceState && location.hash) history.replaceState(null, '', location.pathname + location.search);
+}
+function copyAppLink(appKey) {
+  const url = location.origin + location.pathname + '#' + encodeURIComponent(appKey);
+  navigator.clipboard.writeText(url).then(() => toast('Link copied')).catch(() => toast('Copy failed'));
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// ── Deep links: #app_key (back-compat with v1 anchors) and ?app= ──────
+function handleDeepLink() {
+  const params = new URLSearchParams(location.search);
+  const qApp = params.get('app');
+  const hApp = location.hash ? decodeURIComponent(location.hash.slice(1)) : '';
+  const key = [qApp, hApp].map(v => v && (appByKey(v) ? v : (state.apps.find(a => a.app_name === v) || {}).app_key)).find(Boolean);
+  if (key) openDrawer(key);
+}
+// Same-document hash navigation (e.g. a pasted #app_key link while already open)
+window.addEventListener('hashchange', () => { if (state.loaded) handleDeepLink(); });
+
+// ── Initial load ──────────────────────────────────────────────────────// ── Delegated interaction ─────────────────────────────────────
+// One listener for every generated row, instead of an inline handler built by
+// string interpolation. The value travels in a data- attribute, which the HTML
+// parser hands back verbatim - there is no second parse to break out of.
+function delegate(e) {
+  const key = e.type === 'keydown';
+  if (key && e.key !== 'Enter' && e.key !== ' ') return;
+  const t = e.target.closest('[data-app],[data-filter-type],[data-chip-type],[data-copy-app]');
+  if (!t) return;
+  if (key) e.preventDefault();
+  if (t.dataset.app)         return openDrawer(t.dataset.app);
+  if (t.dataset.filterType)  return filterTimeline({ type: t.dataset.filterType });
+  if (t.dataset.chipType)    return toggleTypeChip(t.dataset.chipType);
+  if (t.dataset.copyApp)     return copyAppLink(t.dataset.copyApp);
+}
+document.addEventListener('click', delegate);
+document.addEventListener('keydown', delegate);
+
+
+setRegState('', 'not loaded yet');
+loadData();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/it-version.js" data-app-key="it-command-changelog" data-label="Changelog" defer></script>
+</body>
+</html>

@@ -1,0 +1,3001 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<!-- Single source of truth for API bases. MUST precede every app script. -->
+<script src="/inventory-config.js"></script>
+<title>IT Asset Console</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<style>
+/* =====================================================================
+   IT ASSET CONSOLE — MISSION CONTROL
+   ---------------------------------------------------------------------
+   Exact match of the "Console — Mission Control" design mockup, applied
+   to the live IT Inventory App. Tokens, fonts, panels, rail, ribbon,
+   ticker, and table language are taken verbatim from the design file.
+
+   Compatibility contract (unchanged from the live app):
+   - All ids, onclick handlers, and data-rbac attributes preserved.
+   - Every JS-injected class (stat-card, bar-*, badge-*, exec-kpi,
+     cost-hero, timeline-seg, cell-*, risk-*, sheet-*, log-*) styled.
+   - State classes honored: .active, .open, .show, .drag-over,
+     .sort-asc/.sort-desc, .animate.
+   ===================================================================== */
+
+*{margin:0;padding:0;box-sizing:border-box}
+[hidden]{display:none!important}
+:root{
+  --accent:#22D3EE;--accent2:#67E8F9;--accent-rgb:34,211,238;
+  --bg:#05101F;--panel:rgba(9,22,40,.7);--panel-solid:#091628;--line:#12293F;--line2:#164863;
+  --row-line:#0F2337;--track:#0E2033;
+  --surface:#091628;--surface2:#0B1D33;--surface3:#0E2540;
+  --border:#12293F;--border2:#164863;
+  /* --text3 was #5E7A97: 4.28:1 on --bg, 4.14:1 on --panel and 3.05:1 on
+     --chip3, under the 4.5:1 AA floor for the 52 small-text elements (page
+     subtitles, KPI captions, timestamps, counts, legend labels) that use it.
+     #8098B3 measures 6.42:1 on --bg, 6.21:1 on --panel, 6.10:1 on --surface,
+     5.20:1 on --well/--surface3 and 4.57:1 on --chip3 (the darkest ground it
+     ever lands on, the .epf-dev hover), while staying clearly dimmer than
+     --text2 (8.38:1). The light palette is left alone: #586a80 already clears
+     the floor on every ground it uses, worst case 4.53:1 on --chip3. */
+  --text:#DCEBF7;--text2:#8FB0C9;--text3:#8098B3;
+  --green:#34D399;--green-rgb:52,211,153;
+  --yellow:#FBBF24;--amber:#FBBF24;--yellow-rgb:251,191,36;
+  --red:#F87171;--red-rgb:248,113,113;
+  --purple:#A78BFA;--orange:#FB923C;--teal:#2DD4BF;--blue:#38BDF8;
+  --font:'IBM Plex Sans',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --radius:12px;--radius2:7px;
+  --sidebar-width:60px;--topbar-height:50px;
+  /* surfaces + copy pulled out of rules so light mode can override them */
+  --chip:#173657;--chip2:#123A5E;--chip3:#123049;
+  --well:#0E2540;--well2:#0B2334;--well3:#0A1B30;--well4:#0A1930;--well5:#0C2038;
+  --rail-bg:#091628;--rail-line:#0F2337;--track2:#0E2033;
+  --glass1:rgba(6,17,33,.75);
+  --glass2:rgba(6,17,33,.7);
+  --glass3:rgba(9,22,40,.8);
+  --glass4:rgba(9,22,40,.6);
+  --glass5:rgba(9,22,40,.85);
+  --glass6:rgba(14,37,64,.7);
+  --glass7:rgba(14,37,64,.75);
+  --glass8:rgba(14,37,64,.45);
+  --scrim1:rgba(3,9,18,.72);
+  --scrim2:rgba(3,9,18,.78);
+  /* --ink-faint draws the chevron_right "this row is clickable" affordances.
+     #3E5E7A measured 2.55:1 on --well3 and 2.41:1 on --well5, below the 3:1
+     floor for graphical objects. #5E7A97 gives 3.88:1 on --well3, 3.68:1 on
+     --well5 and 4.07:1 on --surface. */
+  --on-accent:#04121F;--ink-bright:#EEF6FC;--link:#4DA3FF;--ink-faint:#5E7A97;
+}
+[data-theme="light"]{
+  --accent2:#0b6570;
+  --bg:#eef1f6;--panel:rgba(255,255,255,.78);--panel-solid:#ffffff;--line:#dde3ec;--line2:#cbd5e3;
+  --row-line:#e3e9f2;--track:#e6eaf2;
+  --surface:#ffffff;--surface2:#f7f9fc;--surface3:#e6eaf2;
+  --border:#dde3ec;--border2:#cbd5e3;
+  --text:#0f1b2d;--text2:#41526b;--text3:#586a80;
+  --green:#0c6b46;--green-rgb:21,160,106;
+  --yellow:#7a5a06;--amber:#8f5106;--yellow-rgb:184,134,11;
+  --red:#c01640;--red-rgb:214,31,72;
+  --purple:#6d28d9;--orange:#9a3608;--teal:#0c6659;--blue:#175fbd;
+  --chip:#e3e9f2;--chip2:#dbe7f5;--chip3:#e1e9f4;
+  --well:#f7f9fc;--well2:#f2f5fa;--well3:#f4f7fb;--well4:#f4f7fb;--well5:#eef2f8;
+  --rail-bg:#f4f7fb;--rail-line:#dde3ec;--track2:#e6eaf2;
+  --glass1:rgba(255,255,255,.82);--glass2:rgba(255,255,255,.78);
+  --glass3:rgba(255,255,255,.86);--glass4:rgba(255,255,255,.7);
+  --glass5:rgba(255,255,255,.9);--glass6:rgba(232,238,246,.75);
+  --glass7:rgba(232,238,246,.8);--glass8:rgba(232,238,246,.5);
+  --scrim1:rgba(15,27,45,.45);--scrim2:rgba(15,27,45,.5);
+  --on-accent:#ffffff;--ink-bright:#0f1b2d;--link:#175fbd;--ink-faint:#586a80;
+}
+
+html,body{height:100%}
+body{
+  font-family:var(--font);color:var(--text);font-size:13px;-webkit-font-smoothing:antialiased;
+  overflow:hidden;
+  background:
+    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(34,211,238,.03) 39px,rgba(34,211,238,.03) 40px),
+    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(34,211,238,.03) 39px,rgba(34,211,238,.03) 40px),
+    radial-gradient(900px 500px at 15% -10%,rgba(34,211,238,.10),transparent 60%),var(--bg);
+}
+a{color:var(--accent);text-decoration:none}a:hover{color:var(--accent2)}
+.ms{font-family:'Material Symbols Outlined';font-weight:400;line-height:1;display:inline-block;-webkit-font-feature-settings:'liga';-webkit-font-smoothing:antialiased;user-select:none}
+.mono{font-family:var(--mono)}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--chip);border-radius:4px;border:2px solid var(--bg)}
+*{scrollbar-width:thin;scrollbar-color:var(--chip) transparent}
+::selection{background:rgba(34,211,238,.25)}
+@keyframes tick{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+#app{display:flex;min-height:100vh;height:100vh}
+
+/* ═══════ ICON RAIL ═══════ */
+#sidebar{
+  width:60px;min-width:60px;flex:0 0 60px;background:var(--glass1);
+  border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;
+  padding:12px 0;gap:6px;position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;z-index:100;
+}
+#sidebar::-webkit-scrollbar{width:0}
+.rail-logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(140deg,#22D3EE,#0369A1);display:flex;align-items:center;justify-content:center;margin-bottom:10px;box-shadow:0 0 18px rgba(34,211,238,.4);flex-shrink:0}
+.rail-logo .ms{font-size:21px;color:var(--on-accent)}
+.rail-sep{width:28px;height:1px;background:var(--line);margin:5px 0;flex-shrink:0}
+.nav-item{
+  width:40px;height:40px;border-radius:10px;background:transparent;border:1px solid transparent;
+  cursor:pointer;color:var(--text3);display:flex;align-items:center;justify-content:center;
+  position:relative;transition:background .12s,color .12s;flex-shrink:0;font-family:inherit;
+  appearance:none;-webkit-appearance:none;padding:0;
+}
+.nav-item .ms{font-size:21px}
+.nav-item:hover{color:var(--text);background:var(--well)}
+.nav-item.active,.nav-item[aria-current="page"]{background:rgba(34,211,238,.1);border-color:var(--line2);color:var(--accent2)}
+.nav-item.active::before,.nav-item[aria-current="page"]::before{content:'';position:absolute;left:-1px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.nav-badge{
+  position:absolute;top:-3px;right:-3px;font-family:var(--mono);font-size:8px;font-weight:700;
+  color:var(--accent2);background:var(--well2);border:1px solid var(--line2);border-radius:4px;
+  padding:0 3px;line-height:1.5;pointer-events:none;
+}
+.nav-badge:empty{display:none}
+
+/* ═══════ MAIN COLUMN ═══════ */
+#main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#main:focus{outline:none}
+
+/* status ribbon */
+/* Same defect as sharepoint-governance-dashboard's .topbar, different
+   container: seven flex-nowrap children measuring 789px inside a 500px
+   viewport, clipped by <main>'s overflow:hidden, so the account control sat
+   289px off the right edge -- unreachable by mouse or scroll, still tabIndex 0.
+   The existing max-width:1100px block already hides .ticker-wrap and narrows
+   #searchbar, which is this page's way of making room; it just does not go far
+   enough below ~800px. Allowing the row to wrap needs no new breakpoint here --
+   but that is a measurement, not a general truth. The same unscoped change on
+   sharepoint-governance-dashboard grew ITS desktop bar from 54px to 87px,
+   because those children could not shrink to fit and so wrapped instead; that
+   page needed the fix scoped to @media(max-width:1441px). Verified here at
+   1681px after the change: all six children sit on a single row and the bar
+   measures 51px -- the same 50px + 1px border it had before.
+   flex:0 0 auto replaces flex:0 0 50px so the column can give it a second row;
+   --topbar-height is declared but consumed nowhere, so nothing else moves. */
+#topbar{
+  min-height:50px;flex:0 0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:0 18px;
+  border-bottom:1px solid var(--line);background:var(--glass2);backdrop-filter:blur(10px);
+  position:relative;z-index:50;
+}
+.brand{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.brand-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(52,211,153,.18);animation:blip 2s infinite}
+.brand-name{font-size:13px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.ticker-wrap{flex:1;overflow:hidden;height:50px;position:relative;min-width:120px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.ticker{display:flex;gap:34px;align-items:center;height:100%;white-space:nowrap;width:max-content;animation:tick 34s linear infinite}
+.ticker span.item{display:inline-flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text2)}
+.ticker .k{color:var(--text3);text-transform:uppercase;letter-spacing:.6px;font-size:10px}
+.ticker .v{color:var(--text);font-weight:700;font-family:var(--mono)}
+.clock{font-size:12px;color:var(--text2);letter-spacing:.5px;flex-shrink:0}
+.utc{color:var(--text2);font-size:11px;flex-shrink:0}
+/* drill-down affordances for dashboard replica */
+.gauge,.tile,.alert{transition:background .12s,border-color .12s,transform .12s}
+.gauge:hover,.tile:hover,.alert:hover{background:var(--surface3);border-color:var(--line2)}
+#matrix tr{transition:background .12s}
+#matrix tr:hover{background:var(--surface2)}
+.ticker .item:hover .k,.ticker .item:hover .v{color:var(--accent2)}
+#heat span:hover{outline:1px solid var(--text2);outline-offset:1px}
+/* executive summary drill-down affordances */
+#page-executive .exec-kpi[role=button],#page-executive .bar-row[role=button],#exec-workforce>div[role=button],#exec-lifecycle div[role=button]{transition:transform .12s,filter .12s,background .12s}
+#page-executive .exec-kpi[role=button]:hover,#exec-workforce>div[role=button]:hover,#exec-lifecycle div[role=button]:hover{filter:brightness(1.1);transform:translateY(-1px)}
+#page-executive .bar-row[role=button]:hover .bar-label{color:var(--accent2)}
+#health-backdrop .hm-row:hover{background:var(--surface3)}
+
+/* ribbon search (kept for app function, styled to the console language) */
+#searchbar{position:relative;flex-shrink:0;width:210px}
+#searchbar input{
+  width:100%;height:30px;background:var(--glass3);border:1px solid var(--line);border-radius:7px;
+  padding:0 10px 0 30px;font-size:11.5px;color:var(--text);font-family:var(--mono);outline:none;transition:border .15s;
+}
+#searchbar input::placeholder{color:var(--text3);font-family:var(--font)}
+#searchbar input:focus{border-color:var(--line2);box-shadow:0 0 0 3px rgba(34,211,238,.1)}
+.search-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--text3);display:flex}
+.search-icon .ms{font-size:16px}
+
+/* content scroll area */
+#content{flex:1;overflow-y:auto;padding:18px 20px 40px}
+
+/* page head (design .head) */
+.head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+.head h1,.topbar-title,h1.topbar-title{font-size:19px;font-weight:700;letter-spacing:.2px;color:var(--text);margin:0;line-height:1.3}
+.head .sub{font-size:11.5px;color:var(--text3);margin-top:2px}
+
+/* pages */
+.page{display:none}
+.page.active{display:block;animation:fadeup .3s ease}
+
+/* section headers → design head row: sub left, actions right (title lives in .head h1) */
+.section-header,.exec-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.section-title{display:none}
+.section-sub{font-size:11.5px;color:var(--text3)}
+
+/* ═══════ BUTTONS ═══════ */
+.btn{
+  height:32px;padding:0 12px;background:rgba(34,211,238,.08);border:1px solid var(--line2);
+  border-radius:7px;color:var(--accent2);font-family:inherit;font-size:12px;font-weight:600;
+  cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s;
+  text-decoration:none;white-space:nowrap;
+}
+.btn:hover{background:rgba(34,211,238,.15)}
+.btn .ms{font-size:16px}
+.btn-primary{background:linear-gradient(140deg,#22D3EE,#0369A1);border-color:transparent;color:var(--on-accent);font-weight:700}
+.btn-primary:hover{background:linear-gradient(140deg,#4ADEF5,#0482c8);filter:none}
+.btn-ghost{background:rgba(34,211,238,.05);color:var(--text2);border-color:var(--line)}
+.btn-ghost:hover{background:rgba(34,211,238,.12);color:var(--accent2);border-color:var(--line2)}
+.btn-sm{height:28px;padding:0 10px;font-size:11px}
+.btn-danger{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.3);color:var(--red)}
+.btn-danger:hover{background:rgba(248,113,113,.16)}
+
+/* ═══════ PANELS (cards) ═══════ */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.card-header{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card-title{font-size:11.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text)}
+.card-sub{font-size:10.5px;color:var(--text3);font-family:var(--mono);margin-top:2px;text-transform:none;letter-spacing:0}
+.card-body{padding:16px}
+
+/* ═══════ STAT CARDS → console tiles ═══════ */
+.dash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.stat-card{
+  background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px 16px;
+  position:relative;overflow:hidden;transition:border-color .15s,background .15s;
+}
+.stat-card:hover{border-color:var(--line2)}
+.stat-card::after{content:'';position:absolute;left:0;top:11px;bottom:11px;width:2px;border-radius:2px;background:var(--accent)}
+.stat-card.blue::after{background:var(--blue);box-shadow:0 0 8px var(--blue)}
+.stat-card.green::after{background:var(--green);box-shadow:0 0 8px var(--green)}
+.stat-card.red::after{background:var(--red);box-shadow:0 0 8px var(--red)}
+.stat-card.purple::after{background:var(--purple);box-shadow:0 0 8px var(--purple)}
+.stat-card.yellow::after,.stat-card.amber::after{background:var(--yellow);box-shadow:0 0 8px var(--yellow)}
+.stat-card.teal::after{background:var(--teal);box-shadow:0 0 8px var(--teal)}
+.stat-card.orange::after{background:var(--orange);box-shadow:0 0 8px var(--orange)}
+.stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700;margin-bottom:8px}
+.stat-value{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:-.5px;line-height:1;color:var(--ink-bright)}
+.stat-sub{font-size:10.5px;color:var(--text3);margin-top:7px}
+.stat-icon{position:absolute;right:14px;top:12px;font-size:17px;opacity:.5;filter:saturate(.7)}
+.stat-card.clickable{cursor:pointer}
+.stat-card.clickable:hover{background:var(--glass7)}
+.stat-card.clickable:active{transform:scale(.99)}
+.stat-card.clickable:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,211,238,.18)}
+.stat-card.animate,.exec-kpi.animate,.cost-hero-card.animate{animation:fadeup .3s ease}
+
+.dash-row{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin-bottom:12px}
+.dash-row2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+
+/* ═══════ CHARTS ═══════ */
+.bar-chart{display:flex;flex-direction:column;gap:9px}
+.bar-row{display:flex;align-items:center;gap:10px;font-size:12px}
+.bar-label{width:120px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+.bar-track{flex:1;height:6px;background:var(--track);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .5s ease}
+.bar-count{width:38px;text-align:right;color:var(--text3);font-family:var(--mono);font-size:11px}
+.bar-fill.clickable{cursor:pointer;transition:filter .15s,width .5s ease}
+.bar-fill.clickable:hover{filter:brightness(1.3)}
+.bar-row.clickable{cursor:pointer}
+.bar-row.clickable:hover .bar-label{color:var(--text)}
+.bar-row.clickable:hover .bar-fill{filter:brightness(1.2)}
+
+.donut-wrap{display:flex;align-items:center;gap:16px;padding:8px 0}
+.donut-legend{display:flex;flex-direction:column;gap:8px;flex:1}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:12px}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.legend-label{color:var(--text2);flex:1}
+.legend-val{color:var(--text);font-family:var(--mono);font-weight:700}
+.legend-pct{color:var(--text3);font-size:10px;font-family:var(--mono)}
+
+/* ═══════ TABLES (integration-matrix language) ═══════ */
+.table-wrap{overflow-x:auto;position:relative}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{border-bottom:1px solid var(--line)}
+th{padding:9px 16px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);white-space:nowrap;user-select:none}
+th[onclick^="sortTable"],th[onclick^="sortWarranty"]{cursor:pointer}
+th[onclick^="sortTable"]:hover,th[onclick^="sortWarranty"]:hover{color:var(--text2)}
+th.sort-asc::after{content:' ▲';font-size:8px;color:var(--accent)}
+th.sort-desc::after{content:' ▼';font-size:8px;color:var(--accent)}
+tbody tr{border-bottom:1px solid var(--row-line)}
+td{padding:11px 16px;color:var(--text2);white-space:nowrap;vertical-align:middle;border-bottom:1px solid var(--row-line)}
+tbody tr:hover td{background:var(--glass8);color:var(--text)}
+tbody tr:last-child td{border-bottom:none}
+.cell-name{display:inline-flex;align-items:center;gap:9px;color:var(--ink-bright);font-weight:600}
+.cell-mono{font-family:var(--mono);font-size:11px}
+.cell-email{color:var(--accent);font-size:11px;font-family:var(--mono)}
+td.actions{white-space:nowrap}
+
+table.sticky-col th:first-child,table.sticky-col td:first-child{
+  position:sticky;left:0;z-index:2;background:var(--well4);border-right:1px solid var(--line);
+}
+table.sticky-col tbody tr:hover td:first-child{background:var(--well)}
+
+/* column picker */
+.col-picker-wrap{position:relative;display:inline-block}
+.col-picker-btn{
+  height:28px;padding:0 10px;background:rgba(34,211,238,.05);border:1px solid var(--line);border-radius:7px;
+  color:var(--text2);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;transition:background .12s;
+}
+.col-picker-btn:hover{background:rgba(34,211,238,.12);color:var(--accent2);border-color:var(--line2)}
+.col-picker-dropdown{
+  display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--surface2);
+  border:1px solid var(--line2);border-radius:10px;padding:8px 0;min-width:200px;z-index:500;
+  box-shadow:0 12px 32px rgba(0,0,0,.5);
+}
+.col-picker-dropdown.open{display:block}
+.col-picker-item{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:12px;color:var(--text2);transition:background .1s;user-select:none}
+.col-picker-item:hover{background:var(--well);color:var(--text)}
+.col-picker-item input[type=checkbox]{accent-color:var(--accent);cursor:pointer}
+
+/* ═══════ BADGES ═══════ */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:700;letter-spacing:.2px;white-space:nowrap}
+.badge-green{background:rgba(52,211,153,.12);color:var(--green)}
+.badge-red{background:rgba(248,113,113,.12);color:var(--red)}
+.badge-yellow,.badge-amber{background:rgba(251,191,36,.12);color:var(--yellow)}
+.badge-blue{background:rgba(56,189,248,.12);color:var(--blue)}
+.badge-purple{background:rgba(167,139,250,.12);color:var(--purple)}
+.badge-gray{background:rgba(94,122,151,.14);color:var(--text3)}
+.badge-orange{background:rgba(251,146,60,.12);color:var(--orange)}
+.badge-teal{background:rgba(45,212,191,.12);color:var(--teal)}
+@keyframes badgePulse{0%,100%{opacity:1}50%{opacity:.4}}
+.patch-health-loading{animation:badgePulse 1.2s ease-in-out infinite}
+
+/* ═══════ FILTERS / CONTROLS ═══════ */
+.page-controls{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.filter-select{
+  height:30px;background:var(--glass3);border:1px solid var(--line);border-radius:7px;
+  padding:0 10px;font-size:11.5px;color:var(--text);font-family:inherit;outline:none;cursor:pointer;transition:border .15s;
+}
+.filter-select:hover{border-color:var(--line2)}
+.filter-select:focus{border-color:var(--line2);box-shadow:0 0 0 3px rgba(34,211,238,.1)}
+.filter-select option{background:var(--surface2)}
+.results-count{font-size:11px;color:var(--text3);margin-left:auto;font-family:var(--mono)}
+
+/* pagination */
+.pagination{display:flex;align-items:center;gap:6px;justify-content:center}
+.page-btn{height:26px;min-width:26px;padding:0 8px;background:rgba(34,211,238,.05);border:1px solid var(--line);border-radius:6px;font-size:11px;color:var(--text2);cursor:pointer;transition:background .12s;font-family:var(--mono)}
+.page-btn:hover{background:rgba(34,211,238,.12);color:var(--accent2);border-color:var(--line2)}
+.page-btn.active{background:rgba(34,211,238,.15);color:var(--accent2);border-color:var(--line2)}
+.page-btn:disabled{opacity:.35;cursor:default}
+.table-footer{padding:10px 16px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.page-info{font-size:10.5px;color:var(--text3);font-family:var(--mono)}
+
+/* ═══════ MODALS ═══════ */
+#modal-backdrop{display:none;position:fixed;inset:0;background:var(--scrim1);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#modal-backdrop.open{display:flex}
+.modal{background:var(--well3);border:1px solid var(--line2);border-radius:12px;width:620px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:fadeup .2s ease}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin:0;line-height:1.3;color:var(--text)}
+.modal-close{background:none;border:none;color:var(--text3);font-size:17px;cursor:pointer;padding:2px 8px;border-radius:6px;line-height:1}
+.modal-close:hover{color:var(--text);background:var(--well)}
+.modal-body{padding:18px 20px}
+.modal-footer{padding:13px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+label{font-size:9.5px;font-weight:700;color:var(--text3);letter-spacing:.7px;text-transform:uppercase}
+.form-input{height:32px;background:var(--glass3);border:1px solid var(--line);border-radius:7px;padding:0 11px;font-size:12.5px;color:var(--text);font-family:inherit;outline:none;transition:border .15s}
+textarea.form-input{height:auto;padding:9px 11px}
+.form-input:focus{border-color:var(--line2);box-shadow:0 0 0 3px rgba(34,211,238,.1)}
+.form-input option{background:var(--surface2)}
+
+/* toast */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--well3);border:1px solid var(--line2);border-radius:10px;padding:11px 16px;font-size:12px;font-weight:600;color:var(--text);z-index:999;transform:translateY(60px);opacity:0;transition:all .3s;display:flex;align-items:center;gap:10px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+#toast.show{transform:translateY(0);opacity:1}
+.toast-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(52,211,153,.15)}
+.toast-dot.err{background:var(--red);box-shadow:0 0 0 4px rgba(248,113,113,.15)}
+.toast-dot.warn{background:var(--yellow);box-shadow:0 0 0 4px rgba(251,191,36,.15)}
+
+/* empty state */
+.empty-state{text-align:center;padding:56px 20px;color:var(--text3)}
+.empty-icon{font-size:32px;margin-bottom:12px;opacity:.4}
+.empty-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:5px;letter-spacing:.3px}
+
+/* summary chips */
+.summary-row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.summary-chip{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:10px 14px;font-size:11px}
+.summary-chip strong{font-family:var(--mono);color:var(--ink-bright);font-size:18px;font-weight:700;display:block;letter-spacing:-.5px;line-height:1.2}
+.summary-chip span{color:var(--text3);text-transform:uppercase;font-size:9.5px;letter-spacing:.6px}
+
+/* ═══════ EXEC / COST ═══════ */
+.exec-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.exec-kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 16px;position:relative;overflow:hidden;text-align:center;transition:border-color .15s}
+.exec-kpi:hover{border-color:var(--line2)}
+.exec-kpi::before{content:'';position:absolute;left:0;top:11px;bottom:11px;width:2px;border-radius:2px;background:var(--accent)}
+.exec-kpi.blue::before{background:var(--blue);box-shadow:0 0 8px var(--blue)}
+.exec-kpi.green::before{background:var(--green);box-shadow:0 0 8px var(--green)}
+.exec-kpi.red::before{background:var(--red);box-shadow:0 0 8px var(--red)}
+.exec-kpi.yellow::before{background:var(--yellow);box-shadow:0 0 8px var(--yellow)}
+.exec-kpi.purple::before{background:var(--purple);box-shadow:0 0 8px var(--purple)}
+.exec-kpi.orange::before{background:var(--orange);box-shadow:0 0 8px var(--orange)}
+.exec-kpi.teal::before{background:var(--teal);box-shadow:0 0 8px var(--teal)}
+.exec-kpi-icon{font-size:22px;margin-bottom:8px;display:block;opacity:.85}
+.exec-kpi-val{font-family:var(--mono);font-size:28px;font-weight:700;color:var(--ink-bright);letter-spacing:-1px;line-height:1}
+.exec-kpi-label{font-size:10px;color:var(--text3);margin-top:7px;letter-spacing:.6px;text-transform:uppercase;font-weight:700}
+.exec-kpi-sub{font-size:10px;color:var(--text3);margin-top:3px;font-family:var(--mono)}
+.exec-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.exec-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+
+.cost-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.cost-hero-card{background:linear-gradient(140deg,var(--glass5),var(--glass6));border:1px solid var(--line2);border-radius:12px;padding:20px;text-align:center}
+.cost-hero-val{font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:-1px;margin-bottom:5px;color:var(--ink-bright)}
+.cost-hero-label{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;font-weight:700}
+
+.drill-active{display:flex;align-items:center;gap:8px;background:rgba(34,211,238,.08);border:1px solid var(--line2);border-radius:8px;padding:8px 13px;margin-bottom:12px;font-size:11.5px}
+.drill-active-label{color:var(--accent2);font-weight:700}
+.drill-clear{cursor:pointer;color:var(--text3);font-size:10.5px;margin-left:auto;padding:2px 8px;border-radius:5px;background:var(--well);font-family:var(--mono)}
+.drill-clear:hover{color:var(--red)}
+
+/* ═══════ LIFECYCLE / RISK ═══════ */
+.lifecycle-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.risk-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:5px;font-size:10.5px;font-weight:700}
+.risk-critical{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.25)}
+.risk-warning{background:rgba(251,191,36,.12);color:var(--yellow);border:1px solid rgba(251,191,36,.25)}
+.risk-good{background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.25)}
+.risk-unknown{background:rgba(94,122,151,.12);color:var(--text3);border:1px solid var(--line)}
+.timeline-bar{display:flex;height:22px;border-radius:5px;overflow:hidden;margin:8px 0}
+.timeline-seg{height:100%;transition:width .5s ease;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;font-family:var(--mono);color:rgba(255,255,255,.92)}
+
+/* ═══════ SYNC BARS ═══════ */
+.warranty-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.warranty-sync-bar{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 16px;margin-bottom:12px}
+.warranty-sync-info{font-size:11px;color:var(--text3);flex:1;font-family:var(--mono)}
+.warranty-sync-info strong{color:var(--text2);font-weight:600}
+.sync-spinner{display:none;width:13px;height:13px;border:2px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sync-spinner.active{display:block}
+
+/* ═══════ IMPORT MODAL ═══════ */
+#import-backdrop{display:none;position:fixed;inset:0;background:var(--scrim2);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(5px)}
+#import-backdrop.open{display:flex}
+.import-modal{background:var(--well3);border:1px solid var(--line2);border-radius:12px;width:560px;max-width:95vw;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:fadeup .2s ease}
+.import-header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.import-body{padding:20px}
+.drop-zone{border:2px dashed var(--line2);border-radius:10px;padding:36px 22px;text-align:center;cursor:pointer;transition:.2s;background:var(--glass4);position:relative}
+.drop-zone.drag-over{border-color:var(--accent);background:rgba(34,211,238,.06)}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-icon{font-size:32px;margin-bottom:10px;display:block}
+.drop-title{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:5px}
+.drop-sub{font-size:11.5px;color:var(--text3)}
+.import-progress{margin-top:14px;display:none}
+.progress-bar-track{height:6px;background:var(--track);border-radius:3px;overflow:hidden;margin:8px 0}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,#22D3EE,#0369A1);border-radius:3px;transition:width .3s}
+.import-log{margin-top:13px;background:var(--glass3);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-family:var(--mono);font-size:10.5px;color:var(--text2);max-height:170px;overflow-y:auto;line-height:1.7}
+.log-line{display:flex;gap:8px}
+.log-dot{color:var(--green)}
+.log-dot.warn{color:var(--yellow)}
+.log-dot.skip{color:var(--text3)}
+.log-dot.err{color:var(--red)}
+.sheet-map{margin-top:14px;display:none}
+.sheet-map-title{font-size:9.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--text3);margin-bottom:9px}
+.sheet-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--row-line);font-size:11.5px}
+.sheet-row:last-child{border:none}
+.sheet-name{color:var(--text);font-weight:600;flex:1}
+.sheet-arrow{color:var(--text3)}
+.sheet-target{color:var(--accent);font-family:var(--mono);font-size:10.5px}
+.sheet-count{color:var(--text3);font-family:var(--mono);font-size:10.5px;margin-left:auto}
+.sheet-status{width:16px;text-align:center}
+
+/* ═══════ ACCESSIBILITY ═══════ */
+.visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip-link{position:absolute;left:8px;top:-40px;background:var(--accent);color:var(--on-accent);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;z-index:1000;transition:top .15s}
+.skip-link:focus{top:8px;outline:2px solid #fff;outline-offset:2px}
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+:where(a,button,input,select,textarea,[tabindex]):focus:not(:focus-visible){outline:none}
+
+/* ═══════ RESPONSIVE ═══════ */
+@media(max-width:1100px){
+  .dash-grid,.exec-kpi-grid,.warranty-kpi-grid,.lifecycle-grid{grid-template-columns:repeat(2,1fr)}
+  .dash-row,.dash-row2,.exec-2col,.exec-3col,.cost-hero,.form-grid{grid-template-columns:1fr}
+  .ticker-wrap{display:none}
+  #searchbar{width:150px}
+}
+@media (prefers-reduced-motion: reduce){
+  .ticker{animation:none}
+  .brand-dot{animation:none}
+  .page.active,.stat-card.animate,.exec-kpi.animate,.cost-hero-card.animate,.modal,.import-modal{animation:none}
+  .bar-fill,.timeline-seg,.progress-bar-fill{transition:none}
+}
+
+/* ═══════ MISSION CONTROL DASHBOARD (verbatim from design mock) ═══════ */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.panel-head{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.panel-title{font-size:12.5px;font-weight:700;letter-spacing:.3px}
+.gauges{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.gauge{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;align-items:center;gap:16px;animation:fadeup .3s ease}
+.ring{width:82px;height:82px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative}
+.ring .inner{position:absolute;inset:8px;border-radius:50%;background:var(--rail-bg);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .num{font-size:17px;font-weight:700;color:var(--ink-bright)}
+.g-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:700;margin-bottom:5px}
+.g-sub{font-size:11.5px;color:var(--text2);line-height:1.4}
+.tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 14px}
+.tile-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.tile-top .ms{font-size:17px}
+.tile-val{font-size:21px;font-weight:700;letter-spacing:-.5px;line-height:1}
+.tile-label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin:7px 0 8px}
+.mid{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin-bottom:12px}
+.heat{display:grid;grid-template-columns:repeat(24,1fr);gap:3px}
+.heat span{aspect-ratio:1;border-radius:2px}
+.heat-legend{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap}
+.heat-legend span.li{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--text2)}
+.heat-legend .sw{width:10px;height:10px;border-radius:2px}
+.heat-legend .ct{color:var(--text3)}
+.alerts{display:flex;flex-direction:column}
+.alert{display:flex;gap:11px;padding:11px 16px;border-bottom:1px solid var(--rail-line)}
+.alert .ic{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.alert .ic .ms{font-size:15px}
+.alert .txt{font-size:12px;color:var(--text);line-height:1.35}
+.alert .code{font-size:10px;color:var(--text3);margin-top:2px}
+.alert .sev{font-size:9px;font-weight:800;letter-spacing:.5px;align-self:flex-start;margin-top:2px}
+.badge-count{margin-left:auto;font-size:10px;color:var(--red);background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);padding:1px 7px;border-radius:5px}
+.m-name{display:flex;align-items:center;gap:9px;color:var(--ink-bright);font-weight:600}
+.m-name .ms{font-size:17px;color:var(--text2)}
+.m-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700}
+.m-status .d{width:6px;height:6px;border-radius:50%}
+.m-health{display:inline-block;width:120px;height:6px;background:var(--track2);border-radius:3px;overflow:hidden;vertical-align:middle}
+.m-health span{display:block;height:100%;border-radius:3px}
+.scroll-x{overflow-x:auto}
+.scroll-x table{min-width:760px}
+/* hide the global page head while the replica dashboard (with its own head) is active */
+#content:has(#page-dashboard.active) > .head{display:none}
+@media(max-width:1100px){
+  .gauges{grid-template-columns:repeat(2,1fr)}
+  .tiles{grid-template-columns:repeat(3,1fr)}
+  .mid{grid-template-columns:1fr}
+}
+
+/* ═══════ RAIL GROUP FLYOUTS ═══════ */
+.rail-group{
+  width:40px;height:40px;border-radius:10px;background:transparent;border:1px solid transparent;
+  cursor:pointer;color:var(--text3);display:flex;align-items:center;justify-content:center;
+  position:relative;transition:background .12s,color .12s;flex-shrink:0;font-family:inherit;
+  appearance:none;-webkit-appearance:none;padding:0;
+}
+.rail-group .ms{font-size:21px}
+.rail-group:hover{color:var(--text);background:var(--well)}
+.rail-group.active{background:rgba(34,211,238,.1);border-color:var(--line2);color:var(--accent2)}
+.rail-group.active::before{content:'';position:absolute;left:-1px;top:9px;bottom:9px;width:2px;border-radius:2px;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.flyout{
+  display:none;position:fixed;left:64px;z-index:400;background:var(--surface2);border:1px solid var(--line2);
+  border-radius:10px;padding:6px;min-width:208px;box-shadow:0 12px 32px rgba(0,0,0,.5);
+}
+.flyout.open{display:block;animation:fadeup .15s ease}
+.fly-label{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text3);font-weight:700;padding:6px 10px 4px}
+.flyout .nav-item{
+  width:100%;height:auto;min-height:32px;padding:7px 10px;border-radius:7px;
+  display:flex;align-items:center;gap:9px;justify-content:flex-start;
+  font-size:12px;font-weight:600;color:var(--text2);border:1px solid transparent;text-align:left;
+}
+.flyout .nav-item .ms{font-size:17px;flex-shrink:0}
+.flyout .nav-item:hover{background:var(--well);color:var(--text)}
+.flyout .nav-item.active,.flyout .nav-item[aria-current="page"]{background:rgba(34,211,238,.1);color:var(--accent2);border-color:transparent}
+.flyout .nav-item.active::before,.flyout .nav-item[aria-current="page"]::before{display:none}
+.flyout .nav-badge{position:static;margin-left:auto;font-size:9px;padding:1px 5px;line-height:1.4}
+
+/* ═══════ EXPANDABLE RAIL (collapse ⇄ expand, preference persisted) ═══════ */
+#sidebar{transition:width .18s ease,min-width .18s ease,flex-basis .18s ease}
+.rail-toggle-wrap{width:100%;display:flex;justify-content:center}
+#app.rail-open #sidebar{width:228px;min-width:228px;flex-basis:228px;align-items:stretch;padding:12px 10px}
+#app.rail-open .rail-logo{margin-left:2px}
+#app.rail-open .rail-toggle-wrap{justify-content:flex-end}
+#app.rail-open .rail-sep{width:auto;margin:5px 8px}
+#app.rail-open .rail-wrap{width:100%}
+#app.rail-open .rail-group{display:none}
+#app.rail-open .flyout{
+  display:block;position:static;background:transparent;border:none;box-shadow:none;
+  padding:0;min-width:0;animation:none;
+}
+#app.rail-open .fly-label{padding:10px 10px 4px}
+#app.rail-open #sidebar > .nav-item{
+  width:100%;height:auto;min-height:34px;justify-content:flex-start;gap:9px;
+  padding:7px 10px;border-radius:7px;font-size:12px;font-weight:600;
+}
+#app.rail-open #sidebar > .nav-item .ms{font-size:17px}
+.nav-lbl{display:none}
+#app.rail-open .nav-lbl{display:inline}
+/* re-enable the glow bar on the active item when expanded */
+#app.rail-open .flyout .nav-item.active::before,
+#app.rail-open .flyout .nav-item[aria-current="page"]::before{
+  display:block;content:'';position:absolute;left:-10px;top:8px;bottom:8px;width:2px;
+  border-radius:2px;background:var(--accent);box-shadow:0 0 8px var(--accent);
+}
+#app.rail-open .flyout .nav-item{position:relative}
+
+</style>
+<script src="/rbac-client.js?v=20260904"></script>
+<!-- it-observe.js wraps window.fetch, so it must load BEFORE any page code
+     that issues a request, and after rbac-client.js so it wraps the wrapper
+     that attaches the bearer. It used to sit at the bottom of <body>, where
+     it saw none of this page's boot traffic. -->
+<script src="/it-observe.js" data-app-key="inventory"></script>
+<link rel="stylesheet" href="/it-depth.css">
+</head>
+<body data-dp="IT_Inventory_App">
+<div id="app">
+
+<!-- ================================================================
+     SIDEBAR
+     ================================================================ -->
+<a class="skip-link" href="#main">Skip to main content</a>
+<aside id="sidebar" class="rail">
+  <div class="rail-logo" title="IT Asset Console"><span class="ms" aria-hidden="true">radar</span></div>
+  <div class="rail-toggle-wrap"><button type="button" class="nav-item" id="rail-toggle" title="Expand menu" aria-label="Expand menu" aria-expanded="false"><span class="ms" aria-hidden="true">left_panel_open</span></button></div>
+  <div class="rail-sep" aria-hidden="true"></div>
+  <div class="rail-wrap">
+    <button type="button" class="rail-group" data-group="operations" data-fly="fly-operations" title="Operations" aria-label="Operations" aria-haspopup="true" aria-expanded="false"><span class="ms" aria-hidden="true">radar</span></button>
+    <!-- role="group", not role="menu": role=menu obliges menuitem children and
+         a roving-tabindex arrow-key model, and these children are plain buttons
+         that already work with Tab and Enter/Space. NVDA and JAWS switch to menu
+         mode on entering a role=menu container and the arrows then do nothing.
+         In the default expanded rail all seven render permanently open, so menu
+         semantics were doubly wrong. Applies to all seven .flyout containers. -->
+    <div class="flyout" id="fly-operations" role="group" aria-label="Operations">
+      <div class="fly-label">Operations</div>
+      <button type="button" class="nav-item" onclick="showPage('dashboard')"><span class="ms" aria-hidden="true">radar</span>Dashboard</button>
+    </div>
+  </div>
+  <div class="rail-wrap">
+    <button type="button" class="rail-group" data-group="people" data-fly="fly-people" title="People" aria-label="People" aria-haspopup="true" aria-expanded="false"><span class="ms" aria-hidden="true">group</span></button>
+    <div class="flyout" id="fly-people" role="group" aria-label="People">
+      <div class="fly-label">People</div>
+      <button type="button" class="nav-item" onclick="showPage('employees')"><span class="ms" aria-hidden="true">badge</span>Active Employees<span class="nav-badge" id="badge-emp" aria-label="Active Employees count"></span></button>
+      <button type="button" class="nav-item" onclick="showPage('terms')"><span class="ms" aria-hidden="true">person_off</span>Terminated<span class="nav-badge" id="badge-terms" aria-label="Terminated count"></span></button>
+    </div>
+  </div>
+  <div class="rail-wrap">
+    <button type="button" class="rail-group" data-group="devices" data-fly="fly-devices" title="Devices" aria-label="Devices" aria-haspopup="true" aria-expanded="false"><span class="ms" aria-hidden="true">devices</span></button>
+    <div class="flyout" id="fly-devices" role="group" aria-label="Devices">
+      <div class="fly-label">Devices</div>
+      <button type="button" class="nav-item" onclick="showPage('tablets')"><span class="ms" aria-hidden="true">tablet_android</span>Tablets<span class="nav-badge" id="badge-tablets" aria-label="Tablets count"></span></button>
+      <button type="button" class="nav-item" onclick="showPage('macbooks')"><span class="ms" aria-hidden="true">laptop_mac</span>MacBooks<span class="nav-badge" id="badge-mac" aria-label="MacBooks count"></span></button>
+      <button type="button" class="nav-item" onclick="showPage('ipads')"><span class="ms" aria-hidden="true">tablet_mac</span>iPads<span class="nav-badge" id="badge-ipads" aria-label="iPads count"></span></button>
+      <button type="button" class="nav-item" onclick="showPage('endpoints')"><span class="ms" aria-hidden="true">desktop_windows</span>ManageEngine<span class="nav-badge" id="badge-ep" aria-label="ManageEngine count"></span></button>
+      <button type="button" class="nav-item" onclick="showPage('intune')"><span class="ms" aria-hidden="true">smartphone</span>Intune<span class="nav-badge" id="badge-intune" aria-label="Intune count"></span></button>
+      <button type="button" class="nav-item" onclick="showPage('liveauction')"><span class="ms" aria-hidden="true">gavel</span>Live Auction</button>
+    </div>
+  </div>
+  <div class="rail-wrap">
+    <button type="button" class="rail-group" data-group="carriers" data-fly="fly-carriers" title="Carriers" aria-label="Carriers" aria-haspopup="true" aria-expanded="false"><span class="ms" aria-hidden="true">cell_tower</span></button>
+    <div class="flyout" id="fly-carriers" role="group" aria-label="Carriers">
+      <div class="fly-label">Carriers</div>
+      <button type="button" class="nav-item" onclick="showPage('tmobile')"><span class="ms" aria-hidden="true">signal_cellular_alt</span>T-Mobile<span class="nav-badge" id="badge-tm" aria-label="T-Mobile count"></span></button>
+      <button type="button" class="nav-item" onclick="showPage('verizon')"><span class="ms" aria-hidden="true">cell_tower</span>Verizon<span class="nav-badge" id="badge-vz" aria-label="Verizon count"></span></button>
+    </div>
+  </div>
+  <div class="rail-wrap">
+    <button type="button" class="rail-group" data-group="security" data-fly="fly-security" title="Security" aria-label="Security" aria-haspopup="true" aria-expanded="false"><span class="ms" aria-hidden="true">shield</span></button>
+    <div class="flyout" id="fly-security" role="group" aria-label="Security">
+      <div class="fly-label">Security</div>
+      <button type="button" class="nav-item" onclick="showPage('warranty')"><span class="ms" aria-hidden="true">verified_user</span>Warranty<span class="nav-badge" id="badge-warranty" aria-label="Warranty count"></span></button>
+      <button type="button" class="nav-item" onclick="showPage('lifecycle')"><span class="ms" aria-hidden="true">monitoring</span>Device Lifecycle<span class="nav-badge" id="badge-lc" aria-label="Device Lifecycle count"></span></button>
+    </div>
+  </div>
+  <div class="rail-wrap">
+    <button type="button" class="rail-group" data-group="analytics" data-fly="fly-analytics" title="Analytics" aria-label="Analytics" aria-haspopup="true" aria-expanded="false"><span class="ms" aria-hidden="true">insights</span></button>
+    <div class="flyout" id="fly-analytics" role="group" aria-label="Analytics">
+      <div class="fly-label">Analytics</div>
+      <button type="button" class="nav-item" onclick="showPage('executive')"><span class="ms" aria-hidden="true">insights</span>Executive Summary</button>
+      <button type="button" class="nav-item" onclick="showPage('costs')"><span class="ms" aria-hidden="true">payments</span>Hardware Costs</button>
+      <button type="button" class="nav-item" onclick="showPage('device-inventory')"><span class="ms" aria-hidden="true">inventory_2</span>Device Inventory</button>
+    </div>
+  </div>
+  <div class="rail-wrap">
+    <button type="button" class="rail-group" data-group="cloud" data-fly="fly-cloud" title="Cloud" aria-label="Cloud" aria-haspopup="true" aria-expanded="false"><span class="ms" aria-hidden="true">cloud</span></button>
+    <div class="flyout" id="fly-cloud" role="group" aria-label="Cloud">
+      <div class="fly-label">Cloud</div>
+      <button type="button" class="nav-item" onclick="showPage('aws')"><span class="ms" aria-hidden="true">cloud</span>AWS Workspaces<span class="nav-badge" id="badge-aws" aria-label="AWS Workspaces count"></span></button>
+    </div>
+  </div>
+  <div style="flex:1"></div>
+  <div class="rail-sep" aria-hidden="true"></div>
+  <button type="button" class="nav-item" onclick="openImportModal()" data-rbac-page="it-inventory" data-rbac-level="admin" title="Import XLSX" aria-label="Import XLSX"><span class="ms" aria-hidden="true">upload</span><span class="nav-lbl">Import XLSX</span></button>
+  <button type="button" class="nav-item" onclick="exportAll()" title="Export Data" aria-label="Export Data"><span class="ms" aria-hidden="true">download</span><span class="nav-lbl">Export Data</span></button>
+</aside>
+
+<!-- ================================================================
+     MAIN
+     ================================================================ -->
+<main id="main" tabindex="-1">
+  <header id="topbar" role="banner" class="ribbon">
+    <div class="brand">
+      <span class="brand-dot" aria-hidden="true"></span>
+      <span class="brand-name">IT ASSET CONSOLE</span>
+    </div>
+    <div class="ticker-wrap" aria-hidden="true"><div class="ticker" id="hdr-ticker"></div></div>
+    <div id="searchbar" role="search">
+      <span class="search-icon" aria-hidden="true"><span class="ms">search</span></span>
+      <label for="global-search" class="visually-hidden">Search across all data</label>
+      <input type="search" id="global-search" placeholder="Search all data…" oninput="onSearch(this.value)">
+    </div>
+    <button class="btn btn-primary" id="add-btn" data-rbac-page="it-inventory" data-rbac-level="admin" onclick="showAddModal()" hidden><span class="ms">add</span>Add Record</button>
+    <span class="clock mono" id="hdr-clock">--:--:--</span>
+    <span class="utc mono">UTC</span>
+  </header>
+
+  <div id="content">
+
+    <div class="head">
+      <div>
+        <h1 class="topbar-title" id="topbar-title">Dashboard</h1>
+        <div class="sub mono" id="hdr-sub">IT asset inventory · live integrations</div>
+      </div>
+    </div>
+
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="page active" id="page-dashboard">
+      <!-- ═══ MISSION CONTROL DASHBOARD — exact replica of the design mock ═══ -->
+      <div class="head">
+        <div>
+          <h1>Overview</h1>
+          <div class="sub mono" id="ov-sub">loading live data…</div>
+        </div>
+        <button class="btn" id="run-diag-btn" type="button"><span class="ms">bolt</span>Run diagnostics</button>
+      </div>
+
+      <div class="gauges" id="gauges"></div>
+      <div class="tiles" id="tiles"></div>
+
+      <div class="mid">
+        <div class="panel">
+          <div class="panel-head" style="justify-content:space-between">
+            <span style="display:flex;align-items:center;gap:8px"><span class="ms" style="font-size:18px;color:var(--accent)">grid_view</span><span class="panel-title">INTUNE COMPLIANCE</span></span>
+            <span class="mono" style="font-size:10.5px;color:var(--text3)" id="heat-scale"></span>
+          </div>
+          <div style="padding:16px">
+            <div class="heat" id="heat"></div>
+            <div class="heat-legend" id="heat-legend"></div>
+          </div>
+        </div>
+
+        <div class="panel" style="display:flex;flex-direction:column;overflow:hidden">
+          <div class="panel-head">
+            <span class="brand-dot" style="background:var(--red);animation:blip 1.6s infinite"></span>
+            <span class="panel-title">ALERT STREAM</span>
+            <span class="badge-count mono" id="alert-count">—</span>
+          </div>
+          <div class="alerts" id="alerts" style="flex:1;overflow-y:auto"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><span class="ms" style="font-size:18px;color:var(--accent)">lan</span><span class="panel-title">INTEGRATION MATRIX</span></div>
+        <div class="scroll-x">
+          <table>
+            <thead><tr id="matrix-cols"></tr></thead>
+            <tbody id="matrix"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="legacy-dash" hidden><!-- live app dashboard kept for JS compatibility -->
+
+      <div class="section-header">
+        <div>
+          <div class="section-title">Overview</div>
+          <div class="section-sub">Real-time inventory snapshot across all asset categories</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV('dashboard')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> Export Summary</button>
+      </div>
+
+      <div class="dash-grid" id="stat-cards"></div>
+
+      <div class="dash-row">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Device Assignment by Leader</div>
+              <div class="card-sub">Top functional leaders by employee count</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="bar-chart" id="leader-chart"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Workforce Mix</div>
+              <div class="card-sub">By employment type</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="donut-wrap">
+              <canvas id="donut-canvas" width="100" height="100" style="flex-shrink:0"></canvas>
+              <div class="donut-legend" id="donut-legend"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-row2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Mobile Compliance</div></div>
+          <div class="card-body" id="compliance-chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Device OS Distribution</div></div>
+          <div class="card-body" id="os-chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Live Auction States</div></div>
+          <div class="card-body">
+            <div class="bar-chart" id="state-chart"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Recent Employees</div>
+            <div class="card-sub">Latest additions to the active roster</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('employees')">View All <span class="ms" style="font-size:14px" aria-hidden="true">arrow_forward</span></button>
+        </div>
+        <div class="table-wrap">
+          <table id="dash-recent-table">
+            <thead><tr>
+              <th>Name</th><th>Title</th><th>Department</th><th>Pay Class</th><th>Devices</th>
+            </tr></thead>
+            <tbody id="dash-recent-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      </div><!-- /legacy-dash -->
+    </div>
+
+    <!-- ===== EMPLOYEES ===== -->
+    <div class="page" id="page-employees">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Active Employees</div>
+          <div class="section-sub">Full roster with assigned device inventory</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="col-picker-wrap">
+            <button class="col-picker-btn" onclick="toggleColPicker('emp-cols')"><span class="ms" style="font-size:15px" aria-hidden="true">view_column</span> Columns</button>
+            <div class="col-picker-dropdown" id="emp-cols">
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('emp-table','emp-id',this.checked)"> Worker ID</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('emp-table','emp-title',this.checked)"> Title</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('emp-table','emp-dept',this.checked)"> Department</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('emp-table','emp-pay',this.checked)"> Pay Class</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('emp-table','emp-leader',this.checked)"> Leader</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('emp-table','emp-devices',this.checked)"> Devices</label>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('employees')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="showAddModal('employees')" data-rbac-page="it-inventory" data-rbac-level="admin"><span class="ms" style="font-size:15px" aria-hidden="true">add</span> Add Employee</button>
+        </div>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="emp-filter-leader" aria-label="Filter employees by leader" onchange="renderEmployees()">
+          <option value="">All Leaders</option>
+        </select>
+        <select class="filter-select" id="emp-filter-payclass" aria-label="Filter employees by pay class" onchange="renderEmployees()">
+          <option value="">All Pay Classes</option>
+          <option>Regular FT</option><option>Regular PT</option><option>Contingent Worker</option>
+        </select>
+        <select class="filter-select" id="emp-filter-device" aria-label="Filter employees by device type" onchange="renderEmployees()">
+          <option value="">All Device Types</option>
+          <option value="Desktop/Laptop">Has Laptop</option>
+          <option value="iPhone">Has iPhone</option>
+          <option value="MacBook">Has MacBook</option>
+          <option value="Tablet">Has Tablet</option>
+        </select>
+        <span class="results-count" id="emp-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="sticky-col" id="emp-table">
+            <thead><tr>
+              <th data-col="emp-id" onclick="sortTable('employees','Worker ID')">ID</th>
+              <th onclick="sortTable('employees','First/Last')">Name</th>
+              <th data-col="emp-title" onclick="sortTable('employees','Job Name')">Title</th>
+              <th data-col="emp-dept" onclick="sortTable('employees','Department')">Department</th>
+              <th data-col="emp-pay" onclick="sortTable('employees','Pay Class')">Pay Class</th>
+              <th data-col="emp-leader" onclick="sortTable('employees','Functional Leader')">Leader</th>
+              <th data-col="emp-devices">Devices</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="emp-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="emp-page-info"></span>
+          <div class="pagination" id="emp-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TERMS ===== -->
+    <div class="page" id="page-terms">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Terminated Employees</div>
+          <div class="section-sub">Historical termination records</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV('terms')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="terms-filter-leader" aria-label="Filter terminated employees by leader" onchange="renderTerms()">
+          <option value="">All Leaders</option>
+        </select>
+        <span class="results-count" id="terms-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('terms','Worker ID')">ID</th>
+              <th onclick="sortTable('terms','First/Last')">Name</th>
+              <th onclick="sortTable('terms','Job Name')">Title</th>
+              <th onclick="sortTable('terms','Department')">Department</th>
+              <th onclick="sortTable('terms','Pay Class')">Pay Class</th>
+              <th onclick="sortTable('terms','Termination Date')">Term Date</th>
+              <th onclick="sortTable('terms','Functional Leader')">Leader</th>
+            </tr></thead>
+            <tbody id="terms-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="terms-page-info"></span>
+          <div class="pagination" id="terms-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== INTUNE ===== -->
+    <div class="page" id="page-intune">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Mobile Devices (Intune)</div>
+          <div class="section-sub">Managed iOS and Android devices</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="col-picker-wrap">
+            <button class="col-picker-btn" onclick="toggleColPicker('intune-cols')"><span class="ms" style="font-size:15px" aria-hidden="true">view_column</span> Columns</button>
+            <div class="col-picker-dropdown" id="intune-cols">
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('intune-table','intune-user',this.checked)"> User</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('intune-table','intune-email',this.checked)"> Email</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('intune-table','intune-os',this.checked)"> OS</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('intune-table','intune-ver',this.checked)"> Version</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('intune-table','intune-model',this.checked)"> Model</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('intune-table','intune-phone',this.checked)"> Phone</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('intune-table','intune-carrier',this.checked)"> Carrier</label>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('intune')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="showAddModal('intune')" data-rbac-page="it-inventory" data-rbac-level="admin"><span class="ms" style="font-size:15px" aria-hidden="true">add</span> Add Device</button>
+        </div>
+      </div>
+      <div class="warranty-sync-bar">
+        <div class="warranty-sync-info">
+          <strong id="intune-sync-status">Last synced: —</strong>
+          <span id="intune-sync-sub"> · Click "Sync from Intune" to refresh now (~30 sec)</span>
+        </div>
+        <div class="sync-spinner" id="intune-sync-spinner"></div>
+        <button class="btn btn-ghost btn-sm" id="intune-sync-btn" data-rbac-page="it-inventory" data-rbac-level="admin" onclick="triggerIntuneSync()"><span class="ms" style="font-size:15px" aria-hidden="true">sync</span> Sync from Intune</button>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="intune-filter-os" aria-label="Filter Intune devices by OS" onchange="renderIntune()">
+          <option value="">All OS</option>
+          <option>iOS/iPadOS</option>
+          <option>Android (Fully Managed)</option>
+        </select>
+        <select class="filter-select" id="intune-filter-compliance" aria-label="Filter Intune devices by compliance" onchange="renderIntune()">
+          <option value="">All Compliance</option>
+          <option>Compliant</option><option>Noncompliant</option>
+        </select>
+        <select class="filter-select" id="intune-filter-live" aria-label="Filter Intune devices by live status" onchange="renderIntune()">
+          <option value="">All Live Status</option>
+          <option value="confirmed">✓ Active in Live Intune</option>
+          <option value="not-found">⚠ Not in Live Intune</option>
+        </select>
+        <span class="results-count" id="intune-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="sticky-col" id="intune-table">
+            <thead><tr>
+              <th onclick="sortTable('intune','Device name')">Device</th>
+              <th data-col="intune-email" onclick="sortTable('intune','Primary user UPN')">Email</th>
+              <th data-col="intune-os" onclick="sortTable('intune','OS')">OS</th>
+              <th data-col="intune-ver" onclick="sortTable('intune','OS version')">Version</th>
+              <th data-col="intune-model" onclick="sortTable('intune','Model')">Model</th>
+              <th onclick="sortTable('intune','Serial number')">Serial</th>
+              <th data-col="intune-phone" onclick="sortTable('intune','Phone number')">Phone</th>
+              <th onclick="sortTable('intune','IMEI')">IMEI</th>
+              <th data-col="intune-carrier" onclick="sortTable('intune','Carrier')">Carrier</th>
+              <th onclick="sortTable('intune','Compliance')">Status</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="intune-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="intune-page-info"></span>
+          <div class="pagination" id="intune-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TABLETS ===== -->
+    <div class="page" id="page-tablets">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Tablets</div>
+          <div class="section-sub">Samsung tablets managed via Intune</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('tablets')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+        </div>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="tablet-filter-compliance" aria-label="Filter tablets by compliance" onchange="renderTablets()">
+          <option value="">All Compliance</option>
+          <option value="Compliant">Compliant</option>
+          <option value="Noncompliant">Noncompliant</option>
+        </select>
+        <select class="filter-select" id="tablet-filter-intune" aria-label="Filter tablets by Intune status" onchange="renderTablets()">
+          <option value="">All Intune Status</option>
+          <option value="enrolled">✓ Enrolled</option>
+          <option value="not-enrolled">— Not Enrolled</option>
+        </select>
+        <span class="results-count" id="tablet-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('tablets','Device name')">Device Name</th>
+              <th onclick="sortTable('tablets','Primary user display name')">User</th>
+              <th onclick="sortTable('tablets','Model')">Model</th>
+              <th onclick="sortTable('tablets','OS version')">OS Version</th>
+              <th onclick="sortTable('tablets','Serial number')">Serial</th>
+              <th onclick="sortTable('tablets','IMEI')">IMEI</th>
+              <th onclick="sortTable('tablets','Last check-in')">Last Check-in</th>
+              <th onclick="sortTable('tablets','Carrier')">Carrier</th>
+              <th>Intune</th>
+            </tr></thead>
+            <tbody id="tablets-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="tablet-page-info"></span>
+          <div class="pagination" id="tablet-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ===== MACBOOKS ===== -->
+    <div class="page" id="page-macbooks">
+      <div class="section-header">
+        <div>
+          <div class="section-title">MacBooks (Kandji)</div>
+          <div class="section-sub">Apple device fleet managed via Kandji MDM</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('macbooks')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="showAddModal('macbooks')" data-rbac-page="it-inventory" data-rbac-level="admin"><span class="ms" style="font-size:15px" aria-hidden="true">add</span> Add MacBook</button>
+        </div>
+      </div>
+      <div class="warranty-sync-bar">
+        <div class="warranty-sync-info">
+          <strong id="mac-sync-status">Last synced: —</strong>
+          <span id="mac-sync-sub"> · Click "Sync from Kandji" to refresh now</span>
+        </div>
+        <div class="sync-spinner" id="mac-sync-spinner"></div>
+        <button class="btn btn-ghost btn-sm" id="mac-sync-btn" data-rbac-page="it-inventory" data-rbac-level="admin" onclick="triggerKandjiSync()"><span class="ms" style="font-size:15px" aria-hidden="true">sync</span> Sync from Kandji</button>
+      </div>
+      <!-- ABM warranty coverage notice — populated by renderAbmCoverageNotice(); empty when the feed covered every row -->
+      <div id="mac-abm-notice"></div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('macbooks','Device Name')">Device Name</th>
+              <th onclick="sortTable('macbooks','User')">User</th>
+              <th onclick="sortTable('macbooks','Model')">Model</th>
+              <th onclick="sortTable('macbooks','Chip')">Chip</th>
+              <th onclick="sortTable('macbooks','OS Version')">OS Version</th>
+              <th onclick="sortTable('macbooks','Serial')">Serial</th>
+              <th onclick="sortTable('macbooks','Blueprint')">Blueprint</th>
+              <th onclick="sortTable('macbooks','Checked In')">Last Check-in</th>
+              <th>Warranty</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="macbooks-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="macbooks-page-info"></span>
+          <div class="pagination" id="macbooks-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== IPADS ===== -->
+    <div class="page" id="page-ipads">
+      <div class="section-header">
+        <div>
+          <div class="section-title">iPads (Kandji)</div>
+          <div class="section-sub">iPad fleet managed via Kandji MDM</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('ipads')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+        </div>
+      </div>
+      <div class="warranty-sync-bar">
+        <div class="warranty-sync-info">
+          <strong id="ipad-sync-status">Last synced: —</strong>
+          <span id="ipad-sync-sub"> · Syncs together with MacBooks nightly at 4:00 AM</span>
+        </div>
+        <div class="sync-spinner" id="ipad-sync-spinner"></div>
+        <button class="btn btn-ghost btn-sm" id="ipad-sync-btn" data-rbac-page="it-inventory" data-rbac-level="admin" onclick="triggerKandjiSync()"><span class="ms" style="font-size:15px" aria-hidden="true">sync</span> Sync from Kandji</button>
+      </div>
+      <!-- ABM warranty coverage notice — populated by renderAbmCoverageNotice(); empty when the feed covered every row -->
+      <div id="ipad-abm-notice"></div>
+      <div class="page-controls">
+        <select class="filter-select" id="ipad-filter-missing" aria-label="Filter iPads by status" onchange="renderIPads()">
+          <option value="">All Devices</option>
+          <option value="missing">Missing</option>
+          <option value="active">Active</option>
+        </select>
+        <span class="results-count" id="ipad-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('ipads','Device Name')">Device Name</th>
+              <th onclick="sortTable('ipads','User')">User</th>
+              <th onclick="sortTable('ipads','Model')">Model</th>
+              <th onclick="sortTable('ipads','OS Version')">OS Version</th>
+              <th onclick="sortTable('ipads','Serial')">Serial</th>
+              <th onclick="sortTable('ipads','Blueprint')">Blueprint</th>
+              <th onclick="sortTable('ipads','Checked In')">Last Check-in</th>
+              <th>Warranty</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="ipads-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="ipad-page-info"></span>
+          <div class="pagination" id="ipad-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ENDPOINTS ===== -->
+    <div class="page" id="page-endpoints">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Windows Endpoints</div>
+          <div class="section-sub">ManageEngine Endpoint Central — Desktops &amp; Laptops</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="col-picker-wrap">
+            <button class="col-picker-btn" onclick="toggleColPicker('ep-cols')"><span class="ms" style="font-size:15px" aria-hidden="true">view_column</span> Columns</button>
+            <div class="col-picker-dropdown" id="ep-cols">
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('ep-table','ep-user',this.checked)"> User</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('ep-table','ep-model',this.checked)"> Model</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('ep-table','ep-type',this.checked)"> Type</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('ep-table','ep-tag',this.checked)"> Service Tag</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('ep-table','ep-scan',this.checked)"> Last Scan</label>
+              <label class="col-picker-item"><input type="checkbox" checked onchange="toggleCol('ep-table','ep-intune',this.checked)"> Intune</label>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('endpoints')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+          <button class="btn btn-primary btn-sm" id="ep-sync-btn" data-rbac-page="it-inventory" data-rbac-level="admin" onclick="triggerEndpointsSync()"><span class="ms" style="font-size:15px" aria-hidden="true">sync</span> Sync from ME</button>
+          <button class="btn btn-ghost btn-sm" id="ep-patch-sync-btn" data-rbac-page="it-inventory" data-rbac-level="admin" onclick="triggerPatchSync()" style="margin-left:6px"><span class="ms" style="font-size:15px" aria-hidden="true">healing</span> Sync Patches</button>
+        </div>
+      </div>
+      <div class="warranty-sync-bar">
+        <div class="sync-spinner" id="ep-sync-spinner"></div>
+        <div class="warranty-sync-info">
+          <strong id="ep-sync-status">Last synced: —</strong>
+          <span id="ep-sync-sub"> · Click "Sync from ME" to refresh now (~5 min)</span>
+        </div>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="ep-filter-type" aria-label="Filter endpoints by computer type" onchange="renderEndpoints()">
+          <option value="">All Types</option>
+          <option>LAPTOP</option><option>DESKTOP</option>
+        </select>
+        <select class="filter-select" id="ep-filter-patch" aria-label="Filter endpoints by patch health" onchange="renderEndpoints()">
+          <option value="">All Patch Status</option>
+          <option value="Healthy">Healthy</option>
+          <option value="Vulnerable">Vulnerable</option>
+          <option value="Highly Vulnerable">Highly Vulnerable</option>
+          <option value="Unknown">Unknown</option>
+        </select>
+        <select class="filter-select" id="ep-filter-intune" aria-label="Filter endpoints by Intune enrollment" onchange="renderEndpoints()">
+          <option value="">All Intune Status</option>
+          <option value="enrolled">✓ Enrolled in Intune</option>
+          <option value="not-enrolled">— Not in Intune</option>
+        </select>
+        <span class="results-count" id="ep-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="sticky-col" id="ep-table">
+            <thead><tr>
+              <th onclick="sortTable('endpoints','Computer Name')">Computer Name</th>
+              <th data-col="ep-user" onclick="sortTable('endpoints','First/Last')">User</th>
+              <th data-col="ep-model" onclick="sortTable('endpoints','Device Model')">Model</th>
+              <th data-col="ep-type" onclick="sortTable('endpoints','Computer Type')">Type</th>
+              <th data-col="ep-tag" onclick="sortTable('endpoints','Service Tag')">Service Tag</th>
+              <th data-col="ep-scan" onclick="sortTable('endpoints','Last Successful Asset Scan')">Last Scan</th>
+              <th data-col="ep-intune">Intune</th>
+              <th data-col="ep-patch" onclick="sortTable('endpoints','Patch Health')" style="cursor:pointer">Patch Health</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="endpoints-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="ep-page-info"></span>
+          <div class="pagination" id="ep-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LIVE AUCTION ===== -->
+    <div class="page" id="page-liveauction">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Live Auction Devices</div>
+          <div class="section-sub">Tablets and smartphones used in live auction events</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('liveauction')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="showAddModal('liveauction')" data-rbac-page="it-inventory" data-rbac-level="admin"><span class="ms" style="font-size:15px" aria-hidden="true">add</span> Add Device</button>
+        </div>
+      </div>
+      <div class="summary-row" id="la-summary"></div>
+      <div class="page-controls">
+        <select class="filter-select" id="la-filter-state" aria-label="Filter live auction devices by state" onchange="renderLiveAuction()">
+          <option value="">All States</option>
+        </select>
+        <select class="filter-select" id="la-filter-regional" aria-label="Filter live auction devices by regional" onchange="renderLiveAuction()">
+          <option value="">All Regionals</option>
+        </select>
+        <select class="filter-select" id="la-filter-status" aria-label="Filter live auction devices by status" onchange="renderLiveAuction()">
+          <option value="">All Status</option>
+          <option>Active</option><option>Inactive</option>
+        </select>
+        <span class="results-count" id="la-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('liveauction','Device ID1')">Device ID</th>
+              <th onclick="sortTable('liveauction','First/Last')">Assigned To</th>
+              <th onclick="sortTable('liveauction','Model')">Model</th>
+              <th onclick="sortTable('liveauction','Device Type')">Type</th>
+              <th onclick="sortTable('liveauction','State')">State</th>
+              <th onclick="sortTable('liveauction','Regional')">Regional</th>
+              <th onclick="sortTable('liveauction','Active/Inactive')">Status</th>
+              <th onclick="sortTable('liveauction','OS')">Carrier</th>
+              <th>IMEI</th>
+              <th>Intune</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="la-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="la-page-info"></span>
+          <div class="pagination" id="la-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TMOBILE ===== -->
+    <div class="page" id="page-tmobile">
+      <div class="section-header">
+        <div>
+          <div class="section-title">T-Mobile Lines</div>
+          <div class="section-sub">All active T-Mobile cellular accounts</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('tmobile')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="showAddModal('tmobile')" data-rbac-page="it-inventory" data-rbac-level="admin"><span class="ms" style="font-size:15px" aria-hidden="true">add</span> Add Line</button>
+        </div>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="tm-filter-intune" aria-label="Filter T-Mobile lines by Intune enrollment" onchange="renderTmobile()">
+          <option value="">All Intune Status</option>
+          <option value="enrolled">✓ Enrolled</option>
+          <option value="not-enrolled">— Not Enrolled</option>
+        </select>
+        <span class="results-count" id="tm-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('tmobile','Phone Number')">Phone Number</th>
+              <th onclick="sortTable('tmobile','User')">User</th>
+              <th onclick="sortTable('tmobile','Department')">Department</th>
+              <!-- Cost / Minutes / Data are UNMAPPED tmobile_lines columns: TABLES.tmobile
+                   lists none of them, so dbToApp passes them through under their raw DB
+                   names. Those raw names are therefore the only keys the rows carry, and
+                   they are already what the cells read in renderTmobile. 'Cost' /
+                   'Minutes' / 'Total Data' exist nowhere in the payload, so clicking
+                   these headers used to move the arrow and reorder nothing. -->
+              <th onclick="sortTable('tmobile','rate_plan_cost')">Cost</th>
+              <th onclick="sortTable('tmobile','IMEI')">IMEI</th>
+              <th onclick="sortTable('tmobile','Device')">Device</th>
+              <th onclick="sortTable('tmobile','total_minutes')">Minutes</th>
+              <th onclick="sortTable('tmobile','total_data')">Data</th>
+              <th>Intune</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="tm-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="tm-page-info"></span>
+          <div class="pagination" id="tm-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== VERIZON ===== -->
+    <div class="page" id="page-verizon">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Verizon Lines</div>
+          <div class="section-sub">Verizon wireless device accounts</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('verizon')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="showAddModal('verizon')" data-rbac-page="it-inventory" data-rbac-level="admin"><span class="ms" style="font-size:15px" aria-hidden="true">add</span> Add Line</button>
+        </div>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="vz-filter-type" aria-label="Filter Verizon lines by device type" onchange="renderVerizon()">
+          <option value="">All Device Types</option>
+          <option>SMARTPHONE</option><option>TABLET</option><option>MiFi/USB</option>
+        </select>
+        <select class="filter-select" id="vz-filter-intune" aria-label="Filter Verizon lines by Intune enrollment" onchange="renderVerizon()">
+          <option value="">All Intune Status</option>
+          <option value="enrolled">✓ Enrolled</option>
+          <option value="not-enrolled">— Not Enrolled</option>
+        </select>
+        <span class="results-count" id="vz-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('verizon','Phone number')">Phone Number</th>
+              <th onclick="sortTable('verizon','Username')">Username</th>
+              <th onclick="sortTable('verizon','Department')">Department</th>
+              <th onclick="sortTable('verizon','Functional Leader')">Leader</th>
+              <th onclick="sortTable('verizon','Equipment Model')">Model</th>
+              <th onclick="sortTable('verizon','Device Type')">Type</th>
+              <th onclick="sortTable('verizon','Service Status')">Status</th>
+              <th>Intune</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="vz-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="vz-page-info"></span>
+          <div class="pagination" id="vz-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== AWS ===== -->
+    <div class="page" id="page-aws">
+      <div class="section-header">
+        <div>
+          <div class="section-title">AWS Workspaces</div>
+          <div class="section-sub">Cloud desktop deployments</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('aws')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+          <button class="btn btn-primary btn-sm" onclick="showAddModal('aws')" data-rbac-page="it-inventory" data-rbac-level="admin"><span class="ms" style="font-size:15px" aria-hidden="true">add</span> Add Workspace</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('aws','WorkSpace ID')">Workspace ID</th>
+              <th onclick="sortTable('aws','First/Last')">User</th>
+              <th onclick="sortTable('aws','Username')">Username</th>
+              <th onclick="sortTable('aws','Compute')">Compute</th>
+              <th onclick="sortTable('aws','Root volume')">Root</th>
+              <th onclick="sortTable('aws','User volume')">Storage</th>
+              <th onclick="sortTable('aws','Operating system')">OS</th>
+              <th onclick="sortTable('aws','Running mode')">Mode</th>
+              <th onclick="sortTable('aws','Status')">Status</th>
+              <th>Actions</th>
+            </tr></thead>
+            <tbody id="aws-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="aws-page-info"></span>
+          <div class="pagination" id="aws-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DEVICE INVENTORY ===== -->
+    <div class="page" id="page-device-inventory">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Device Inventory</div>
+          <div class="section-sub">Every device across all sources</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportDeviceInventoryCSV()"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+        </div>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="di-filter-type" aria-label="Filter device inventory by device type" onchange="renderDeviceInventory()">
+          <option value="">All Types</option>
+          <option value="LAPTOP">Laptop</option>
+          <option value="DESKTOP">Desktop</option>
+          <option value="Server">Server</option>
+          <option value="MacBook">MacBook</option>
+          <option value="iPhone">iPhone</option>
+          <option value="Tablet">Tablet</option>
+          <option value="iPad">iPad</option>
+          <option value="AWS WorkSpace">AWS WorkSpace</option>
+        </select>
+        <select class="filter-select" id="di-filter-source" aria-label="Filter device inventory by source" onchange="renderDeviceInventory()">
+          <option value="">All Sources</option>
+          <option value="ManageEngine">ManageEngine</option>
+          <option value="Kandji">Kandji</option>
+          <option value="Intune">Intune</option>
+          <option value="Kandji iPad">Kandji iPad</option>
+          <option value="AWS">AWS</option>
+        </select>
+        <select class="filter-select" id="di-filter-assignment" aria-label="Filter device inventory by assignment" onchange="renderDeviceInventory()">
+          <option value="">All Assignments</option>
+          <option value="unassigned">Unassigned only</option>
+          <option value="active">Assigned to Active</option>
+          <option value="terminated">Assigned to Terminated</option>
+        </select>
+        <select class="filter-select" id="di-filter-manager" aria-label="Filter device inventory by manager" onchange="renderDeviceInventory()">
+          <option value="">All Managers</option>
+        </select>
+        <span class="results-count" id="di-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('device-inventory','serial')">Serial</th>
+              <th onclick="sortTable('device-inventory','model')">Model</th>
+              <th onclick="sortTable('device-inventory','source')" style="white-space:nowrap">Source</th>
+              <th onclick="sortTable('device-inventory','type')" style="white-space:nowrap">Type</th>
+              <th onclick="sortTable('device-inventory','status')" style="white-space:nowrap">Status</th>
+              <th onclick="sortTable('device-inventory','user_status')" style="white-space:nowrap">User Status</th>
+              <th onclick="sortTable('device-inventory','user_name')">Assigned User</th>
+              <th onclick="sortTable('device-inventory','manager')">Manager</th>
+              <th onclick="sortTable('device-inventory','leader')">Functional Leader</th>
+            </tr></thead>
+            <tbody id="di-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="di-page-info"></span>
+          <div class="pagination" id="di-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== EXECUTIVE SUMMARY ===== -->
+    <div class="page" id="page-executive">
+      <div class="exec-header">
+        <div>
+          <div class="section-title">Executive Summary</div>
+          <div class="section-sub" id="exec-date"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportExecPDF()"><span class="ms" style="font-size:15px" aria-hidden="true">picture_as_pdf</span> Export PDF</button>
+        </div>
+      </div>
+      <div class="exec-kpi-grid" id="exec-kpi-grid"></div>
+      <div class="exec-2col">
+        <div class="card">
+          <div class="card-header"><div class="card-title">🔒 Security & Compliance</div></div>
+          <div class="card-body" id="exec-compliance"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">👥 Workforce Breakdown</div></div>
+          <div class="card-body" id="exec-workforce"></div>
+        </div>
+      </div>
+      <div class="exec-3col">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📱 Device Fleet</div></div>
+          <div class="card-body" id="exec-fleet"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">⚠️ Lifecycle Risk</div></div>
+          <div class="card-body" id="exec-lifecycle"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🌐 Live Auction Coverage</div></div>
+          <div class="card-body" id="exec-auction"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">💡 Key Insights</div></div>
+        <div class="card-body" id="exec-insights"></div>
+      </div>
+    </div>
+
+    <!-- ===== HARDWARE COST REPORT ===== -->
+    <div class="page" id="page-costs">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Hardware Cost Report</div>
+          <div class="section-sub">Fleet value and replacement cost estimates based on current inventory</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV('costs')"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+      </div>
+      <div class="cost-hero" id="cost-hero"></div>
+      <div class="exec-2col">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Cost by Device Type</div><div class="card-sub">Current fleet value</div></div>
+          <div class="card-body" id="cost-by-type"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Cost by Functional Leader</div><div class="card-sub">Department spend</div></div>
+          <div class="card-body" id="cost-by-leader"></div>
+        </div>
+      </div>
+      <div class="exec-2col">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Replacement Cost Estimate</div><div class="card-sub">Critical + warning devices</div></div>
+          <div class="card-body" id="cost-replacement"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Cost by Pay Class</div><div class="card-sub">FT vs PT vs Contingent</div></div>
+          <div class="card-body" id="cost-by-payclass"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LIFECYCLE ===== -->
+    <div class="page" id="page-lifecycle">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Device Lifecycle Tracking</div>
+          <div class="section-sub">Flag aging devices that need replacement based on last check-in date</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportLifecycle()"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> Export Flagged</button>
+        </div>
+      </div>
+      <div class="lifecycle-grid" id="lc-kpi-cards"></div>
+      <div class="dash-row">
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">Fleet Age Distribution</div><div class="card-sub">All managed devices by age category</div></div>
+          </div>
+          <div class="card-body">
+            <div class="timeline-bar" id="lc-timeline-bar"></div>
+            <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap" id="lc-timeline-legend"></div>
+            <div class="bar-chart" style="margin-top:14px" id="lc-age-chart"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div><div class="card-title">Replacement Priority</div><div class="card-sub">Devices flagged critical by type</div></div>
+          </div>
+          <div class="card-body" id="lc-priority-chart"></div>
+        </div>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="lc-filter-risk" aria-label="Filter lifecycle by risk level" onchange="renderLifecycle()">
+          <option value="">All Risk Levels</option>
+          <option value="Critical">🔴 Critical (4+ Win / 3+ Other)</option>
+          <option value="Warning">🟡 Warning (3-4 Win / 2-3 Other)</option>
+          <option value="Good">🟢 Good (under threshold)</option>
+        </select>
+        <select class="filter-select" id="lc-filter-type" aria-label="Filter lifecycle by device type" onchange="renderLifecycle()">
+          <option value="">All Device Types</option>
+          <option value="iOS/iPadOS">iPhone / iPad</option>
+          <option value="Android">Android Tablet</option>
+          <option value="MacBook">MacBook</option>
+          <option value="Windows">Windows Laptop/Desktop</option>
+        </select>
+        <span class="results-count" id="lc-count"></span>
+        <div style="display:flex;align-items:center;gap:12px;font-size:10px;color:var(--text3);margin-left:auto">
+          <span>Age source:</span>
+          <span>🛡 Warranty expiry</span>
+          <span>📅 Deployment date</span>
+          <span style="color:var(--yellow)">⚠ Last scan (estimate)</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortTable('lifecycle','name')">Device / User</th>
+              <th onclick="sortTable('lifecycle','type')">Type</th>
+              <th onclick="sortTable('lifecycle','model')">Model</th>
+              <th onclick="sortTable('lifecycle','lastSeen')">Last Check-in</th>
+              <th onclick="sortTable('lifecycle','ageYears')">Age</th>
+              <th onclick="sortTable('lifecycle','risk')">Age Risk</th>
+              <th>Serial / ID</th>
+              <th onclick="sortTable('lifecycle','warrantyExpiry')">Warranty Expiry</th>
+              <th onclick="sortTable('lifecycle','warrantyDays')">Days Left to Expire</th>
+            </tr></thead>
+            <tbody id="lc-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="lc-page-info"></span>
+          <div class="pagination" id="lc-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== WARRANTY ===== -->
+    <div class="page" id="page-warranty">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Warranty Tracker</div>
+          <div class="section-sub">Device warranty status pulled live from Endpoint Central</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="exportWarrantyCSV()"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
+          <button class="btn btn-primary btn-sm" id="sync-btn" data-rbac-page="it-inventory" data-rbac-level="admin" onclick="triggerWarrantySync()"><span class="ms" style="font-size:15px" aria-hidden="true">sync</span> Sync Now</button>
+        </div>
+      </div>
+      <div class="warranty-sync-bar">
+        <div class="sync-spinner" id="sync-spinner"></div>
+        <div class="warranty-sync-info">
+          <strong id="warranty-sync-status">Last synced: —</strong>
+          <span id="warranty-sync-sub"> · Click "Sync Now" to refresh from Endpoint Central</span>
+        </div>
+      </div>
+      <!-- Data-gap notice — populated by buildWarrantyDashboard() when the ManageEngine half of the warranty data failed to load; empty otherwise -->
+      <div id="warranty-data-notice"></div>
+      <div class="warranty-kpi-grid" id="warranty-kpi-cards"></div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <div><div class="card-title">Warranty Status Distribution</div><div class="card-sub">All managed Windows endpoints</div></div>
+        </div>
+        <div class="card-body">
+          <div class="timeline-bar" id="warranty-timeline-bar"></div>
+          <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap" id="warranty-timeline-legend"></div>
+        </div>
+      </div>
+      <div class="page-controls">
+        <select class="filter-select" id="warranty-filter-status" aria-label="Filter warranty by status" onchange="renderWarranty()">
+          <option value="">All Statuses</option>
+          <option value="Expired">🔴 Expired</option>
+          <option value="Expiring Soon">🟡 Expiring Soon (90 days)</option>
+          <option value="Active">🟢 Active</option>
+          <option value="Unknown">⚪ Unknown</option>
+        </select>
+        <select class="filter-select" id="warranty-filter-type" aria-label="Filter warranty by device type" onchange="renderWarranty()">
+          <option value="">All Device Types</option>
+          <option value="Laptop">Laptop</option>
+          <option value="Desktop">Desktop</option>
+          <option value="Notebook">Notebook</option>
+          <option value="MacBook">MacBook</option>
+          <option value="iPad">iPad</option>
+          <option value="iPhone">iPhone</option>
+        </select>
+        <span class="results-count" id="warranty-count"></span>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortWarranty('computer_name')">Computer Name</th>
+              <th onclick="sortWarranty('service_tag')">Service Tag</th>
+              <th onclick="sortWarranty('device_model')">Model</th>
+              <th onclick="sortWarranty('device_manufacturer')">Manufacturer</th>
+              <th onclick="sortWarranty('device_type')">Type</th>
+              <th onclick="sortWarranty('logged_on_user')">Last User</th>
+              <th onclick="sortWarranty('warranty_expiry_date')">Expiry Date</th>
+              <th onclick="sortWarranty('days')">Days Left</th>
+              <th>Status</th>
+            </tr></thead>
+            <tbody id="warranty-tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="page-info" id="warranty-page-info"></span>
+          <div class="pagination" id="warranty-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</main>
+
+<!-- ================================================================
+     MODAL (Add/Edit Record)
+     ================================================================ -->
+<div id="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">Add Record</h2>
+      <button class="modal-close" onclick="closeModal()" aria-label="Close dialog">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-save-btn" data-rbac-page="it-inventory" data-rbac-level="admin" onclick="saveModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"><div class="toast-dot" id="toast-dot" aria-hidden="true"></div><span id="toast-msg"></span></div>
+<!-- The one polite live region for the whole app. showToast() and showPage()
+     both write here via announce() in IT_Inventory_App.js. The toast itself is
+     not used as the region: it animates in and out on a 2.8s timer, which is
+     not a reliable announcement, and nothing else in the app was ever spoken -
+     a screen-reader user could delete a record and hear nothing at all. -->
+<div id="a11y-live" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<!-- ================================================================
+     IMPORT MODAL
+     ================================================================ -->
+<div id="import-backdrop" aria-hidden="true">
+  <div class="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
+    <div class="import-header">
+      <div>
+        <div class="modal-title" id="import-title">Import Spreadsheet</div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:3px">Upload your .xlsx file to refresh all inventory data</div>
+      </div>
+      <button class="modal-close" onclick="closeImport()" aria-label="Close import dialog">✕</button>
+    </div>
+    <div class="import-body">
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFileSelect(this.files[0])" id="file-input">
+        <span class="drop-icon ms" style="font-size:32px;color:var(--accent)">folder_open</span>
+        <div class="drop-title">Drop your file here</div>
+        <div class="drop-sub">or click to browse — supports .xlsx, .xls, and .csv</div>
+      </div>
+      <div class="import-progress" id="import-progress">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
+          <span id="progress-label">Reading file…</span>
+          <span id="progress-pct">0%</span>
+        </div>
+        <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+      </div>
+      <div class="sheet-map" id="sheet-map">
+        <div class="sheet-map-title">Sheet Mapping</div>
+        <div id="sheet-map-rows"></div>
+      </div>
+      <div class="import-log" id="import-log" style="display:none"></div>
+    </div>
+    <div class="modal-footer" id="import-footer">
+      <button class="btn btn-ghost" onclick="closeImport()">Cancel</button>
+      <button class="btn btn-primary" id="import-confirm-btn" data-rbac-page="it-inventory" data-rbac-level="admin" onclick="confirmImport()" disabled style="opacity:.4">Apply Import</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<!-- The vendored SheetJS script loads on first XLSX import/export, with its
+     original integrity hash, from IT_Inventory_App.js. -->
+<!-- Core application logic -->
+<script src="IT_Inventory_App.js?v=20260930-xlsx-lazy"></script>
+<!-- UX enhancements layer -->
+<script src="IT_Inventory_App_UX_enhancements.js"></script>
+<!-- Light mode is no longer supported. The previous inline
+     `document.body.classList.remove('light')` shim is no longer needed
+     because the JS theme-toggle and CSS body.light rules have been removed
+     entirely. -->
+<script src="/it-version.js" data-app-key="inventory" defer></script>
+
+<script>
+/* Mission Control header chrome. Additive only — no app logic modified. */
+(function(){
+  var A = '#22D3EE';
+  /* template-based parser: unlike a div, <template> preserves tr/th/td
+     fragments (the design mock's div-based el() silently dropped them,
+     which broke its integration matrix and threw on the empty column) */
+  function el(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstChild;}
+  function pad(n){return String(n).padStart(2,'0');}
+
+  /* ---- UTC clock ---- */
+  function tickClock(){
+    var e=document.getElementById('hdr-clock'); if(!e)return;
+    var d=new Date();
+    e.textContent=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds());
+  }
+  tickClock(); setInterval(tickClock,1000);
+
+  /* ================= REAL DASHBOARD DATA ENGINE =================
+     Replaces the design-mock demo values with LIVE data computed from the
+     app's DATA object, the real sidebar badges, and live /status endpoints.
+     Anything that can't be resolved shows "—" — never a fabricated number. */
+  var CLR={green:'#34D399',cyan:A,amber:'#FBBF24',red:'#F87171',purple:'#A78BFA',blue:'#38BDF8',pink:'#F472B6',teal:'#0EA5A5',off:'#173657'};
+  var _RB_CFG=(window.INVENTORY_API || { base: window.location.origin, hub: window.location.origin + '/hub-api' });
+  var RB_API=_RB_CFG.base;
+  var RB_W  =_RB_CFG.hub;
+
+  /* ---- safe live-data access (never throws if the app hasn't loaded) ---- */
+  function D(){ return (typeof DATA==='object' && DATA) ? DATA : null; }
+  function arr(k){ var d=D(); return (d && Array.isArray(d[k])) ? d[k] : null; }
+  function bnum(id){ var v=val(id); if(v==null) return null; var n=parseInt(String(v).replace(/[^0-9]/g,''),10); return isNaN(n)?null:n; }
+  function fmt(n){ return (n==null)?'—':Number(n).toLocaleString(); }
+  function ringBg(frac,color){ var deg=Math.max(0,Math.min(1,frac||0))*360; return 'conic-gradient('+color+' '+deg+'deg,#0E2033 0)'; }
+  function timeAgo(iso){ var t=Date.parse(iso); if(isNaN(t)) return '—'; var s=Math.max(0,(Date.now()-t)/1000);
+    if(s<90)return Math.round(s)+'s ago'; var m=s/60; if(m<90)return Math.round(m)+'m ago'; var h=m/60; if(h<36)return Math.round(h)+'h ago'; return Math.round(h/24)+'d ago'; }
+
+  function intuneLive(){ var a=arr('intuneDevices'); return a?a.filter(function(d){return !d['is_historical'];}):null; }
+  /* ---- per-tick memo -------------------------------------------------------
+     One refreshDashboard() pass recomputed the same full-fleet aggregates over
+     and over: complianceStats() twice (gauge + heat map, then again inside
+     buildAlerts), unassignedCount() three times (gauge, tile, alert) and
+     fleetTotal() four times (once per gauge). Each of those walks the whole
+     fleet. _tickReset() runs at the top of refreshDashboard(), so every panel
+     in one pass sees ONE consistent snapshot, computed once. Nothing is cached
+     across ticks, and only tick-scoped callers go through here — intuneLive()
+     is deliberately NOT memoised because the compliance drill-in modal calls it
+     between ticks and must read live data. */
+  var _tick={};
+  function _tickReset(){ _tick={}; }
+  function _memo(k,fn){ if(!(k in _tick)) _tick[k]=fn(); return _tick[k]; }
+
+  function complianceStats(){ return _memo('complianceStats',_complianceStatsRaw); }
+  function _complianceStatsRaw(){
+    var a=intuneLive(); if(!a||!a.length) return null;
+    var c=0,g=0,n=0,u=0;
+    a.forEach(function(d){ var s=String(d['Compliance']||'').toLowerCase();
+      if(s==='compliant')c++; else if(s.indexOf('grace')>=0)g++; else if(s.indexOf('noncompliant')>=0||s.indexOf('non compliant')>=0)n++; else u++; });
+    return {total:a.length,compliant:c,grace:g,noncompliant:n,unknown:u};
+  }
+  function userOf(r){
+    // 'Currently Logged on Users' is the key /api/endpoints emits; logged_on_user
+    // is the DB column TABLES.endpoints maps it FROM, and dbToApp reverses the map
+    // before emitting, so the old name never matched and every Windows endpoint
+    // with a logged-on user but no First/Last was counted as Unassigned. Position
+    // in the list is deliberate: First/Last still wins, matching renderEndpoints.
+    var keys=['User','user','Assigned To','assigned_user','user_name','First/Last','Primary user display name','Currently Logged on Users','Primary user UPN','Assigned To Email','email'];
+    for(var i=0;i<keys.length;i++){ var v=r[keys[i]]; if(v!=null && String(v).trim()!=='') return String(v).trim(); }
+    return '';
+  }
+  function unassignedCount(){ return _memo('unassignedCount',_unassignedCountRaw); }
+  function _unassignedCountRaw(){
+    var groups=['macbooks','ipadDevices','tablets','endpoints']; var any=false,total=0;
+    groups.forEach(function(k){ var a=arr(k); if(a){ any=true; a.forEach(function(r){ var u=userOf(r); if(u===''||u==='--') total++; }); } });
+    var aws=arr('awsWorkspaces'); if(aws){ any=true; aws.forEach(function(r){ if(String(r['Status']||'').toLowerCase()==='available') total++; }); }
+    return any?total:null;
+  }
+  function fleetTotal(){ return _memo('fleetTotal',_fleetTotalRaw); }
+  function _fleetTotalRaw(){
+    var ids=['badge-ep','badge-mac','badge-intune','badge-aws','badge-ipads','badge-tablets']; var sum=0,any=false;
+    ids.forEach(function(id){ var n=bnum(id); if(n!=null){ sum+=n; any=true; } });
+    return any?sum:null;
+  }
+
+  /* ---- drill-down helpers: navigate via the app's showPage + toast feedback ---- */
+  function toastFallback(msg){
+    if(typeof showToast==='function'){ try{ showToast(msg); return; }catch(e){} }
+    var t=document.createElement('div');
+    t.textContent=msg;
+    t.setAttribute('style','position:fixed;bottom:22px;left:50%;transform:translateX(-50%);max-width:80vw;background:var(--well3);border:1px solid var(--line2);color:var(--text);padding:10px 16px;border-radius:8px;font-size:12.5px;box-shadow:0 12px 32px rgba(0,0,0,.5);z-index:600;opacity:0;transition:opacity .2s');
+    document.body.appendChild(t);
+    requestAnimationFrame(function(){ t.style.opacity='1'; });
+    setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ if(t.parentNode) t.remove(); },250); },2200);
+  }
+  function navigateToPage(page,msg){
+    if(msg) toastFallback(msg);
+    if(page && typeof showPage==='function'){ try{ showPage(page); }catch(e){} }
+  }
+  function clickable(node,handler){
+    if(!node) return node;
+    node.style.cursor='pointer';
+    // role="button" on a <tr> replaces the implicit row role, which drops the
+    // row's <td> children out of the table structure entirely. Rows therefore
+    // keep their own role and get only tabindex + the key handler - the same
+    // reason initSortableHeaders() no longer stamps role=button onto <th>.
+    if(node.tagName!=='TR') node.setAttribute('role','button');
+    node.setAttribute('tabindex','0');
+    node.addEventListener('click',handler);
+    node.addEventListener('keydown',function(ev){ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); handler(ev); } });
+    return node;
+  }
+
+  /* ---- dialog focus handling ----
+     #modal-backdrop and #import-backdrop record their opener and restore focus
+     on close. The dialogs added later - the compliance device list and the
+     diagnostics report below - never did, so closing one dropped focus to
+     <body> and the next Tab restarted at the skip link, losing the user's place
+     in the table behind. focusDialog() stashes the opener before moving focus
+     in; restoreDialogFocus() puts it back. */
+  var _dialogOpener=null;
+  function focusDialog(back){
+    // Re-rendering an already-open dialog (Re-run diagnostics) must not record
+    // a control inside the dialog itself as the opener.
+    if(!back.contains(document.activeElement)) _dialogOpener=document.activeElement;
+    var dlg=back.querySelector('[role=dialog]'); if(dlg) dlg.focus();
+  }
+  function restoreDialogFocus(){
+    var o=_dialogOpener; _dialogOpener=null;
+    if(o && typeof o.focus==='function'){ try{ o.focus(); }catch(e){} }
+  }
+
+  /* ---- read-only status probe (returns {status, body}; never triggers a sync) ---- */
+  function realProbe(url){
+    return new Promise(function(res){
+      if(!url){ res(null); return; }
+      var done=false,ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+      var to=setTimeout(function(){ if(done)return; done=true; if(ctrl)ctrl.abort(); res({status:0}); },7000);
+      fetch(url,{method:'GET',cache:'no-store',credentials:'include',signal:ctrl?ctrl.signal:undefined})
+        .then(function(r){ if(done)return; done=true; clearTimeout(to);
+          r.json().then(function(b){ res({status:r.status,body:b}); }).catch(function(){ res({status:r.status,body:null}); }); })
+        .catch(function(){ if(done)return; done=true; clearTimeout(to); res({status:0}); });
+    });
+  }
+
+  /* ---- GAUGES (all live) ---- */
+  var GAUGES=[
+    {key:'compliance',label:'Compliance',color:CLR.green,page:'device-inventory'},
+    {key:'warranty',  label:'Warranty at-risk',color:CLR.amber,page:'warranty'},
+    {key:'lifecycle', label:'Lifecycle risk',color:CLR.red,page:'lifecycle'},
+    {key:'unassigned',label:'Unassigned',color:CLR.pink,page:'device-inventory'}
+  ];
+  function gaugeData(key){
+    var fleet=fleetTotal();
+    if(key==='compliance'){ var c=complianceStats(); if(!c) return {value:'—',sub:'awaiting Intune data',frac:0};
+      var p=Math.round(c.compliant/c.total*1000)/10; return {value:p+'%',sub:fmt(c.compliant)+' of '+fmt(c.total)+' Intune devices',frac:c.compliant/c.total}; }
+    if(key==='warranty'){ var w=bnum('badge-warranty'); if(w==null) return {value:'—',sub:'awaiting warranty data',frac:0};
+      return {value:fmt(w),sub:'expired or expiring soon',frac:(fleet?Math.min(1,w/fleet):0)}; }
+    if(key==='lifecycle'){ var l=bnum('badge-lc'); if(l==null) return {value:'—',sub:'awaiting lifecycle data',frac:0};
+      return {value:fmt(l),sub:'devices at critical risk',frac:(fleet?Math.min(1,l/fleet):0)}; }
+    if(key==='unassigned'){ var u=unassignedCount(); if(u==null) return {value:'—',sub:'awaiting device data',frac:0};
+      return {value:fmt(u),sub:'devices with no assigned user',frac:(fleet?Math.min(1,u/fleet):0)}; }
+    return {value:'—',sub:'',frac:0};
+  }
+
+  /* ---- TILES (all live counts from real badges) ---- */
+  var TILES=[
+    {icon:'desktop_windows',color:CLR.blue,  label:'Windows',      badge:'badge-ep',   page:'endpoints'},
+    {icon:'laptop_mac',     color:CLR.purple,label:'Apple',        badge:'badge-mac',  page:'macbooks', sub:function(){ try{ var _D=(typeof D==='function'?D():null)||{}; var d=_D.macbooks||[]; if(!d.length) return ''; var c={}; d.forEach(function(m){ var k=m['Chip']; if(k) c[k]=(c[k]||0)+1; }); var top=Object.entries(c).sort(function(a,b){return b[1]-a[1];}).slice(0,2).map(function(x){return x[0]+': '+x[1];}).join(' · '); return top; }catch(e){ return ''; } }},
+    {icon:'smartphone',     color:CLR.green, label:'Mobile',       badge:'badge-intune',page:'intune'},
+    {icon:'cloud',          color:CLR.cyan,  label:'AWS Cloud',    badge:'badge-aws',  page:'aws'},
+    {icon:'sim_card',       color:CLR.amber, label:'Carrier Lines',badge:'carrier',    page:'tmobile'},
+    {icon:'inventory_2',    color:CLR.pink,  label:'Unassigned',   badge:'unassigned', page:'device-inventory'}
+  ];
+  function tileValue(t){
+    if(t.badge==='carrier'){ var a=bnum('badge-tm'),b=bnum('badge-vz'); if(a==null&&b==null)return null; return (a||0)+(b||0); }
+    if(t.badge==='unassigned'){ return unassignedCount(); }
+    return bnum(t.badge);
+  }
+
+  /* ---- INTEGRATION MATRIX (status from live /status endpoints) ---- */
+  var MATRIX=[
+    {icon:'laptop_mac',     name:'Kandji MDM',      badge:'badge-mac',   url:RB_W+'/api/kandji-sync/status',   page:'macbooks',  maxAgeH:26},
+    {icon:'smartphone',     name:'Microsoft Intune',badge:'badge-intune',url:RB_W+'/api/intune-graph/status',  page:'intune',    maxAgeH:26},
+    {icon:'desktop_windows',name:'ManageEngine',    badge:'badge-ep',    url:RB_W+'/api/endpoints-sync/status',page:'endpoints', maxAgeH:26},
+    {icon:'cloud',          name:'AWS Workspaces',  badge:'badge-aws',   url:null,                             page:'aws'},
+    {icon:'cell_tower',     name:'Verizon',         badge:'badge-vz',    url:null,                             page:'verizon'}
+  ];
+  function matrixState(m,probe){
+    if(m.url===null){ var n=bnum(m.badge); return n!=null?{st:'DATA OK',color:CLR.green,frac:1,sync:'—'}:{st:'NO DATA',color:CLR.off,frac:0,sync:'—'}; }
+    if(!probe||probe.status===0) return {st:'DOWN',color:CLR.red,frac:0,sync:'unreachable'};
+    if(probe.status>=200&&probe.status<300){ var b=probe.body||{}; var ls=b.last_synced||b.lastSynced||b.last_sync; var ts=ls?Date.parse(ls):NaN;
+      if(!isNaN(ts) && m.maxAgeH){ var ageH=(Date.now()-ts)/3600000; if(ageH>m.maxAgeH) return {st:'STALE',color:CLR.amber,frac:.5,sync:timeAgo(ls),_syncTs:ts}; }
+      return {st:'OPERATIONAL',color:CLR.green,frac:1,sync:ls?timeAgo(ls):'—',_syncTs:isNaN(ts)?null:ts}; }
+    if(probe.status>=500) return {st:'DOWN',color:CLR.red,frac:0,sync:'error'};
+    if(probe.status===401||probe.status===403) return {st:'AUTH',color:CLR.amber,frac:.5,sync:'—'};
+    return {st:'DEGRADED',color:CLR.amber,frac:.6,sync:'—'};
+  }
+
+  /* ---- ALERTS (derived from real conditions) ---- */
+  var SEVMAP={crit:{c:CLR.red,bg:'rgba(248,113,113,.13)',t:'CRIT'},warn:{c:CLR.amber,bg:'rgba(251,191,36,.13)',t:'WARN'},info:{c:CLR.purple,bg:'rgba(167,139,250,.13)',t:'INFO'}};
+  function buildAlerts(states){
+    var out=[];
+    var cs=complianceStats(), nc=cs?cs.noncompliant:null;
+    var w=bnum('badge-warranty'), lc=bnum('badge-lc'), un=unassignedCount();
+    if(lc)  out.push({sev:'crit',icon:'gpp_bad',   text:fmt(lc)+' device(s) at critical lifecycle risk',cat:'LIFECYCLE', page:'lifecycle'});
+    if(nc)  out.push({sev:'warn',icon:'rule',      text:fmt(nc)+' non-compliant device(s) in Intune',   cat:'COMPLIANCE',page:'intune'});
+    if(w)   out.push({sev:'warn',icon:'schedule',  text:fmt(w)+' warranty(ies) expired or expiring soon',cat:'WARRANTY',  page:'warranty'});
+    if(un)  out.push({sev:'info',icon:'inventory_2',text:fmt(un)+' device(s) with no assigned user',      cat:'ASSIGNMENT',page:'device-inventory'});
+    (states||[]).forEach(function(s){
+      if(s.st==='DOWN')      out.push({sev:'crit',icon:'wifi_off',    text:s.name+' integration unreachable',cat:'SYNC',page:s.page});
+      else if(s.st==='DEGRADED') out.push({sev:'warn',icon:'sync_problem',text:s.name+' sync degraded',      cat:'SYNC',page:s.page});
+      else if(s.st==='AUTH') out.push({sev:'warn',icon:'lock',       text:s.name+' status needs re-auth',    cat:'SYNC',page:s.page});
+      else if(s.st==='STALE')out.push({sev:'warn',icon:'schedule',   text:s.name+' sync stale ('+s.sync+')', cat:'SYNC',page:s.page});
+    });
+    return out;
+  }
+
+  /* ---- INTUNE COMPLIANCE MAP (real distribution + device drill-in) ---- */
+  var BUCKETS=[
+    {key:'Healthy', label:'Compliant',     color:CLR.teal,  comp:'compliant'},
+    {key:'Warning', label:'In grace',      color:'#F59E0B', comp:'grace'},
+    {key:'Critical',label:'Non-compliant', color:'#EF4444', comp:'noncompliant'},
+    {key:'Offline', label:'Unknown',       color:CLR.off,   comp:'unknown'}
+  ];
+  function heatBuckets(){ var c=complianceStats(); if(!c) return null;
+    return {Healthy:c.compliant,Warning:c.grace,Critical:c.noncompliant,Offline:c.unknown,total:c.total}; }
+  function hEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function devicesInBucket(comp){
+    var a=intuneLive(); if(!a) return [];
+    return a.filter(function(d){ var s=String(d['Compliance']||'').toLowerCase();
+      if(comp==='compliant') return s==='compliant';
+      if(comp==='grace') return s.indexOf('grace')>=0;
+      if(comp==='noncompliant') return s.indexOf('noncompliant')>=0||s.indexOf('non compliant')>=0;
+      return !(s==='compliant'||s.indexOf('grace')>=0||s.indexOf('noncompliant')>=0||s.indexOf('non compliant')>=0);
+    });
+  }
+  function gotoDevice(name){
+    toastFallback(name?('Opening '+name):'Opening Intune');
+    if(typeof showPage==='function'){ try{ showPage('intune'); }catch(e){} }
+    var s=document.getElementById('global-search');
+    if(s && name){ s.value=name; if(typeof onSearch==='function'){ try{ onSearch(name); }catch(e){} } else { s.dispatchEvent(new Event('input',{bubbles:true})); } }
+  }
+  function closeHealthModal(){ var b=document.getElementById('health-backdrop'); if(b) b.style.display='none'; restoreDialogFocus(); }
+  function openComplianceModal(bk){
+    var list=devicesInBucket(bk.comp);
+    var back=document.getElementById('health-backdrop');
+    if(!back){ back=document.createElement('div'); back.id='health-backdrop';
+      back.setAttribute('style','position:fixed;inset:0;z-index:420;display:flex;align-items:center;justify-content:center;background:var(--scrim1);backdrop-filter:blur(4px);padding:20px');
+      back.addEventListener('click',function(ev){ if(ev.target===back) closeHealthModal(); });
+      document.body.appendChild(back);
+    }
+    back.style.display='flex';
+    var rows = list.length ? list.map(function(d){
+      var name=hEsc(d['Device name']||'—');
+      var user=hEsc(d['Primary user display name']||d['Primary user UPN']||'—');
+      var model=hEsc(d['Model']||'');
+      var chk=hEsc(d['Last check-in']||'');
+      return '<div class="hm-row" data-name="'+hEsc(d['Device name']||'')+'" style="display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--line);cursor:pointer">'
+        +'<div style="min-width:0"><div style="color:var(--text);font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+name+'</div>'
+        +'<div style="color:var(--text2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+user+(model?(' · '+model):'')+'</div></div>'
+        +'<div style="color:var(--text3);font-size:10.5px;white-space:nowrap;display:flex;align-items:center;gap:8px" class="mono">'+(chk||'')+'<span class="ms" style="font-size:16px;color:var(--ink-faint)">chevron_right</span></div></div>';
+    }).join('') : '<div style="padding:18px;color:var(--text2);font-size:12px">No devices in this state.</div>';
+    back.innerHTML='<div role="dialog" aria-modal="true" aria-label="'+bk.label+' devices" tabindex="-1" style="background:var(--well3);border:1px solid var(--line2);border-radius:12px;width:600px;max-width:95vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.6)">'
+      +'<div style="padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex:none">'
+        +'<div style="display:flex;align-items:center;gap:9px"><span style="width:11px;height:11px;border-radius:50%;background:'+bk.color+';box-shadow:0 0 8px '+bk.color+'"></span>'
+        +'<h2 style="margin:0;font-size:13px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--text)">'+bk.label+' · '+list.length+' device'+(list.length===1?'':'s')+'</h2></div>'
+        +'<button id="hm-close" type="button" aria-label="Close" style="background:none;border:none;color:var(--text3);font-size:17px;cursor:pointer;padding:2px 8px;border-radius:6px;line-height:1">✕</button></div>'
+      +'<div style="overflow-y:auto">'+rows+'</div>'
+      +'<div style="padding:11px 16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex:none">'
+        +'<span class="mono" style="font-size:10.5px;color:var(--text3)">Intune-managed devices</span>'
+        +'<button id="hm-all" type="button" class="btn btn-ghost btn-sm"><span class="ms" style="font-size:15px">open_in_new</span> View all in Intune</button></div></div>';
+    back.querySelector('#hm-close').addEventListener('click',closeHealthModal);
+    back.querySelector('#hm-all').addEventListener('click',function(){ closeHealthModal(); navigateToPage('intune','Opening Intune'); });
+    // clickable() gives each device row role=button, tabindex and Enter/Space;
+    // the bare click listener left this list reachable by pointer only, so even
+    // a user who arrived here from the legend could not keyboard onto a device.
+    back.querySelectorAll('.hm-row').forEach(function(r){
+      var nm=r.getAttribute('data-name');
+      r.setAttribute('aria-label','Open '+(nm||'device')+' in Intune');
+      clickable(r,function(){ closeHealthModal(); gotoDevice(nm); });
+    });
+    focusDialog(back);
+  }
+  document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'){ var b=document.getElementById('health-backdrop'); if(b && b.style.display!=='none') closeHealthModal(); } });
+
+  /* ================= RENDER ================= */
+  var _matrixStates=[];
+  function renderGauges(){
+    var box=document.getElementById('gauges'); if(!box)return; box.innerHTML='';
+    GAUGES.forEach(function(g){ var d=gaugeData(g.key);
+      var node=el('<div class="gauge">'
+        +'<div class="ring" style="background:'+ringBg(d.frac,g.color)+'"><div class="inner"><span class="num mono">'+d.value+'</span></div></div>'
+        +'<div><div class="g-label">'+g.label+'</div><div class="g-sub">'+d.sub+'</div></div></div>');
+      clickable(node,function(){ navigateToPage(g.page,'Opening '+g.label+' — '+d.sub); });
+      box.appendChild(node);
+    });
+  }
+  function renderTiles(){
+    var box=document.getElementById('tiles'); if(!box)return; box.innerHTML='';
+    TILES.forEach(function(t){ var v=tileValue(t);
+      var node=el('<div class="tile">'
+        +'<div class="tile-top"><span class="ms" style="color:'+t.color+'">'+t.icon+'</span></div>'
+        +'<div class="tile-val mono">'+fmt(v)+'</div><div class="tile-label">'+t.label+'</div>'+(t.sub?'<div class="tile-sub" style="font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--font-mono,monospace)">'+t.sub()+'</div>':'')+'</div>');
+      clickable(node,function(){ navigateToPage(t.page, t.label+': '+fmt(v)+' — opening'); });
+      box.appendChild(node);
+    });
+  }
+  function renderHeat(){
+    var box=document.getElementById('heat'); if(!box)return; var lg=document.getElementById('heat-legend'); var scale=document.getElementById('heat-scale');
+    var b=heatBuckets(); box.innerHTML=''; if(lg)lg.innerHTML='';
+    if(!b){ box.innerHTML='<div style="color:var(--text3);font-size:11px;padding:8px">Awaiting Intune compliance data…</div>'; box.removeAttribute('role'); box.removeAttribute('aria-label'); if(scale)scale.textContent=''; return; }
+    var total=b.total||1, cells=[];
+    BUCKETS.forEach(function(bk){ var n=Math.round((b[bk.key]/total)*120); for(var i=0;i<n;i++) cells.push(bk); });
+    while(cells.length<120) cells.push(BUCKETS[3]);
+    // The 120 cells carry no text, so background colour was the only signal,
+    // and a screen reader read the grid as 120 empty spans. Making each cell a
+    // tab stop would be hostile, so the grid is exposed as ONE image with a
+    // spoken summary of the counts, and the four legend chips become the
+    // keyboard entry points to the same drill-down - they already carry both
+    // the label and the number, so nothing depends on colour any more.
+    box.setAttribute('role','img');
+    box.setAttribute('aria-label','Intune compliance mix - '+BUCKETS.map(function(bk){ return bk.label+' '+fmt(b[bk.key]); }).join(', '));
+    cells.slice(0,120).forEach(function(bk){ var n=el('<span title="'+bk.label+' — click for devices" style="background:'+bk.color+';cursor:pointer"></span>');
+      n.addEventListener('click',function(){ openComplianceModal(bk); }); box.appendChild(n); });
+    if(scale) scale.textContent='each cell ≈ '+Math.max(1,Math.round(b.total/120))+' devices';
+    if(lg) BUCKETS.forEach(function(bk){ var li=el('<span class="li" title="View '+bk.label+' devices"><span class="sw" aria-hidden="true" style="background:'+bk.color+'"></span>'+bk.label+' <span class="ct mono">'+fmt(b[bk.key])+'</span></span>');
+      clickable(li,function(){ openComplianceModal(bk); }); lg.appendChild(li); });
+  }
+  function renderMatrix(){
+    var cols=document.getElementById('matrix-cols'), box=document.getElementById('matrix'); if(!box)return;
+    if(cols && !cols.children.length){ ['Source','Status','Devices','Last Sync','Health',''].forEach(function(c){cols.appendChild(el('<th>'+c+'</th>'));}); }
+    box.innerHTML='';
+    MATRIX.forEach(function(m,i){ var s=_matrixStates[i]||{st:'—',color:CLR.off,frac:0,sync:'—'};
+      var dev=(m.badge==='carrier')?null:bnum(m.badge);
+      var node=el('<tr>'
+        +'<td><span class="m-name"><span class="ms">'+m.icon+'</span>'+m.name+'</span></td>'
+        +'<td><span class="m-status mono" style="color:'+s.color+'"><span class="d" style="background:'+s.color+'"></span>'+s.st+'</span></td>'
+        +'<td class="mono" style="color:var(--text2);font-size:11px">'+fmt(dev)+'</td>'
+        +'<td class="mono" style="color:var(--text2);font-size:11px">'+(s.sync||'—')+'</td>'
+        +'<td><span class="m-health"><span style="width:'+Math.round((s.frac||0)*100)+'%;background:'+s.color+'"></span></span></td>'
+        +'<td style="text-align:right"><span class="ms" style="font-size:18px;color:var(--ink-faint)">chevron_right</span></td></tr>');
+      clickable(node,function(){ navigateToPage(m.page, m.name+' — '+s.st+' · opening'); });
+      box.appendChild(node);
+    });
+  }
+  function renderAlerts(){
+    var box=document.getElementById('alerts'); if(!box)return; box.innerHTML='';
+    var list=buildAlerts(_matrixStates);
+    var cnt=document.getElementById('alert-count'); if(cnt) cnt.textContent=list.length+' ACTIVE';
+    if(!list.length){ box.innerHTML='<div style="color:var(--green);font-size:12px;padding:14px;display:flex;align-items:center;gap:8px"><span class="ms">check_circle</span>No active alerts — all clear</div>'; return; }
+    var rank={crit:0,warn:1,info:2};
+    list.sort(function(a,b){return rank[a.sev]-rank[b.sev];}).forEach(function(a){ var sv=SEVMAP[a.sev];
+      var node=el('<div class="alert">'
+        +'<span class="ic" style="background:'+sv.bg+'"><span class="ms" style="color:'+sv.c+'">'+a.icon+'</span></span>'
+        +'<div style="flex:1;min-width:0"><div class="txt">'+a.text+'</div><div class="code mono">'+a.cat+'</div></div>'
+        +'<span class="sev" style="color:'+sv.c+'">'+sv.t+'</span></div>');
+      clickable(node,function(){ navigateToPage(a.page, a.text); });
+      box.appendChild(node);
+    });
+  }
+  function renderOverview(){
+    var e=document.getElementById('ov-sub'); if(!e)return;
+    var f=fleetTotal();
+    var live=_matrixStates.filter(function(s){return s.st==='OPERATIONAL'||s.st==='DATA OK';}).length;
+    var oldest=null; _matrixStates.forEach(function(s){ if(s._syncTs && (oldest===null||s._syncTs<oldest)) oldest=s._syncTs; });
+    var freshness = oldest ? 'oldest data '+timeAgo(new Date(oldest).toISOString()) : '';
+    var d=new Date();
+    var parts=[];
+    parts.push(f!=null?fmt(f)+' devices':'— devices');
+    parts.push(_matrixStates.length?live+' of '+_matrixStates.length+' integrations live':'integrations');
+    if(freshness) parts.push(freshness);
+    parts.push('refreshed '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+' UTC');
+    e.textContent=parts.join(' · ');
+  }
+
+  /* Panel-level error isolation. Was six renders and a network round-trip inside
+     ONE try with `}catch(e){}` — two bugs in one line. A throw in renderGauges()
+     also blanked the alerts panel, i.e. the one panel whose entire job is to say
+     something is wrong; and the swallow repeated silently on every pass forever,
+     so a dashboard reading '0 ACTIVE' because its renderer is broken was
+     indistinguishable from a healthy one. Each panel now fails alone, says so in
+     its own container, and reports through window.__invErr — which de-dupes, so
+     a permanently broken panel is surfaced once a minute instead of on every
+     tick (this loop runs every 3s for its first ten passes, then every 30s).
+     An empty panel and a failed panel must not look the same. */
+  var _dashPanelFail={};
+  function _dashPanel(label, boxId, fn){
+    var b=document.getElementById(boxId);
+    try{
+      fn();
+      if(_dashPanelFail[boxId]){ delete _dashPanelFail[boxId]; if(b) b.style.color=''; }
+    }catch(e){
+      _dashPanelFail[boxId]=1;
+      if(window.__invErr) window.__invErr('dashboard/'+label, e);
+      var msg='⚠ '+label+' failed to render — this is an error, not an empty result';
+      /* built through the DOM, not an innerHTML string with a style attribute,
+         so the placeholder survives the CSP promotion; #matrix is a <tbody>, so
+         a bare text node there would not render at all */
+      if(b && b.tagName==='TBODY'){
+        b.innerHTML='';
+        var tr=document.createElement('tr'), td=document.createElement('td');
+        td.colSpan=6; td.textContent=msg; td.style.color='var(--red)'; td.style.padding='10px';
+        tr.appendChild(td); b.appendChild(tr);
+      } else if(b){
+        b.textContent=msg; b.style.color='var(--red)';
+      }
+      /* '0 ACTIVE' from a broken renderer is worse than no number at all */
+      if(boxId==='alerts'){ var c=document.getElementById('alert-count'); if(c) c.textContent='— ACTIVE'; }
+    }
+  }
+  var _dashBusy=false;
+  /* The dashboard is one of seventeen pages and every panel it paints lives
+     inside #page-dashboard, which showPage() toggles with the .active class.
+     Re-rendering six panels and firing three status probes every few seconds
+     while the user is reading the Endpoints table paints nothing at all - it
+     just burns the same CPU core the API is on. */
+  function _dashIsCurrent(){
+    var p=document.getElementById('page-dashboard');
+    return !!(p && p.classList.contains('active'));
+  }
+  async function refreshDashboard(){
+    if(_dashBusy) return;
+    if(!_dashIsCurrent()) return;   /* repainted on return - see the showPage hook below */
+    _dashBusy=true;
+    _tickReset();                   /* one snapshot of the full-fleet aggregates per pass */
+    try{
+      _dashPanel('Gauges','gauges',renderGauges);
+      _dashPanel('Tiles','tiles',renderTiles);
+      _dashPanel('Compliance heat map','heat',renderHeat);
+      var probes=await Promise.all(MATRIX.map(function(m){ return m.url?realProbe(m.url):Promise.resolve(null); }));
+      _dashPanel('Integration matrix','matrix',function(){
+        _matrixStates=MATRIX.map(function(m,i){ var s=matrixState(m,probes[i]); s.name=m.name; s.page=m.page; return s; });
+        renderMatrix();
+      });
+      _dashPanel('Alerts','alerts',renderAlerts);
+      _dashPanel('Overview','ov-sub',renderOverview);
+    }catch(e){
+      /* only the probe await can still reach here — realProbe never rejects
+         today, but a future edit might; report it rather than swallow it */
+      if(window.__invErr) window.__invErr('refreshDashboard', e);
+      var ov=document.getElementById('ov-sub');
+      if(ov) ov.textContent='Dashboard refresh failed — the figures shown are stale';
+    }finally{
+      _dashBusy=false;   /* in a finally so the loop can never wedge at busy */
+    }
+  }
+  refreshDashboard();
+  var _dashFast=0;
+  var _dashSlowTimer=null;
+  var _dashFastTimer=null;
+  function _startSlowPoll(){ if(!_dashSlowTimer) _dashSlowTimer=setInterval(refreshDashboard,30000); }
+  function _stopSlowPoll(){ if(_dashSlowTimer){ clearInterval(_dashSlowTimer); _dashSlowTimer=null; } }
+  function _stopFastPoll(){ if(_dashFastTimer){ clearInterval(_dashFastTimer); _dashFastTimer=null; } }
+  function _startFastPoll(){ if(_dashFastTimer) return;
+    _dashFastTimer=setInterval(function(){ refreshDashboard(); if(++_dashFast>=10){ _stopFastPoll(); _startSlowPoll(); } },3000); }
+  /* One entry point for "start whichever phase we are in", so the hidden-tab
+     path and the visible path cannot drift apart. The previous handler stopped
+     only the SLOW timer, and only once the fast phase had already finished - a
+     tab hidden during the first thirty seconds went on probing three endpoints
+     every three seconds for the life of the tab. */
+  function _startPoll(){ if(_dashFast>=10) _startSlowPoll(); else _startFastPoll(); }
+  function _stopPoll(){ _stopFastPoll(); _stopSlowPoll(); }
+  _startPoll();
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){ _stopPoll(); }
+    else { refreshDashboard(); _startPoll(); }
+  });
+  /* refreshDashboard() no-ops off the dashboard, so navigating BACK to it has
+     to repaint at once rather than leave the last snapshot up for 30 seconds.
+     Wrapping window.showPage is the pattern already used further down this file
+     (syncRail / enhanceExecutive) and in the employee-profile block. */
+  if(typeof window.showPage==='function'){
+    var _spDash=window.showPage;
+    window.showPage=function(n){
+      var r=_spDash.apply(this,arguments);
+      if(n==='dashboard'){ try{ refreshDashboard(); }catch(e){} }
+      return r;
+    };
+  }
+
+  /* ---- RAIL GROUP FLYOUTS ---- */
+  var PAGE_GROUP={dashboard:'operations',employees:'people',terms:'people',
+    tablets:'devices',macbooks:'devices',ipads:'devices',endpoints:'devices',intune:'devices',
+    liveauction:'devices','device-inventory':'analytics',aws:'cloud',tmobile:'carriers',verizon:'carriers',
+    warranty:'security',lifecycle:'security',executive:'analytics',costs:'analytics'};
+  function closeFlyouts(){
+    document.querySelectorAll('.flyout.open').forEach(function(f){f.classList.remove('open');});
+    document.querySelectorAll('.rail-group[aria-expanded="true"]').forEach(function(b){b.setAttribute('aria-expanded','false');});
+  }
+  function syncRail(name){
+    var g=PAGE_GROUP[name];
+    document.querySelectorAll('.rail-group').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-group')===g);});
+  }
+  document.querySelectorAll('.rail-group').forEach(function(btn){
+    btn.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      var fly=document.getElementById(btn.getAttribute('data-fly')); if(!fly)return;
+      var wasOpen=fly.classList.contains('open');
+      closeFlyouts();
+      if(!wasOpen){
+        var r=btn.getBoundingClientRect();
+        fly.style.top=Math.min(r.top, window.innerHeight-fly.scrollHeight-60||r.top)+'px';
+        fly.classList.add('open');
+        fly.style.top=Math.max(8, Math.min(r.top, window.innerHeight-fly.offsetHeight-8))+'px';
+        btn.setAttribute('aria-expanded','true');
+      }
+    });
+  });
+  document.addEventListener('click',function(ev){
+    if(!ev.target.closest('.flyout') && !ev.target.closest('.rail-group')) closeFlyouts();
+  });
+  document.addEventListener('keydown',function(ev){ if(ev.key==='Escape') closeFlyouts(); });
+  document.querySelectorAll('.flyout .nav-item').forEach(function(it){
+    it.addEventListener('click',function(){ closeFlyouts(); });
+  });
+  /* ---- expand/collapse rail (persisted; defaults to expanded) ---- */
+  var railToggle=document.getElementById('rail-toggle');
+  function setRail(open,save){
+    document.getElementById('app').classList.toggle('rail-open',open);
+    if(railToggle){
+      railToggle.setAttribute('aria-expanded',String(open));
+      railToggle.title=open?'Collapse menu':'Expand menu';
+      railToggle.setAttribute('aria-label',railToggle.title);
+      var ic=railToggle.querySelector('.ms'); if(ic)ic.textContent=open?'left_panel_close':'left_panel_open';
+    }
+    if(open)closeFlyouts();
+    if(save){try{localStorage.setItem('inv-rail-open',open?'1':'0');}catch(e){}}
+  }
+  var pref='1';
+  try{pref=localStorage.getItem('inv-rail-open')||'1';}catch(e){}
+  setRail(pref==='1',false);
+  if(railToggle)railToggle.addEventListener('click',function(){
+    setRail(!document.getElementById('app').classList.contains('rail-open'),true);
+  });
+
+  /* ---- EXECUTIVE SUMMARY drill-downs (additive; app render untouched) ---- */
+  function execGo(page,label){ navigateToPage(page,'Opening '+label); }
+  function enhanceExecutive(){
+    var grid=document.getElementById('exec-kpi-grid'); if(!grid)return;
+    /* 8 KPI cards, in the app's render order */
+    var kpiActs=[
+      {p:'employees',l:'Active Employees'},
+      {p:'intune',l:'Managed Devices'},
+      {p:'device-inventory',l:'Computers'},
+      {compliance:true,l:'non-compliant devices'},
+      {p:'liveauction',l:'Auction Devices'},
+      {p:'terms',l:'Terminated'},
+      {p:'aws',l:'Cloud Desktops'},
+      {p:'intune',l:'iPhones'}
+    ];
+    grid.querySelectorAll('.exec-kpi').forEach(function(c,i){ var a=kpiActs[i]; if(!a)return;
+      clickable(c,function(){ if(a.compliance){ openComplianceModal(BUCKETS[2]); } else { execGo(a.p,a.l); } }); });
+    /* compliance scorecard bars → device modal */
+    var cb=document.querySelectorAll('#exec-compliance .bar-row');
+    if(cb[0]) clickable(cb[0],function(){ openComplianceModal(BUCKETS[0]); });
+    if(cb[1]) clickable(cb[1],function(){ openComplianceModal(BUCKETS[2]); });
+    /* workforce rows → employees */
+    document.querySelectorAll('#exec-workforce > div').forEach(function(r){ clickable(r,function(){ execGo('employees','Active Employees'); }); });
+    /* fleet rows → device pages */
+    var fleetPages=['endpoints','macbooks','intune','tablets','ipads'];
+    document.querySelectorAll('#exec-fleet .bar-row').forEach(function(r,i){ clickable(r,function(){ execGo(fleetPages[i]||'device-inventory','Fleet'); }); });
+    /* lifecycle rows → Device Lifecycle */
+    document.querySelectorAll('#exec-lifecycle > div > div').forEach(function(r){ var t=r.textContent||''; if(/Critical|Warning|Good/.test(t) && !/total devices/.test(t)) clickable(r,function(){ execGo('lifecycle','Device Lifecycle'); }); });
+    /* auction bars → Live Auction */
+    document.querySelectorAll('#exec-auction .bar-row').forEach(function(r){ clickable(r,function(){ execGo('liveauction','Live Auction'); }); });
+  }
+
+  /* keep the group icon in sync with every navigation path (wrap, don't modify) */
+  if (typeof window.showPage==='function'){
+    var _sp=window.showPage;
+    window.showPage=function(n){ _sp(n); try{syncRail(n);}catch(e){} if(n==='executive'){ setTimeout(function(){ try{ enhanceExecutive(); }catch(e){} },0); } };
+  }
+  syncRail('dashboard');
+
+  /* ---- LIVE TICKER + SUB LINE (real counts from the app badges) ---- */
+  var SRC=[
+    ['EMPLOYEES','badge-emp','employees'],['TERMS','badge-terms','terms'],['TABLETS','badge-tablets','tablets'],
+    ['MACBOOKS','badge-mac','macbooks'],['IPADS','badge-ipads','ipads'],['MANAGEENGINE','badge-ep','endpoints'],
+    ['INTUNE','badge-intune','intune'],['AWS','badge-aws','aws'],['T-MOBILE','badge-tm','tmobile'],
+    ['VERIZON','badge-vz','verizon'],['WARRANTY ≤90D','badge-warranty','warranty'],['LIFECYCLE FLAG','badge-lc','lifecycle']
+  ];
+  function val(id){
+    var e=document.getElementById(id); if(!e)return null;
+    var t=(e.textContent||'').trim();
+    return (t && t!=='–' && t!=='-' && t!=='—') ? t : null;
+  }
+  function buildTicker(){
+    var box=document.getElementById('hdr-ticker'); if(!box)return;
+    var items=[];
+    SRC.forEach(function(s){ var v=val(s[1]); if(v!==null) items.push([s[0],v,s[2]]); });
+    if(!items.length){ box.innerHTML=''; return; }
+    var one=items.map(function(it){
+      return '<span class="item" data-page="'+(it[2]||'')+'" style="cursor:pointer"><span class="k">'+it[0]+'</span><span class="v">'+it[1]+'</span></span>';
+    }).join('');
+    box.innerHTML=one+one;
+  }
+  /* delegate ticker clicks → drill to the matching page */
+  (function(){
+    var tb=document.getElementById('hdr-ticker'); if(!tb)return;
+    tb.addEventListener('click',function(ev){
+      var it=ev.target.closest('.item'); if(!it)return;
+      var pg=it.getAttribute('data-page'); if(!pg)return;
+      var k=it.querySelector('.k'); navigateToPage(pg,'Opening '+(k?k.textContent:pg));
+    });
+  })();
+  function buildSub(){
+    var e=document.getElementById('hdr-sub'); if(!e)return;
+    var devIds=['badge-tablets','badge-mac','badge-ipads','badge-ep','badge-intune','badge-aws'];
+    var sum=0,got=false;
+    devIds.forEach(function(id){var v=val(id); if(v!==null){var n=parseInt(v.replace(/[^0-9]/g,''),10); if(!isNaN(n)){sum+=n;got=true;}}});
+    var emp=val('badge-emp');
+    var d=new Date(); var parts=[];
+    if(got) parts.push(sum.toLocaleString()+' devices');
+    if(emp!==null) parts.push(emp+' employees');
+    parts.push('refreshed '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+' UTC');
+    e.textContent=parts.join(' · ');
+  }
+  var fills=0;
+  var fast=setInterval(function(){
+    buildTicker(); buildSub();
+    var box=document.getElementById('hdr-ticker');
+    if(box && box.children.length){ fills++; }
+    if(fills>0){ clearInterval(fast); setInterval(function(){buildTicker();buildSub();},5000); }
+  },1000);
+  buildTicker(); buildSub();
+
+  /* ================= RUN DIAGNOSTICS =================
+     Self-contained. Reads the dashboard's own data (integration
+     matrix, KPI gauges, alerts) plus the live sidebar badge counts via
+     val(). Does NOT touch external app logic. */
+  var DIAG_TARGETS={'Compliance':95,'MDM Enrollment':98,'Patch Coverage':95,'Warranty Active':90};
+  function diagNum(s){var m=String(s).match(/-?\d+(?:\.\d+)?/);return m?parseFloat(m[0]):null;}
+  function diagSyncMins(s){var m=String(s).match(/(\d+)\s*([mhd])/i);if(!m)return null;var n=parseInt(m[1],10);var u=m[2].toLowerCase();return u==='m'?n:u==='h'?n*60:n*1440;}
+  function diagRank(sev){return sev==='crit'?0:sev==='warn'?1:2;}
+
+  /* ---- resolve the real API bases from the app (fall back to known values) ---- */
+  var _DIAG_CFG = (window.INVENTORY_API || { base: window.location.origin, hub: window.location.origin + '/hub-api' });
+  var DIAG_API  = _DIAG_CFG.base;
+  var DIAG_WBASE= _DIAG_CFG.hub;
+
+  /* ---- LIVE, READ-ONLY probe of a GET endpoint (never triggers a sync) ---- */
+  function diagProbe(url,ms){
+    return new Promise(function(resolve){
+      var done=false, ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+      var to=setTimeout(function(){ if(done)return; done=true; if(ctrl)ctrl.abort(); resolve({status:0,err:'timeout'}); }, ms||7000);
+      fetch(url,{method:'GET',cache:'no-store',credentials:'include',signal:ctrl?ctrl.signal:undefined})
+        .then(function(r){ if(done)return; done=true; clearTimeout(to); resolve({status:r.status,ok:r.ok}); })
+        .catch(function(e){ if(done)return; done=true; clearTimeout(to); resolve({status:0,err:(e&&e.name==='AbortError')?'timeout':'unreachable'}); });
+    });
+  }
+  function diagClassify(r){
+    if(r.status===0) return {sev:'crit',note:(r.err||'unreachable')};
+    if(r.status>=200 && r.status<300) return {sev:'ok',note:'HTTP '+r.status+' · reachable'};
+    if(r.status===401||r.status===403) return {sev:'warn',note:'HTTP '+r.status+' · auth/session issue'};
+    if(r.status>=500) return {sev:'crit',note:'HTTP '+r.status+' · server error'};
+    return {sev:'warn',note:'HTTP '+r.status};
+  }
+  /* status endpoints are all GET + read-only; POST /sync is deliberately NOT probed */
+  var DIAG_PROBES=[
+    {title:'Core API / session (/api/rbac/me)', url:DIAG_API+'/api/rbac/me'},
+    {title:'ManageEngine sync (ME)',       url:DIAG_WBASE+'/api/endpoints-sync/status'},
+    {title:'Intune Graph sync',            url:DIAG_WBASE+'/api/intune-graph/status'},
+    {title:'Kandji sync',                  url:DIAG_WBASE+'/api/kandji-sync/status'},
+    {title:'Warranty sync',                url:DIAG_WBASE+'/api/warranty/status'}
+  ];
+  function checkApisAndSyncs(){
+    return Promise.all(DIAG_PROBES.map(function(p){
+      return diagProbe(p.url).then(function(r){ var c=diagClassify(r); return {sev:c.sev,title:p.title,detail:c.note}; });
+    })).then(function(findings){ return {name:'APIs & Syncs (live)',icon:'sync',findings:findings}; });
+  }
+
+  /* ---- REQUIRED for the page to actually run (external scripts + libs loaded) ---- */
+  function checkPageRequirements(){
+    var f=[];
+    var appOk=(typeof showPage==='function' && typeof renderEndpoints==='function');
+    f.push({sev:appOk?'ok':'crit',title:'App core (IT_Inventory_App.js)',detail:appOk?'loaded':'NOT loaded — page cannot render or fetch data'});
+    f.push({sev:(typeof triggerEndpointsSync==='function')?'ok':'crit',title:'Sync handlers',detail:(typeof triggerEndpointsSync==='function')?'available':'missing — sync buttons will not work'});
+    f.push({sev:(typeof showToast==='function')?'ok':'warn',title:'Toast notifications',detail:(typeof showToast==='function')?'available':'missing — no user feedback on actions'});
+    var xlsxState=(typeof xlsxStatus==='function')?xlsxStatus():'missing';
+    var xlsxDetail={ready:'loaded',idle:'loads on first XLSX Import/Export',loading:'loading on demand',failed:'load failed — retry Import/Export',missing:'loader missing — Import/Export unavailable'}[xlsxState];
+    f.push({sev:(xlsxState==='failed'||xlsxState==='missing')?'warn':'ok',title:'Spreadsheet engine (XLSX)',detail:xlsxDetail});
+    /* JS errors captured this session by window.__invErr. A page that threw and
+       carried on looks exactly like a healthy one; this line is the only place
+       a user can find out that it did not. */
+    var _jsErrs=window.__invErrors||[], _lastErr=_jsErrs[_jsErrs.length-1];
+    f.push({sev:_jsErrs.length?'crit':'ok',title:'JavaScript errors this session',
+      detail:_jsErrs.length?(_jsErrs.length+' captured · latest: '+_lastErr.source+' — '+_lastErr.msg):'none captured'});
+    var apiOk=(typeof API_BASE!=='undefined' && !!API_BASE);
+    f.push({sev:apiOk?'ok':'crit',title:'API endpoint configured',detail:apiOk?DIAG_API:'API_BASE missing — no backend calls possible'});
+    return {name:'Page Requirements',icon:'checklist',findings:f};
+  }
+  function checkKPIs(){
+    var f=[];
+    GAUGES.forEach(function(g){
+      var d=gaugeData(g.key);
+      var isPct=/%$/.test(d.value);
+      var v=isPct?diagNum(d.value):null;
+      // Threshold comes from DIAG_TARGETS (declared above), keyed by gauge
+      // LABEL. This replaces a hardcoded 95, which was the only reason the
+      // constant was dead. Only 'Compliance' matches a gauge this page has, so
+      // the other three rows ('Warranty at-risk', 'Lifecycle risk',
+      // 'Unassigned') look up to undefined and stay unthresholded — exactly
+      // what the literal did. The three unmatched DIAG_TARGETS keys ('MDM
+      // Enrollment', 'Patch Coverage', 'Warranty Active') name gauges this page
+      // does not have. Behaviour is identical; the point is that changing a
+      // threshold is now a one-line edit in one place, not a hunt for a magic
+      // number.
+      var t=(DIAG_TARGETS[g.label]!=null)?DIAG_TARGETS[g.label]:null, sev='ok';
+      if(t!==null && v!==null){ if(v < t-3) sev='crit'; else if(v < t) sev='warn'; }
+      else if(d.value==='—') sev='warn';
+      f.push({sev:sev,title:g.label,detail:(d.value==='—'?'no live data — ':(d.value+' · '))+d.sub});
+    });
+    return {name:'KPIs & Thresholds (live)',icon:'speed',findings:f};
+  }
+  function checkAlerts(){
+    var list=buildAlerts(_matrixStates), f=[];
+    var nc=list.filter(function(a){return a.sev==='crit';}).length;
+    var nw=list.filter(function(a){return a.sev==='warn';}).length;
+    var ni=list.filter(function(a){return a.sev==='info';}).length;
+    f.push({sev: nc?'crit':(nw?'warn':'ok'), title:'Active alerts',
+      detail:nc+' critical, '+nw+' warning, '+ni+' info'});
+    list.forEach(function(a){ f.push({sev:a.sev,title:a.cat,detail:a.text}); });
+    return {name:'Alerts (live)',icon:'notifications_active',findings:f};
+  }
+  function checkInventory(){
+    var f=[], want=[
+      ['Tablets','badge-tablets'],['MacBooks','badge-mac'],['iPads','badge-ipads'],
+      ['ManageEngine','badge-ep'],['Intune','badge-intune'],['AWS Workspaces','badge-aws'],
+      ['Active Employees','badge-emp']
+    ];
+    var reporting=0, devSum=0, gotDev=false;
+    want.forEach(function(w){
+      var v=val(w[1]);
+      if(v===null){ f.push({sev:'warn',title:w[0],detail:'no count reported — data may not be loaded'}); return; }
+      reporting++;
+      if(w[1]!=='badge-emp'){ var n=parseInt(v.replace(/[^0-9]/g,''),10); if(!isNaN(n)){devSum+=n;gotDev=true;} }
+      f.push({sev:'ok',title:w[0],detail:v+' records'});
+    });
+    var allMissing = reporting===0;
+    var devZero = gotDev && devSum===0;
+    f.unshift({sev: allMissing?'crit':(devZero?'crit':(reporting<want.length?'warn':'ok')),
+      title:'Inventory data load',
+      detail: allMissing ? 'No badges reporting — app data not loaded'
+            : (reporting+' of '+want.length+' sources reporting'+(gotDev?' · '+devSum.toLocaleString()+' devices counted':''))});
+    return {name:'Inventory Data',icon:'inventory_2',findings:f};
+  }
+
+  function ensureBackdrop(){
+    var back=document.getElementById('diag-backdrop');
+    if(!back){
+      back=document.createElement('div');
+      back.id='diag-backdrop';
+      back.setAttribute('style','position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:var(--scrim1);backdrop-filter:blur(4px);padding:20px');
+      back.addEventListener('click',function(ev){ if(ev.target===back) closeDiag(); });
+      document.body.appendChild(back);
+    }
+    back.style.display='flex';
+    return back;
+  }
+
+  async function runDiagnostics(){
+    var btn=document.getElementById('run-diag-btn');
+    if(btn){ btn.disabled=true; btn.innerHTML='<span class="ms">progress_activity</span>Running…'; }
+
+    /* show an immediate loading panel while live probes run */
+    ensureBackdrop().innerHTML='<div style="background:var(--well3);border:1px solid var(--line2);border-radius:12px;width:420px;max-width:95vw;padding:34px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.6)">'
+      +'<div style="width:26px;height:26px;margin:0 auto 14px;border:3px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite"></div>'
+      +'<div style="color:var(--text);font-size:13px;font-weight:600">Running diagnostics…</div>'
+      +'<div style="color:var(--text2);font-size:11px;margin-top:4px">Probing APIs &amp; sync endpoints</div></div>';
+
+    var apis = await checkApisAndSyncs();
+    var groups=[apis,checkPageRequirements(),checkKPIs(),checkAlerts(),checkInventory()];
+    var tc=0,tw=0,to=0;
+    groups.forEach(function(gr){gr.findings.forEach(function(x){ if(x.sev==='crit')tc++; else if(x.sev==='warn')tw++; else to++; });});
+    var overall = tc? {t:'CRITICAL ISSUES',c:'var(--red)',bg:'rgba(var(--red-rgb),.12)',ic:'gpp_bad'}
+               : tw? {t:'ATTENTION NEEDED',c:'var(--yellow)',bg:'rgba(var(--yellow-rgb),.12)',ic:'warning'}
+                   : {t:'ALL SYSTEMS CLEAR',c:'var(--green)',bg:'rgba(var(--green-rgb),.12)',ic:'check_circle'};
+    var dotColor={crit:'var(--red)',warn:'var(--yellow)',ok:'var(--green)'};
+
+    var d=new Date();
+    var stamp=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+' UTC';
+
+    var back=ensureBackdrop();
+
+    function sec(gr){
+      var rows=gr.findings.slice().sort(function(a,b){return diagRank(a.sev)-diagRank(b.sev);}).map(function(x){
+        return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)">'
+          +'<span style="flex:none;width:9px;height:9px;margin-top:5px;border-radius:50%;background:'+dotColor[x.sev]+';box-shadow:0 0 8px '+dotColor[x.sev]+'"></span>'
+          +'<div style="min-width:0"><div style="color:var(--text);font-size:12.5px;font-weight:600">'+x.title+'</div>'
+          +'<div style="color:var(--text2);font-size:11.5px;line-height:1.5;margin-top:1px">'+x.detail+'</div></div></div>';
+      }).join('');
+      var gc=gr.findings.filter(function(x){return x.sev==='crit';}).length;
+      var gw=gr.findings.filter(function(x){return x.sev==='warn';}).length;
+      var badge=gc?('<span style="color:var(--red)">'+gc+' crit</span>'):gw?('<span style="color:var(--yellow)">'+gw+' warn</span>'):'<span style="color:var(--green)">ok</span>';
+      return '<div style="margin-top:14px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">'
+        +'<div style="display:flex;align-items:center;gap:7px;color:var(--text);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase">'
+        +'<span class="ms" style="font-size:16px;color:var(--accent)">'+gr.icon+'</span>'+gr.name+'</div>'
+        +'<span class="mono" style="font-size:10.5px">'+badge+'</span></div>'+rows+'</div>';
+    }
+
+    back.innerHTML=''
+      +'<div role="dialog" aria-modal="true" aria-label="System diagnostics" tabindex="-1" '
+      +'style="background:var(--well3);border:1px solid var(--line2);border-radius:12px;width:640px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.6)">'
+      +'<div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--well3);z-index:1">'
+        +'<div style="display:flex;align-items:center;gap:9px"><span class="ms" style="color:var(--accent)">monitor_heart</span>'
+        +'<h2 style="margin:0;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text)">System Diagnostics</h2></div>'
+        +'<button id="diag-close" type="button" aria-label="Close diagnostics" style="background:none;border:none;color:var(--text3);font-size:17px;cursor:pointer;padding:2px 8px;border-radius:6px;line-height:1">✕</button>'
+      +'</div>'
+      +'<div style="padding:18px 20px">'
+        +'<div style="display:flex;align-items:center;gap:12px;background:'+overall.bg+';border:1px solid '+overall.c+';border-radius:10px;padding:12px 14px">'
+          +'<span class="ms" style="font-size:26px;color:'+overall.c+'">'+overall.ic+'</span>'
+          +'<div><div style="color:'+overall.c+';font-weight:700;font-size:14px;letter-spacing:.4px">'+overall.t+'</div>'
+          +'<div class="mono" style="color:var(--text2);font-size:11px;margin-top:2px">'+tc+' critical · '+tw+' warnings · '+to+' healthy · '+stamp+'</div></div></div>'
+        +groups.map(sec).join('')
+      +'</div>'
+      +'<div style="padding:13px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:var(--well3)">'
+        +'<button id="diag-rerun" type="button" class="btn btn-ghost btn-sm"><span class="ms" style="font-size:15px">refresh</span> Re-run</button>'
+        +'<button id="diag-done" type="button" class="btn btn-primary btn-sm">Close</button>'
+      +'</div></div>';
+
+    back.style.display='flex';
+    focusDialog(back);
+    back.querySelector('#diag-close').addEventListener('click',closeDiag);
+    back.querySelector('#diag-done').addEventListener('click',closeDiag);
+    back.querySelector('#diag-rerun').addEventListener('click',runDiagnostics);
+    if(btn){ btn.disabled=false; btn.innerHTML='<span class="ms">bolt</span>Run diagnostics'; }
+  }
+  function closeDiag(){ var b=document.getElementById('diag-backdrop'); if(b)b.style.display='none'; restoreDialogFocus(); }
+  document.addEventListener('keydown',function(ev){
+    if(ev.key==='Escape'){ var b=document.getElementById('diag-backdrop'); if(b && b.style.display!=='none') closeDiag(); }
+  });
+  var _diagBtn=document.getElementById('run-diag-btn');
+  if(_diagBtn) _diagBtn.addEventListener('click',runDiagnostics);
+
+})();
+</script>
+<!-- emp-profile-modal (added) -->
+<style id="emp-profile-css">
+#emp-tbody tr{cursor:pointer}
+#emp-tbody tr:hover{background:var(--well)}
+#emp-tbody tr td:last-child{cursor:default}
+#emp-profile-backdrop{display:none;position:fixed;inset:0;background:var(--scrim1);z-index:210;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#emp-profile-backdrop.open{display:flex}
+.epf-card{background:var(--well3);border:1px solid var(--line2);border-radius:12px;width:560px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.6);animation:fadeup .2s ease}
+.epf-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none}
+.epf-id{display:flex;align-items:center;gap:11px;min-width:0}
+.epf-avatar{width:38px;height:38px;border-radius:50%;background:var(--chip2);color:var(--text);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;letter-spacing:.5px;flex:none}
+.epf-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.epf-sub{font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.epf-close{background:none;border:none;color:var(--text3);font-size:17px;cursor:pointer;padding:2px 8px;border-radius:6px;line-height:1}
+.epf-close:hover{color:var(--text);background:var(--well)}
+.epf-body{padding:16px 20px;overflow-y:auto}
+.epf-grid{display:grid;grid-template-columns:130px 1fr;gap:9px 16px}
+.epf-k{color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.4px;align-self:start;padding-top:1px}
+.epf-v{color:var(--text);font-size:12.5px;word-break:break-word}
+.epf-dev-h{margin:16px 0 8px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-top:1px solid var(--line);padding-top:14px}
+.epf-dev{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:7px;background:var(--well5)}
+.epf-dev .ms{font-size:18px;color:var(--link);flex:none}
+.epf-dev-main{min-width:0}
+.epf-dev-name{color:var(--text);font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.epf-dev-sub{color:var(--text2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.epf-dev-type{margin-left:auto;flex:none;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px}
+.epf-dev.epf-clickable{cursor:pointer}
+.epf-dev.epf-clickable:hover{border-color:var(--line2);background:var(--chip3)}
+.epf-dev .epf-go{margin-left:8px;flex:none;color:var(--ink-faint);font-size:16px}
+.epf-dev.epf-clickable:hover .epf-go{color:var(--link)}
+tr[data-emp-user]{cursor:pointer}
+tr[data-emp-user]:hover{background:var(--well)}
+tr[data-emp-user] td:last-child{cursor:default}
+.epf-dev-none{color:var(--text3);font-size:12px;padding:4px 0}
+</style>
+<div id="emp-profile-backdrop" aria-hidden="true">
+  <div class="epf-card" role="dialog" aria-modal="true" aria-labelledby="epf-name" tabindex="-1">
+    <div class="epf-head">
+      <div class="epf-id">
+        <div class="epf-avatar" id="epf-avatar" aria-hidden="true"></div>
+        <div style="min-width:0">
+          <div class="epf-name" id="epf-name">Employee</div>
+          <div class="epf-sub" id="epf-sub"></div>
+        </div>
+      </div>
+      <button class="epf-close" type="button" aria-label="Close profile" onclick="empProfileClose()">&#10005;</button>
+    </div>
+    <div class="epf-body"><div class="epf-grid" id="epf-grid"></div><div id="epf-devices"></div></div>
+  </div>
+</div>
+<script>
+(function(){
+  if(window.__empProfileInit) return; window.__empProfileInit=true;
+  var back=document.getElementById('emp-profile-backdrop');
+  function labels(){
+    var ths=document.querySelectorAll('#emp-table thead th');
+    return Array.prototype.map.call(ths,function(th){return (th.textContent||'').trim();});
+  }
+  function initials(name){
+    var parts=(name||'').trim().split(/\s+/).filter(Boolean);
+    if(!parts.length) return '?';
+    return (parts[0][0]+(parts.length>1?parts[parts.length-1][0]:'')).toUpperCase();
+  }
+  // This dialog never recorded its opener either, so closing it dropped focus to
+  // <body> and the next Tab restarted at the skip link - in a paginated table the
+  // user lost their place on every open/close cycle. Kept local to this IIFE
+  // rather than shared with the dashboard's focusDialog(): different scope.
+  var _epfOpener=null;
+  window.empProfileClose=function(){
+    back.classList.remove('open'); back.setAttribute('aria-hidden','true');
+    var o=_epfOpener; _epfOpener=null;
+    if(o && typeof o.focus==='function'){ try{ o.focus(); }catch(e){} }
+  };
+  function empDeviceGoto(page, query){
+    window.empProfileClose();
+    window.__itamDrilling=true;
+    try{ if(typeof showPage==='function') showPage(page); }catch(e){}
+    window.__itamDrilling=false;
+    var sb=document.getElementById('global-search');
+    if(sb && query){
+      sb.value=query;
+      if(typeof onSearch==='function'){ try{ onSearch(query); }catch(e){} }
+      else { sb.dispatchEvent(new Event('input',{bubbles:true})); }
+    }
+  }
+  // Clear any leftover global search when navigating normally (not while drilling),
+  // so a device-drill filter doesn't bleed into other pages and blank their tables.
+  (function(){
+    if(window.__itamNavClearInit) return; window.__itamNavClearInit=true;
+    if(typeof window.showPage==='function'){
+      var _sp2=window.showPage;
+      window.showPage=function(n){
+        if(!window.__itamDrilling){
+          try{ if(typeof window.itamClearSearch==='function') window.itamClearSearch(); }catch(e){}
+        }
+        return _sp2(n);
+      };
+    }
+  })();
+  var ICON={'iPhone':'smartphone','iPad':'tablet_mac','Tablet':'tablet_android','MacBook':'laptop_mac','Laptop/Desktop':'desktop_windows','AWS Workspace':'cloud'};
+  function renderDeviceList(host, devs){
+    host.textContent='';
+    var h=document.createElement('div'); h.className='epf-dev-h';
+    h.textContent='Assigned Devices ('+devs.length+')'; host.appendChild(h);
+    if(!devs.length){ var none=document.createElement('div'); none.className='epf-dev-none'; none.textContent='No devices assigned.'; host.appendChild(none); return; }
+    devs.forEach(function(d){
+      var row2=document.createElement('div'); row2.className='epf-dev';
+      var ic=document.createElement('span'); ic.className='ms'; ic.setAttribute('aria-hidden','true'); ic.textContent=ICON[d.type]||'devices_other'; row2.appendChild(ic);
+      var main=document.createElement('div'); main.className='epf-dev-main';
+      var nm=document.createElement('div'); nm.className='epf-dev-name'; nm.textContent=d.name||d.type; main.appendChild(nm);
+      if(d.detail){ var sub=document.createElement('div'); sub.className='epf-dev-sub'; sub.textContent=d.detail; main.appendChild(sub); }
+      row2.appendChild(main);
+      var ty=document.createElement('span'); ty.className='epf-dev-type'; ty.textContent=d.type; row2.appendChild(ty);
+      if(d.page && d.query){
+        row2.classList.add('epf-clickable');
+        row2.setAttribute('role','button'); row2.setAttribute('tabindex','0');
+        row2.title='Open '+(d.name||d.type)+' in '+d.type;
+        var go=document.createElement('span'); go.className='ms epf-go'; go.setAttribute('aria-hidden','true'); go.textContent='chevron_right'; row2.appendChild(go);
+        var nav=function(){ empDeviceGoto(d.page, d.query); };
+        row2.addEventListener('click',nav);
+        row2.addEventListener('keydown',function(ev){ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); nav(); } });
+      }
+      host.appendChild(row2);
+    });
+  }
+  function fillProfile(name, sub, fields, devs){
+    name=name||'Employee';
+    document.getElementById('epf-name').textContent=name;
+    document.getElementById('epf-sub').textContent=sub||'';
+    document.getElementById('epf-avatar').textContent=initials(name);
+    var grid=document.getElementById('epf-grid'); grid.textContent='';
+    fields.forEach(function(f){
+      var lab=f[0]; var val=(f[1]==null?'':String(f[1])).replace(/\s+/g,' ').trim();
+      if(!val) return;
+      var k=document.createElement('div'); k.className='epf-k'; k.textContent=lab;
+      var v=document.createElement('div'); v.className='epf-v'; v.textContent=val;
+      grid.appendChild(k); grid.appendChild(v);
+    });
+    var host=document.getElementById('epf-devices');
+    if(Array.isArray(devs)) renderDeviceList(host, devs); else host.textContent='';
+    // Stash the row (or control) that opened this so empProfileClose() can put
+    // focus back. Guarded on containment so re-filling an already-open profile
+    // does not record a control inside the dialog as its own opener.
+    if(!back.contains(document.activeElement)) _epfOpener=document.activeElement;
+    back.classList.add('open'); back.setAttribute('aria-hidden','false');
+    var dlg=back.querySelector('[role=dialog]'); if(dlg) dlg.focus();
+  }
+  // Open from an Active Employees table row (cell-based)
+  function open(row){
+    var cells=row.querySelectorAll('td');
+    if(cells.length<2) return;
+    var L=labels();
+    var nameIdx=L.indexOf('Name'); if(nameIdx<0) nameIdx=1;
+    var name=(cells[nameIdx]?cells[nameIdx].textContent:'').trim()||'Employee';
+    var titleIdx=L.indexOf('Title'), deptIdx=L.indexOf('Department');
+    var sub=[]; if(titleIdx>=0&&cells[titleIdx]) sub.push(cells[titleIdx].textContent.trim());
+    if(deptIdx>=0&&cells[deptIdx]) sub.push(cells[deptIdx].textContent.trim());
+    var devs=null, idx=row.getAttribute('data-emp-idx');
+    try{ if(idx!==null && typeof window.itamEmployeeDevices==='function') devs=window.itamEmployeeDevices(idx); }catch(e){ devs=null; }
+    var richDevices=Array.isArray(devs);
+    var fields=[];
+    for(var i=0;i<cells.length&&i<L.length;i++){
+      var lab=L[i];
+      if(lab==='Actions'||lab==='Name') continue;
+      if(lab==='Devices'&&richDevices) continue;
+      fields.push([lab||('Field '+(i+1)), cells[i].textContent]);
+    }
+    fillProfile(name, sub.filter(Boolean).join(' \u00b7 '), fields, richDevices?devs:null);
+  }
+  // Open from an employee record (used when a device row is clicked)
+  function openFromEmployee(emp){
+    if(!emp) return;
+    var name=(emp['First/Last']||'').trim()||'Employee';
+    var dept=(emp['Department']||'').replace(/^[A-Z0-9]+ - /,'');
+    var sub=[emp['Job Name']||'', dept].filter(Boolean).join(' \u00b7 ');
+    var fields=[['ID',emp['Worker ID']],['Title',emp['Job Name']],['Department',dept],['Pay Class',emp['Pay Class']],['Leader',emp['Functional Leader']]];
+    var devs=null;
+    try{ if(typeof window.itamDevicesForEmployee==='function') devs=window.itamDevicesForEmployee(emp); }catch(e){ devs=null; }
+    fillProfile(name, sub, fields, Array.isArray(devs)?devs:null);
+  }
+  // Keyboard parity for the two delegations below. Opening a profile - and the
+  // reverse "who is this device assigned to?" lookup - is the app's main
+  // drill-down on 12 pages, and it was pointer-only: the rows were not in the
+  // tab order, had no key handler, and nothing announced that a row was
+  // interactive. The handler bodies are named so ONE function serves both click
+  // and Enter/Space instead of duplicating the guards.
+  function onEmpRowActivate(ev){
+    var t=ev.target;
+    if(t.closest('button,a,input,select,label')) return;   // let action controls work
+    var cell=t.closest('td'); var row=t.closest('tr'); if(!row) return;
+    if(cell&&cell===row.querySelector('td:last-child')) return; // ignore Actions column
+    open(row);
+  }
+  // Reverse: activating a device row opens the assigned employee's profile.
+  function onDeviceRowActivate(ev){
+    var t=ev.target;
+    if(t.closest('button,a,input,select,label')) return;      // don't hijack action controls
+    var row=t.closest('tr[data-emp-user]'); if(!row) return;
+    var cell=t.closest('td'); if(cell&&cell===row.querySelector('td:last-child')) return; // ignore Actions column
+    var uref=row.getAttribute('data-emp-user'); if(!uref) return;
+    if(typeof window.itamEmployeeByUserRef!=='function') return;
+    var emp=null; try{ emp=window.itamEmployeeByUserRef(uref); }catch(e){ emp=null; }
+    if(emp) openFromEmployee(emp);
+  }
+  // Only rows carry tabindex, so a key event whose target is anything else (a
+  // button in the Actions column, the global search box) is not ours. Checking
+  // that BEFORE preventDefault() is what keeps Space scrolling everywhere else.
+  function onRowKey(handler){
+    return function(ev){
+      if(ev.key!=='Enter'&&ev.key!==' ') return;
+      var t=ev.target;
+      if(!t || typeof t.matches!=='function' || !t.matches('tr[tabindex]')) return;
+      ev.preventDefault();
+      handler(ev);
+    };
+  }
+  var tb=document.getElementById('emp-tbody');
+  if(tb){
+    tb.addEventListener('click',onEmpRowActivate);
+    tb.addEventListener('keydown',onRowKey(onEmpRowActivate));
+  }
+  document.addEventListener('click',onDeviceRowActivate);
+  document.addEventListener('keydown',onRowKey(onDeviceRowActivate));
+  // The 11 row templates that build these tables all write innerHTML, so rather
+  // than editing every one of them (and remembering to edit the next one), the
+  // tab stop and the accessible name are applied from HERE whenever #main's
+  // contents change - one affordance covering every render site, present and
+  // future. role is deliberately NOT set: role="button" on a <tr> would drop
+  // its cells out of the table structure. Tables are paginated at PAGE_SIZE=25,
+  // so this adds at most ~25 tab stops per page. The #emp-tbody half is keyed
+  // on data-emp-idx, which only real rows carry: the colspan .empty-state row
+  // must not become a tab stop announcing "No employees found".
+  function decorateRows(){
+    var rows=document.querySelectorAll('#emp-tbody > tr[data-emp-idx]:not([tabindex]), tr[data-emp-user]:not([tabindex])');
+    Array.prototype.forEach.call(rows,function(r){
+      r.setAttribute('tabindex','0');
+      var cells=r.querySelectorAll('td');
+      var nm=(r.getAttribute('data-emp-user')||(cells[1]?cells[1].textContent:'')||'').trim();
+      r.setAttribute('aria-label', nm?('View profile for '+nm):'View employee profile');
+    });
+  }
+  var _decoratePending=false;
+  function scheduleDecorate(){
+    // Coalesce a whole render (one innerHTML write per table, plus the dashboard
+    // poller's appendChild storm) into a single pass per frame.
+    if(_decoratePending) return;
+    _decoratePending=true;
+    requestAnimationFrame(function(){ _decoratePending=false; decorateRows(); });
+  }
+  scheduleDecorate();
+  var _mainRegion=document.getElementById('main');
+  if(_mainRegion && typeof MutationObserver==='function'){
+    // childList only - the decoration itself writes attributes, so it cannot
+    // re-trigger the observer.
+    new MutationObserver(scheduleDecorate).observe(_mainRegion,{childList:true,subtree:true});
+  }
+  back.addEventListener('click',function(ev){ if(ev.target===back) window.empProfileClose(); });
+  document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'&&back.classList.contains('open')) window.empProfileClose(); });
+})();
+</script>
+
+<!-- status-legend-strips (added) -->
+<style id="status-legend-css">
+.legend-strip{display:flex;flex-wrap:wrap;gap:7px 16px;align-items:center;padding:9px 13px;margin:0 0 10px;border:1px solid var(--line);border-radius:8px;background:var(--well3);font-size:11px;line-height:1}
+.legend-strip .lg-lead{color:var(--text3);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-right:2px}
+.legend-strip .lg-group{display:flex;flex-wrap:wrap;gap:7px 11px;align-items:center}
+.legend-strip .lg-chip{display:inline-flex;align-items:center;gap:6px}
+.legend-strip .lg-chip .lg-txt{color:var(--text2)}
+.legend-strip .lg-sep{width:1px;height:15px;background:var(--line2);margin:0 3px}
+</style>
+<script>
+(function(){
+  if(window.__statusLegendInit) return; window.__statusLegendInit=true;
+  var G={  // badge markup mirrors the live pills exactly (same classes)
+    active:      '<span class="badge badge-green">\u2713 Active</span>',
+    notInLive:   '<span class="badge badge-yellow">\u26a0 Not in Live</span>',
+    noSerial:    '<span class="badge badge-gray">\u26aa No Serial</span>',
+    compliant:   '<span class="badge badge-green">\u2713 Compliant</span>',
+    noncompliant:'<span class="badge badge-red">\u2717 Non-Compliant</span>',
+    grace:       '<span class="badge badge-yellow">\u23f3 Grace Period</span>',
+    enrolled:    '<span class="badge badge-green">\u2713 Enrolled</span>',
+    notFound:    '<span class="badge badge-gray">\u2014 Not Found</span>',
+    unknownGray: '<span class="badge badge-gray">\u2014 Unknown</span>',
+    missing:     '<span class="badge badge-red">\u26a0 Missing</span>',
+    inactive:    '<span class="badge badge-red">Inactive</span>',
+    stopped:     '<span class="badge badge-red">Stopped</span>',
+    suspended:   '<span class="badge badge-gray">Suspended</span>',
+    activePlain: '<span class="badge badge-green">Active</span>',
+    terminated:  '<span class="badge badge-red">Terminated</span>',
+    diGreen:     '<span class="badge badge-green">Active / Compliant</span>',
+    diRed:       '<span class="badge badge-red">Missing / Non-Compliant / Inactive</span>',
+    diAmber:     '<span class="badge badge-amber">Stale / Unknown / Pending</span>',
+    rGood:       '<span class="risk-badge risk-good">\ud83d\udfe2 Active</span>',
+    rWarn:       '<span class="risk-badge risk-warning">\ud83d\udfe1 Expiring Soon</span>',
+    rCrit:       '<span class="risk-badge risk-critical">\ud83d\udd34 Expired</span>',
+    rUnk:        '<span class="risk-badge risk-unknown">\u26aa Unknown</span>',
+    lcCrit:      '<span class="risk-badge risk-critical">\ud83d\udd34 Critical</span>',
+    lcWarn:      '<span class="risk-badge risk-warning">\ud83d\udfe1 Warning</span>',
+    lcGood:      '<span class="risk-badge risk-good">\ud83d\udfe2 Good</span>',
+    lcUnk:       '<span class="risk-badge risk-unknown">\u26aa Unknown</span>'
+  };
+  function chip(b,l){ return '<span class="lg-chip">'+b+'<span class="lg-txt">'+l+'</span></span>'; }
+  // Each page -> array of groups; group = {lead, items:[[badgeKey,label],...]}
+  var LEGENDS={
+    intune:[
+      {lead:'Live',items:[['active','confirmed in live Intune'],['notInLive','in import, not in live'],['noSerial','no serial to match']]},
+      {lead:'Compliance',items:[['compliant','meets policy'],['noncompliant','fails policy']]}
+    ],
+    ipads:[{lead:'Status',items:[['active','checked in / present'],['missing','reported missing']]}],
+    liveauction:[{lead:'Status',items:[['activePlain','active line'],['inactive','inactive line']]}],
+    verizon:[
+      {lead:'Line',items:[['activePlain','active'],['inactive','inactive'],['suspended','suspended']]},
+      {lead:'Intune',items:[['enrolled','managed'],['notFound','not enrolled']]}
+    ],
+    tmobile:[{lead:'Intune',items:[['enrolled','managed'],['notFound','not enrolled'],['unknownGray','no match data']]}],
+    aws:[{lead:'Status',items:[['activePlain','available / running'],['stopped','stopped']]}],
+    'device-inventory':[
+      {lead:'Device',items:[['diGreen','healthy'],['diRed','problem'],['diAmber','needs review']]},
+      {lead:'User',items:[['activePlain','active employee'],['terminated','terminated']]}
+    ],
+    warranty:[{lead:'Warranty',items:[['rGood','>90 days'],['rWarn','\u226490 days'],['rCrit','expired'],['rUnk','no data']]}],
+    lifecycle:[{lead:'Risk',items:[['lcCrit','end of life'],['lcWarn','aging'],['lcGood','healthy'],['lcUnk','no data']]}]
+  };
+  function build(groups){
+    var parts=[];
+    groups.forEach(function(grp,gi){
+      if(gi>0) parts.push('<span class="lg-sep"></span>');
+      var inner='<span class="lg-lead">'+grp.lead+'</span>';
+      inner+=grp.items.map(function(it){ return chip(G[it[0]]||'', it[1]); }).join('');
+      parts.push('<span class="lg-group">'+inner+'</span>');
+    });
+    return parts.join('');
+  }
+  function inject(){
+    Object.keys(LEGENDS).forEach(function(id){
+      var page=document.getElementById('page-'+id); if(!page) return;
+      if(page.querySelector('.legend-strip')) return;            // idempotent
+      var tw=page.querySelector('.table-wrap'); if(!tw) return;
+      var strip=document.createElement('div');
+      strip.className='legend-strip'; strip.setAttribute('aria-label','Status legend');
+      strip.innerHTML=build(LEGENDS[id]);
+      var card=tw.closest('.card')||tw.parentNode;
+      card.parentNode.insertBefore(strip, card);                 // strip sits above the table card
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',inject);
+  else inject();
+})();
+</script>
+
+<script src="/it-topbar.js" defer></script>
+<script src="/it-session-watch.js?v=20260904" defer></script>
+</body>
+</html>

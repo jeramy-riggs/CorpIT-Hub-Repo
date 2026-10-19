@@ -1,0 +1,98 @@
+{# OVERVIEW — the approved Control Registry composition.
+   Live API data replaces the server-rendered fallback as soon as it is available.
+   The fallback is deliberately honest: it comes from this console's live reads and
+   never turns a failed collector into a green zero. #}
+<section class="page wide operations-page" data-view="findings" hidden>
+  <div class="ops-head">
+    <div class="ops-head-copy">
+      <h2>Findings & evidence</h2>
+      <p>Start with the highest-impact condition, inspect its evidence, then move into the exact control that owns the next safe action.</p>
+    </div>
+    <div class="ops-head-meta"><span id="ops-now">{{ now_utc }}</span><br><span id="ops-freshness">Loading live operations data…</span></div>
+    <div class="ops-head-actions">
+      <button class="btn" type="button" id="ops-refresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6v5h-5"/><path d="M4 18v-5h5"/><path d="M6.1 8.1A7 7 0 0 1 18.8 6M5.2 18A7 7 0 0 0 17.9 15.9"/></svg>
+        Refresh
+      </button>
+      <a class="btn pri" href="/operations/workspace#findings" target="_blank" rel="noopener">Review finding
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="ops-board" id="ops-board" aria-busy="true">
+    <section class="ops-queue" aria-labelledby="ops-queue-title">
+      <div class="ops-pane-h">
+        <span class="ops-count" id="ops-count">{{ attention|length }}</span>
+        <h3 id="ops-queue-title">Needs attention</h3>
+        <span class="meta">highest impact first</span>
+      </div>
+      <div class="ops-list" id="ops-list" aria-label="Open operational findings">
+        {% if attention %}
+          {% for a in attention[:8] %}
+          <button class="ops-record{% if loop.first %} ops-loading{% endif %}" type="button" aria-pressed="{{ 'true' if loop.first else 'false' }}" data-fallback-nav="{{ a.nav }}">
+            <span class="ops-sev {{ 'critical' if a.level == 'crit' else a.level }}">{{ loop.index }}</span>
+            <span><span class="ops-record-title">{{ a.title }}</span><span class="ops-record-detail">{{ a.detail }}</span></span>
+            <span class="ops-record-side"><span>live</span><span class="ops-severity {{ 'critical' if a.level == 'crit' else a.level }}">{{ 'critical' if a.level == 'crit' else a.level }}</span></span>
+          </button>
+          {% endfor %}
+        {% else %}
+          <div class="ops-empty"><b>No console findings are open.</b>The operations API is still being checked before this becomes an all-clear.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="ops-detail" aria-labelledby="ops-detail-title">
+      <div class="ops-detail-top">
+        <div class="ops-title-row">
+          <span class="ops-sev warn" id="ops-detail-icon">!</span>
+          <div><h3 id="ops-detail-title">{{ attention[0].title if attention else 'Waiting for a verified finding' }}</h3>
+            <p id="ops-detail-summary">{{ attention[0].detail if attention else 'The live finding store has not answered yet.' }}</p></div>
+          <span class="pill p-warn ops-detail-state" id="ops-detail-state">{{ 'Open' if attention else 'Checking' }}</span>
+        </div>
+      </div>
+
+      <div class="ops-estate" aria-label="Live estate counts">
+        <div class="ops-estate-item"><b id="ops-servers">—</b><span>Servers</span></div>
+        <div class="ops-estate-item"><b id="ops-vhosts">{{ vhosts|length }}</b><span>Virtual hosts</span></div>
+        <div class="ops-estate-item"><b id="ops-jobs">{{ timers|length }}</b><span>Scheduled jobs</span></div>
+        <div class="ops-estate-item"><b id="ops-apis">—</b><span>APIs</span></div>
+      </div>
+
+      <div class="ops-detail-content">
+        <div class="ops-detail-body">
+          <dl class="ops-facts">
+            <div class="ops-fact"><dt>Detected</dt><dd id="ops-detected">Live console read</dd></div>
+            <div class="ops-fact"><dt>Category</dt><dd id="ops-category">Console</dd></div>
+            <div class="ops-fact"><dt>Affected</dt><dd id="ops-affected">Needs review</dd></div>
+          </dl>
+          <div class="ops-section evidence"><h4>Evidence</h4><pre id="ops-evidence">{{ attention[0].detail if attention else 'Waiting for the operations API.' }}</pre></div>
+          <div class="ops-section"><h4>Likely cause</h4><p id="ops-cause">The source system has not supplied a probable cause yet. Open the full workspace to inspect the underlying record.</p></div>
+          <div class="ops-section"><h4>Impact</h4><p id="ops-impact">This condition is still being classified. It is not being treated as healthy while evidence is unavailable.</p></div>
+          <div class="ops-section next"><h4>Next action</h4><p id="ops-next">Review the live evidence, then use the owning admin surface or the full maintenance workspace.</p></div>
+        </div>
+
+        <aside class="ops-actions" aria-label="Finding actions">
+          <a class="btn pri" id="ops-review" href="/operations/workspace#findings" target="_blank" rel="noopener">Review finding
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+          </a>
+          <a class="btn" id="ops-related" href="/operations/workspace#findings" target="_blank" rel="noopener">Open Findings register</a>
+          <a class="btn" href="/operations/workspace" target="_blank" rel="noopener">Open full workspace
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 5h5v5M10 14 19 5"/><path d="M19 14v5H5V5h5"/></svg>
+          </a>
+          <span class="ops-owner" id="ops-owner">Owner not recorded</span>
+        </aside>
+      </div>
+    </section>
+  </div>
+
+  <section class="ops-health" aria-label="Live system health" id="ops-health" aria-busy="true">
+    <div class="ops-health-title"><span class="st mut" id="ops-host-state"><i></i>System health</span></div>
+    <div class="ops-metric" id="ops-metric-cpu"><span class="k">CPU</span><span class="v" id="ops-cpu">—</span><span class="mini"><i></i></span></div>
+    <div class="ops-metric" id="ops-metric-io"><span class="k">I/O wait</span><span class="v" id="ops-io">—</span><span class="mini"><i></i></span></div>
+    <div class="ops-metric" id="ops-metric-memory"><span class="k">Memory</span><span class="v" id="ops-memory">—</span><span class="mini"><i></i></span></div>
+    <div class="ops-metric" id="ops-metric-disk"><span class="k">Disk</span><span class="v" id="ops-disk">{{ disk_pct ~ '%' if disk_pct is not none else '—' }}</span><span class="mini"><i{% if disk_pct is not none %} style="width:{{ [disk_pct,100]|min }}%"{% endif %}></i></span></div>
+    <div class="ops-metric"><span class="k">Uptime</span><span class="v" id="ops-uptime">{{ host_uptime }}</span></div>
+    <a class="ops-health-link" href="/operations/workspace" target="_blank" rel="noopener">View details →</a>
+  </section>
+</section>

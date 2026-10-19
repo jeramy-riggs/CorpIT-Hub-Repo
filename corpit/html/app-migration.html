@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>App Migration has moved — IT Command</title>
+<!-- 2026-09-10: App Migration was merged into the Okta to Entra Migration workspace.
+     This stub keeps old links working. It carries no data and calls no API.
+     Old tab -> new section: overview -> #overview, apps -> #apps, matches -> #queue/applications. -->
+<meta http-equiv="refresh" content="3;url=/okta-entra-migration.html#apps">
+<style>
+  body { margin: 0; font: 16px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0a0c10; color: #e6e9ef; }
+  main { max-width: 560px; margin: 12vh auto; padding: 0 24px; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { margin: 0 0 12px; color: #b8bfcb; }
+  a { color: #7cc4ff; font-weight: 600; }
+  a:focus { outline: 2px solid #7cc4ff; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>App Migration is now part of Okta to Entra Migration</h1>
+  <p>The application inventory, matches and review decisions live in one workspace with the security policies, MFA and Okta retirement tracking.</p>
+  <p><a id="go" href="/okta-entra-migration.html#apps">Open the Applications section</a></p>
+  <p>If you are not taken there in a moment, use the link above.</p>
+</main>
+<script>
+(function () {
+  /* The old page's tabs. Anything else is a destination hash already and passes through. */
+  var MAP = { '': '#overview', overview: '#overview', apps: '#apps', matches: '#queue/applications', users: '#apps', security: '#security/mfa' };
+  var h = (location.hash || '').replace(/^#/, '');
+  var q = null;
+  try { q = new URLSearchParams(location.search).get('tab'); } catch (e) {}
+  var parts = (h || q || '').split('/');
+  var key = parts[0].toLowerCase();
+  var target = (parts.length === 1 && Object.prototype.hasOwnProperty.call(MAP, key)) ? MAP[key] : (h ? '#' + h : '#overview');
+  var url = '/okta-entra-migration.html' + target;
+  document.getElementById('go').setAttribute('href', url);
+  location.replace(url);
+})();
+</script>
+</body>
+</html>

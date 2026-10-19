@@ -1,0 +1,50 @@
+# secrets — never commit
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p8
+.corpit-db-pw
+config.json
+# data / caches / runtime
+node_modules/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+cache/
+tmp-uploads/
+photos/
+*.db
+*.db-*
+*.sqlite*
+data/*.db*
+# editor backups / point-in-time copies (git replaces these)
+*.bak
+*.bak-*
+.bak-*
+*.retired*
+*.pre-*
+*.sed-bak
+*.orig
+*~
+# large vendored assets
+private/landing-icons/
+*.woff2
+
+# 2026-09-24 ITAM mirror: point-in-time copies, logs, dumps, archives and key stores stay out of git
+*.bak.*
+backups/
+logs/
+*.log
+*.log.[0-9]*
+*.dump
+*.sql.gz
+*.sql.zst
+*.zst
+*.tar
+*.tar.gz
+*.tgz
+secrets/
+*.p12

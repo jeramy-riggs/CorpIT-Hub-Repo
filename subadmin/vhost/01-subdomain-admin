@@ -1,0 +1,657 @@
+# CORPIT-SITE-AUTHZ 2026-09-02: per-site AD group authorization. Gated locations below use
+# "error_page 403 @gate_forbidden;" and "error_page 500 502 503 504 =503 @gate_unavailable;".
+# Note there is NO "=" on the 403 line: with it, nginx replaces the status and a
+# refusal is served as 200 OK. Copy an existing block rather than writing a new one.
+# subadmin.nrpi.local — CorpIT admin console.
+#
+# HAND-EDITED 2026-09-02: this host is now behind the CorpIT Hub sign-in like
+# every other browser surface on the box. It previously had its OWN front door -
+# a local username/password form and a second Entra app registration - so the
+# platform's most privileged page was the one page not using the platform's
+# single sign-in.
+#
+# X-Gate-Email carries the identity nginx already verified (HMAC on it_session,
+# via auth_request) to the Flask app, which resolves the role from AD exactly as
+# the SSO callback does. It is set with proxy_set_header in EVERY location that
+# proxies to :5000, so a client-supplied header of that name is REPLACED, never
+# merged. Adding a new location here without those two lines would reintroduce a
+# forgeable identity - copy an existing block rather than writing one from scratch.
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name subadmin.nrpi.local;
+
+    ssl_certificate     /etc/ssl/subdomains/subadmin.nrpi.local/fullchain.pem;
+    ssl_certificate_key /etc/ssl/subdomains/subadmin.nrpi.local/server.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:SSL:10m;
+
+    client_max_body_size 2m;
+
+    # [CORPIT-HUB-SSO] one platform sign-in, this host's own cookie.
+    include snippets/corpit-hub-sso.conf;
+
+    # The local username/password form. Kept for now, but no longer a second way
+    # in: it is behind the gate, and a signed-in visitor without a console group
+    # is refused by _adopt_hub_gate_identity before this page ever renders.
+    # RETIRED-FLASK-LOGIN 2026-09-02. This proxied to the Flask app's own
+    # sign-in template - a SECOND sign-in page carrying its own copy of the
+    # design, which drifted from the shared one (it kept the old brand, the
+    # hardcoded status line, no hero image, no version). Two copies of one
+    # design is a maintenance trap, and this copy was redundant anyway:
+    #   * the block was auth_request-gated, so it could only be REACHED by
+    #     someone who already held a hub session;
+    #   * by then _adopt_hub_gate_identity() has already built the Flask
+    #     session from X-Gate-Email, including auth_at, so the absolute
+    #     session cap re-heals on the next gated request instead of looping;
+    #   * when the hub is down this returned @gate_unavailable, never the
+    #     form, so it was not a break-glass fallback either.
+    # The 8 url_for("login") redirects in the app now land on the platform
+    # sign-in page. next= is carried over as return=, which login.js
+    # validates with sanitizeReturn() before it is ever used.
+    location = /login {
+        return 302 /login.html?return=$arg_next;
+    }
+
+    # This host's own legacy Entra flow. Superseded by the hub sign-in above and
+    # gated so it cannot be used as an alternate front door.
+    location ^~ /auth/ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;   # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        limit_req zone=subadmin_auth burst=20 nodelay;
+        limit_req_status 429;
+        add_header Cache-Control "no-store, private" always;
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Gate-Email      $gate_email;
+        proxy_read_timeout 120s;
+    }
+
+    # --- CorpIT Hub API: the only paths on this vhost that are not Flask --------
+    # [SESSION-WATCH NGX-3 2026-09-04] The expiry bar needs a countdown source and a
+    # renew target; both live in the hub API on :3001. Without these blocks they fall
+    # to 'location /' below, reach gunicorn on :5000 and 404 - which would make
+    # "Stay signed in" a control that cannot do its job. Same-origin by necessity:
+    # this host sends CSP "default-src 'self'" with no connect-src, so the watcher
+    # may only call subadmin's OWN origin.
+    #
+    # These are EXACT matches, so they are resolved before the '^~ /auth/' prefix and
+    # before 'location /' regardless of where they sit in the file; they are placed
+    # here so the two Flask blocks stay adjacent and readable.
+    #
+    # Added per-vhost rather than to snippets/corpit-hub-sso.conf on purpose: that
+    # snippet is included by FOUR vhosts (this one, reporting, accessportal,
+    # directory) and widening it would hand a session-expiry endpoint and a browser
+    # watcher to a parked placeholder and to a CardDAV service. See CORRECTIONS.md
+    # C2/C3. corpit does not include the snippet at all and carries its own copies.
+    #
+    # Deliberately NO auth_request on the three API blocks: all are
+    # self-authenticating and must be able to answer a JSON 401/403 the watcher can
+    # interpret, exactly as /api/breakglass/ and /api/auth/ in the shared snippet do.
+    # That posture is documented at snippets/corpit-hub-sso.conf:62-63.
+    #
+    # NO X-Gate-Email here, deliberately, despite this file's header rule. That rule
+    # is scoped to locations proxying to :5000, where it hands Flask an identity
+    # nginx already verified and replaces any client-supplied copy. The hub API reads
+    # the it_session cookie itself and never READS an inbound X-Gate-Email - it only
+    # SETS one as a response header for auth_request_set. Setting it here is inert.
+    #
+    # 'Host $host' IS load-bearing, not boilerplate: server.js's CORPIT-CSRF guard
+    # compares the Origin header's host against the Host header when Sec-Fetch-Site
+    # is absent, and a bare proxy_pass would send Host=127.0.0.1:3001 and 403 every
+    # cookie-authenticated renewal. See CORRECTIONS.md C3/C5.
+    location = /api/gate/session-info {
+        proxy_pass http://127.0.0.1:3002/api/gate/session-info;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 10s;
+    }
+
+    # [SESSION-WATCH NGX-4 2026-09-04] The renew target (POST). EXACT match ONLY -
+    # never the '/api/rbac/' prefix, which would expose the RBAC admin API (user
+    # CRUD, role assignment) on the admin console's own origin. See CORRECTIONS.md C3.
+    #
+    # This is the endpoint, not /api/gate/refresh, precisely because it is NOT in
+    # server.js API_PUBLIC: it therefore runs loadCurrentUser (is_active,
+    # break-glass and local-test refusals) and the CORPIT-CSRF origin check, which
+    # for a cookie-authenticated POST requires a positively same-origin verdict.
+    location = /api/rbac/session {
+        proxy_pass http://127.0.0.1:3001/api/rbac/session;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 15s;
+    }
+
+    # [SESSION-WATCH NGX-5 2026-09-04] The sign-in page's already-signed-in probe.
+    # login.html/login.js are aliased onto this vhost from corpit's root by the
+    # shared snippet, so the page runs HERE and calls this relative path; without
+    # this block that POST reaches gunicorn on :5000 and fails. Unchanged upstream
+    # behaviour: this route only re-sets the SAME token as a cookie - it mints
+    # nothing, which is why it is safe for it to stay API_PUBLIC and CSRF-exempt
+    # (CORRECTIONS.md C4). The re-mint lives at /api/rbac/session above.
+    #
+    # Keep it EXACT-match. A prefix 'location /api/gate/' would work today but would
+    # silently expose every FUTURE /api/gate/* route added to :3001 on this vhost.
+    location = /api/gate/refresh {
+        proxy_pass http://127.0.0.1:3002/api/gate/refresh;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 10s;
+    }
+
+    # [SESSION-WATCH NGX-6 2026-09-04] The session watcher itself, aliased from
+    # corpit's web root so there is exactly ONE copy of it on the box - same
+    # reasoning as login.js in the shared snippet. Never copy it into
+    # /opt/subdomain-admin/static/: a second copy drifts, and drift is its own bug.
+    # An alias is required because this vhost has no filesystem root, Flask serves
+    # its own assets under /static, and Flask has no route for this path - a bare
+    # <script src="/it-session-watch.js"> would 404, and a 404'd watcher is worse
+    # than none because the page looks fixed. Gated, because it is the client-side
+    # guts of a gated page.
+    #
+    # THE THREE error_page LINES ARE COPIED VERBATIM FROM 'location /' BELOW AND
+    # MUST NOT BE ALTERED. In particular do NOT write
+    # 'error_page 500 502 503 504 = @gate_unavailable;' with a bare '=': nginx would
+    # then adopt @gate_unavailable's own status, and @gate_unavailable does
+    # 'try_files /gate-unavailable.html =500', so the file is FOUND and the status
+    # becomes 200 OK. With default_type application/javascript and nosniff in play
+    # the browser would receive an HTML document labelled as JavaScript, the watcher
+    # would silently never run, and a gate failure would have been served as success
+    # on the platform's most privileged vhost. Same trap on the 403 line - see this
+    # file's header.
+    #
+    # default_type is mandatory: X-Content-Type-Options: nosniff is set on this host,
+    # so a wrong mimetype means the script silently never executes.
+    location = /it-session-watch.js {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;   # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        alias /var/www/html/it-session-watch.js;
+        default_type application/javascript;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        include snippets/corpit-security-headers.conf;
+    }
+
+    # [CONTROL-PLANE-OPERATIONS 2026-09-18] The everyday Operations section in
+    # Flask reads the established server-health API. The full legacy workspace
+    # remains available one level deeper while its long-tail maintenance tools
+    # are migrated. The upstream enforces server-health read/admin RBAC on every
+    # route; cookie-authenticated writes also keep the hub API's same-origin CSRF
+    # check because Host is preserved.
+    location /api/system/ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001/api/system/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 120s;
+    }
+
+    # Serve the existing workspace from subadmin without copying it. The back
+    # link returns to the new Operations queue, so operators keep their context.
+    location = /operations/workspace {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        alias /var/www/html/server-health.html;
+        default_type text/html;
+        sub_filter 'href="/landing.html"' 'href="/console#operations"';
+        sub_filter 'CorpIT Hub</a>' 'Control Plane</a>';
+        sub_filter_once off;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        include snippets/corpit-security-headers.conf;
+    }
+
+    # Shared presentation scripts used by the existing workspace. This is an
+    # anchored allow-list, not a static-directory exposure.
+    location ~ ^/(?:it-theme|it-theme-toggle|rbac-client|it-observe|it-topbar|feed-freshness|it-version|it-security-posture|estate-workspace)\.js$ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        root /var/www/html;
+        try_files $uri =404;
+        default_type application/javascript;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        include snippets/corpit-security-headers.conf;
+    }
+
+    location ~ ^/(?:it-depth|estate-workspace)\.css$ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        root /var/www/html;
+        try_files $uri =404;
+        default_type text/css;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        include snippets/corpit-security-headers.conf;
+    }
+
+    # Exact and narrowly-scoped companion APIs for the shared theme, topbar,
+    # freshness, observability, version, and security-posture scripts. Never
+    # proxy the entire /api/rbac/ namespace from this vhost.
+    location ~ ^/api/rbac/(?:me(?:/prefs|/refresh)?|users)$ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location ^~ /api/rbac/admin/view-as/ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001/api/rbac/admin/view-as/;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    # CORPIT-ACCESS-FOLD 2026-10-12: People & Access > Hub page access (the Access
+    # Control page that used to stand alone at corpit /access-admin.html). Each path
+    # is exact and limited to the one method the console uses, so the RBAC admin API
+    # is still not exposed as a namespace: no DELETE on roles, no page or role
+    # creation, no bulk routes. The hub's requireSuperAdmin decides every call.
+    location ~ ^/api/rbac/(?:pages|roles|audit)$ {
+        limit_except GET { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location ~ "^/api/rbac/roles/[a-z0-9][a-z0-9_-]{0,63}$" {
+        limit_except PUT { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location ~ ^/api/rbac/users/[^/]+/access$ {
+        limit_except GET PUT { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    # "Re-check AD groups" for one person: stamps roles_invalidated_at. The only
+    # /api/saas-admin/ route still in use; corpit no longer proxies that prefix.
+    location ~ ^/api/saas-admin/users/[^/]+/invalidate$ {
+        limit_except POST { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location ~ ^/api/(?:photo|feeds/freshness|observe/client|zscaler/cc/diagnostics|bugs/changelog/[^/]+)$ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 120s;
+    }
+
+    # Canonical Health & settings workspace; data remains authenticated by existing APIs.
+    location = /health/workspace {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        alias /opt/subdomain-admin/private/health-workspace.html;
+        default_type text/html;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+    }
+    location = /health-center.html { return 302 /health; }
+    location = /it-unifi.css {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        alias /var/www/html/it-unifi.css;
+        default_type text/css;
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        include snippets/corpit-security-headers.conf;
+    }
+    # The health dashboard only needs these reads, not the surrounding admin namespaces.
+    location ~ ^/api/(?:tenant-health/(?:entra|okta|intune|zia|iru)|service-status|netswitch/(?:overview|fw-health)|meraki/noc|zscaler/zpa/connector-health|identity/(?:connector-health|spray-alerts)|sdp/(?:changes/)?health|observe/(?:summary|requests)|sentinel/incidents)$ {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        limit_except GET { deny all; }
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 35s;
+    }
+
+    # CORPIT-SETTINGS-FOLD 2026-10-12: Settings > editors that used to live only on
+    # their own Hub pages. Exact paths, and only the methods each editor uses (GET
+    # also allows HEAD). The owning API's own guard decides every call; nginx adds
+    # only the sign-in gate:
+    #   :3000 cert-config, prtg/config   requirePage('cert-watchtower') read / admin
+    #   :3001 signin-watch               requireSuperAdmin (audited)
+    #   :3001 user-project/settings      requirePage('user-projects') read / admin
+    #   :3001 zscaler/zia/ai/*           requirePage('zscaler-diag') read / admin
+    # Not exposed: signin-watch pause/resume/test/channel delete, the digest
+    # send-test, the AI report send-now, PRTG test pushes. Those stay on their pages.
+    location = /api/cert-config {
+        limit_except GET PUT { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_set_header X-Gate-Email      $gate_email;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location = /api/prtg/config {
+        limit_except GET PUT { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        proxy_set_header X-Gate-Email      $gate_email;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location ~ ^/api/signin-watch/(?:watchlist|networks|channels)$ {
+        limit_except GET POST { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location ~ ^/api/signin-watch/(?:watchlist|networks)/[0-9]+$ {
+        limit_except PATCH DELETE { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location ~ ^/api/signin-watch/channels/[0-9]+$ {
+        limit_except PATCH { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location = /api/user-project/settings {
+        limit_except GET PATCH { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    location ~ ^/api/zscaler/zia/ai/(?:report-config|watchlist)$ {
+        limit_except GET POST { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+    }
+
+    # DARKTRACE-EMAIL 2026-10-14: Settings > Darktrace email. The Hub's requireSuperAdmin decides
+    # every call and audits it; nginx adds only the sign-in gate. /config/test makes two read-only
+    # Darktrace calls (20 s timeout each), hence the longer read timeout.
+    location ~ ^/api/sentinel/darktrace-email/config(?:/test)?$ {
+        limit_except GET PUT POST { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 50s;
+    }
+
+    # Everything else, including /static and /healthz. An internal health probe
+    # should talk to gunicorn on 127.0.0.1:5000 directly rather than come through
+    # the public vhost, so gating this costs nothing operationally.
+    location / {
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;   # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Gate-Email      $gate_email;
+        proxy_read_timeout 120s;
+    }
+}

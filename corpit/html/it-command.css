@@ -1,0 +1,454 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   it-command.css — the shared IT Command world.
+
+   Loaded AFTER it-unifi.css and activated by <body class="u cmd">.
+   It defines the palette, remaps the design-system tokens onto it (so every
+   existing .u-card/.u-stat/.u-row/.u-table adopts the look with no markup
+   change), and supplies the chrome: header, workspace switcher, stat strip.
+
+   PALETTE LOGIC — one hue per job, never doubled up:
+     blue   = action / interactive        (links, buttons, selected state)
+     green  = healthy                     (never used for "clickable")
+     amber  = degraded
+     coral  = faulting / user impact
+     slate  = structure and text
+   Keeping "you can click this" and "this is fine" in different hues is the
+   whole point; techs read status faster than they read labels.
+
+   LIGHT IS THE DEFAULT. These pages show CAD floor plans, which are drawn
+   for white paper, and most of the day they are read in a lit office.
+   Dark is a real second theme, not an inversion.
+
+   Every light-mode status colour is tuned to clear 4.5:1 as TEXT on white —
+   the big stat numbers are the first thing scanned, so they may not be the
+   dimmest pixels on the page.
+
+   NOTE: a new shared asset needs its own nginx no-cache location block or
+   browsers keep serving a stale copy after deploys.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── palette: light (default) ──────────────────────────────────────── */
+body.cmd{
+  --o-bg:#eef2f7; --o-bg2:#f7f9fc; --o-panel:#ffffff; --o-panel2:#f1f5fa;
+  --o-line:#d7e0ea; --o-hair:#e8edf3;
+  --o-ink:#132132; --o-dim:#4d5f77; --o-faint:#5b6d85;
+  /* action */
+  --o-mint:#0f62d8; --o-mint-bright:#1d74ee; --o-mint-wash:#e8f1fe;
+  --o-btn-ink:#ffffff;
+  /* status — all ≥4.5:1 as text on white */
+  --o-sig:#0d7c4a; --o-slow:#96600a; --o-fault:#c81e2d; --o-live:#0f62d8;
+  --o-off:#64748b;
+  --o-focus:#0f62d8;
+  --o-glow:0 6px 18px rgba(15,98,216,.18);
+  --o-shadow:0 1px 2px rgba(19,45,84,.05),0 8px 22px -14px rgba(19,45,84,.22);
+  --o-core:#ffffff; --o-corei:#132132;
+  --o-plan-op:.9;
+  --o-scrim:rgba(15,28,45,.42);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) body.cmd{
+    --o-bg:#080f1b; --o-bg2:#0c1524; --o-panel:#0e1a2b; --o-panel2:#152337;
+    --o-line:#2a3b52; --o-hair:#1e2d42;
+    --o-ink:#eaf2fb; --o-dim:#a3b4c9; --o-faint:#8ba0b8;
+    --o-mint:#6bb1ff; --o-mint-bright:#8cc4ff; --o-mint-wash:rgba(80,150,255,.16);
+    --o-btn-ink:#062038;
+    --o-sig:#3fd189; --o-slow:#f0b44e; --o-fault:#ff7a86; --o-live:#6bb1ff;
+    --o-off:#8296b0;
+    --o-focus:#8cc4ff;
+    --o-glow:0 0 20px rgba(107,177,255,.20);
+    --o-shadow:0 1px 2px rgba(0,0,0,.32),0 14px 32px -20px rgba(0,0,0,.6);
+    --o-core:#0e1a2b; --o-corei:#eaf2fb;
+    --o-plan-op:.62;
+    --o-scrim:rgba(2,7,14,.62);
+  }
+}
+:root[data-theme="dark"] body.cmd{
+  --o-bg:#080f1b; --o-bg2:#0c1524; --o-panel:#0e1a2b; --o-panel2:#152337;
+  --o-line:#2a3b52; --o-hair:#1e2d42;
+  --o-ink:#eaf2fb; --o-dim:#a3b4c9; --o-faint:#8ba0b8;
+  --o-mint:#6bb1ff; --o-mint-bright:#8cc4ff; --o-mint-wash:rgba(80,150,255,.16);
+  --o-btn-ink:#062038;
+  --o-sig:#3fd189; --o-slow:#f0b44e; --o-fault:#ff7a86; --o-live:#6bb1ff;
+  --o-off:#8296b0;
+  --o-focus:#8cc4ff;
+  --o-glow:0 0 20px rgba(107,177,255,.20);
+  --o-shadow:0 1px 2px rgba(0,0,0,.32),0 14px 32px -20px rgba(0,0,0,.6);
+  --o-core:#0e1a2b; --o-corei:#eaf2fb;
+  --o-plan-op:.62;
+  --o-scrim:rgba(2,7,14,.62);
+}
+
+/* ── remap the design system onto the palette ──────────────────────── */
+body.cmd{
+  --u-bg:var(--o-bg);
+  --u-surface:var(--o-panel); --u-surface-2:var(--o-panel2); --u-surface-3:var(--o-panel2);
+  --u-rail:var(--o-panel);
+  --u-border:var(--o-line); --u-border-2:var(--o-line); --u-hair:var(--o-hair);
+  --u-text:var(--o-ink); --u-text-2:var(--o-dim); --u-text-3:var(--o-faint); --u-muted:var(--o-off);
+  --u-accent:var(--o-mint); --u-accent-2:var(--o-mint-bright); --u-accent-wash:var(--o-mint-wash);
+  --u-good:var(--o-sig); --u-good-wash:color-mix(in srgb,var(--o-sig) 12%,var(--o-panel));
+  --u-warn:var(--o-slow); --u-warn-wash:color-mix(in srgb,var(--o-slow) 13%,var(--o-panel));
+  --u-bad:var(--o-fault);  --u-bad-wash:color-mix(in srgb,var(--o-fault) 11%,var(--o-panel));
+  --u-info:var(--o-live);  --u-info-wash:var(--o-mint-wash);
+  --u-r-xs:6px; --u-r-sm:9px; --u-r:13px; --u-r-lg:17px;
+  --u-sh:var(--o-shadow);
+  background:var(--o-bg); color:var(--o-ink); font-size:14px;
+}
+body.cmd ::selection{background:var(--o-mint);color:var(--o-btn-ink)}
+body.cmd a{color:var(--o-mint)}
+/* focus ring: solid, and legible against panel AND page ground in both themes */
+body.cmd :focus-visible{outline:2px solid var(--o-focus);outline-offset:2px;border-radius:9px}
+body.cmd *{scrollbar-color:var(--o-off) transparent}
+
+/* ── page frame ────────────────────────────────────────────────────── */
+body.cmd .owrap{max-width:1400px;margin:0 auto;padding:12px 16px 40px}
+body.cmd .u-app{display:block}
+
+/* ── header: one panel, two rows (identity + workspace switcher) ───── */
+.ohead{display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+  background:var(--o-panel);border:1px solid var(--o-line);border-radius:16px;
+  box-shadow:var(--o-shadow);padding:10px 14px;margin-bottom:12px}
+.ologo{width:38px;height:38px;flex:none;border-radius:11px;display:grid;place-items:center;
+  background:linear-gradient(140deg,var(--o-mint-bright),var(--o-mint));color:#fff;
+  box-shadow:var(--o-glow)}
+.ologo svg{width:20px;height:20px}
+.ohead .tt{line-height:1.2;min-width:0}
+.ohead .tt b{font-size:16px;font-weight:720;letter-spacing:-.02em;display:block;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ohead .tt span{font-size:12.5px;color:var(--o-dim)}
+.ohead .sp{flex:1}
+.ohead .hact{display:flex;align-items:center;gap:9px;flex:none;flex-wrap:wrap}
+.ohead .stamp{font-family:var(--u-mono);font-size:11.5px;color:var(--o-dim)}
+.ohead .stamp.stale{color:var(--o-slow);font-weight:650}
+
+/* workspace switcher — the suite reads as one product */
+.oswitch{display:flex;gap:5px;flex:1 1 100%;order:5;overflow-x:auto;
+  background:var(--o-panel2);border:1px solid var(--o-hair);border-radius:12px;padding:4px}
+.oswitch a{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  flex:1 1 0;min-width:max-content;min-height:38px;padding:7px 14px;border-radius:9px;
+  color:var(--o-dim);font-size:13.5px;font-weight:650;white-space:nowrap;text-decoration:none}
+.oswitch a:hover{color:var(--o-ink);background:var(--o-panel);text-decoration:none}
+.oswitch a[aria-current="page"]{background:var(--o-panel);color:var(--o-mint);
+  box-shadow:0 1px 3px rgba(19,45,84,.12)}
+.oswitch svg{width:16px;height:16px;flex:none}
+
+.livepill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--o-line);
+  background:var(--o-panel2);color:var(--o-ink);font:inherit;font-size:12.5px;font-weight:620;
+  border-radius:999px;padding:7px 13px;cursor:pointer;min-height:36px}
+.livepill .dot{width:8px;height:8px;border-radius:50%;background:var(--o-sig);flex:none}
+.livepill[aria-pressed="false"] .dot{background:var(--o-off)}
+@media (prefers-reduced-motion:no-preference){
+  .livepill[aria-pressed="true"] .dot{animation:opulse 2.2s ease-in-out infinite}}
+@keyframes opulse{50%{opacity:.4}}
+.oburger,.oalert{position:relative;border:1px solid var(--o-line);background:var(--o-panel2);
+  color:var(--o-ink);border-radius:10px;width:36px;height:36px;display:grid;place-items:center;
+  cursor:pointer;flex:none}
+.oburger svg,.oalert svg{width:17px;height:17px}
+.oalert .bdg{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:9px;
+  background:var(--o-fault);color:#fff;font-size:10.5px;font-weight:700;line-height:18px;
+  padding:0 4px;text-align:center;border:2px solid var(--o-panel)}
+.oalert .bdg[hidden]{display:none}
+
+/* site chip — replaces the old full-width site banner */
+.osite{display:inline-flex;align-items:center;gap:7px;background:var(--o-panel2);
+  border:1px solid var(--o-line);border-radius:999px;padding:7px 13px;min-height:36px;
+  font-size:12.5px;font-weight:680;white-space:nowrap}
+.osite svg{width:15px;height:15px;color:var(--o-mint);flex:none}
+
+/* ── shell (the icon rail is retired — the switcher replaces it) ───── */
+.oshell{display:block}
+.oside{display:none}
+.omain{min-width:0}
+
+/* ── hero ──────────────────────────────────────────────────────────── */
+.ohero{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin:2px 2px 12px}
+.ohero .hl{flex:1;min-width:260px}
+.oeyebrow{font-family:var(--u-mono);font-size:10.5px;font-weight:700;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--o-mint);margin-bottom:5px;display:flex;align-items:center;gap:7px}
+.oeyebrow .livedot{width:7px;height:7px;border-radius:50%;background:var(--o-sig);flex:none}
+.ohero h2{margin:0 0 5px;font-size:clamp(21px,2.6vw,27px);font-weight:750;
+  letter-spacing:-.03em;line-height:1.15;text-wrap:balance}
+.ohero .sub{font-size:13.5px;color:var(--o-dim);max-width:70ch;line-height:1.45}
+.oseg{display:flex;background:var(--o-panel2);border:1px solid var(--o-line);border-radius:999px;
+  padding:3px;flex:none}
+.oseg button{border:0;background:transparent;color:var(--o-dim);font:inherit;font-size:13px;
+  font-weight:650;padding:8px 16px;border-radius:999px;cursor:pointer;min-height:36px}
+.oseg button[aria-pressed="true"]{background:var(--o-panel);color:var(--o-mint);
+  box-shadow:0 1px 3px rgba(19,45,84,.12)}
+
+/* ── stat strip ────────────────────────────────────────────────────── */
+.ostats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.ostat{text-align:left;background:var(--o-panel);border:1px solid var(--o-line);border-radius:13px;
+  padding:11px 14px;cursor:pointer;color:var(--o-ink);font:inherit;box-shadow:var(--o-shadow)}
+.ostat:hover{border-color:var(--o-mint)}
+.ostat .k{font-size:12px;font-weight:650;color:var(--o-dim);margin-bottom:4px}
+.ostat .v{font-size:27px;font-weight:730;letter-spacing:-.9px;line-height:1.05;
+  font-variant-numeric:tabular-nums}
+.ostat .v small{font-size:14px;font-weight:600;color:var(--o-dim);letter-spacing:0}
+.ostat .s{font-size:11.5px;color:var(--o-dim);margin-top:4px}
+.ostat.sig .v{color:var(--o-sig)} .ostat.slow .v{color:var(--o-slow)}
+.ostat.fault .v{color:var(--o-fault)} .ostat.live .v{color:var(--o-live)}
+
+body.cmd .u-stat{box-shadow:var(--o-shadow);padding:11px 14px}
+body.cmd .u-stat .lab{font-size:12px;font-weight:650;color:var(--o-dim)}
+body.cmd .u-stat .val{font-size:27px;font-weight:730;letter-spacing:-.9px;margin-top:5px}
+body.cmd .u-stat .sub{font-size:11.5px;color:var(--o-dim);margin-top:4px}
+body.cmd button.u-stat,body.cmd .u-stat.click{cursor:pointer;text-align:left;font:inherit;color:var(--o-ink)}
+body.cmd button.u-stat:hover,body.cmd .u-stat.click:hover{border-color:var(--o-mint)}
+
+/* ── cards ─────────────────────────────────────────────────────────── */
+body.cmd .u-card{box-shadow:var(--o-shadow)}
+body.cmd .u-card>header{padding:12px 16px}
+body.cmd .u-card>header h2,body.cmd .u-card>header h3{font-size:15px;font-weight:730;letter-spacing:-.015em}
+body.cmd .u-card>header svg.ci{color:var(--o-mint)}
+body.cmd .u-note{box-shadow:var(--o-shadow)}
+
+/* ── controls (44px comfortable targets) ───────────────────────────── */
+body.cmd .u-btn{border-radius:10px;padding:8px 14px;font-size:13px;font-weight:640;
+  background:var(--o-panel2);border-color:var(--o-line);color:var(--o-ink);min-height:38px}
+body.cmd .u-btn:hover{border-color:var(--o-mint);color:var(--o-mint)}
+body.cmd .u-btn.pri{background:var(--o-mint);border-color:var(--o-mint);color:var(--o-btn-ink)}
+body.cmd .u-btn.pri:hover{background:var(--o-mint-bright);border-color:var(--o-mint-bright);
+  color:var(--o-btn-ink)}
+body.cmd .u-btn[aria-pressed="true"]{background:var(--o-mint-wash);border-color:var(--o-mint);color:var(--o-mint)}
+body.cmd .u-input{border-radius:10px;background:var(--o-panel);border-color:var(--o-line);min-height:40px}
+body.cmd .u-seg{background:var(--o-panel2);border:1px solid var(--o-line);border-radius:999px;padding:3px}
+body.cmd .u-seg button{border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:640;min-height:34px}
+body.cmd .u-seg button[aria-pressed="true"],body.cmd .u-seg button[aria-selected="true"]{
+  background:var(--o-panel);color:var(--o-mint);box-shadow:0 1px 3px rgba(19,45,84,.12)}
+body.cmd .u-tag{border-radius:999px;font-size:11px;padding:3px 9px;font-weight:650}
+
+/* ── rows / tables ─────────────────────────────────────────────────── */
+body.cmd .u-row{padding:11px 16px;min-height:56px}
+body.cmd .u-row .ico{border-radius:10px;width:36px;height:36px}
+body.cmd .u-row .main .t{font-size:13.5px;font-weight:680}
+body.cmd .u-row .main .s{font-size:12px;margin-top:3px}
+body.cmd .u-row:hover{background:var(--o-panel2)}
+body.cmd .u-row[tabindex]:focus-visible{background:var(--o-panel2)}
+body.cmd .u-kv{padding:10px 16px}
+body.cmd table.u-table thead th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--o-dim);background:var(--o-panel2);padding:11px 16px}
+body.cmd table.u-table tbody td{padding:11px 16px}
+body.cmd table.u-table tbody tr:hover{background:var(--o-panel2)}
+body.cmd table.u-table tbody tr[tabindex]:focus-visible{background:var(--o-panel2);
+  outline:2px solid var(--o-focus);outline-offset:-2px}
+body.cmd thead th[data-k]{cursor:pointer}
+body.cmd .u-group{background:var(--o-panel2);font-size:11px;letter-spacing:.07em}
+
+/* ── page tab strips ───────────────────────────────────────────────── */
+body.cmd .tabs,body.cmd #tabs,body.cmd .tabstrip{display:flex;gap:5px;flex-wrap:nowrap;
+  overflow-x:auto;border-bottom:0!important;background:var(--o-panel2);
+  border:1px solid var(--o-hair);border-radius:11px;padding:4px;margin:0 0 12px}
+body.cmd .tabs button,body.cmd #tabs button,body.cmd .tabstrip button{
+  border:0;background:transparent;color:var(--o-dim);font:inherit;font-size:12.5px;font-weight:640;
+  padding:7px 13px;border-radius:8px;cursor:pointer;position:static;min-height:34px;white-space:nowrap}
+body.cmd .tabs button:hover,body.cmd #tabs button:hover,body.cmd .tabstrip button:hover{color:var(--o-ink)}
+body.cmd .tabs button[aria-selected="true"],body.cmd #tabs button[aria-selected="true"],
+body.cmd .tabstrip button[aria-selected="true"],
+body.cmd .tabs button.on,body.cmd #tabs button.on,body.cmd .tabstrip button.on{
+  background:var(--o-panel);color:var(--o-mint);box-shadow:0 1px 3px rgba(19,45,84,.12)}
+body.cmd .tabs button::after,body.cmd #tabs button::after{display:none!important}
+
+/* ── nav drawer ────────────────────────────────────────────────────── */
+body.cmd .u-rail{position:fixed;left:0;top:0;bottom:0;width:min(260px,80vw);height:100vh;z-index:120;
+  transform:translateX(-102%);transition:transform .22s ease;box-shadow:8px 0 30px rgba(0,0,0,.25);
+  overflow-y:auto;border-right:1px solid var(--o-line)}
+body.cmd .u-rail.open{transform:none}
+@media (prefers-reduced-motion:reduce){body.cmd .u-rail{transition:none}}
+body.cmd .u-rail .u-nav{display:block}
+.oscrim{position:fixed;inset:0;background:var(--o-scrim);z-index:110;border:0;padding:0;cursor:pointer}
+.oscrim[hidden]{display:none}
+body.cmd .u-drawer{background:var(--o-panel);border-left:1px solid var(--o-line)}
+
+/* ── responsive ────────────────────────────────────────────────────── */
+@media (max-width:920px){
+  .ostats{grid-template-columns:repeat(2,1fr)}
+  .oswitch a span{font-size:12.5px}
+}
+@media (max-width:600px){
+  body.cmd .owrap{padding:10px 10px 30px}
+  .ohead .tt span{display:none}
+  .ohead .stamp{display:none}
+  .ostats{grid-template-columns:1fr}
+  .oswitch a{flex:0 0 auto}
+  .oswitch a span{display:none}
+  .oswitch a{min-width:52px}
+}
+
+/* ═══ queue + detail ═════════════════════════════════════════════════
+   The shape every page in the suite uses: a persistent work list on the
+   left, the selected subject on the right. The list never re-renders out
+   from under you, so a tech keeps their place while working down it.
+   Pages supply the rows; these are the shared parts.                   */
+.qshell{display:grid;grid-template-columns:346px minmax(0,1fr);gap:14px;align-items:start}
+.qlist{position:sticky;top:12px;max-height:calc(100vh - 26px);overflow:auto;
+  background:var(--o-panel);border:1px solid var(--o-line);border-radius:14px;
+  box-shadow:var(--o-shadow)}
+.qhead{padding:13px 16px 12px;border-bottom:1px solid var(--o-hair)}
+.qhead .eyebrow{font-family:var(--u-mono);font-size:10px;font-weight:700;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--o-mint);margin-bottom:5px}
+.qhead h2{margin:0;font-size:16.5px;font-weight:740;letter-spacing:-.02em;line-height:1.22}
+.qhead .sub{font-size:11.5px;color:var(--o-dim);margin-top:4px;line-height:1.4}
+.qfilter{display:flex;gap:5px;padding:9px 12px;border-bottom:1px solid var(--o-hair);flex-wrap:wrap}
+.qfilter button{border:1px solid var(--o-line);background:var(--o-panel2);color:var(--o-dim);
+  font:inherit;font-size:11.5px;font-weight:640;padding:5px 10px;border-radius:999px;cursor:pointer}
+.qfilter button[aria-pressed="true"]{background:var(--o-mint-wash);border-color:var(--o-mint);color:var(--o-mint)}
+.qsec{font-family:var(--u-mono);font-size:10px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--o-faint);padding:13px 16px 5px}
+.qrow{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;font:inherit;
+  border:0;border-left:2px solid transparent;background:none;color:var(--o-ink);
+  padding:9px 16px;cursor:pointer}
+.qrow:hover{background:var(--o-panel2)}
+.qrow[aria-current="true"]{background:var(--o-mint-wash);border-left-color:var(--o-mint)}
+.qrow .qi{width:22px;height:22px;flex:none;border-radius:6px;display:grid;place-items:center;
+  background:var(--o-panel2);color:var(--o-dim);margin-top:1px}
+.qrow .qi svg{width:13px;height:13px}
+.qrow .qi.bad{background:color-mix(in srgb,var(--o-fault) 14%,transparent);color:var(--o-fault)}
+.qrow .qi.warn{background:color-mix(in srgb,var(--o-slow) 15%,transparent);color:var(--o-slow)}
+.qrow .qb{flex:1;min-width:0}
+.qrow .qb>span{display:block}
+.qrow .t{font-size:12.5px;font-weight:660;line-height:1.3}
+.qrow .s{font-size:11px;color:var(--o-dim);margin-top:2px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;font-family:var(--u-mono)}
+.qrow .qn{font-size:11px;font-weight:700;color:var(--o-dim);flex:none;margin-top:2px}
+.qrow .owner{font-size:10px;font-weight:700;color:var(--o-sig);margin-top:3px}
+.qempty{padding:18px 16px;font-size:12.5px;color:var(--o-dim);display:flex;gap:9px;align-items:flex-start}
+.qempty svg{width:16px;height:16px;color:var(--o-sig);flex:none;margin-top:1px}
+.qfoot{padding:11px 16px;border-top:1px solid var(--o-hair);font-size:11.5px;color:var(--o-dim);
+  display:flex;flex-wrap:wrap;gap:4px 12px}
+.qfoot b{color:var(--o-ink);font-variant-numeric:tabular-nums}
+
+.qd{background:var(--o-panel);border:1px solid var(--o-line);border-radius:14px;
+  box-shadow:var(--o-shadow);padding:20px 22px 22px}
+.qd-top{display:flex;align-items:flex-start;gap:13px}
+.qd-ic{width:40px;height:40px;flex:none;border-radius:11px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--o-fault) 13%,transparent);color:var(--o-fault)}
+.qd-ic.warn{background:color-mix(in srgb,var(--o-slow) 14%,transparent);color:var(--o-slow)}
+.qd-ic svg{width:20px;height:20px}
+.qd h1{margin:0 0 4px;font-size:21px;font-weight:750;letter-spacing:-.025em;line-height:1.2}
+.qd-loc{font-family:var(--u-mono);font-size:12px;color:var(--o-dim)}
+.qd-loc b{color:var(--o-ink);font-weight:700}
+.qd-sec{margin-top:17px}
+.qd-sec h3{margin:0 0 6px;font-family:var(--u-mono);font-size:10px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--o-faint)}
+.qd-cause{font-size:14px;line-height:1.55;max-width:75ch}
+.qd-act{font-size:14px;line-height:1.5;background:var(--o-mint-wash);
+  border:1px solid color-mix(in srgb,var(--o-mint) 32%,transparent);
+  border-radius:11px;padding:12px 14px;max-width:75ch}
+.qd-ev{display:flex;gap:7px;flex-wrap:wrap}
+.qd-ev span{font-family:var(--u-mono);font-size:11.5px;background:var(--o-panel2);
+  border:1px solid var(--o-line);border-radius:7px;padding:4px 9px;color:var(--o-dim)}
+.qd-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:19px;
+  border-top:1px solid var(--o-hair);padding-top:16px}
+@media(max-width:1000px){
+  .qshell{grid-template-columns:1fr}
+  .qlist{position:static;max-height:none}
+}
+
+/* ═══ front panel ═══════════════════════════════════════════════════════════
+   A faceplate is a physical object, so it keeps its own dark palette in both
+   themes — LED colours only read against a dark ground. Only the frame and
+   shadow follow the page theme. Every indicator here is data-driven; see
+   /it-panel.js for which poll feeds which light. */
+body.cmd{
+  --fp-b1:#39465c; --fp-b2:#212c3e; --fp-edge:#4b5a72;
+  --fp-cage:#101724; --fp-cage-line:#4a5872; --fp-cage-live:#16202f;
+  --fp-silk:#c3cede; --fp-silk2:#8c9bb2; --fp-num:#9dabc0;
+  --fp-up:#39e08b; --fp-warn:#ffb64a; --fp-alert:#ff5f6d; --fp-down:#5a6b84;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) body.cmd{
+  --fp-b1:#1a2739; --fp-b2:#0d1725; --fp-edge:#2f3f57;
+  --fp-cage:#080e18; --fp-cage-line:#3b4a63; --fp-cage-live:#0d1725;
+}}
+:root[data-theme="dark"] body.cmd{
+  --fp-b1:#1a2739; --fp-b2:#0d1725; --fp-edge:#2f3f57;
+  --fp-cage:#080e18; --fp-cage-line:#3b4a63; --fp-cage-live:#0d1725;
+}
+
+.fpwrap{overflow-x:auto;overflow-y:hidden;border-radius:12px;
+  -webkit-overflow-scrolling:touch;scrollbar-width:thin}
+/* a 48-port faceplate is wider than the pane. macOS hides overlay scrollbars,
+   so fade the right edge to say "there is more panel over here". */
+.fpscroll{position:relative}
+.fpscroll::after{content:"";position:absolute;inset:0 0 0 auto;width:46px;
+  border-radius:0 12px 12px 0;pointer-events:none;
+  background:linear-gradient(90deg,rgba(13,23,37,0),rgba(13,23,37,.85))}
+.fpscroll.at-end::after{opacity:0;transition:opacity .18s}
+.fp{display:block;width:100%;height:auto;
+  filter:drop-shadow(0 10px 22px rgba(10,22,40,.22))}
+.fpb1{stop-color:var(--fp-b1)} .fpb2{stop-color:var(--fp-b2)}
+.fpbez{stroke:var(--fp-edge);stroke-width:1}
+.fpdiv{stroke:var(--fp-edge);stroke-width:1;stroke-dasharray:3 4;opacity:.8}
+.fpsilk1{fill:var(--fp-silk);font:700 13px/1 var(--u-sans,system-ui);letter-spacing:.2px}
+.fpsilk2{fill:var(--fp-silk2);font:500 10.5px/1 var(--u-mono,ui-monospace);letter-spacing:.3px}
+.fpsilk3{fill:var(--fp-silk2);font:700 8px/1 var(--u-sans,system-ui);letter-spacing:.9px}
+.fpnum{fill:var(--fp-num);font:600 9px/1 var(--u-mono,ui-monospace);text-anchor:middle}
+.fpcage{fill:var(--fp-cage);stroke:var(--fp-cage-line);stroke-width:1}
+.fpport.live .fpcage{fill:var(--fp-cage-live)}
+.fphit{fill:transparent;cursor:pointer}
+.fpport{cursor:pointer}
+.fpport:hover .fpcage{stroke:var(--fp-silk);stroke-width:1.4}
+.fpport:focus{outline:none}
+.fpport:focus-visible .fpcage{stroke:#8cc4ff;stroke-width:2}
+.fpport[aria-pressed="true"] .fpcage,.fpport.sel .fpcage{stroke:#8cc4ff;stroke-width:2}
+
+/* the status LED — one hue per state, never doubled up */
+.fpled{fill:var(--fp-down)}
+.led-up   .fpled{fill:var(--fp-up);   filter:drop-shadow(0 0 3px rgba(57,224,139,.75))}
+.led-warn .fpled{fill:var(--fp-warn); filter:drop-shadow(0 0 3px rgba(255,182,74,.75))}
+.led-alert .fpled{fill:var(--fp-alert);filter:drop-shadow(0 0 4px rgba(255,95,109,.85))}
+.led-down .fpled{fill:var(--fp-down);opacity:.5}
+.led-off  .fpled{fill:none;stroke:var(--fp-down);stroke-width:1;opacity:.7}
+.led-alert .fpled{animation:fpalert 1.15s ease-in-out infinite}
+@keyframes fpalert{0%,100%{opacity:1}50%{opacity:.28}}
+
+/* activity: a second LED laid over the first, pulsing at the measured rate */
+.fpact{fill:#eafff4;opacity:0;animation:fpact var(--fpr,.5s) steps(2,end) infinite}
+@keyframes fpact{0%{opacity:0}50%{opacity:.92}100%{opacity:0}}
+
+.fpsp{font:700 7.5px/1 var(--u-mono,ui-monospace);text-anchor:end;fill:var(--fp-silk2)}
+.fpsp.sp100{fill:#ffcf7a} .fpsp.sp1g{fill:#9fe8c4}
+.fpsp.sp25{fill:#8fd7ff}  .fpsp.sp10g{fill:#c3b5ff}
+.fpbar{fill:var(--fp-cage-line);opacity:.55}
+.fpdx{font:600 8.5px/1 var(--u-sans,system-ui);text-anchor:middle;fill:var(--fp-silk2)}
+.fpdx.half{fill:var(--fp-warn)}
+.fpx{stroke:var(--fp-down);stroke-width:1.3;stroke-linecap:round;opacity:.85}
+
+.fplg{display:flex;flex-wrap:wrap;gap:6px 15px;padding:11px 2px 0;
+  font-size:11.5px;color:var(--o-dim)}
+.fplgi{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.fpdot{width:11px;height:5px;border-radius:2px;background:var(--fp-down);flex:none}
+.fpdot.led-up{background:var(--fp-up)} .fpdot.led-warn{background:var(--fp-warn)}
+.fpdot.led-alert{background:var(--fp-alert)}
+.fpdot.led-down{background:var(--fp-down);opacity:.5}
+.fpdot.led-off{background:none;box-shadow:inset 0 0 0 1px var(--fp-down)}
+.fpdot.fpblink{animation:fpact .34s steps(2,end) infinite}
+.fpsw{font:700 10px/1 var(--u-mono,ui-monospace);padding:3px 5px;border-radius:4px;
+  background:var(--o-panel2);border:1px solid var(--o-hair)}
+.fpsw.sp100{color:#8a5a00} .fpsw.sp1g{color:var(--o-sig)}
+.fpsw.sp25{color:#0b6ea8}  .fpsw.sp10g{color:#5b46c8}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) body.cmd .fpsw.sp100{color:#ffcf7a}
+  :root:not([data-theme="light"]) body.cmd .fpsw.sp25{color:#8fd7ff}
+  :root:not([data-theme="light"]) body.cmd .fpsw.sp10g{color:#c3b5ff}
+}
+:root[data-theme="dark"] body.cmd .fpsw.sp100{color:#ffcf7a}
+:root[data-theme="dark"] body.cmd .fpsw.sp25{color:#8fd7ff}
+:root[data-theme="dark"] body.cmd .fpsw.sp10g{color:#c3b5ff}
+.fpgl{font-size:13px;line-height:1;color:var(--o-dim)}
+.fpgl.half{color:var(--o-slow)}
+
+@media (prefers-reduced-motion:reduce){
+  .fpact,.fpdot.fpblink{animation:none;opacity:.55}
+  .led-alert .fpled{animation:none}
+}
+.fpsilk3.fprot{text-anchor:middle;dominant-baseline:middle}
+.fpnum.wide{font-size:8px;letter-spacing:-.1px}
+/* momentary highlight when a faceplate bay points at its table row */
+@keyframes uflash{0%{background:var(--o-mint-wash)}100%{background:transparent}}
+body.cmd .u-flash>td{animation:uflash 1.4s ease-out}
+@media (prefers-reduced-motion:reduce){body.cmd .u-flash>td{animation:none;background:var(--o-mint-wash)}}
+.fpval{fill:var(--fp-silk);font:700 15px/1 var(--u-sans,system-ui)}
+.fpmb{fill:rgba(255,255,255,.10)}
+.fpmf{fill:var(--fp-up)}
+.applate{margin:12px 0 2px}

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Access needed &middot; CorpIT</title>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/access-pass/pass.css">
+</head>
+<body data-kind="app">
+<div class="sky" aria-hidden="true"></div>
+<svg class="defs" width="0" height="0" aria-hidden="true" focusable="false">
+  <filter id="rough" x="-6%" y="-6%" width="112%" height="112%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="4" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="d"/>
+    <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="1" seed="9" result="s"/>
+    <feColorMatrix in="s" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -4 3.2" result="holes"/>
+    <feComposite in="d" in2="holes" operator="in"/>
+  </filter>
+</svg>
+<p class="sr-only" id="live" role="status" aria-live="polite"></p>
+<div class="shell">
+  <main class="stage stage--pass" id="stage" data-boot aria-busy="true">
+    <header class="head">
+      <h1 id="h">You don’t have access to this page</h1>
+      <p class="lead" id="lead">Ask the Help Desk to add you to the group that opens it.</p>
+    </header>
+    <div class="actions" id="actions">
+      <noscript><p class="lead">This page needs JavaScript to send an access request. Tell the Help Desk which page you were opening and they will take it from there.</p></noscript>
+    </div>
+    <aside class="badge" id="badge" aria-label="Your access pass">
+      <div class="paper">
+        <div class="band"><span class="mark">Corp<i>IT</i></span><span class="band-label">Access request</span></div>
+        <div class="stripe"></div>
+        <div class="holder print d1">
+          <div class="avatar" id="p-avatar" aria-hidden="true"></div>
+          <div class="who"><p class="who-name" id="p-name"></p><p class="who-mail" id="p-mail"></p></div>
+        </div>
+        <dl class="rows">
+          <div class="print d2"><dt>Opening</dt><dd><span id="p-open"></span><span class="sub" id="p-open-sub"></span></dd></div>
+          <div class="print d3"><dt>Needs</dt><dd id="p-need"></dd></div>
+          <div class="print d4"><dt>Status</dt><dd id="p-status"></dd></div>
+        </dl>
+        <div class="stub">
+          <div class="stamp-zone">
+            <p class="stamp-hint" id="stamp-hint" hidden>Your request gets stamped here</p>
+            <div class="stamp" aria-hidden="true"><span id="stamp-word"></span><small id="stamp-small"></small></div>
+          </div>
+          <div class="barcode" id="p-bars" aria-hidden="true"></div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+<script src="/access-pass/pass.js"></script>
+</body>
+</html>

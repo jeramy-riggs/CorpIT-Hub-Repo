@@ -1,0 +1,545 @@
+# CORPIT-SITE-AUTHZ 2026-09-02: per-site AD group authorization. Gated locations below use
+# "error_page 403 @gate_forbidden;" and "error_page 500 502 503 504 =503 @gate_unavailable;".
+# Note there is NO "=" on the 403 line: with it, nginx replaces the status and a
+# refusal is served as 200 OK. Copy an existing block rather than writing a new one.
+# Managed by subdomain-admin. Subdomain: accessportal.nrpi.local
+#
+# ACCESS PORTAL — ported from accessportal.itam.nrpi.local on 2026-09-08.
+# Structure is the itam vhost's, with the portal's own Entra sign-in page
+# (signin.html) replaced by the platform's shared CorpIT Hub sign-in. What is
+# public here is public there: the requester portal and the submit endpoint take
+# no session, because the people who file access requests are not all members of
+# the CorpIT Hub app-assignment groups. The approver console and every read of
+# other people's requests need the approver gate.
+
+# Forward ONLY the portal cookie to the portal backend (allowlist): the backend
+# must never see users' it_session tokens (bearer-equivalent for the hub API),
+# and an allowlist is immune to duplicated/planted cookies in any position —
+# unlike a strip, which can be defeated by a second it_session pair. app.py reads
+# only portal_session; add further named captures here if it ever needs more.
+map $http_cookie $ap_ck_session {
+    default "";
+    "~(?:^|;\s*)portal_session=(?<ps>[^;]*)" "portal_session=$ps";
+}
+# portal_identity: the opaque handle for a silently-verified corporate identity
+# on the PUBLIC requester side (app.py, 2026-09-23). HttpOnly, and useless
+# anywhere but this host — it is not a hub session and carries no authorization.
+map $http_cookie $ap_ck_identity {
+    default "";
+    "~(?:^|;\s*)portal_identity=(?<pi>[^;]*)" "; portal_identity=$pi";
+}
+map "$ap_ck_session$ap_ck_identity" $portal_cookie {
+    default             "";
+    "~^;\s*(?<c1>.+)$"  $c1;          # identity only: drop the joining "; "
+    "~^(?<c2>.+)$"      $c2;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name accessportal.nrpi.local;
+
+    ssl_certificate     /etc/ssl/corpit-ha/accessportal.nrpi.local/fullchain.pem;
+    ssl_certificate_key /etc/ssl/corpit-ha/accessportal.nrpi.local/server.key;
+    ssl_trusted_certificate /etc/ssl/corpit-ha/accessportal.nrpi.local/nrpi-ca-chain.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+
+    root  /var/www/accessportal;
+    index index.html;
+
+    client_max_body_size 1m;
+
+    # nginx add_header does NOT inherit into a location that defines its own
+    # add_header, so this include is repeated in every such location below.
+    # Do not remove those copies.
+    include snippets/corpit-security-headers.conf;
+
+    # [CORPIT-HUB-SSO] one platform sign-in, this host's own cookie.
+    # Provides /_gate, @gate_denied, @gate_forbidden, @gate_unavailable,
+    # /login.html + /login.js, /api/auth/, /api/gate/logout, federated-logout,
+    # /api/gate/landing, /api/health and break-glass.
+    include snippets/corpit-hub-sso.conf;
+
+    # --- Approver gate: account, site admission, page entry and approval scope.
+    # Separate from the snippet's /_gate so the pure-crypto page gate never
+    # depends on the DB.
+    location = /_gate_approver {
+        internal;
+        proxy_pass http://127.0.0.1:3002/api/gate/check-approver;
+        # CHG-ARCH-22 (2026-09-24): this location sets its own proxy_set_header, so the server-level
+        # X-Real-IP is NOT inherited; without it every user's gate check shared the hub rate limiter's
+        # single 127.0.0.1 bucket (500/min; 836 gate 429s on 2026-09-08/09).
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Original-URI $request_uri;
+        # Lets /check-approver refuse a mutating request carrying a read-only QA
+        # token. Its absence fails closed, so removing it costs QA reach, not
+        # protection.
+        proxy_set_header X-Original-Method $request_method;
+        proxy_set_header X-Original-Host   $host;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout    20s;
+    }
+
+    # The portal's own Entra sign-in page on itam. It has no successor here: this
+    # host uses the platform's shared sign-in, so send old bookmarks and any mail
+    # that still cites it to the real front door instead of a 404.
+    location = /signin.html { return 301 https://$host/login.html; }
+
+    # --- Approver console: active platform session AND approver access ---------
+    location = /approver.html {
+        include snippets/corpit-security-headers.conf;
+        auth_request /_gate_approver;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;          # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        try_files $uri =404;
+    }
+
+    # --- Approver Guide: the same gate as the console. Linked only from
+    #     the Approver Portal top bar; nothing public points at it.
+    location = /approver-guide.html {
+        include snippets/corpit-security-headers.conf;
+        auth_request /_gate_approver;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;          # no '=': keep the 403 status
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        try_files $uri =404;
+    }
+
+    # Private group-assignment guide. Backend checks the named owners; the
+    # content file lives outside the document root and cannot bypass this check.
+    location = /group-access-guide.html {
+        include snippets/corpit-security-headers.conf;
+        auth_request /_gate_approver;
+        auth_request_set $guide_email $upstream_http_x_gate_email;
+        auth_request_set $guide_tier $upstream_http_x_gate_tier;
+        auth_request_set $guide_level $upstream_http_x_gate_level;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        proxy_pass http://127.0.0.1:8001/api/portal/admin-guide;
+        proxy_set_header Host $host;
+        proxy_set_header Cookie "";
+        proxy_set_header Authorization "";
+        proxy_set_header X-ITAM-User-Email $guide_email;
+        proxy_set_header X-ITAM-Tier $guide_tier;
+        proxy_set_header X-ITAM-Level $guide_level;
+        proxy_set_header X-ITAM-Roles "";
+        proxy_set_header X-ITAM-Steps "";
+        proxy_set_header X-ITAM-Sections "";
+        proxy_set_header X-Gate-Email "";
+        add_header Cache-Control "no-store, private" always;
+    }
+
+    # Session state for the portal's own header. Public for the same reason the
+    # snippet's /api/gate/logout is: it reports only the caller's own session and
+    # has to answer when there is none.
+    location = /api/rbac/session {
+        include snippets/corpit-security-headers.conf;
+        proxy_pass http://127.0.0.1:3001/api/rbac/session;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-ITAM-User-Email "";
+        proxy_set_header X-ITAM-Tier       "";
+        proxy_set_header X-ITAM-Level      "";
+        proxy_set_header X-ITAM-Sections   "";
+        proxy_set_header X-ITAM-Steps      "";
+        proxy_set_header X-ITAM-Roles      "";
+        proxy_set_header X-Gate-Email      "";
+        proxy_read_timeout 15s;
+        add_header Cache-Control "no-store, private" always;
+    }
+
+    # Read-only directory lookup that pre-fills the request form. Public: the
+    # requester filling the form has no session.
+    # 2026-09-14 (R1): no longer proxied straight to the hub — the hub requires an
+    # identity and this public path blanks every identity header, so it answered
+    # 401 for everyone. app.py now performs the lookup server-side with a scoped
+    # service credential (PORTAL_LOOKUP_* in the service environment), exact-
+    # match on email, rate-limited, returning only the fields the form uses.
+    # The browser-facing URL is unchanged.
+    location = /api/identity/portal-lookup {
+        include snippets/corpit-security-headers.conf;
+        proxy_pass http://127.0.0.1:8001/api/portal/lookup;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Cookie "";
+        # Public path: a client-sent identity assertion must never reach a backend.
+        proxy_set_header X-ITAM-User-Email "";
+        proxy_set_header X-ITAM-Tier       "";
+        proxy_set_header X-ITAM-Level      "";
+        proxy_set_header X-ITAM-Sections   "";
+        proxy_set_header X-ITAM-Steps      "";
+        proxy_set_header X-ITAM-Roles      "";
+        proxy_set_header X-Gate-Email      "";
+        proxy_read_timeout 15s;
+        add_header Cache-Control "no-store, private" always;
+    }
+
+    # Requester status tracker. Public by design (the requester has no session)
+    # and safe to be: app.py answers this path with a PII-free shape only — ID,
+    # type, status and the step ladder — never submitter, details or comments.
+    # Before 2026-09-14 this path fell under the gated /api/portal/ prefix, so the
+    # "Track your request" box on the public page could never have worked.
+    location = /api/portal/status {
+        include snippets/corpit-security-headers.conf;
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            "";
+        proxy_set_header   X-ITAM-User-Email "";
+        proxy_set_header   X-ITAM-Tier       "";
+        proxy_set_header   X-ITAM-Level      "";
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-ITAM-Roles      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 15s;
+        add_header Cache-Control "no-store, private" always;
+    }
+
+    # In-app department membership and effective access; Hub enforces super-admin.
+    location ^~ /api/department-access/ {
+        include snippets/corpit-security-headers.conf;
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-ITAM-User-Email "";
+        proxy_set_header X-ITAM-Tier "";
+        proxy_set_header X-ITAM-Level "";
+        proxy_set_header X-ITAM-Roles "";
+        proxy_set_header X-Gate-Email "";
+        proxy_read_timeout 60s;
+        add_header Cache-Control "no-store, private" always;
+    }
+
+    # Retired global-role editor. The portal uses its dedicated, scoped API.
+    location ^~ /api/saas-admin/ { return 410; }
+
+    # --- Portal API (app.py on 127.0.0.1:8001) --------------------------------
+    # X-ITAM-User-Email is nginx-authoritative: set from the gate's verified claims
+    # on gated paths, forced empty (= removed) on public paths, always overriding
+    # anything the client sent. X-Gate-Email is likewise blanked so a client can't
+    # smuggle it through.
+
+    # POST /api/portal/requests is the public submission endpoint; GET (the
+    # approver list) requires the gate. One location can't split methods, so POST
+    # short-circuits to the public named location via an internal 418 hop.
+    location = /api/portal/requests {
+        error_page 418 = @portal_public;
+        if ($request_method = POST) { return 418; }
+        auth_request /_gate_approver;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+        auth_request_set $gate_tier  $upstream_http_x_gate_tier;
+        auth_request_set $gate_level $upstream_http_x_gate_level;
+        auth_request_set $gate_roles $upstream_http_x_gate_roles;
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        proxy_set_header   X-ITAM-User-Email $gate_email;
+        proxy_set_header   X-ITAM-Tier       $gate_tier;
+        proxy_set_header   X-ITAM-Level      $gate_level;
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Roles      $gate_roles;
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 30s;
+        proxy_connect_timeout 5s;
+    }
+    # GET /api/portal/content is the public site-content read (front-facing copy only,
+    # app returns just content.* keys). POST (admin edit) requires the approver gate.
+    # Same 418 hop as /api/portal/requests above, with the public verb inverted.
+    location = /api/portal/content {
+        error_page 418 = @portal_public;
+        if ($request_method = GET) { return 418; }
+        auth_request /_gate_approver;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+        auth_request_set $gate_tier  $upstream_http_x_gate_tier;
+        auth_request_set $gate_level $upstream_http_x_gate_level;
+        auth_request_set $gate_roles $upstream_http_x_gate_roles;
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        proxy_set_header   X-ITAM-User-Email $gate_email;
+        proxy_set_header   X-ITAM-Tier       $gate_tier;
+        proxy_set_header   X-ITAM-Level      $gate_level;
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Roles      $gate_roles;
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 30s;
+        proxy_connect_timeout 5s;
+    }
+
+    # Sign-out for the requester portal's own session. Must be public: it matches
+    # the gated /api/portal/ prefix otherwise, so a non-approver's sign-out was
+    # 401'd at the gate and never reached app.py — the HttpOnly portal_session then
+    # rode for its full 12h. Same bug class as the it_session logout.
+    location = /api/portal/auth/logout {
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        proxy_set_header   X-ITAM-User-Email "";
+        proxy_set_header   X-ITAM-Tier       "";
+        proxy_set_header   X-ITAM-Level      "";
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-ITAM-Roles      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 30s;
+        proxy_connect_timeout 5s;
+    }
+
+    # Corporate sign-in is the only identity authority.
+    location = /api/portal/auth/login { return 410; }
+    location = /api/portal/auth/sso { return 410; }
+    location = /api/portal/setup { return 410; }
+    location = /api/portal/approvers { return 410; }
+    location = /api/portal/admins { return 410; }
+    location ^~ /api/portal/admins/ { return 410; }
+
+    # Silent corporate identity for the requester side (2026-09-23). Public for
+    # the same reason /api/portal/status is: the requester has no session, and
+    # establishing one is what these four paths are for. "^~" so this wins over
+    # the gated /api/portal/ prefix below; app.py serves only /whoami, /start,
+    # /callback and /forget here and 404s anything else.
+    #
+    # Cookie is $portal_cookie, NOT "": /callback has to set the identity cookie
+    # and /whoami and /forget have to read it. That variable is an allowlist, so
+    # it still cannot carry a hub it_session to this backend.
+    location ^~ /api/portal/identity/ {
+        include snippets/corpit-security-headers.conf;
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        # Public path: a client-sent identity assertion must never reach a backend.
+        proxy_set_header   X-ITAM-User-Email "";
+        proxy_set_header   X-ITAM-Tier       "";
+        proxy_set_header   X-ITAM-Level      "";
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-ITAM-Roles      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 20s;
+        proxy_connect_timeout 5s;
+        add_header Cache-Control "no-store, private" always;
+    }
+
+    # JOURNEY (2026-10-08): the page's own record of what it showed and what was clicked
+    # (event names and screen facts, never field contents). Public like /identity/: the
+    # backend attaches who it was from the identity cookie, so the cookie allowlist is
+    # passed and every client identity header is blanked. app.py enforces POST, same
+    # origin, 32 KB and a per-visit rate; nginx only caps the body a little above that.
+    location = /api/portal/journey {
+        include snippets/corpit-security-headers.conf;
+        client_max_body_size 64k;
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        proxy_set_header   X-ITAM-User-Email "";
+        proxy_set_header   X-ITAM-Tier       "";
+        proxy_set_header   X-ITAM-Level      "";
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-ITAM-Roles      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 10s;
+        proxy_connect_timeout 5s;
+        add_header Cache-Control "no-store, private" always;
+    }
+
+    # ACK-PUBLIC-ENDPOINTS (2026-09-24, Rey/Claude): the requester-side acknowledgment
+    # calls have no portal session, exactly like /api/portal/identity/ above. app.py
+    # refuses both without a verified portal_identity cookie (403 JSON), so nginx
+    # only needs to stop returning 401 HTML. Admin routes (GET list, /<id>, PATCH,
+    # policy-versions) are untouched and remain behind /_gate_approver.
+    location = /api/portal/acknowledgments/me {
+        include snippets/corpit-security-headers.conf;
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        proxy_set_header   X-ITAM-User-Email "";
+        proxy_set_header   X-ITAM-Tier       "";
+        proxy_set_header   X-ITAM-Level      "";
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-ITAM-Roles      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 20s;
+        proxy_connect_timeout 5s;
+        add_header Cache-Control "no-store, private" always;
+    }
+    # POST = the requester submitting (public via the 418 hop, same as /api/portal/requests);
+    # GET  = administrator list, gated.
+    location = /api/portal/acknowledgments {
+        error_page 418 = @portal_public;
+        if ($request_method = POST) { return 418; }
+        auth_request /_gate_approver;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+        auth_request_set $gate_tier  $upstream_http_x_gate_tier;
+        auth_request_set $gate_level $upstream_http_x_gate_level;
+        auth_request_set $gate_roles $upstream_http_x_gate_roles;
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        proxy_set_header   X-ITAM-User-Email $gate_email;
+        proxy_set_header   X-ITAM-Tier       $gate_tier;
+        proxy_set_header   X-ITAM-Level      $gate_level;
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Roles      $gate_roles;
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 30s;
+        proxy_connect_timeout 5s;
+    }
+
+    location @portal_public {
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        proxy_set_header   X-ITAM-User-Email "";
+        proxy_set_header   X-ITAM-Tier       "";
+        proxy_set_header   X-ITAM-Level      "";
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-ITAM-Roles      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 30s;
+        proxy_connect_timeout 5s;
+    }
+
+    # Everything else under /api/portal/ needs the gate. Gated API paths return a
+    # plain 401 (no login redirect) so the SPA can react.
+    # --- Policy document upload (administrator). Same gate and headers as the
+    #     generic API location; only the body limit and the read timeout differ
+    #     (a Word/PowerPoint upload is converted to PDF before the reply).
+    location ^~ /api/portal/policy-doc/ {
+        client_max_body_size 26m;
+        auth_request /_gate_approver;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+        auth_request_set $gate_tier  $upstream_http_x_gate_tier;
+        auth_request_set $gate_level $upstream_http_x_gate_level;
+        auth_request_set $gate_roles $upstream_http_x_gate_roles;
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        proxy_set_header   X-ITAM-User-Email $gate_email;
+        proxy_set_header   X-ITAM-Tier       $gate_tier;
+        proxy_set_header   X-ITAM-Level      $gate_level;
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Roles      $gate_roles;
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 200s;
+        proxy_connect_timeout 5s;
+    }
+
+    location /api/portal/ {
+        auth_request /_gate_approver;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+        auth_request_set $gate_tier  $upstream_http_x_gate_tier;
+        auth_request_set $gate_level $upstream_http_x_gate_level;
+        auth_request_set $gate_roles $upstream_http_x_gate_roles;
+        proxy_pass         http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Cookie            $portal_cookie;
+        proxy_set_header   X-ITAM-User-Email $gate_email;
+        proxy_set_header   X-ITAM-Tier       $gate_tier;
+        proxy_set_header   X-ITAM-Level      $gate_level;
+        proxy_set_header   X-ITAM-Sections   "";
+        proxy_set_header   X-ITAM-Roles      $gate_roles;
+        proxy_set_header   X-ITAM-Steps      "";
+        proxy_set_header   X-Gate-Email      "";
+        proxy_read_timeout 30s;
+        proxy_connect_timeout 5s;
+    }
+
+    # --- Never serve source, databases, or editor backups from the web root ---
+    # On itam these existed because the app and its SQLite file lived in the web
+    # root. Here app.py is in /opt and portal.db in /var/lib, so nothing matchable
+    # is under this root — these stay as the belt to that suspenders.
+    location ~* \.(db|db-wal|db-shm|sqlite|sqlite3|py|pyc|env)$ { return 404; }
+    location ~* \.bak                                          { return 404; }
+    # second-extension backup guard: any copy such as index.html.prebust-2026...,
+    # app.py.orig or style.css.old is source disclosure.
+    location ~* \.(html|htm|js|css|json|py|conf)\.[a-z0-9_.-]+$  { return 404; }
+    location ~* \.(orig|old|save|swp|tmp|copy|prev|rej)$        { return 404; }
+    location ^~ /backups/                                       { return 404; }
+
+    # INDEX-NO-CACHE (2026-10-08): the requester page went out with no Cache-Control,
+    # so a browser could keep using a superseded copy after a release. no-cache =
+    # revalidate on every load (ETag answers 304 when unchanged). "/" reaches this
+    # block through the index directive's internal redirect to /index.html.
+    location = /index.html {
+        include snippets/corpit-security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri =404;
+    }
+
+    # The requester portal. Public, as on itam.
+    location / { error_page 404 @gate_notfound; try_files $uri $uri/ =404; }
+
+    # RFC 9116 disclosure contact. Must out-rank the dotfile deny below (^~ beats
+    # regex), and `charset utf-8` makes the response text/plain; charset=utf-8.
+    location ^~ /.well-known/ {
+        charset utf-8;
+        try_files $uri =404;
+    }
+
+    location ~ /\. { return 404; }
+}

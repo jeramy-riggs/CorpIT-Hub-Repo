@@ -1,0 +1,29 @@
+<section class="page wide settings-directory" data-view="settings" hidden>
+<div class="page-h"><div><span class="noc-eyebrow">CONFIGURATION</span><h2>Settings workspace</h2><p>Choose an editor or find a setting across the service estate.</p></div><a class="btn pri" href="#system/settings">Console settings</a></div>
+{# CORPIT-SETTINGS-FOLD 2026-10-12: editors that used to live only on their own sites, as tabs here.
+   Every tab starts hidden. static/settings-fold.js reveals successful reads and temporary
+   availability failures with a retry path; denial and absent endpoints remain hidden. The owning API
+   still decides every read and write; nothing here grants anything. #}
+<div class="tabs" role="tablist" data-tabs="settings" aria-label="Settings" hidden>
+  <button class="tab" role="tab" data-tab="directory" aria-selected="true">Directory</button>
+  <button class="tab" role="tab" data-tab="certs" aria-selected="false" data-sf-tab hidden>Certificates</button>
+  <button class="tab" role="tab" data-tab="signin" aria-selected="false" data-sf-tab hidden>Sign-In Watch</button>
+  <button class="tab" role="tab" data-tab="digest" aria-selected="false" data-sf-tab hidden>Identity digest</button>
+  <button class="tab" role="tab" data-tab="zscaler-ai" aria-selected="false" data-sf-tab hidden>Zscaler AI report</button>
+  <button class="tab" role="tab" data-tab="launchpad" aria-selected="false" data-sf-tab hidden>Launch pad</button>
+  <button class="tab" role="tab" data-tab="backup" aria-selected="false" data-sf-tab hidden>Backup &amp; HA</button>
+  <button class="tab" role="tab" data-tab="darktrace-email" aria-selected="false" data-sf-tab hidden>Darktrace email</button>
+</div>
+<div data-tabpanel="directory">
+<div class="settings-toolbar"><label for="settings-query">Find a setting</label><input id="settings-query" type="search" placeholder="Search thresholds, notifications, access, collectors…"><label for="settings-group" class="sr-only">Setting group</label><select id="settings-group"><option value="">All groups</option></select><span id="settings-count" role="status"></span></div>
+<div class="settings-workbench"><nav id="settings-categories" aria-label="Setting categories"></nav><div id="settings-results"></div></div>
+<noscript><p>Enable JavaScript to search the settings directory. <a href="#system/settings">Console settings</a> and <a href="#health/settings">Health thresholds</a> remain available.</p></noscript>
+</div>
+<div data-tabpanel="certs" hidden><div class="sf is-loading" data-sf="certs"></div></div>
+<div data-tabpanel="signin" hidden><div class="sf is-loading" data-sf="signin"></div></div>
+<div data-tabpanel="digest" hidden><div class="sf is-loading" data-sf="digest"></div></div>
+<div data-tabpanel="zscaler-ai" hidden><div class="sf is-loading" data-sf="zscaler-ai"></div></div>
+<div data-tabpanel="launchpad" hidden><div class="sf is-loading" data-sf="launchpad"></div></div>
+<div data-tabpanel="backup" hidden><div class="sf is-loading" data-sf="backup"></div></div>
+<div data-tabpanel="darktrace-email" hidden><div class="sf is-loading" data-sf="darktrace-email"></div></div>
+</section>

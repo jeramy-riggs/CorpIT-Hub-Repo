@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script id="portal-theme-boot">
+/* Runs before first paint — no flash. Shared key across every portal page. */
+(function(){try{var t=localStorage.getItem('portal_theme');
+if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign-in temporarily unavailable — Enterprise Approval Portal</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --navy:#1e3a8a; --navy-dark:#172554; --ink:#111827; --ink-2:#374151; --ink-3:#6b7280;
+  --hair:#e5e7eb; --surface:#fff; --ground:#f3f4f6; --warn:#d97706; --warn-bg:#fffbeb;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0f0f1a; --surface:#181c2a; --ink:#e0dcea; --ink-2:#b0acbf; --ink-3:#8e8aa4;
+  --hair:#2a2d3e; --navy:#26305a; --warn:#f59e0b; --warn-bg:#2d1a00;
+}}
+html,body{background:var(--ground)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color:var(--ink);min-height:100vh;display:flex;flex-direction:column}
+.top{background:var(--navy-dark);color:#fff;display:flex;align-items:center;gap:12px;padding:12px 26px}
+.top .logo{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;font-size:16px}
+.top h1{font-size:15px;font-weight:700}
+.top .sub{font-size:11.5px;opacity:.75}
+.wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px}
+.card{background:var(--surface);border:1px solid var(--hair);border-radius:16px;
+  padding:36px 40px;max-width:520px;width:100%;box-shadow:0 4px 24px rgba(15,23,42,.08);text-align:center}
+.icon{width:56px;height:56px;border-radius:14px;background:var(--warn-bg);color:var(--warn);
+  display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 18px}
+h2{font-size:21px;font-weight:700;margin-bottom:10px}
+p{font-size:14.5px;color:var(--ink-2);line-height:1.6;margin-bottom:10px}
+.muted{font-size:13px;color:var(--ink-3)}
+.status{margin-top:22px;padding:12px 16px;background:var(--ground);border:1px solid var(--hair);
+  border-radius:10px;font-size:13px;color:var(--ink-2);display:flex;align-items:center;
+  justify-content:center;gap:10px}
+.spinner{width:15px;height:15px;border:2px solid var(--hair);border-top-color:var(--navy);
+  border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none}}
+.btn{display:inline-block;margin-top:20px;padding:11px 22px;border-radius:9px;background:var(--navy);
+  color:#fff;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+</style>
+
+
+
+
+
+
+
+
+<style id="pantone-theme">
+/* ═══ Auction.com brand theme — Step 2 ══════════════════════════════════ */
+.logo-icon,.ap-logo-icon,.pub-logo-icon{background:linear-gradient(135deg,#509E2F,#78BE20)!important}
+.btn-primary,button.btn-primary,a.btn-primary{background:#509E2F!important;background-color:#509E2F!important;border-color:#509E2F!important;color:#fff!important}
+.btn-primary:hover,button.btn-primary:hover{background:#3D7924!important;background-color:#3D7924!important}
+button.btn-primary[style],a.btn-primary[style]{background:#509E2F!important;background-color:#509E2F!important}
+.btn-success,button.btn-success{background:#509E2F!important;background-color:#509E2F!important;color:#fff!important}
+.section-title{border-bottom-color:var(--accent)!important}
+.form-section-title{border-left-color:var(--accent)!important}
+.stat-card{background:var(--bg-card)!important;border-top:2px solid color-mix(in srgb,var(--border) 70%,var(--accent) 30%)!important;border-radius:18px!important;box-shadow:0 1px 3px rgba(0,0,0,.06)!important}
+.stat-card:nth-child(1){border-top-color:var(--accent)!important}
+.stat-card:nth-child(2){border-top-color:#509E2F!important}
+.stat-card:nth-child(3){border-top-color:#78BE20!important}
+.chip{background:var(--bg-card)!important;border:1px solid color-mix(in srgb,var(--border) 88%,var(--accent) 12%)!important;color:var(--text-muted)!important;border-radius:20px!important}
+.chip.active,.chip.selected,.chip.on{background:color-mix(in srgb,var(--accent) 9%,var(--bg-card))!important;color:var(--accent)!important;border-color:var(--accent)!important}
+.wpill{background:color-mix(in srgb,var(--accent) 8%,var(--bg-card))!important;color:var(--accent)!important;border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)!important;border-radius:10px!important}
+.badge-approved{background:color-mix(in srgb,var(--pass) 15%,transparent)!important;color:var(--pass)!important;border-color:color-mix(in srgb,var(--pass) 40%,transparent)!important}
+.badge-pending,.badge-warning{background:color-mix(in srgb,var(--med) 15%,transparent)!important;color:var(--med)!important;border-color:color-mix(in srgb,var(--med) 40%,transparent)!important}
+.badge-danger,.badge-rejected,.badge-denied{background:color-mix(in srgb,var(--crit) 15%,transparent)!important;color:var(--crit)!important;border-color:color-mix(in srgb,var(--crit) 40%,transparent)!important}
+.badge-info,.badge-review{background:color-mix(in srgb,var(--accent) 12%,transparent)!important;color:var(--accent)!important;border-color:color-mix(in srgb,var(--accent) 35%,transparent)!important}
+thead th,th{font-size:10.5px!important;letter-spacing:.08em!important;text-transform:uppercase!important;color:var(--text-faint)!important;border-bottom:1px solid var(--border)!important;font-weight:700!important}
+.req-card{background:var(--bg-card)!important;border:1px solid var(--border)!important;border-radius:9px!important}
+.req-card:hover{background:color-mix(in srgb,var(--bg-card) 80%,var(--accent) 4%)!important;border-color:var(--accent)!important}
+.form-progress-fill,[class*="progress-fill"]{background:linear-gradient(to right,var(--accent),#509E2F)!important}
+input:focus,select:focus,textarea:focus{outline-color:var(--accent)!important;border-color:var(--accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent)!important}
+.ap-nav-item.active{background:color-mix(in srgb,var(--accent) 14%,transparent)!important;border-left-color:var(--accent)!important;color:#fff!important}
+.ap-logo-icon,.ap-avatar{background:var(--accent)!important}
+.ap-nav-badge{background:var(--crit)!important}
+.confirm-id,.req-id,.audit-id,.font-mono{font-family:"IBM Plex Mono",ui-monospace,monospace!important;color:var(--accent)!important}
+.tpill.active{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}
+</style>
+<link rel="stylesheet" href="/it-depth.css">
+<link id="pt-shared" rel="stylesheet" href="/portal-theme.css?v=22">
+<script id="pt-shared-js" src="/portal-theme.js?v=21" defer></script>
+<script id="pt-content-js" src="/portal-content.js?v=1" defer></script>
+</head>
+<body data-dp="accessportal">
+<div class="top">
+  <div class="logo">&#128274;</div>
+  <div><h1 data-cms="site.title">Enterprise Approval Portal</h1><div class="sub" data-cms="site.subtitle">IT Security &amp; Compliance</div></div>
+</div>
+<div class="wrap">
+  <div class="card">
+    <div class="icon">&#9203;</div>
+    <h2>Sign-in is temporarily unavailable</h2>
+    <p>We can&rsquo;t verify your session right now, so we&rsquo;re not letting anyone through &mdash;
+       including you. This is usually brief and clears on its own.</p>
+    <p class="muted">Nothing is wrong with your account, and no request data is affected.</p>
+    <div class="status"><span class="spinner" id="sp"></span><span id="msg">Checking again in 5s&hellip;</span></div>
+    <button class="btn" onclick="check(true)">Try now</button>
+  </div>
+</div>
+<script>
+"use strict";
+// Poll the gated page itself. As soon as the gate answers again — whether that is
+// the console (200) or a redirect to sign in (30x) — reload into the normal flow.
+// Backs off 5s -> 30s so a long outage does not hammer the box.
+var delay = 5000, timer = null, tries = 0;
+function setMsg(t){ document.getElementById("msg").textContent = t; }
+function schedule(){
+  clearTimeout(timer);
+  var s = Math.round(delay/1000);
+  setMsg("Checking again in " + s + "s…");
+  timer = setTimeout(function(){ check(false); }, delay);
+}
+function check(manual){
+  clearTimeout(timer);
+  if(manual) tries = 0;
+  setMsg("Checking…");
+  fetch("/approver.html", { method: "HEAD", redirect: "manual", cache: "no-store" })
+    .then(function(r){
+      // Anything other than a server error means the gate is answering again.
+      if(r.status === 0 || r.type === "opaqueredirect" || (r.status && r.status < 500)){
+        setMsg("Back online — reloading…");
+        window.location.replace("/approver.html");
+        return;
+      }
+      throw new Error("still down");
+    })
+    .catch(function(){
+      tries++;
+      delay = Math.min(delay + 5000, 30000);
+      schedule();
+    });
+}
+schedule();
+</script>
+</body>
+</html>

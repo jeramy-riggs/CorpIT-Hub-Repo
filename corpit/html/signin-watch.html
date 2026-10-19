@@ -1,0 +1,1937 @@
+<!DOCTYPE html>
+<!-- signin-watch.html v3.20.0 — Sign-In Watch Console · Ops Hub aesthetic · MS detection correlation (matched rows, chips, KPI) -->
+<html lang="en" data-theme="dark">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign-In Watch · IT Command</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<style>
+:root{
+  --accent:#63BBF3;--accent-h:#92D1F8;--accent-dim:#162C45;--accent-glow:rgba(99,187,243,.12);
+  --bg:#0C1627;--layer1:#121F33;--layer2:#182A44;--layer3:#1E304C;--rail:#0F1B2F;
+  --stroke:#223753;--stroke2:#2C4568;--stroke3:#35547E;
+  --text:#EFF4FA;--text2:#93A3BC;--text3:#5D6F88;--text4:#3A4E6B;
+  --ok:#55B685;--ok-dim:rgba(85,182,133,.13);
+  --warn:#E9A23B;--warn-dim:rgba(233,162,59,.12);
+  --bad:#DD524C;--bad-dim:rgba(221,82,76,.13);
+  --crit:#E2483F;--crit-dim:rgba(221,82,76,.18);
+  --font:"IBM Plex Sans",-apple-system,system-ui,sans-serif;
+  --on-accent:#0C1627;
+  --scrim:rgba(0,0,0,.6);
+  --shadow-strong:rgba(0,0,0,.7);--shadow-soft:rgba(0,0,0,.6);
+  --hover-tint:rgba(99,187,243,.04);--hover-tint-2:rgba(99,187,243,.05);--hover-tint-3:rgba(99,187,243,.06);
+  --accent-line:rgba(99,187,243,.2);
+  --ok-line:rgba(85,182,133,.2);
+  --warn-line:rgba(233,162,59,.2);--warn-line-2:rgba(233,162,59,.25);--warn-line-3:rgba(233,162,59,.15);
+  --bad-line:rgba(221,82,76,.25);--bad-line-2:rgba(221,82,76,.3);--bad-line-3:rgba(221,82,76,.2);
+  --crit-line:rgba(255,59,48,.2);
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+
+/* ---------- Light mode (mirrors M365 Control Center) ----------
+   --accent is deliberately absent: it-theme.js writes it as an INLINE style on
+   :root, which outranks this block, and it-theme-toggle.js re-asserts a
+   darkened twin of the user's accent family per mode. The accent-DERIVED
+   tokens below (-h/-dim/-glow) are not managed by the toggle, so they do get
+   light values. */
+[data-theme="light"]{
+  --accent-h:#0B6570;--accent-dim:#DCEFF2;--accent-glow:rgba(31,111,214,.10);
+  --bg:#EEF1F6;--layer1:#FFFFFF;--layer2:#F7F9FC;--layer3:#E6EAF2;--rail:#F4F7FB;
+  --stroke:#DDE3EC;--stroke2:#CBD5E3;--stroke3:#B9C6D8;
+  --text:#0F1B2D;--text2:#41526B;--text3:#586a80;--text4:#8595AB;
+  --ok:#0c6b46;--ok-dim:rgba(21,160,106,.12);
+  --warn:#8f5106;--warn-dim:rgba(217,115,22,.12);
+  --bad:#c01640;--bad-dim:rgba(214,31,72,.12);
+  --crit:#B91C1C;--crit-dim:rgba(185,28,28,.14);
+  --on-accent:#FFFFFF;
+  --scrim:rgba(15,27,45,.35);
+  --shadow-strong:rgba(20,40,80,.16);--shadow-soft:rgba(20,40,80,.14);
+  --hover-tint:rgba(15,27,45,.045);--hover-tint-2:rgba(15,27,45,.05);--hover-tint-3:rgba(15,27,45,.065);
+  --accent-line:rgba(31,111,214,.28);
+  --ok-line:rgba(21,160,106,.30);
+  --warn-line:rgba(217,115,22,.28);--warn-line-2:rgba(217,115,22,.32);--warn-line-3:rgba(217,115,22,.22);
+  --bad-line:rgba(214,31,72,.30);--bad-line-2:rgba(214,31,72,.34);--bad-line-3:rgba(214,31,72,.26);
+  --crit-line:rgba(185,28,28,.30);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.45;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+button{font-family:var(--font);cursor:pointer}
+svg.i{width:14px;height:14px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+/* ── top bar ── */
+.suitebar{height:42px;background:var(--rail);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;border-bottom:1px solid var(--stroke);position:relative;z-index:50}
+.sb-brand{font-size:12.5px;font-weight:700;letter-spacing:.02em;display:flex;align-items:center;gap:8px;text-transform:uppercase;color:var(--text)}
+.sb-brand .mark{width:22px;height:22px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center}
+.sb-brand .mark svg{width:13px;height:13px;stroke:var(--on-accent);stroke-width:2.5}
+.sb-brand .sep{color:var(--stroke3);margin:0 2px;font-weight:400}
+.sb-brand .prod{font-weight:500;color:var(--text2);letter-spacing:.01em;text-transform:none}
+.sb-spacer{flex:1}
+.sb-link{color:var(--text3);font-size:11.5px;padding:4px 10px;border-radius:6px;font-weight:500;letter-spacing:.02em}
+.sb-link:hover{color:var(--text);background:var(--layer2)}
+
+/* ── shell ── */
+.shell{flex:1;display:flex;min-height:0}
+nav.rail{width:200px;background:var(--rail);border-right:1px solid var(--stroke);padding:8px 0;flex-shrink:0;overflow-y:auto}
+.rl-sec{font-size:9.5px;color:var(--text4);padding:16px 16px 4px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.rl-item{display:flex;align-items:center;gap:9px;height:32px;padding:0 12px;margin:1px 8px;border-radius:6px;font-size:12.5px;font-weight:500;color:var(--text3);cursor:pointer;border-left:2px solid transparent;user-select:none;transition:all .1s}
+.rl-item:hover{color:var(--text2);background:var(--hover-tint-2)}
+.rl-item.on{color:var(--accent);border-left-color:var(--accent);background:var(--accent-glow);font-weight:600}
+.rl-badge{background:var(--bad);color:#fff;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:6px;margin-left:auto;letter-spacing:.02em}
+main{flex:1;overflow-y:auto;padding:16px 24px 40px}
+main>#monitorMode,main>#investMode,main>#authGate{max-width:1520px;margin:0 auto}
+.page{display:none}.page.active{display:block}
+
+/* ── page header ── */
+.crumb{font-size:11px;color:var(--text4);margin-bottom:4px;letter-spacing:.01em}
+.crumb a{color:var(--text3)}.crumb a:hover{color:var(--accent)}
+h1.pg{font-size:17px;font-weight:700;margin-bottom:2px;letter-spacing:-.01em;color:var(--text)}
+.pg-sub{font-size:12px;color:var(--text3);margin-bottom:14px;max-width:680px;line-height:1.5}
+
+/* ── panels ── */
+.panel{background:var(--layer1);border:1px solid var(--stroke);border-radius:10px;margin-bottom:12px;border-top:2px solid var(--stroke3);overflow:hidden}
+.panel-hd{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--stroke);background:var(--layer2)}
+.panel-hd h2{font-size:11.5px;font-weight:700;flex:1;text-transform:uppercase;letter-spacing:.05em;color:var(--text2)}
+.panel-bd{padding:0}.panel-bd.pad{padding:12px 14px}
+.meta{font-size:10.5px;color:var(--text3);letter-spacing:.01em}
+
+/* ── buttons ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;font-size:12px;font-weight:500;border:1px solid var(--stroke2);background:var(--layer2);color:var(--text2);border-radius:6px;cursor:pointer;letter-spacing:.01em}
+.btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+.btn.primary:hover{background:var(--accent-h)}
+.btn.danger{background:var(--bad);color:#fff;border-color:var(--bad)}
+.btn.sm{padding:3px 8px;font-size:11px}
+.cmdbar{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.cb{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;font-size:11.5px;font-weight:500;border:1px solid var(--stroke);background:transparent;color:var(--text3);border-radius:6px;cursor:pointer;letter-spacing:.01em}
+.cb:hover{color:var(--text);border-color:var(--accent)}.cb.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+.cb-sep{width:1px;height:18px;background:var(--stroke);margin:0 2px}
+
+/* ── badges ── */
+.tag{font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;background:var(--layer3);color:var(--text2);letter-spacing:.04em;text-transform:uppercase}
+.st{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:6px;letter-spacing:.01em}
+.st.bad{background:var(--bad-dim);color:var(--bad);border:1px solid var(--bad-line)}
+.st.warn{background:var(--warn-dim);color:var(--warn);border:1px solid var(--warn-line)}
+.st.ok{background:var(--ok-dim);color:var(--ok);border:1px solid var(--ok-line)}
+.st.off{background:var(--layer3);color:var(--text3);border:1px solid var(--stroke)}
+.st.info{background:var(--accent-glow);color:var(--accent);border:1px solid var(--accent-line)}
+.tier-badge{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:6px;background:var(--crit-dim);color:var(--crit);margin-left:4px;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--crit-line)}
+
+/* ── misc ── */
+.empty{padding:28px;text-align:center;color:var(--text3);font-size:12px}
+.loading{padding:16px;text-align:center;color:var(--text3);font-size:11.5px}
+.err{padding:6px 8px;color:var(--bad);font-size:11px;font-weight:500}
+.dim{color:var(--text3)}
+.mono{font-family:var(--mono);font-size:11.5px}
+.gate{text-align:center;padding:60px 20px;color:var(--text2)}
+.gate svg{width:32px;height:32px;stroke:var(--text3);margin-bottom:12px}
+.gate h2{font-size:16px;font-weight:700;margin-bottom:8px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--layer2);border:1px solid var(--stroke3);padding:8px 16px;border-radius:6px;font-size:12px;font-weight:500;z-index:200;opacity:0;transition:all .2s;box-shadow:0 4px 20px var(--shadow-soft)}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* ── table ── */
+.grid{width:100%;border-collapse:collapse;font-size:12px}
+.grid th{text-align:left;padding:7px 10px;font-weight:700;font-size:10.5px;color:var(--text3);border-bottom:1px solid var(--stroke2);background:var(--layer2);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+.grid td{padding:7px 10px;border-bottom:1px solid var(--stroke);vertical-align:middle}
+.grid tr:hover td{background:var(--hover-tint)}
+.rowact{display:flex;gap:3px;flex-wrap:wrap}
+.ra{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;font-size:10.5px;font-weight:500;border:1px solid var(--stroke);background:transparent;color:var(--text3);border-radius:6px;cursor:pointer;text-decoration:none;font-family:var(--font);white-space:nowrap;letter-spacing:.01em}
+.ra:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+
+/* ── KPI strip ── */
+.kpi-strip{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.kpi{flex:1;min-width:100px;background:var(--layer1);border:1px solid var(--stroke);border-top:2px solid var(--stroke3);border-radius:10px;padding:10px 14px;cursor:pointer;transition:border-color .1s}
+.kpi:hover{border-color:var(--accent)}
+.kpi.kpi-static{cursor:default}.kpi.kpi-static:hover{border-color:var(--stroke)}
+.kpi .kl{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;letter-spacing:.01em}
+.kpi .kv{font-size:26px;font-weight:700;font-family:var(--mono);line-height:1;letter-spacing:-.02em}
+.kpi .kv.bad{color:var(--bad)}.kpi .kv.warn{color:var(--warn)}.kpi .kv.ok{color:var(--ok)}
+.kpi.alert-kpi{background:var(--bad-dim);border-top-color:var(--bad)}.kpi.alert-kpi .kl{color:var(--bad)}
+.kpi.warn-kpi{background:var(--warn-dim);border-top-color:var(--warn)}.kpi.warn-kpi .kl{color:var(--warn)}
+
+/* ── flyover ── */
+.scrim{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--scrim);z-index:90;display:none}
+.scrim.on{display:block}
+.fly{position:fixed;top:0;right:-420px;width:420px;max-width:95vw;height:100%;background:var(--layer1);border-left:1px solid var(--stroke2);border-radius:12px 0 0 12px;box-shadow:-12px 0 40px var(--shadow-strong);z-index:100;transition:right .2s cubic-bezier(.2,.8,.3,1),visibility 0s linear .2s;visibility:hidden;display:flex;flex-direction:column}
+.fly.open{right:0;visibility:visible;transition:right .2s cubic-bezier(.2,.8,.3,1),visibility 0s}
+.fly-hd{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--stroke);flex-shrink:0;background:var(--layer2)}
+.fly-hd h3{flex:1;font-size:13px;font-weight:700;letter-spacing:.01em}
+.fly-x{background:none;border:none;color:var(--text3);cursor:pointer;padding:4px}
+.fly-bd{flex:1;overflow-y:auto;padding:14px 16px}
+.fly-ft{padding:10px 16px;border-top:1px solid var(--stroke);display:flex;gap:6px;flex-shrink:0}
+
+/* ── forms ── */
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:11px;font-weight:700;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.fg input,.fg select,.fg textarea{width:100%;padding:7px 10px;background:var(--layer2);border:1px solid var(--stroke2);color:var(--text);border-radius:6px;font-size:12.5px;font-family:var(--font)}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--accent);background:var(--layer3)}
+.fg textarea{resize:vertical;min-height:60px}
+.fg .hint{font-size:10.5px;color:var(--text3);margin-top:3px}
+.switch-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.switch-row label{font-size:12px;color:var(--text2)}
+
+/* ── investigate ── */
+.inv-back{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;font-size:12px;font-weight:600;border:1px solid var(--stroke2);background:transparent;color:var(--text2);border-radius:6px;cursor:pointer;margin-bottom:12px;letter-spacing:.01em}
+.inv-back:hover{color:var(--accent);border-color:var(--accent)}
+.inv-actionbar{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--stroke)}
+.inv-actionbar .spacer{flex:1}
+.inv-header{display:flex;gap:10px;margin-bottom:12px}
+.inv-summary{flex:3;background:var(--layer1);border:1px solid var(--stroke);border-top:2px solid var(--stroke3);border-radius:10px;padding:12px 16px}
+.inv-posture{flex:1;background:var(--layer1);border:1px solid var(--stroke);border-top:2px solid var(--stroke3);border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center}
+.inv-posture .emp-status{font-size:13px;font-weight:700;letter-spacing:.01em}
+.inv-posture .emp-detail{font-size:10.5px;color:var(--text3)}
+.inv-links{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+.inv-link{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;font-size:11.5px;font-weight:600;background:var(--layer2);border:1px solid var(--stroke2);color:var(--text3);border-radius:6px;text-decoration:none;letter-spacing:.01em}
+.inv-link:hover{border-color:var(--accent);color:var(--accent)}
+.inv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px}
+.inv-grid.cols-2{grid-template-columns:repeat(2,1fr)}
+.inv-panel{background:var(--layer1);border:1px solid var(--stroke);border-top:2px solid var(--stroke2);border-radius:8px;padding:9px 11px;min-height:65px}
+.inv-panel h4{font-size:10px;font-weight:700;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:4px;text-transform:uppercase;letter-spacing:.06em}
+.inv-row{display:flex;gap:6px;font-size:11px;line-height:1.6}
+.inv-row .ik{color:var(--text3);min-width:76px;flex-shrink:0;font-weight:500}
+.inv-row .iv{color:var(--text);word-break:break-all}
+.inv-panel.empty-panel{opacity:.5;border-top-color:var(--stroke)}
+.inv-panel.empty-panel h4{margin-bottom:0}
+.inv-panel.empty-panel .pbody{display:none}
+
+.ov-status{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:10px;border:1px solid var(--stroke);background:var(--layer1);margin-bottom:14px}
+.ov-dot{width:10px;height:10px;border-radius:50%;background:var(--warn);flex-shrink:0}
+.ov-status-tx{font-size:13px;font-weight:600;color:var(--text)}
+.ov-status-sub{font-size:11px;color:var(--text3);margin-left:auto}
+.ov-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:start}
+@media(max-width:900px){.ov-2col{grid-template-columns:1fr}}
+.ov-sys{background:var(--layer1);border:1px solid var(--stroke);border-radius:10px;padding:12px 18px;display:flex;gap:24px;align-items:center;font-size:12px;flex-wrap:wrap}
+.ov-sys-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex-shrink:0}
+.ov-sys-err{background:var(--bad)}
+.ov-sys-ok{background:var(--ok)}
+.ov-sys-warn{background:var(--warn)}
+.ov-sys-label{color:var(--text2);font-weight:600}
+.ov-sys-val{font-family:var(--mono);color:var(--text3);font-size:11px}
+.vip-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.vip-dot.r{background:var(--bad)}.vip-dot.y{background:var(--warn)}.vip-dot.g{background:var(--ok)}
+.feed-row{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--stroke);font-size:12px}
+.feed-row:last-child{border-bottom:none}
+.feed-row:hover{background:var(--hover-tint);cursor:pointer}
+.feed-ic{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px}
+.feed-ic.fail{background:var(--warn-dim);color:var(--warn)}.feed-ic.succ{background:var(--bad-dim);color:var(--bad)}.feed-ic.unk{background:var(--layer3);color:var(--text3)}
+.feed-who{font-weight:600;color:var(--text);min-width:100px}
+.feed-what{color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feed-geo{font-family:var(--mono);font-size:11px;color:var(--text3);min-width:80px;text-align:right}
+.feed-when{font-size:11px;color:var(--text3);min-width:55px;text-align:right}
+.ev{display:grid;grid-template-columns:36px minmax(0,1fr);gap:0;border-bottom:1px solid var(--stroke);cursor:pointer;transition:background .1s}
+.ev:last-child{border-bottom:none}
+.ev:hover{background:var(--hover-tint)}
+.ev-rail{display:flex;flex-direction:column;align-items:center;padding:14px 0 14px 14px}
+.ev-dot{width:10px;height:10px;border-radius:50%;margin-top:3px}
+.ev-dot.fail{background:var(--warn)}.ev-dot.succ{background:var(--bad)}.ev-dot.unk{background:var(--text3)}
+.ev-body{padding:12px 16px 12px 10px}
+.ev-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap}
+.ev-who{font-size:13px;font-weight:600;color:var(--text)}
+.ev-pill{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:6px;letter-spacing:.01em}
+.ev-pill.src{background:var(--layer3);color:var(--text3)}
+.ev-pill.fail{background:var(--warn-dim);color:var(--warn)}.ev-pill.succ{background:var(--bad-dim);color:var(--bad)}
+.ev-pill.open{background:var(--bad-dim);color:var(--bad)}.ev-pill.acked{background:var(--layer3);color:var(--text3)}
+.ev-pill.tkt{background:var(--accent-glow);color:var(--accent)}
+.ev-when{margin-left:auto;font-size:11px;color:var(--text3)}
+.ev-detail{font-size:12px;color:var(--text2);display:flex;gap:14px;flex-wrap:wrap}
+.ev-detail .mono{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.ev-acts{display:flex;gap:8px;margin-top:8px}
+.ev-act{font-size:11px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;font-family:var(--font)}
+.ev-act:hover{text-decoration:underline}
+.vp-summary{display:flex;gap:14px;margin-bottom:12px;font-size:12px;color:var(--text3);align-items:center}
+.vp-summary b{color:var(--text);font-weight:600}
+.vp-summary .ct-bad{color:var(--bad)}.vp-summary .ct-warn{color:var(--warn)}
+/* ── filter bar ── */
+.filter-bar{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.filter-bar select{padding:4px 8px;background:var(--layer2);border:1px solid var(--stroke);color:var(--text2);border-radius:6px;font-size:11.5px;font-family:var(--font);font-weight:500}
+.filter-bar select:focus{outline:none;border-color:var(--accent)}
+
+/* sticky table columns */
+.grid-wrap{overflow-x:auto;position:relative}
+.grid.sticky th:nth-child(1),.grid.sticky td:nth-child(1){position:sticky;left:0;z-index:2;background:var(--layer2)}
+.grid.sticky th:nth-child(2),.grid.sticky td:nth-child(2){position:sticky;left:38px;z-index:2;background:var(--layer2)}
+.grid.sticky td:nth-child(1),.grid.sticky td:nth-child(2){background:var(--layer1)}
+.grid.sticky tr:hover td:nth-child(1),.grid.sticky tr:hover td:nth-child(2){background:var(--hover-tint-3)}
+.grid.sticky th:nth-child(2)::after,.grid.sticky td:nth-child(2)::after{content:'';position:absolute;right:-1px;top:0;bottom:0;width:1px;background:var(--stroke2)}
+
+/* ── verdict ── */
+.verdict{padding:12px 16px;margin-bottom:12px;border:1px solid;border-left:3px solid;border-radius:10px;display:flex;align-items:flex-start;gap:10px}
+.verdict.sev-high{background:var(--crit-dim);border-color:var(--bad-line-2);border-left-color:var(--bad)}
+.verdict.sev-med{background:var(--warn-dim);border-color:var(--warn-line-2);border-left-color:var(--warn)}
+.verdict.sev-low{background:var(--ok-dim);border-color:var(--ok-line);border-left-color:var(--ok)}
+.verdict .vic{flex-shrink:0;margin-top:2px}
+.verdict .vic svg{width:16px;height:16px}
+.verdict.sev-high .vic{color:var(--bad)}.verdict.sev-med .vic{color:var(--warn)}.verdict.sev-low .vic{color:var(--ok)}
+.verdict .vtext{font-size:12.5px;line-height:1.55;color:var(--text);font-weight:500}
+.verdict .vtext b{font-weight:700;color:var(--text)}
+.verdict .vfindings{margin-top:5px;display:flex;gap:4px;flex-wrap:wrap}
+.vchip{font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:6px;letter-spacing:.04em;text-transform:uppercase}
+.vchip.bad{background:var(--bad-dim);color:var(--bad);border:1px solid var(--bad-line-3)}
+.vchip.warn{background:var(--warn-dim);color:var(--warn);border:1px solid var(--warn-line-3)}
+.vchip{background:var(--layer3);color:var(--text3);border:1px solid var(--stroke)}
+
+/* ── collapsible sections ── */
+.inv-section{margin-bottom:4px}
+.inv-sec-head{display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;user-select:none;border-bottom:1px solid var(--stroke2)}
+.inv-sec-head:hover .stitle{color:var(--accent)}
+.inv-sec-head .chev{transition:transform .15s;color:var(--text4);transform:rotate(-90deg)}
+.inv-sec-head.collapsed .chev{transform:rotate(0deg)}
+.inv-sec-head .stitle{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:5px;transition:color .1s}
+.inv-sec-head .ssum{margin-left:auto;font-size:10.5px;color:var(--text3);font-weight:500}
+.inv-sec-body{padding-top:8px}
+.inv-sec-body.hidden{display:none}
+.inv-sec-head .shwrap{flex:1;min-width:0}
+.scap{font-size:9.5px;color:var(--text4);margin-top:2px;letter-spacing:.03em}
+.sanswer{margin-left:auto;flex-shrink:0;font-size:10.5px;font-weight:600;padding:2px 9px;border-radius:6px;letter-spacing:.02em;max-width:48%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--layer3);color:var(--text3);border:1px solid var(--stroke)}
+.sanswer.ok{background:var(--ok-dim);color:var(--ok);border-color:var(--ok-line)}
+.sanswer.warn{background:var(--warn-dim);color:var(--warn);border-color:var(--warn-line)}
+.sanswer.bad{background:var(--bad-dim);color:var(--bad);border-color:var(--bad-line)}
+.sanswer:empty{display:none}
+.vnext{margin-top:6px;font-size:11.5px;color:var(--text2)}
+.vnext b{color:var(--text);font-weight:700}
+.verdict .vhead{font-size:14px;font-weight:700;letter-spacing:.01em;line-height:1.4}
+/* ── v3.12.0 answer tiles ── */
+.tile-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+@media(max-width:980px){.tile-strip{grid-template-columns:repeat(2,1fr)}}
+.tile{padding:9px 12px;border:1px solid var(--stroke);border-top:2px solid var(--stroke2);border-radius:10px;background:var(--layer1);cursor:pointer;min-width:0}
+.tile:hover{border-color:var(--accent)}
+.tile .tq{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);display:flex;gap:5px;align-items:center}
+.tile .ta{font-size:11.5px;font-weight:600;margin-top:3px;color:var(--text3);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.ok{background:var(--ok-dim);border-top-color:var(--ok)}.tile.ok .tq,.tile.ok .ta{color:var(--ok)}
+.tile.warn{background:var(--warn-dim);border-top-color:var(--warn)}.tile.warn .tq,.tile.warn .ta{color:var(--warn)}
+.tile.bad{background:var(--bad-dim);border-top-color:var(--bad)}.tile.bad .tq,.tile.bad .ta{color:var(--bad)}
+/* ── v3.12.0 timeline ── */
+.tl-card{background:var(--layer1);border:1px solid var(--stroke);border-top:2px solid var(--stroke3);border-radius:10px;padding:14px 18px}
+.tl-hd{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:10px}
+.tl-beat{display:flex;gap:12px}
+.tl-rail{display:flex;flex-direction:column;align-items:center}
+.tl-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--layer3);color:var(--text3);flex-shrink:0}
+.tl-dot svg{width:13px;height:13px}
+.tl-dot.ok{background:var(--ok-dim);color:var(--ok)}.tl-dot.warn{background:var(--warn-dim);color:var(--warn)}.tl-dot.bad{background:var(--bad-dim);color:var(--bad)}
+.tl-line{width:2px;flex:1;background:var(--stroke);margin:2px 0}
+.tl-body{flex:1;padding-bottom:14px;min-width:0}
+.tl-beat:last-child .tl-body{padding-bottom:0}
+.tl-title{font-size:12.5px;font-weight:600;color:var(--text)}
+.tl-ev{font-size:10.5px;font-weight:600;color:var(--accent);cursor:pointer;margin-left:8px;text-transform:uppercase;letter-spacing:.03em;user-select:none}
+.tl-ev:hover{color:var(--accent-h)}
+.tl-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.tl-body .inv-sec-body{padding-top:8px}
+
+/* ── VIP board — compact status rows ── */
+.vip-board{margin-bottom:14px;border:1px solid var(--stroke);background:var(--layer1);border-radius:10px;overflow:hidden}
+.vip-board-hd{font-size:9.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:8px 14px;border-bottom:1px solid var(--stroke2);background:var(--layer2)}
+.vip-row{display:flex;align-items:center;gap:12px;padding:8px 14px;border-bottom:1px solid var(--stroke);font-size:12px;cursor:pointer}
+.vip-row:last-child{border-bottom:none}
+.vip-row:hover{background:var(--hover-tint)}
+.vip-row .vdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.vip-row.alert .vdot{background:var(--bad)}.vip-row.watch .vdot{background:var(--warn)}.vip-row.clear .vdot{background:var(--ok)}
+.vip-row .vname{font-weight:600;min-width:150px}
+.vip-row .vupn{font-family:var(--mono);font-size:10.5px;color:var(--text3);min-width:190px}
+.vip-row .vcounts{display:flex;gap:12px;font-size:11px}
+.vip-row .vcount-open{color:var(--bad);font-weight:600}
+.vip-row .vcount-24{color:var(--warn);font-weight:600}
+.vip-row .vcount-clear{color:var(--ok);font-weight:600}
+.vip-row .vlast{margin-left:auto;font-size:10.5px;color:var(--text3);text-align:right}
+.vip-empty{padding:12px 16px;color:var(--text3);font-size:12px;font-style:italic}
+
+/* ── pagination ── */
+.pager{display:flex;align-items:center;gap:4px;margin-left:auto}
+.pg-btn{min-width:26px;height:26px;padding:0 7px;font-size:11.5px;font-weight:600;border:1px solid var(--stroke2);background:var(--layer2);color:var(--text2);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.pg-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.pg-btn.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.pg-btn:disabled{opacity:.35;cursor:default}
+.pg-ellipsis{color:var(--text4);padding:0 2px;font-size:11px}
+.pg-info{font-size:10.5px;color:var(--text3);margin-right:8px}
+.viol-scroll{max-height:calc(100vh - 260px);overflow-y:auto}
+</style>
+<link rel="stylesheet" href="/it-depth.css">
+</head>
+<body data-dp="signin-watch">
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"/></symbol>
+  <symbol id="ic-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-7 4 14 2-7h6"/></symbol>
+  <symbol id="ic-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3l9-16z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17.2" r=".4"/></symbol>
+  <symbol id="ic-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></symbol>
+  <symbol id="ic-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 2.6 4 5.8 4 9s-1.2 6.4-4 9c-2.8-2.6-4-5.8-4-9s1.2-6.4 4-9z"/></symbol>
+  <symbol id="ic-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 19a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="ic-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.8"/><path d="M12 2.5v3M12 18.5v3M4 12H2.5M21.5 12H19M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></symbol>
+  <symbol id="ic-add" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+  <symbol id="ic-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4h-4"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></symbol>
+  <symbol id="ic-checkall" viewBox="0 0 24 24"><path d="M2 13l4 4L14 9"/><path d="M10 13l4 4L22 9"/></symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/></symbol>
+  <symbol id="ic-json" viewBox="0 0 24 24"><path d="M8 4c-2 0-3 1-3 3v2c0 1.4-.8 2-2 2 1.2 0 2 .6 2 2v2c0 2 1 3 3 3M16 4c2 0 3 1 3 3v2c0 1.4.8 2 2 2-1.2 0-2 .6-2 2v2c0 2-1 3-3 3"/></symbol>
+  <symbol id="ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"/></symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+  <symbol id="ic-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13"/></symbol>
+  <symbol id="ic-send" viewBox="0 0 24 24"><path d="M21 3L3 10.5l7 3.5L14 21 21 3z"/><path d="M10 14l4-4"/></symbol>
+  <symbol id="ic-x" viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></symbol>
+  <symbol id="ic-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="ic-inbox" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v6H3v-6z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/></symbol>
+  <symbol id="ic-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></symbol>
+  <symbol id="ic-ticket" viewBox="0 0 24 24"><path d="M3 7h18v10H3z"/><path d="M3 12h18"/><circle cx="7" cy="9.5" r="1"/></symbol>
+  <symbol id="ic-arrowleft" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></symbol>
+  <symbol id="ic-link" viewBox="0 0 24 24"><path d="M10 14a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5L11 8"/><path d="M14 10a3.5 3.5 0 0 0-5 0L6.5 12.5a3.5 3.5 0 0 0 5 5L13 16"/></symbol>
+  <symbol id="ic-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+  <symbol id="ic-radar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 12l5-5"/><path d="M12 3a9 9 0 0 1 9 9"/></symbol>
+  <symbol id="ic-server" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="6" rx="1"/><rect x="4" y="14" width="16" height="6" rx="1"/><circle cx="8" cy="7" r=".8"/><circle cx="8" cy="17" r=".8"/></symbol>
+</svg>
+
+<!-- suitebar -->
+<div class="suitebar">
+  <div class="sb-brand">
+    <div class="mark"><svg><use href="#ic-shield"/></svg></div>
+    IT Command <span class="sep">/</span> <span class="prod">Sign-In Watch</span>
+  </div>
+  <div class="sb-spacer"></div>
+</div>
+
+<div class="shell">
+<nav class="rail" id="sideRail">
+  <div class="rl-sec">Monitor</div>
+  <div class="rl-item on" data-nav="overview"><svg class="i"><use href="#ic-pulse"/></svg><span>Overview</span></div>
+  <div class="rl-item" data-nav="violations"><svg class="i"><use href="#ic-alert"/></svg><span>Violations</span><span class="rl-badge" id="nbViol" style="display:none"></span></div>
+  <div class="rl-sec">Manage</div>
+  <div class="rl-item" data-nav="watchlist"><svg class="i"><use href="#ic-eye"/></svg><span>Watchlist</span></div>
+  <div class="rl-item" data-nav="networks"><svg class="i"><use href="#ic-globe"/></svg><span>Trusted networks</span></div>
+  <div class="rl-item" data-nav="channels"><svg class="i"><use href="#ic-bell"/></svg><span>Alert channels</span></div>
+  <div class="rl-sec">System</div>
+  <div class="rl-item" data-nav="status"><svg class="i"><use href="#ic-gear"/></svg><span>Poller status</span></div>
+</nav>
+
+<main>
+
+<!-- AUTH GATE -->
+<div id="authGate" class="gate" style="display:none;">
+  <svg><use href="#ic-lock"/></svg>
+  <h2>Session required</h2>
+  <p>Checking your access…</p>
+  <button class="btn primary" onclick="location.reload()">Retry</button>
+</div>
+
+<!-- ═══════════ MONITOR MODE ═══════════ -->
+<div id="monitorMode">
+
+<!-- OVERVIEW -->
+<div data-view="overview" class="page active">
+  <div class="ov-status" id="ovStatus"><span class="ov-dot"></span><span class="ov-status-tx">Loading…</span><span class="ov-status-sub" id="ovStatusSub"></span></div>
+  <div class="kpi-strip" id="kpiStrip"></div>
+  <div class="ov-2col">
+    <div class="panel"><div class="panel-hd"><h2 id="vipHd">VIP threat board</h2></div><div class="panel-bd" id="vipBoard"><div class="loading">Loading…</div></div></div>
+    <div class="panel"><div class="panel-hd"><h2>Live feed</h2><span class="meta">last 72 hours</span></div><div class="panel-bd" id="ovRecent"><div class="loading">Loading…</div></div></div>
+  </div>
+  <div class="ov-sys" id="ovSys"><span class="ov-sys-dot"></span><span class="ov-sys-label">Poller</span><span class="ov-sys-val">loading…</span></div>
+</div>
+
+<!-- VIOLATIONS -->
+<div data-view="violations" class="page">
+  <div class="crumb"><a data-go="overview">Overview</a> / Violations</div>
+  <h1 class="pg">Violations</h1>
+  <div class="pg-sub">Every sign-in from an untrusted network, with device and threat context.</div>
+  <div class="filter-bar">
+    <input id="fSearch" placeholder="Search UPN, IP, location, app, reason…" style="flex:1;min-width:200px;padding:4px 8px;background:var(--layer2);border:1px solid var(--stroke);color:var(--text);border-radius:6px;font-size:11.5px;font-family:var(--font)" oninput="SW.loadViolations()">
+    <select id="fSource"><option value="">All sources</option><option value="okta">Okta</option><option value="entra">Entra</option></select>
+    <select id="fResult"><option value="">All results</option><option value="success">Success</option><option value="failure">Failure</option></select>
+    <select id="fHours"><option value="72">72 hours</option><option value="168">7 days</option><option value="720">30 days</option><option value="">All time</option></select>
+    <select id="fState"><option value="">All states</option><option value="1">Open</option><option value="2">Acked</option></select>
+    <button class="cb" onclick="SW.loadViolations()"><svg class="i"><use href="#ic-refresh"/></svg>Refresh</button>
+    <div style="flex:1"></div>
+    <button class="cb" onclick="SW.bulkAck()"><svg class="i"><use href="#ic-checkall"/></svg>Bulk ack filtered</button>
+  </div>
+  <div class="vp-summary" id="violSummary"></div>
+  <div class="panel">
+    <div class="panel-hd"><h2>Violations</h2><div class="pager" id="violPager"></div></div>
+    <div class="panel-bd" id="violGrid"><div class="loading">Loading…</div></div>
+  </div>
+</div>
+
+<!-- WATCHLIST -->
+<div data-view="watchlist" class="page">
+  <div class="crumb"><a data-go="overview">Overview</a> / Watchlist</div>
+  <h1 class="pg">Watchlist</h1>
+  <div class="pg-sub">Users whose sign-in events are monitored. Each poll cycle checks both Okta and Entra for these accounts.</div>
+  <div class="cmdbar">
+    <button class="cb primary" onclick="SW.openFly('addWatch')"><svg class="i"><use href="#ic-add"/></svg>Add user</button>
+    <button class="cb" onclick="SW.loadWatchlist()"><svg class="i"><use href="#ic-refresh"/></svg>Refresh</button>
+  </div>
+  <div class="panel"><div class="panel-bd" id="watchGrid"><div class="loading">Loading…</div></div></div>
+</div>
+
+<!-- NETWORKS -->
+<div data-view="networks" class="page">
+  <div class="crumb"><a data-go="overview">Overview</a> / Trusted networks</div>
+  <h1 class="pg">Trusted networks</h1>
+  <div class="pg-sub">CIDRs considered safe. Zscaler CENR ranges come from the CENR sync job (its schedule on this server is on Observability → Job Health); office ranges are manual.</div>
+  <div class="cmdbar">
+    <button class="cb primary" onclick="SW.openFly('addNet')"><svg class="i"><use href="#ic-add"/></svg>Add network</button>
+    <button class="cb" onclick="SW.loadNetworks()"><svg class="i"><use href="#ic-refresh"/></svg>Refresh</button>
+  </div>
+  <div class="panel"><div class="panel-bd" id="netGrid" style="max-height:560px;overflow-y:auto"><div class="loading">Loading…</div></div></div>
+</div>
+
+<!-- CHANNELS -->
+<div data-view="channels" class="page">
+  <div class="crumb"><a data-go="overview">Overview</a> / Alert channels</div>
+  <h1 class="pg">Alert channels</h1>
+  <div class="pg-sub">Where violation alerts are delivered.</div>
+  <div class="cmdbar">
+    <button class="cb primary" onclick="SW.openFly('addChan')"><svg class="i"><use href="#ic-add"/></svg>Add channel</button>
+    <button class="cb" onclick="SW.loadChannels()"><svg class="i"><use href="#ic-refresh"/></svg>Refresh</button>
+  </div>
+  <div class="panel"><div class="panel-bd" id="chanGrid"><div class="loading">Loading…</div></div></div>
+</div>
+
+<!-- STATUS -->
+<div data-view="status" class="page">
+  <div class="crumb"><a data-go="overview">Overview</a> / Poller status</div>
+  <h1 class="pg">Poller status</h1>
+  <div class="pg-sub">Internal cursors and health for the signin-watch job (PM2), the ZDX cross-reference, and the CENR sync job.</div>
+  <div class="panel" style="margin-top:16px">
+    <div class="panel-hd"><h2>State store</h2><span class="meta" id="stMeta"></span></div>
+    <div class="panel-bd" id="statusGrid"><div class="loading">Loading…</div></div>
+  </div>
+</div>
+
+</div><!-- /monitorMode -->
+
+<!-- ═══════════ INVESTIGATE MODE ═══════════ -->
+<div id="investMode" style="display:none">
+  <button class="inv-back" onclick="SW.exitInvestigate()"><svg class="i"><use href="#ic-arrowleft"/></svg>Back to violations</button>
+  <!-- verdict banner -->
+  <div id="invVerdict"></div>
+  <div class="inv-actionbar" id="invActions"></div>
+
+  <div class="inv-header">
+    <div class="inv-summary" id="invSummary"></div>
+    <div class="inv-posture" id="invPosture"><div class="loading">Loading…</div></div>
+  </div>
+  <div class="inv-links" id="invLinks"></div>
+
+  <!-- v3.12.0: answer tiles -->
+  <div class="tile-strip">
+    <div class="tile" id="tile-who" onclick="SW.jumpBeat('who')">
+      <div class="tq"><svg class="i" style="width:12px;height:12px"><use href="#ic-user"/></svg> Account</div>
+      <div class="ta" id="ans-who"></div>
+    </div>
+    <div class="tile" id="tile-campaign" onclick="SW.jumpBeat('campaign')">
+      <div class="tq"><svg class="i" style="width:12px;height:12px"><use href="#ic-target"/></svg> Campaign</div>
+      <div class="ta" id="ans-campaign"></div>
+    </div>
+    <div class="tile" id="tile-defense" onclick="SW.jumpBeat('defense')">
+      <div class="tq"><svg class="i" style="width:12px;height:12px"><use href="#ic-shield"/></svg> Defenses</div>
+      <div class="ta" id="ans-defense"></div>
+    </div>
+    <div class="tile" id="tile-presence" onclick="SW.jumpBeat('presence')">
+      <div class="tq"><svg class="i" style="width:12px;height:12px"><use href="#ic-radar"/></svg> Real user</div>
+      <div class="ta" id="ans-presence"></div>
+    </div>
+    <div class="tile" id="tile-attacker" onclick="SW.jumpBeat('attacker')">
+      <div class="tq"><svg class="i" style="width:12px;height:12px"><use href="#ic-monitor"/></svg> Attacker</div>
+      <div class="ta" id="ans-attacker"></div>
+    </div>
+  </div>
+
+  <!-- v3.12.0: story timeline -->
+  <div class="tl-card">
+    <div class="tl-hd">What happened</div>
+    <div class="tl-beat">
+      <div class="tl-rail"><span class="tl-dot" id="dot-b1"><svg class="i"><use href="#ic-globe"/></svg></span><span class="tl-line"></span></div>
+      <div class="tl-body">
+        <div class="tl-title"><span id="beat-b1-hd">Checking…</span><span class="tl-ev" onclick="SW.toggleSec('b1')">evidence ▾</span></div>
+        <div class="tl-sub" id="beat-b1-sub"></div>
+        <div class="inv-sec-body hidden" id="body-b1">
+          <div class="inv-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="inv-panel" id="p-atkdev"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-monitor"/></svg> Attacker device</h4><div class="pbody" id="inv-atkdev">Loading…</div></div>
+        <div class="inv-panel" id="p-appclient"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-link"/></svg> App and client</h4><div class="pbody" id="inv-appclient">Loading…</div></div>
+        <div class="inv-panel" id="p-asn"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-globe"/></svg> ASN / ISP</h4><div class="pbody" id="inv-asn">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tl-beat">
+      <div class="tl-rail"><span class="tl-dot" id="dot-b2"><svg class="i"><use href="#ic-lock"/></svg></span><span class="tl-line"></span></div>
+      <div class="tl-body">
+        <div class="tl-title"><span id="beat-b2-hd">Checking…</span><span class="tl-ev" onclick="SW.toggleSec('b2')">evidence ▾</span></div>
+        <div class="tl-sub" id="beat-b2-sub"></div>
+        <div class="inv-sec-body hidden" id="body-b2">
+          <div class="inv-grid">
+        <div class="inv-panel" id="p-mfa"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-lock"/></svg> MFA posture</h4><div class="pbody" id="inv-mfa">Loading…</div></div>
+        <div class="inv-panel" id="p-ca"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-lock"/></svg> CA policy</h4><div class="pbody" id="inv-ca">Loading…</div></div>
+        <div class="inv-panel" id="p-msrisk"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-shield"/></svg> MS risk verdicts</h4><div class="pbody" id="inv-msrisk">Loading…</div></div>
+        <div class="inv-panel" id="p-riskdet"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-shield"/></svg> Entra risk detections</h4><div class="pbody" id="inv-riskdet">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tl-beat">
+      <div class="tl-rail"><span class="tl-dot" id="dot-b3"><svg class="i"><use href="#ic-radar"/></svg></span><span class="tl-line"></span></div>
+      <div class="tl-body">
+        <div class="tl-title"><span id="beat-b3-hd">Checking…</span><span class="tl-ev" onclick="SW.toggleSec('b3')">evidence ▾</span></div>
+        <div class="tl-sub" id="beat-b3-sub"></div>
+        <div class="inv-sec-body hidden" id="body-b3">
+          <div class="inv-grid">
+        <div class="inv-panel" id="p-zdx"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-pulse"/></svg> ZDX presence</h4><div class="pbody" id="inv-zdx">Loading…</div></div>
+        <div class="inv-panel" id="p-lssnss"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-shield"/></svg> ZIA / ZPA activity</h4><div class="pbody" id="inv-lssnss">Loading…</div></div>
+        <div class="inv-panel" id="p-sessions"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-clock"/></svg> Okta sessions</h4><div class="pbody" id="inv-sessions">Loading…</div></div>
+        <div class="inv-panel" id="p-r7auth"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-pulse"/></svg> Rapid7 auth (7d)</h4><div class="pbody" id="inv-r7auth">Loading…</div></div>
+          </div>
+          <div class="inv-grid" style="margin-top:10px">
+        <div class="inv-panel" id="p-zscaler"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-shield"/></svg> Zscaler user</h4><div class="pbody" id="inv-zscaler">Loading…</div></div>
+        <div class="inv-panel" id="p-ad"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-user"/></svg> AD profile</h4><div class="pbody" id="inv-ad">Loading…</div></div>
+        <div class="inv-panel" id="p-okta"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-inbox"/></svg> Okta state</h4><div class="pbody" id="inv-okta">Loading…</div></div>
+        <div class="inv-panel" id="p-devices"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-monitor"/></svg> Assigned devices</h4><div class="pbody" id="inv-devices">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tl-beat">
+      <div class="tl-rail"><span class="tl-dot" id="dot-b4"><svg class="i"><use href="#ic-target"/></svg></span></div>
+      <div class="tl-body">
+        <div class="tl-title"><span id="beat-b4-hd">Checking…</span><span class="tl-ev" onclick="SW.toggleSec('b4')">evidence ▾</span></div>
+        <div class="tl-sub" id="beat-b4-sub"></div>
+        <div class="inv-sec-body hidden" id="body-b4">
+          <div class="inv-grid">
+        <div class="inv-panel" id="p-history"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-clock"/></svg> Target history</h4><div class="pbody" id="inv-history">Loading…</div></div>
+        <div class="inv-panel" id="p-subnet"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-link"/></svg> Subnet cluster</h4><div class="pbody" id="inv-subnet">Loading…</div></div>
+        <div class="inv-panel" id="p-r7cross"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-pulse"/></svg> Rapid7 cross-user</h4><div class="pbody" id="inv-r7cross">Loading…</div></div>
+        <div class="inv-panel" id="p-spray"><h4><svg class="i" style="width:13px;height:13px"><use href="#ic-alert"/></svg> Spray alerts</h4><div class="pbody" id="inv-spray">Loading…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /investMode -->
+
+</main>
+</div><!-- /shell -->
+
+<div class="scrim" id="scrim" onclick="SW.closeFly()"></div>
+<div class="fly" id="flyover">
+  <div class="fly-hd"><h3 id="flyTitle"></h3><button class="fly-x" onclick="SW.closeFly()"><svg class="i" style="width:18px;height:18px"><use href="#ic-x"/></svg></button></div>
+  <div class="fly-bd" id="flyBody"></div>
+  <div class="fly-ft" id="flyFoot"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="signin-watch"></script>
+<script>
+const SW = (function(){
+  const API = '/api/signin-watch';
+  let _user = null, _violations = [];
+
+  /* ── helpers ── */
+  function esc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+  function $(id){ return document.getElementById(id); }
+  function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2800); }
+  async function api(method, path, body){
+    // The ITAM original was `return r.json()` with no guard at all. The API does
+    // return JSON error bodies for 401/403/500, so those already reached callers
+    // as {ok:false} -- that part was fine. What was NOT fine:
+    //
+    //   * A response that is not JSON. nginx 502/504 emits HTML, and an expired
+    //     session can produce a redirect to the sign-in page. r.json() then
+    //     THROWS, and because api() had no catch the rejection propagated out of
+    //     whatever render function called it, leaving that widget frozen
+    //     mid-render with no error shown anywhere.
+    //   * A transport failure (host down, connection dropped) rejected the same
+    //     way, out of 26 call sites.
+    //
+    // Both now return the same {ok:false, error} shape every caller already
+    // handles, so nothing downstream changes, and every failure is reported to
+    // the observability collector so it is countable rather than merely visible.
+    const h = body ? {'Content-Type':'application/json'} : {};
+    let r;
+    try {
+      r = await fetch(API+path, {method, headers:h, body:body?JSON.stringify(body):undefined});
+    } catch(e) {
+      if(window.ITObserve) ITObserve.degraded('api:'+path, method+' '+path+' network failure', e.message);
+      return {ok:false, error:'NETWORK', detail:String(e.message||e)};
+    }
+    let j=null;
+    try { j = await r.json(); } catch(e) { j=null; }
+    if(!r.ok){
+      const err=(j&&(j.error||j.detail)) ||
+                (r.status===403?'SUPERADMIN_REQUIRED':r.status===401?'AUTH_REQUIRED':'HTTP_'+r.status);
+      if(window.ITObserve) ITObserve.degraded('api:'+path, method+' '+path+' -> '+r.status+' '+err);
+      return {ok:false, error:err, status:r.status};
+    }
+    if(j===null){
+      if(window.ITObserve) ITObserve.degraded('api:'+path, method+' '+path+' returned a non-JSON body');
+      return {ok:false, error:'BAD_RESPONSE', status:r.status};
+    }
+    return j;
+  }
+  function icon(name){ return '<svg class="i" style="width:13px;height:13px"><use href="#ic-'+name+'"/></svg>'; }
+  function fmtTime(s){ if(!s) return '—'; const d=new Date(s); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false})+' UTC'; }
+  function relTime(s){ if(!s) return '—'; const ms=Date.now()-new Date(s).getTime(); if(ms<60000) return Math.round(ms/1000)+'s ago'; if(ms<3600000) return Math.round(ms/60000)+'m ago'; if(ms<86400000) return Math.round(ms/3600000)+'h ago'; return Math.round(ms/86400000)+'d ago'; }
+  /* Health ladder: ok / stale / failed / unknown. Never two rungs -- an error
+     string being absent is not the same as the collector having run. 6h is the
+     maxAgeH the server-side feed registry (feed-freshness-routes.js) already
+     uses for entra_signin_logs and signin_violations, so this dot and the
+     freshness banner above it cannot contradict each other. */
+  const POLLER_MAX_AGE_H = 6;
+  function ageMs(v){ if(!v) return null; const t=new Date(v).getTime(); return isFinite(t) ? Date.now()-t : null; }
+  function rung(v, hasError, maxH){
+    if(hasError) return 'failed';
+    const a = ageMs(v);
+    if(a === null) return 'unknown';
+    return a > (maxH||POLLER_MAX_AGE_H)*3600000 ? 'stale' : 'ok';
+  }
+  function rungDot(r){ return r==='failed' ? ' ov-sys-err' : (r==='ok' ? ' ov-sys-ok' : ' ov-sys-warn'); }
+  function rungColor(r){ return r==='failed' ? 'var(--bad)' : (r==='ok' ? 'var(--ok)' : 'var(--warn)'); }
+  /* A cursor rendered as bare HH:MM reads as "this morning" even when it is ten
+     days stale. Carry the date whenever it is not today. */
+  function cursorTx(v){
+    if(!v) return '\u2014';
+    const str = String(v), d = str.slice(0,10), hm = str.slice(11,16);
+    if(!hm) return d || '\u2014';
+    return d === new Date().toISOString().slice(0,10) ? hm : (d + ' ' + hm);
+  }
+  function kv(pairs){ return pairs.filter(p=>p).map(([k,v])=>'<div class="inv-row"><span class="ik">'+esc(k)+'</span><span class="iv">'+esc(v||'—')+'</span></div>').join(''); }
+  function devInfo(r){ let d=r.device_info; if(!d) return null; if(typeof d==='string') try{d=JSON.parse(d)}catch(e){return null} return d; }
+  function threatCtx(r){ let t=r.threat_context; if(!t) return null; if(typeof t==='string') try{t=JSON.parse(t)}catch(e){return null} return t; }
+  function devSummary(r){ const d=devInfo(r); if(!d) return '—'; return [d.browser,d.os,d.device].filter(Boolean).join(' · ')||'—'; }
+  function caLabel(r){ const t=threatCtx(r); if(!t||!t.ca_status) return null; return t.ca_status; }
+  function resultBadge(r){
+    if(r==='success') return '<span class="st bad">Success</span>';
+    if(r==='failure') return '<span class="st warn">Failure</span>';
+    return '<span class="st info">Unknown</span>';
+  }
+  function caBadge(ca){
+    if(!ca||ca==='null') return '<span class="dim">—</span>';
+    if(ca==='notApplied') return '<span class="st warn">Not applied</span>';
+    if(ca==='success') return '<span class="st ok">Enforced</span>';
+    if(ca==='failure') return '<span class="st bad">Blocked</span>';
+    return '<span class="st info">'+esc(ca)+'</span>';
+  }
+
+  /* ── nav ── */
+  function nav(view){
+    document.querySelectorAll('[data-view]').forEach(v=>v.classList.remove('active'));
+    document.querySelectorAll('.rl-item').forEach(i=>i.classList.remove('on'));
+    const el = document.querySelector('[data-view="'+view+'"]');
+    if(el) el.classList.add('active');
+    const ri = document.querySelector('.rl-item[data-nav="'+view+'"]');
+    if(ri) ri.classList.add('on');
+    if(view==='overview') loadOverview();
+    if(view==='violations') loadViolations();
+    if(view==='watchlist') loadWatchlist();
+    if(view==='networks') loadNetworks();
+    if(view==='channels') loadChannels();
+    if(view==='status') loadStatus();
+  }
+
+  /* ── KPI ── */
+  async function loadKpi(){
+    const j = await api('GET','/kpi');
+    if(!j.ok) return;
+    const f72=(j.recent_72h||{}).failure||0;
+    const s72=(j.recent_72h||{}).success||0;
+    // A zero over a feed that stopped ten days ago is "not measured", not "clear".
+    const measured = _pollerRung==='ok';
+    function kpi(cls,label,val,sub,onclick){
+      // onclick null => a plain tile. .kpi-static drops cursor:pointer and the
+      // hover border so it does not advertise a click it will not honour.
+      const click = onclick ? ' onclick="'+onclick+'"' : '';
+      return '<div class="kpi'+cls+(onclick?'':' kpi-static')+'"'+click+'><div class="kl">'+label+'</div><div class="kv'+(cls.includes('alert')?' bad':cls.includes('warn')?' warn':'')+'">'+val+'</div>'+(sub?'<div class="kpi-sub" style="font-size:11px;color:var(--text3);margin-top:2px">'+sub+'</div>':'')+'</div>';
+    }
+    // Window-scoped tile: renders a value only when the window was observed.
+    function winKpi(cls,label,val,sub,onclick){
+      if(measured) return kpi(cls,label,val,sub,onclick);
+      return kpi(' warn-kpi',label,'\u2014','no data \u00b7 poller '+_pollerRung,onclick);
+    }
+    $('kpiStrip').innerHTML =
+      kpi(j.open>0?' alert-kpi':'','Open',j.open.toLocaleString(),'need triage',"SW.drillViolations({state:'1'})")+
+      winKpi(s72>0?' alert-kpi':'','Successes 72h',s72,s72>0?'untrusted sign-ins':'none \u2014 good',"SW.drillViolations({result:'success',hours:'72'})")+
+      winKpi(f72>0?' warn-kpi':'','Failures 72h',f72,f72>0?'blocked at sign-in':'none recorded',"SW.drillViolations({result:'failure',hours:'72'})")+
+      kpi('','Watched',j.watched,'accounts',"SW.nav('watchlist')")+
+      kpi('','Total recorded',j.total.toLocaleString(),'since first watch',"SW.drillViolations({})")+
+      winKpi((j.risk_7d||0)>0?' warn-kpi':'','MS detections 7d',j.risk_7d||0,'watched accounts',null);
+    if(!measured && window.ITObserve)
+      ITObserve.degraded('kpi-window','72h/7d tiles unmeasured over a '+_pollerRung+' poller','');
+    const nb=$('nbViol'); if(j.open>0){nb.textContent=j.open;nb.style.display=''}else{nb.style.display='none'}
+    _lastKpi=j;
+  }
+  let _lastKpi=null;
+  // Set from /status in loadOverview before the strip renders. The 72h/7d
+  // tiles are only meaningful when the poller actually ran in that window.
+  let _pollerRung='unknown';
+
+  /* ── VIP board ── */
+  let _vipUpns = new Set();
+  async function loadVipBoard(){
+    const j = await api('GET','/vip-board');
+    if(!j.ok){ $('vipBoard').innerHTML=''; return; }
+    _vipUpns = new Set((j.vips||[]).map(v=>v.upn.toLowerCase()));
+    const hd=$('vipHd'); if(hd) hd.textContent='VIP threat board'+(j.vips?' · '+j.vips.length:'');
+    if(!j.vips||!j.vips.length){
+      $('vipBoard').innerHTML='<div style="padding:14px 16px;color:var(--text3);font-size:12px">No VIP accounts. Mark a user as VIP from the Watchlist tab.</div>';
+      return;
+    }
+    let h='';
+    for(const v of j.vips){
+      const dotCls=v.status==='alert'?'r':v.status==='watch'?'y':'g';
+      const chipCls=v.open_violations>0?(v.open_violations>50?'bd':'wn'):'ok';
+      const chipTxt=v.open_violations>0?v.open_violations+' open':'clear';
+      h+='<div class="feed-row" onclick="SW.drillViolations({search:\''+esc(v.upn)+'\'})">';
+      h+='<span class="vip-dot '+dotCls+'"></span>';
+      h+='<span class="feed-who">'+esc(v.display_name||v.upn.split('@')[0])+'</span>';
+      h+='<span class="feed-what" style="font-family:var(--mono);font-size:11px;color:var(--text3)">'+esc(v.upn)+'</span>';
+      if(v.paused) h+='<span class="ev-pill tkt" title="Paused — SDP ticket '+esc(v.pause_ticket_display||'')+'">⏸ '+esc(v.pause_ticket_display||'')+'</span>';
+      h+='<span class="ev-pill '+chipCls+'">'+chipTxt+'</span>';
+      h+='<span class="feed-when">'+(v.last_violation?relTime(v.last_violation.event_time):'never')+'</span>';
+      h+='</div>';
+    }
+    $('vipBoard').innerHTML = h;
+  }
+
+  /* ── overview ── */
+  async function loadOverview(){
+    loadVipBoard();
+    let pollerRung='unknown', pollerAgeTx='unknown';
+    const st = await api('GET','/status');
+    if(st.ok && st.state){
+      const s=st.state;
+      const cycle=s.last_cycle_at?relTime(s.last_cycle_at.value):'unknown';
+      const dotEl=$('ovStatus').querySelector('.ov-dot');
+      const txEl=$('ovStatus').querySelector('.ov-status-tx');
+      const subEl=$('ovStatusSub');
+      const hasErr=(s.okta_last_error&&s.okta_last_error.value)||(s.entra_last_error&&s.entra_last_error.value);
+      pollerRung = rung(s.last_cycle_at && s.last_cycle_at.value, hasErr);
+      pollerAgeTx = cycle;
+      // Publish the rung, then render the strip. Awaited so the status line
+      // below can read _lastKpi.watched instead of racing it.
+      _pollerRung = pollerRung;
+      await loadKpi();
+      dotEl.style.background = rungColor(pollerRung);
+      if(pollerRung==='failed')       txEl.textContent='Monitoring with warnings';
+      else if(pollerRung==='stale')   txEl.textContent='Monitoring stopped \u2014 no new data';
+      else if(pollerRung==='unknown') txEl.textContent='Poller state unknown';
+      else                            txEl.textContent='Monitoring '+(_lastKpi?_lastKpi.watched:'')+' accounts across Okta and Entra';
+      subEl.textContent='Last cycle '+cycle;
+      if(pollerRung!=='ok' && window.ITObserve) ITObserve.degraded('poller', 'poller '+pollerRung, 'last cycle '+cycle);
+      let cenrTxt=null, cenrAt=null;
+      if(s.cenr_last_sync&&s.cenr_last_sync.value){
+        try{const c=JSON.parse(s.cenr_last_sync.value); cenrAt=c.at||null; cenrTxt=(c.ranges!=null?c.ranges+' ranges':null)||(c.at?String(c.at).slice(0,10):null);}
+        catch(e){cenrAt=s.cenr_last_sync.value; cenrTxt=String(s.cenr_last_sync.value).slice(0,10);}
+      }
+      const oktaR  = rung(s.okta_cursor && s.okta_cursor.value,  s.okta_last_error && s.okta_last_error.value);
+      const entraR = rung(s.entra_cursor && s.entra_cursor.value, s.entra_last_error && s.entra_last_error.value);
+      /* CENR is written BY this poller, so it cannot be healthier than the
+         poller is. When the poller is ok, age CENR on its own clock -- 48h,
+         a range sync, not a 60s one. */
+      const cenrR  = pollerRung==='ok' ? rung(cenrAt, false, 48) : pollerRung;
+      const parts=[];
+      parts.push('<span class="ov-sys-dot'+rungDot(pollerRung)+'" title="poller '+pollerRung+' \u00b7 last cycle '+esc(cycle)+'"></span><span class="ov-sys-label">Poller</span><span class="ov-sys-val">'+(pollerRung==='ok'?'60s cycle':esc(cycle))+'</span>');
+      parts.push('<span class="ov-sys-dot'+rungDot(oktaR)+'" title="okta cursor '+oktaR+'"></span><span class="ov-sys-label">Okta</span><span class="ov-sys-val">'+esc(cursorTx(s.okta_cursor && s.okta_cursor.value))+'</span>');
+      parts.push('<span class="ov-sys-dot'+rungDot(entraR)+'" title="entra cursor '+entraR+'"></span><span class="ov-sys-label">Entra</span><span class="ov-sys-val">'+esc(cursorTx(s.entra_cursor && s.entra_cursor.value))+'</span>');
+      if(cenrTxt) parts.push('<span class="ov-sys-dot'+rungDot(cenrR)+'" title="cenr '+cenrR+'"></span><span class="ov-sys-label">CENR</span><span class="ov-sys-val">'+esc(cenrTxt)+'</span>');
+      [['okta',oktaR],['entra',entraR],['cenr',cenrR]].forEach(function(x){
+        if(x[1]!=='ok' && window.ITObserve) ITObserve.degraded('cursor:'+x[0], x[0]+' cursor '+x[1], '');
+      });
+      $('ovSys').innerHTML=parts.join('');
+    } else {
+      // /status did not answer, so the window is unmeasured by definition.
+      _pollerRung = 'unknown';
+      await loadKpi();
+      /* /status had no else at all: a call that 404s, 500s or times out left
+         the strip on its placeholder and the text stuck on "Loading...", with
+         nothing reporting the failure. (Before the CSS default was flipped to
+         amber above, it also left both dots GREEN.) A check that did not
+         complete is amber and is reported. */
+      $('ovStatus').querySelector('.ov-dot').style.background='var(--warn)';
+      $('ovStatus').querySelector('.ov-status-tx').textContent='Poller state unavailable';
+      $('ovStatusSub').textContent = st && st.error ? ('/status: '+st.error) : '/status did not answer';
+      $('ovSys').innerHTML='<span class="ov-sys-dot ov-sys-warn"></span><span class="ov-sys-label">Poller</span><span class="ov-sys-val">state unavailable</span>';
+      if(window.ITObserve) ITObserve.degraded('poller','/status unavailable', (st && st.error) || '');
+    }
+    const vj = await api('GET','/violations?limit=10&hours=72');
+    if(vj.ok&&vj.rows&&vj.rows.length){
+      let h='';
+      for(const r of vj.rows){
+        const isSucc=r.result==='success';
+        const icCls=isSucc?'succ':r.result==='failure'?'fail':'unk';
+        const icSym=isSucc?icon('alert'):icon('shield');
+        const geo=[r.geo_city,r.geo_country].filter(Boolean).join(', ')||'\u2014';
+        const what=isSucc?'<span style="color:var(--bad);font-weight:600">Signed in</span> \u00b7 '+esc(geo):'Blocked \u00b7 '+esc(geo);
+        h+='<div class="feed-row" onclick="SW.investigate('+r.id+')">';
+        h+='<span class="feed-ic '+icCls+'" title="'+(isSucc?'Successful sign-in from untrusted network':'Failed attempt \u2014 blocked')+'">'+icSym+'</span>';
+        h+='<span class="feed-who">'+esc((r.upn||'').split('@')[0])+'</span>';
+        h+='<span class="feed-what">'+what+'</span>';
+        h+='<span class="feed-geo">'+esc(r.ip||'')+'</span>';
+        h+='<span class="feed-when">'+relTime(r.event_time)+'</span>';
+        h+='</div>';
+      }
+      $('ovRecent').innerHTML=h;
+    } else if(pollerRung==='ok'){
+      $('ovRecent').innerHTML='<div style="padding:14px 16px;color:var(--text3);font-size:12px">'+icon('check')+' No violations in the last 72 hours</div>';
+    } else {
+      /* Zero rows returned for a window the collector never covered is NOT an
+         all-clear -- it is an absence of data. Rendering it as a green check
+         during an active credential-spray campaign is the most dangerous thing
+         this page could say. */
+      $('ovRecent').innerHTML='<div style="padding:14px 16px;color:var(--warn);font-size:12px">'+icon('alert')+' No data for this window \u2014 the poller last ran '+esc(pollerAgeTx)+'. This is not an all-clear.</div>';
+      if(window.ITObserve) ITObserve.degraded('live-feed','empty 72h window over a '+pollerRung+' feed','last cycle '+pollerAgeTx);
+    }
+  }
+
+  /* ── violations ── */
+  let _violPage = 1;
+  // Server-side truth for the current query, so the pager cannot present a
+  // capped page as the whole result set.
+  let _violMatched = null, _violCapped = false, _violServerRows = 0;
+  const VIOL_PER_PAGE = 25;
+
+  async function loadViolations(resetPage){
+    if(resetPage!==false) _violPage = 1;
+    const src=$('fSource').value, res=$('fResult').value, hrs=$('fHours').value, st=$('fState').value;
+    const q=($('fSearch')?$('fSearch').value.trim().toLowerCase():'');
+    let apiQ='?limit=2000';
+    if(src) apiQ+='&source='+src;
+    if(hrs) apiQ+='&hours='+hrs;
+    if(st==='1') apiQ+='&unacked=1';
+    const j = await api('GET','/violations'+apiQ);
+    if(!j.ok){$('violGrid').innerHTML='<div class="err">'+esc(j.error)+'</div>';$('violPager').innerHTML='';return;}
+    let rows = j.rows||[];
+    _violServerRows = rows.length;
+    _violMatched = (typeof j.matched === 'number') ? j.matched : null;
+    _violCapped = !!j.capped;
+    if(res) rows=rows.filter(r=>r.result===res);
+    if(st==='2') rows=rows.filter(r=>r.acked);
+    if(q) rows=rows.filter(r=>{
+      const tc=threatCtx(r)||{};
+      return [r.upn,r.ip,r.geo_city,r.geo_country,r.app_name,r.client_app,r.failure_reason,r.geo_asn,r.geo_isp,tc.isp,tc.as_org].filter(Boolean).some(v=>String(v).toLowerCase().includes(q));
+    });
+    _violations = rows;
+    renderViolPage();
+  }
+
+  function renderViolPage(){
+    const rows=_violations;
+    const total=rows.length;
+    const sm=$('violSummary');
+    if(sm){
+      const open=rows.filter(r=>!r.acked).length;
+      const fails=rows.filter(r=>r.result==='failure').length;
+      const succ=rows.filter(r=>r.result==='success').length;
+      sm.innerHTML='<b>'+total.toLocaleString()+'</b> matching'+
+        ' <b class="ct-bad">'+open.toLocaleString()+'</b> open'+
+        (succ?' <b class="ct-bad">'+succ+'</b> successes':'')+
+        ' <b class="ct-warn">'+fails.toLocaleString()+'</b> failures'+
+        (_violCapped
+          ? ' <span class="ct-warn" title="The server returns at most 500 rows per query.">\u26a0 server returned the first '+
+            _violServerRows.toLocaleString()+' of '+(_violMatched||0).toLocaleString()+
+            ' \u2014 narrow the filters to see the rest</span>'
+          : '');
+    }
+    const pages=Math.max(1, Math.ceil(total/VIOL_PER_PAGE));
+    if(_violPage>pages) _violPage=pages;
+    const start=(_violPage-1)*VIOL_PER_PAGE;
+    const pageRows=rows.slice(start, start+VIOL_PER_PAGE);
+    // A zero here means "nothing recorded in this window", which is only an
+    // all-clear when the poller actually ran in it.
+    const emptyMeasured = _pollerRung==='ok';
+    $('violGrid').innerHTML = pageRows.length ? violTable(pageRows,false)
+      : '<div class="empty">'+icon(emptyMeasured?'check':'alert')+' No violations match filters'+
+        (emptyMeasured ? '' : ' \u2014 the poller is '+_pollerRung+', so this window was never measured')+'</div>';
+    renderPager(total, pages);
+  }
+
+  function renderPager(total, pages){
+    if(total===0){$('violPager').innerHTML='';return;}
+    const p=_violPage;
+    let h='<span class="pg-info">'+total.toLocaleString()+' total · page '+p+' of '+pages+'</span>';
+    h+='<button class="pg-btn" '+(p<=1?'disabled':'')+' onclick="SW.violGoto('+(p-1)+')">‹</button>';
+    // smart page buttons: 1 … p-1 p p+1 … last
+    const nums=new Set([1,pages,p,p-1,p+1,p-2,p+2]);
+    const sorted=[...nums].filter(n=>n>=1&&n<=pages).sort((a,b)=>a-b);
+    let prev=0;
+    for(const n of sorted){
+      if(n-prev>1) h+='<span class="pg-ellipsis">…</span>';
+      h+='<button class="pg-btn'+(n===p?' on':'')+'" onclick="SW.violGoto('+n+')">'+n+'</button>';
+      prev=n;
+    }
+    h+='<button class="pg-btn" '+(p>=pages?'disabled':'')+' onclick="SW.violGoto('+(p+1)+')">›</button>';
+    $('violPager').innerHTML=h;
+  }
+
+  function violGoto(n){ _violPage=n; renderViolPage(); document.getElementById('violGrid').scrollTop=0; }
+
+  function drillViolations(opts){
+    // pre-set filters and switch to violations tab
+    if(opts.result) $('fResult').value=opts.result;
+    if(opts.hours) $('fHours').value=opts.hours;
+    if(opts.state) $('fState').value=opts.state;
+    if(opts.search && $('fSearch')) $('fSearch').value=opts.search;
+    nav('violations');
+  }
+
+  function violTable(rows,compact){
+    let h='';
+    for(const r of rows){
+      const ca=caLabel(r);
+      const isSucc=r.result==='success';
+      const resCls=isSucc?'succ':r.result==='failure'?'fail':'unk';
+      const geo=[r.geo_city,r.geo_country].filter(Boolean).join(', ')||'\u2014';
+      h+='<div class="ev" onclick="SW.investigate('+r.id+')">';
+      h+='<div class="ev-rail"><span class="ev-dot '+resCls+'" title="'+(isSucc?'Successful sign-in':'Blocked attempt')+'"></span></div>';
+      h+='<div class="ev-body">';
+      h+='<div class="ev-top">';
+      h+='<span class="ev-who">'+esc(r.upn)+'</span>';
+      h+='<span style="font-size:10.5px;color:var(--text3)">'+esc((r.source||'')==='okta'?'Okta':'Entra')+'</span>';
+      if(isSucc) h+='<span class="ev-pill succ">Signed in</span>';
+      if(!r.acked) h+='<span class="ev-pill open">Open</span>';
+      if(r.ms_risk_match){let mm=r.ms_risk_match;if(typeof mm==='string'){try{mm=JSON.parse(mm)}catch(e){mm=null}}
+        if(mm) h+='<span class="ev-pill" style="background:var(--bad-dim);color:var(--bad)" title="Microsoft flagged this window: '+esc(mm.type||'')+' ('+esc(mm.level||'')+')'+(mm.ip_match?' — same IP':'')+'">⚠ MS flagged</span>';}
+      // v3.20.0: urgent out-of-country / impossible-travel markers.
+      if(r.urgent_reason==='out_of_country'||(r.geo_country&&!/^(us|usa|united states|united states of america)$/i.test(String(r.geo_country).trim())))
+        h+='<span class="ev-pill" style="background:var(--bad-dim);color:var(--bad);font-weight:700" title="Sign-in from outside the US — company devices are not authorized to travel without approval">🌍 Out of country</span>';
+      else if(r.urgent_reason==='impossible_travel')
+        h+='<span class="ev-pill" style="background:var(--bad-dim);color:var(--bad);font-weight:700" title="Impossible travel — different country within the travel window">✈ Impossible travel</span>';
+      if(r.sdp_ticket_id){const td=esc(String(r.sdp_ticket_display||r.sdp_ticket_id));h+='<span class="ev-pill tkt" title="SDP ticket">'+(r.sdp_ticket_url?'<a href="'+esc(r.sdp_ticket_url)+'" target="_blank" style="color:inherit;text-decoration:none">'+td+'</a>':td)+'</span>';}
+      h+='<span class="ev-when">'+esc(fmtTime(r.event_time))+(r.acked?' \u00b7 acked':'')+'</span>';
+      h+='</div>';
+      h+='<div class="ev-detail">';
+      h+='<span>'+esc(geo)+'</span>';
+      h+='<span class="mono">'+esc(r.ip||'\u2014')+'</span>';
+      if(!compact && r.app_name) h+='<span>'+esc(r.app_name)+'</span>';
+      if(!compact && ca==='notApplied') h+='<span style="color:var(--warn)">CA not applied</span>';
+      if(r.geo_isp) h+='<span class="mono">'+esc(r.geo_isp).slice(0,40)+'</span>';
+      h+='</div>';
+      if(!compact){
+        h+='<div class="ev-acts">';
+        if(!r.acked) h+='<span class="ev-act" onclick="event.stopPropagation();SW.ackOne('+r.id+')">Acknowledge</span>';
+        h+='<span class="ev-act" onclick="event.stopPropagation();SW.investigate('+r.id+')">Investigate</span>';
+        h+='<span class="ev-act" onclick="event.stopPropagation();SW.repush('+r.id+')">Re-alert</span>';
+        h+='<span class="ev-act" onclick="event.stopPropagation();SW.viewRaw('+r.id+')">Raw</span>';
+        h+='</div>';
+      }
+      h+='</div></div>';
+    }
+    return h;
+  }
+
+  /* ── ack ── */
+  async function ackOne(id){
+    const j = await api('POST','/violations/'+id+'/ack',{note:'manual ack'});
+    if(j.ok) { toast('Acknowledged'); loadViolations(); loadKpi(); } else toast('Error: '+j.error);
+  }
+  async function bulkAck(){
+    const src=$('fSource').value, res=$('fResult').value, hrs=$('fHours').value;
+    const q=($('fSearch')?$('fSearch').value.trim():'');
+    // This button sits under a filtered grid, so the prompt must name exactly
+    // what the server will change. The time window was previously not sent at
+    // all, so a 72-hour view acknowledged everything back to the first record.
+    const scope=[hrs ? ('the last '+((Number(hrs)%24===0) ? (Number(hrs)/24)+' day(s)' : hrs+' hour(s)')) : 'ALL TIME'];
+    if(src) scope.push('source '+src);
+    if(res) scope.push('result '+res);
+    let msg='Acknowledge every OPEN violation matching:\n  '+scope.join('\n  ');
+    if(q) msg+='\n\nThe search box ("'+q+'") is NOT applied \u2014 the server cannot filter on it.';
+    msg+='\n\nThis cannot be undone. Continue?';
+    if(!confirm(msg)) return;
+    const body = {note:'bulk ack from console'};
+    if(src) body.source=src;
+    if(res) body.result=res;
+    if(hrs) body.after=new Date(Date.now()-Number(hrs)*3600000).toISOString().slice(0,19).replace('T',' ');
+    const j = await api('POST','/violations/ack-all',body);
+    if(j.ok) { toast('Acked '+j.changed+' violations'); loadViolations(); loadKpi(); } else toast('Error: '+j.error);
+  }
+  async function viewRaw(id){
+    const j = await api('GET','/violations/'+id+'/raw');
+    openFly('raw');
+    $('flyTitle').textContent='Raw event #'+id;
+    $('flyBody').innerHTML='<pre style="font-size:11px;white-space:pre-wrap;word-break:break-all;color:var(--text2);font-family:var(--mono)">'+esc(JSON.stringify(j.raw,null,2))+'</pre>';
+    $('flyFoot').innerHTML='<button class="btn" onclick="SW.closeFly()">Close</button>';
+  }
+
+  /* ── watchlist CRUD ── */
+  async function loadWatchlist(){
+    const j = await api('GET','/watchlist');
+    if(!j.ok) return;
+    const rows=j.rows||[];
+    if(!rows.length){$('watchGrid').innerHTML='<div class="empty">No watched users</div>';return}
+    let h='<table class="grid"><thead><tr><th>User</th><th>Tier</th><th>Okta</th><th>Entra</th><th>State</th><th>Note</th><th>Added by</th><th style="width:220px"></th></tr></thead><tbody>';
+    for(const r of rows){
+      h+='<tr><td class="mono">'+esc(r.upn)+(r.tier==='vip'?'<span class="tier-badge">VIP</span>':'')+'</td>';
+      h+='<td>'+(r.tier==='vip'?'<span class="st bad">VIP</span>':'<span class="st off">Standard</span>')+'</td>';
+      h+='<td>'+(r.watch_okta?'<span class="st ok">On</span>':'<span class="st off">Off</span>')+'</td>';
+      h+='<td>'+(r.watch_entra?'<span class="st ok">On</span>':'<span class="st off">Off</span>')+'</td>';
+      let stateHtml;
+      if(!r.active){
+        stateHtml = '<span class="st off">Disabled</span>';
+      } else if(r.pause_ticket_id){
+        // Paused: show a single amber "Paused" state + a separate ticket chip (no #).
+        const tkt = r.pause_ticket_display||'';
+        const tktInner = r.pause_ticket_url
+          ? '<a href="'+esc(r.pause_ticket_url)+'" target="_blank" style="color:inherit;text-decoration:none">'+esc(tkt)+'</a>'
+          : esc(tkt);
+        stateHtml = '<span class="st warn" title="Alerts suppressed while the linked SDP ticket is open'+(r.paused_by?' · paused by '+esc(r.paused_by):'')+'">⏸ Paused</span>'+
+          (tkt?' <span class="ev-pill tkt" title="Linked SDP ticket">'+tktInner+'</span>':'');
+      } else {
+        stateHtml = '<span class="st ok">Active</span>';
+      }
+      h+='<td>'+stateHtml+'</td>';
+      h+='<td class="dim">'+esc(r.note||'')+'</td>';
+      h+='<td class="dim">'+esc(r.added_by||'')+'</td>';
+      h+='<td><div class="rowact">'+
+        (r.pause_ticket_id
+          ? '<button class="ra" onclick="SW.resumeWatch('+r.id+',\''+esc(r.pause_ticket_display||'')+'\')">'+icon('send')+'Resume</button>'
+          : '<button class="ra" onclick="SW.pauseWatch('+r.id+',\''+esc(r.upn)+'\')">'+icon('clock')+'Pause</button>')+
+        '<button class="ra" onclick="SW.toggleVip('+r.id+',\''+(r.tier==='vip'?'standard':'vip')+'\')">'+icon('shield')+(r.tier==='vip'?'Unset VIP':'Make VIP')+'</button>'+
+        '<button class="ra" onclick="SW.delWatch('+r.id+')">'+icon('trash')+'Remove</button>'+
+        '</div></td></tr>';
+    }
+    $('watchGrid').innerHTML=h+'</tbody></table>';
+  }
+  async function delWatch(id){ if(!confirm('Remove from watchlist?')) return; await api('DELETE','/watchlist/'+id); toast('Removed'); loadWatchlist(); }
+  async function toggleVip(id, tier){
+    const j=await api('PATCH','/watchlist/'+id,{tier});
+    if(j.ok){toast(tier==='vip'?'Marked VIP':'VIP removed');loadWatchlist()}else toast('Error: '+j.error);
+  }
+
+  /* ── networks CRUD ── */
+  async function loadNetworks(){
+    const j = await api('GET','/networks');
+    if(!j.ok) return;
+    const rows=j.rows||[];
+    if(!rows.length){$('netGrid').innerHTML='<div class="empty">No trusted networks</div>';return}
+    let h='<table class="grid"><thead><tr><th>Label</th><th>CIDR</th><th>Type</th><th>State</th><th style="width:150px"></th></tr></thead><tbody>';
+    for(const r of rows){
+      h+='<tr><td>'+esc(r.label||r.note||'')+'</td>';
+      h+='<td class="mono">'+esc(r.cidr)+'</td>';
+      h+='<td><span class="tag">'+esc(r.type)+'</span></td>';
+      h+='<td>'+(r.enabled?'<span class="st ok">Enabled</span>':'<span class="st off">Disabled</span>')+'</td>';
+      h+='<td><div class="rowact"><button class="ra" onclick="SW.delNet('+r.id+')">'+icon('trash')+'Delete</button></div></td></tr>';
+    }
+    $('netGrid').innerHTML=h+'</tbody></table>';
+  }
+  async function delNet(id){ if(!confirm('Delete network?')) return; await api('DELETE','/networks/'+id); toast('Deleted'); loadNetworks(); }
+
+  /* ── channels CRUD ── */
+  async function loadChannels(){
+    const j = await api('GET','/channels');
+    if(!j.ok) return;
+    const rows=j.rows||[];
+    if(!rows.length){$('chanGrid').innerHTML='<div class="empty">No alert channels configured</div>';return}
+    let h='<table class="grid"><thead><tr><th>Name</th><th>Type</th><th>Fires on</th><th>Tier</th><th>Auto-inv</th><th>State</th><th>Last test</th><th style="width:210px"></th></tr></thead><tbody>';
+    for(const r of rows){
+      h+='<tr><td>'+esc(r.name)+'</td>';
+      h+='<td><span class="tag">'+esc(r.type)+'</span></td>';
+      h+='<td>'+esc(r.fire_on)+'</td>';
+      h+='<td>'+(r.tier_filter==='vip'?'<span class="st bad">VIP</span>':r.tier_filter==='standard'?'<span class="st off">Std</span>':'<span class="st info">All</span>')+'</td>';
+      h+='<td>'+(r.auto_investigate?'<span class="st ok">On</span>':'<span class="dim">—</span>')+'</td>';
+      h+='<td>'+(r.enabled?'<span class="st ok">Enabled</span>':'<span class="st off">Disabled</span>')+'</td>';
+      h+='<td class="dim">'+esc(r.last_test_result||'—')+'</td>';
+      h+='<td><div class="rowact"><button class="ra" onclick="SW.testChan('+r.id+')">'+icon('send')+'Test</button><button class="ra" onclick="SW.delChan('+r.id+')">'+icon('trash')+'Delete</button></div></td></tr>';
+    }
+    $('chanGrid').innerHTML=h+'</tbody></table>';
+  }
+  async function testChan(id){ const j=await api('POST','/channels/'+id+'/test'); toast(j.ok?'Test sent':'Error: '+(j.detail||j.error)); }
+  async function delChan(id){ if(!confirm('Delete channel?')) return; await api('DELETE','/channels/'+id); toast('Deleted'); loadChannels(); }
+
+  /* ── status ── */
+  async function loadStatus(){
+    const j = await api('GET','/status');
+    if(!j.ok) return;
+    const st=j.state||{};
+    $('stMeta').textContent=st.last_cycle_at?'updated '+relTime(st.last_cycle_at.value):'';
+    let h='<table class="grid"><thead><tr><th>Key</th><th>Value</th><th>Updated</th></tr></thead><tbody>';
+    for(const [k,v] of Object.entries(st)){
+      h+='<tr><td class="mono">'+esc(k)+'</td><td class="mono" style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(v.value)+'">'+esc(v.value)+'</td><td class="dim">'+esc(relTime(v.updated_at))+'</td></tr>';
+    }
+    $('statusGrid').innerHTML=h+'</tbody></table>';
+  }
+
+  /* ── flyover forms ── */
+  function openFly(kind){
+    const fly=$('flyover');
+    fly.classList.remove('wide');
+    $('scrim').classList.add('on');
+    fly.classList.add('open');
+    if(kind==='addWatch'){
+      $('flyTitle').textContent='Add watched user';
+      $('flyBody').innerHTML='<div class="fg"><label>UPN (email)</label><input id="fwUpn" placeholder="user@auction.com"></div><div class="fg"><label>Tier</label><select id="fwTier"><option value="standard">Standard</option><option value="vip">VIP — high priority</option></select><div class="hint">VIP accounts show on the Overview board and auto-investigate on every violation.</div></div><div class="fg"><label>Note</label><input id="fwNote" placeholder="Optional note"></div><div class="switch-row"><input type="checkbox" id="fwOkta" checked><label>Watch Okta</label></div><div class="switch-row"><input type="checkbox" id="fwEntra" checked><label>Watch Entra</label></div>';
+      $('flyFoot').innerHTML='<button class="btn primary" onclick="SW.saveWatch()">Add</button><button class="btn" onclick="SW.closeFly()">Cancel</button>';
+    } else if(kind==='addNet'){
+      $('flyTitle').textContent='Add trusted network';
+      $('flyBody').innerHTML='<div class="fg"><label>Label</label><input id="fnLabel" placeholder="Office name or description"></div><div class="fg"><label>CIDR</label><input id="fnCidr" placeholder="10.0.0.0/24 or 2001:db8::/32"></div><div class="fg"><label>Type</label><select id="fnType"><option value="office-plano">Office — Plano</option><option value="office-irvine">Office — Irvine</option><option value="other">Other</option></select></div><div class="fg"><label>Note</label><input id="fnNote" placeholder="Optional"></div>';
+      $('flyFoot').innerHTML='<button class="btn primary" onclick="SW.saveNet()">Add</button><button class="btn" onclick="SW.closeFly()">Cancel</button>';
+    } else if(kind==='addChan'){
+      $('flyTitle').textContent='Add alert channel';
+      $('flyBody').innerHTML='<div class="fg"><label>Name</label><input id="fcName" placeholder="e.g. IT-Security Teams"></div><div class="fg"><label>Type</label><select id="fcType"><option value="teams">Teams webhook</option><option value="webhook">Generic webhook</option><option value="sdp">SDP ticket</option></select></div><div class="fg"><label>Config JSON</label><textarea id="fcConfig" placeholder=\'{"webhook_url":"https://..."}\'></textarea><div class="hint">Teams: {"webhook_url":"..."}, SDP: {"requester_email":"..."}</div></div><div class="fg"><label>Fires on</label><select id="fcFire"><option value="all">All results</option><option value="failure">Failures only</option><option value="success">Successes only</option></select></div><div class="fg"><label>Tier filter</label><select id="fcTier"><option value="all">All tiers</option><option value="vip">VIP only</option><option value="standard">Standard only</option></select><div class="hint">Route VIP alerts to a dedicated channel with @mentions.</div></div><div class="fg"><label>@mentions (Teams, optional)</label><input id="fcMention" placeholder=\'user@auction.com, other@auction.com\'><div class="hint">Comma-separated UPNs to @mention on Teams alerts.</div></div><div class="switch-row"><input type="checkbox" id="fcAutoInv"><label>Auto-investigate before alerting (attaches findings)</label></div>';
+      $('flyFoot').innerHTML='<button class="btn primary" onclick="SW.saveChan()">Add</button><button class="btn" onclick="SW.closeFly()">Cancel</button>';
+    }
+  }
+  function closeFly(){ $('flyover').classList.remove('open','wide'); $('scrim').classList.remove('on'); }
+  async function saveWatch(){
+    const upn=$('fwUpn').value.trim().toLowerCase();
+    if(!upn){toast('UPN required');return}
+    const j=await api('POST','/watchlist',{upn, tier:$('fwTier').value, watch_okta:$('fwOkta').checked, watch_entra:$('fwEntra').checked, note:$('fwNote').value.trim()});
+    if(j.ok){toast('Added');closeFly();loadWatchlist()}else toast('Error: '+j.error);
+  }
+  async function saveNet(){
+    const j=await api('POST','/networks',{label:$('fnLabel').value.trim(),cidr:$('fnCidr').value.trim(),type:$('fnType').value,note:$('fnNote').value.trim()});
+    if(j.ok){toast('Added');closeFly();loadNetworks()}else toast('Error: '+j.error);
+  }
+  async function saveChan(){
+    let cfg; try{cfg=JSON.parse($('fcConfig').value||'{}')}catch(e){toast('Invalid JSON');return}
+    const body={name:$('fcName').value.trim(),type:$('fcType').value,config_json:cfg,fire_on:$('fcFire').value,tier_filter:$('fcTier').value,auto_investigate:$('fcAutoInv').checked};
+    const mentionRaw=$('fcMention').value.trim();
+    if(mentionRaw){
+      const mentions=mentionRaw.split(',').map(s=>s.trim()).filter(Boolean).map(id=>({id, name:id.split('@')[0]}));
+      body.mention_config={mentions};
+    }
+    const j=await api('POST','/channels',body);
+    if(j.ok){toast('Added');closeFly();loadChannels()}else toast('Error: '+j.error);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     INVESTIGATE MODE
+     ═══════════════════════════════════════════════════════════════════ */
+  /* ── v3.11.0: alert pause (SDP-ticket linked) ── */
+  let _pauseRowId=null;
+  function pauseWatch(id, upn){
+    _pauseRowId=id;
+    const fly=$('flyover'); fly.classList.remove('wide');
+    $('scrim').classList.add('on'); fly.classList.add('open');
+    $('flyTitle').textContent='Pause alerts — '+upn;
+    $('flyBody').innerHTML='<div class="fg"><label>SDP ticket #</label><input id="fpTicket" placeholder="Ticket ID (display or internal)"><div class="hint">Violations are still recorded and investigated — only Teams/channel alerts are suppressed. Alerts resume automatically when this ticket is resolved or closed (checked every 5 min), or manually via Resume.</div></div><div class="switch-row"><input type="checkbox" id="fpAssoc" checked><label>Also link this user\u2019s recent violations (30 days) to the ticket</label></div><div class="hint" style="margin-top:-4px">New violations while paused are linked automatically. Violations that already have their own ticket keep it.</div>';
+    $('flyFoot').innerHTML='<button class="btn primary" onclick="SW.savePause()">Pause alerts</button><button class="btn" onclick="SW.closeFly()">Cancel</button>';
+    setTimeout(()=>{const el=$('fpTicket');if(el)el.focus()},50);
+  }
+  async function savePause(){
+    const t=($('fpTicket').value||'').trim();
+    if(!t){toast('Enter a ticket number');return}
+    const j=await api('POST','/watchlist/'+_pauseRowId+'/pause',{ticket_id:t, associate_existing:$('fpAssoc')?$('fpAssoc').checked:true});
+    if(j.ok){toast('Alerts paused — SDP #'+(j.ticket&&(j.ticket.display_id||j.ticket.id)||t)+(j.associated?' · linked '+j.associated+' violations':''));closeFly();loadWatchlist();loadVipBoard();loadViolations()}
+    else toast('Error: '+j.error);
+  }
+  async function resumeWatch(id, ticket){
+    if(!confirm('Resume alerts now? Ticket #'+ticket+' will be unlinked.'))return;
+    const j=await api('POST','/watchlist/'+id+'/resume');
+    if(j.ok){toast('Alerts resumed');loadWatchlist();loadVipBoard()}
+    else toast('Error: '+j.error);
+  }
+
+  let _curViol = null;
+
+  function toggleSec(sec){
+    const head=document.querySelector('.inv-sec-head[data-sec="'+sec+'"]');
+    const body=$('body-'+sec);
+    if(!body) return;
+    if(head) head.classList.toggle('collapsed');
+    body.classList.toggle('hidden');
+  }
+
+  // Mark a panel as empty (collapse to header-only) or populate it
+  function setPanel(panelId, bodyId, html, isEmpty){
+    const el=$(bodyId); if(el) el.innerHTML=html;
+    const panel=$(panelId);
+    if(panel){ if(isEmpty) panel.classList.add('empty-panel'); else panel.classList.remove('empty-panel'); }
+  }
+
+  // v3.17.0: plain-English AADSTS decoding
+  const ERRMAP={
+    '50126':'wrong password',
+    '50053':'smart lockout tripped — attacker hit the threshold',
+    '50057':'account is disabled',
+    '50055':'password expired',
+    '50076':'MFA challenge required — not completed',
+    '50079':'MFA enrollment required',
+    '50158':'external security challenge not satisfied',
+    '53003':'blocked by Conditional Access',
+    '530032':'blocked by security defaults',
+    '50034':'account does not exist in tenant',
+    '50059':'no tenant-identifying info',
+    '7000218':'invalid client — token request malformed'
+  };
+  function decodeErr(reason){
+    if(!reason) return null;
+    const m=String(reason).match(/(\d{5,7})/);
+    return m&&ERRMAP[m[1]]?ERRMAP[m[1]]:null;
+  }
+  // v3.17.0: was anyone told?
+  function alertDeliveryLine(v){
+    let hit=v.alert_channels_hit;
+    if(typeof hit==='string'){ try{hit=JSON.parse(hit)}catch(e){hit=null} }
+    if(hit&&hit.suppressed==='paused') return '<span style="color:var(--warn)">Alert suppressed — paused under SDP #'+esc(String(hit.ticket||''))+'</span>';
+    if(hit&&Array.isArray(hit.sent)&&hit.sent.length) return 'Alerted: '+esc(hit.sent.join(', '))+(hit.failed&&hit.failed.length?' <span style="color:var(--bad)">· '+hit.failed.length+' failed</span>':'');
+    if(v.alert_sent) return 'Alerted';
+    return '<span style="color:var(--text3)">No alert sent</span>';
+  }
+
+  // Build the verdict banner from loaded data
+  function buildVerdict(v, emp){
+    const tc = threatCtx(v)||{};
+    const d = devInfo(v)||{};
+    const findings=[];
+    let sev='low';
+
+    // employee status
+    let who = 'User';
+    if(emp && emp.found){
+      if(emp.employee_status==='terminated'){ who='Terminated employee'; findings.push({t:'Terminated',c:'bad'}); sev='high'; }
+      else if(emp.employee_status==='active'){ who=(emp.record&&emp.record.job_name)?emp.record.job_name:'Active employee'; }
+    }
+
+    // attack signal
+    let attack='sign-in';
+    if(v.result==='failure' && /50126|invalid/i.test(v.failure_reason||'')){ attack='credential-stuffing attempt'; findings.push({t:'Cred stuffing',c:'warn'}); if(sev!=='high')sev='med'; }
+    else if(v.result==='success'){ attack='SUCCESSFUL sign-in from untrusted network'; findings.push({t:'Successful',c:'bad'}); sev='high'; }
+
+    // device posture
+    if(d.managed===false||d.managed==='false'){ findings.push({t:'Unmanaged device',c:'warn'}); if(sev==='low')sev='med'; }
+
+    // CA gap
+    if(tc.ca_status==='notApplied'){ findings.push({t:'CA not enforced',c:'warn'}); if(sev==='low')sev='med'; }
+
+    // client type / legacy
+    if(v.client_app && /IMAP|POP|SMTP|ActiveSync/i.test(v.client_app)){ findings.push({t:'Legacy auth',c:'bad'}); sev='high'; }
+
+    // VIP escalation — check cached VIP set (tier not in violations query)
+    const isVip = _vipUpns.has((v.upn||'').toLowerCase());
+    if(isVip){ findings.unshift({t:'VIP account',c:'bad'}); if(sev==='low')sev='med'; }
+
+    const geo=[v.geo_city,v.geo_country].filter(Boolean).join(', ')||'an unknown location';
+    const name=esc((v.upn||'').split('@')[0]);
+    const credstuff=v.result==='failure' && /50126|invalid/i.test(v.failure_reason||'');
+    let head;
+    if(emp&&emp.found&&emp.employee_status==='terminated') head='Sign-in attempt on a terminated employee\u2019s account — '+name;
+    else if(v.result==='success') head='Someone SIGNED IN to '+name+'\u2019s account from an untrusted network ('+esc(geo)+')';
+    else if(credstuff) head='Someone is guessing passwords for '+name+' — they have not gotten in';
+    else head='Blocked sign-in attempt on '+name+' from '+esc(geo);
+
+    const icon = sev==='high'?'ic-alert':sev==='med'?'ic-shield':'ic-check';
+    let h='<div class="verdict sev-'+sev+'">'+
+      '<span class="vic"><svg class="i"><use href="#'+icon+'"/></svg></span>'+
+      '<div><div class="vhead">'+head+'</div>';
+    if(findings.length){
+      h+='<div class="vfindings">'+findings.map(f=>'<span class="vchip '+(f.c||'')+'">'+esc(f.t)+'</span>').join('')+'</div>';
+    }
+    let next='Monitor — password held, no immediate action required.';
+    if(emp&&emp.found&&emp.employee_status==='terminated') next='Disable the account and convert the mailbox to shared with delegated access.';
+    else if(v.result==='success') next='Reset the password, revoke active sessions, and verify MFA enrollment.';
+    else if(v.client_app && /IMAP|POP|SMTP|ActiveSync/i.test(v.client_app)) next='Block legacy authentication for this account.';
+    else if(tc.ca_status==='notApplied') next='Password held. Review why Conditional Access did not apply to this sign-in.';
+    h+='<div class="vnext"><b>Next:</b> '+esc(next)+'</div>';
+    h+='</div></div>';
+    $('invVerdict').innerHTML=h;
+    renderBeats();
+  }
+  let _curEmp=null;
+
+  async function investigate(violId){
+    // find violation in cache or fetch
+    let v = _violations.find(r=>r.id===violId);
+    if(!v){
+      const j = await api('GET','/violations?limit=500');
+      _violations = j.rows||[];
+      v = _violations.find(r=>r.id===violId);
+    }
+    if(!v){ toast('Violation not found'); return; }
+    _curViol = v;
+    const upn=v.upn, ip=v.ip, at=v.event_time;
+
+    // switch to investigate mode
+    $('monitorMode').style.display='none';
+    $('sideRail').style.display='none';
+    $('investMode').style.display='block';
+    window.scrollTo(0,0);
+
+    // reset tiles, beats, evidence — all collapsed, all neutral
+    SECS.forEach(s=>{
+      const a=$('ans-'+s); if(a)a.textContent='';
+      const t=$('tile-'+s); if(t)t.className='tile';
+    });
+    ['b1','b2','b3','b4'].forEach(b=>{
+      const body=$('body-'+b); if(body)body.classList.add('hidden');
+      setBeat(b,'none','Checking…','');
+    });
+    _curEmp=null;
+
+    // v3.17.0: pause context — currently suppressed under a ticket?
+    api('GET','/watchlist').then(wj=>{
+      if(!wj.ok||!wj.rows) return;
+      const w=wj.rows.find(x=>(x.upn||'').toLowerCase()===(upn||'').toLowerCase());
+      if(w&&w.pause_ticket_id){
+        const el=document.createElement('span');
+        el.className='st warn';
+        el.style.marginLeft='6px';
+        el.innerHTML='⏸ Alerts paused · '+(w.pause_ticket_url?'<a href="'+esc(w.pause_ticket_url)+'" target="_blank" style="color:inherit">SDP #'+esc(w.pause_ticket_display||'')+'</a>':'SDP #'+esc(w.pause_ticket_display||''));
+        const bar=$('invActions'); if(bar) bar.insertBefore(el, bar.querySelector('.spacer'));
+      }
+    }).catch(()=>{});
+
+    // action bar
+    $('invActions').innerHTML =
+      (v.acked ? '<span class="st off">Acked'+(v.ack_by?' by '+esc(v.ack_by):'')+'</span>' :
+        '<button class="btn primary sm" onclick="SW.ackFromInv()">'+icon('check')+' Acknowledge</button>')+
+      (v.sdp_ticket_url ? ' <a class="btn sm" href="'+esc(v.sdp_ticket_url)+'" target="_blank">'+icon('ticket')+' Ticket '+esc(String(v.sdp_ticket_display||v.sdp_ticket_id))+'</a>' :
+        ' <button class="btn sm" onclick="SW.createTicket()">'+icon('ticket')+' Create SDP ticket</button>')+
+      ' <button class="btn sm" onclick="SW.repush('+v.id+')">'+icon('send')+' Re-alert</button>'+
+      '<div class="spacer"></div><span class="dim mono" style="font-size:11px">Violation #'+v.id+'</span>';
+
+    // summary
+    const tc = threatCtx(v);
+    const ca = tc ? tc.ca_status : null;
+    $('invSummary').innerHTML =
+      '<div style="font-size:15px;font-weight:600;margin-bottom:6px">'+esc(upn)+'</div>'+
+      '<div style="font-size:12px;color:var(--text2);line-height:1.7">'+
+        esc(fmtTime(at))+' · '+resultBadge(v.result)+' · <span class="mono">'+esc(ip||'—')+'</span> · '+esc([v.geo_city,v.geo_country].filter(Boolean).join(', ')||'—')+'<br>'+
+        esc(v.app_name||'—')+' → '+(tc&&tc.resource?esc(tc.resource):'—')+' · '+esc(v.client_app||'—')+' · CA: '+caBadge(ca)+
+      '</div>'+
+      (v.failure_reason?'<div style="font-size:11px;color:var(--text3);margin-top:4px">'+esc(v.failure_reason)+(decodeErr(v.failure_reason)?' <span style="color:var(--text2)">— '+esc(decodeErr(v.failure_reason))+'</span>':'')+'</div>':'')+
+      '<div style="font-size:11px;color:var(--text3);margin-top:4px">'+alertDeliveryLine(v)+'</div>'+
+      (function(){let mm=v.ms_risk_match;if(typeof mm==='string'){try{mm=JSON.parse(mm)}catch(e){mm=null}}
+        return mm?'<div style="font-size:11px;color:var(--bad);margin-top:4px;font-weight:600">⚠ Microsoft flagged this window: '+esc(mm.type||'')+' ('+esc(mm.level||'')+')'+(mm.ip_match?' — same IP':'')+'</div>':''})()+
+      (v.geo_asn||v.geo_isp?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+esc([v.geo_asn,v.geo_isp].filter(Boolean).join(' · '))+'</div>':'');
+
+    // deep links
+    const ccQ='/zscaler-command-center.html?q='+encodeURIComponent(upn);
+    const ccTl='/zscaler-command-center.html?timeline='+encodeURIComponent(upn)+'&at='+encodeURIComponent(at);
+    const ccWeb='/zscaler-command-center.html?webq='+encodeURIComponent(upn);
+    const idQ='/identity-diag.html?q='+encodeURIComponent(upn);
+    $('invLinks').innerHTML =
+      '<a class="inv-link" href="'+idQ+'" target="_blank">'+icon('user')+' Identity Diag</a>'+
+      '<a class="inv-link" href="'+ccQ+'" target="_blank">'+icon('search')+' CC Search</a>'+
+      '<a class="inv-link" href="'+ccTl+'" target="_blank">'+icon('clock')+' CC Timeline</a>'+
+      '<a class="inv-link" href="'+ccWeb+'" target="_blank">'+icon('globe')+' CC Web Activity</a>';
+
+    // empty-panel wrapper: fetcher returns {html, empty, sig:{level,text}}
+    const f = (panelId, bodyId, prom, secKey) => prom.then(r=>{
+      if(typeof r==='string') r={html:r,empty:false};
+      setPanel(panelId, bodyId, r.html, r.empty);
+      if(r.sig && secKey) pushSig(secKey, r.sig.level, r.sig.text);
+    }).catch(e=>{ setPanel(panelId, bodyId, '<div class="dim">'+esc(e.message)+'</div>', true); });
+
+    // answer-chip signal store + seeds from the event itself
+    _sigs={};
+    if(v.result==='success') pushSig('defense',2,'Sign-in SUCCEEDED');
+    else if(v.result==='failure') pushSig('defense',0,'Password rejected');
+
+    // employee status → posture card + verdict
+    $('invPosture').innerHTML='<div class="loading">Loading…</div>';
+    const empPromise = fetchEmployeeStatusRaw(upn);
+    empPromise.then(emp=>{
+      _curEmp=emp; renderPosture(emp); buildVerdict(v, emp);
+      if(emp&&emp.found){
+        if(emp.employee_status==='terminated') pushSig('who',2,'Terminated employee');
+        else if(emp.employee_status==='active') pushSig('who',0,'Active employee');
+      }
+    }).catch(()=>{ buildVerdict(v, null); });
+
+    // Q1 who
+    f('p-ad','inv-ad', fetchAD(upn), 'who');
+    f('p-okta','inv-okta', fetchOkta(upn), 'who');
+    f('p-devices','inv-devices', fetchAssignedDevices(upn), 'who');
+    // Q2 campaign
+    f('p-history','inv-history', fetchUserHistory(upn), 'campaign');
+    f('p-subnet','inv-subnet', fetchSubnet(ip), 'campaign');
+    f('p-r7cross','inv-r7cross', fetchR7Cross(ip), 'campaign');
+    f('p-spray','inv-spray', fetchSpray(), 'campaign');
+    // Q3 defense
+    f('p-mfa','inv-mfa', fetchMFA(upn), 'defense');
+    f('p-ca','inv-ca', fetchCA(v), 'defense');
+    f('p-msrisk','inv-msrisk', fetchMSRisk(upn), 'defense');
+    f('p-riskdet','inv-riskdet', fetchRiskDetections(upn,v), 'defense');
+    // Q4 presence
+    f('p-zdx','inv-zdx', fetchZDX(upn), 'presence');
+    f('p-lssnss','inv-lssnss', fetchLssNss(upn, at), 'presence');
+    f('p-sessions','inv-sessions', fetchOktaSessions(upn), 'presence');
+    f('p-r7auth','inv-r7auth', fetchR7Auth(upn), 'presence');
+    f('p-zscaler','inv-zscaler', fetchZscaler(upn), 'presence');
+    // Q5 attacker
+    f('p-atkdev','inv-atkdev', fetchAtkDevice(v), 'attacker');
+    f('p-appclient','inv-appclient', fetchAppClient(v), 'attacker');
+    f('p-asn','inv-asn', fetchASN(v), 'attacker');
+  }
+
+  const SECS=['who','campaign','defense','presence','attacker'];
+  let _sigs={};
+  function pushSig(sec, level, text){
+    if(!text) return;
+    (_sigs[sec]=_sigs[sec]||[]).push({level,text});
+    const arr=_sigs[sec];
+    const worst=arr.reduce((m,s)=>Math.max(m,s.level),0);
+    const texts=[...new Set(arr.filter(s=>s.level===worst).map(s=>s.text))].slice(0,3);
+    const el=$('ans-'+sec);
+    if(el){ el.textContent=texts.join(' · '); }
+    const tl=$('tile-'+sec);
+    if(tl){ tl.className='tile '+(worst===2?'bad':worst===1?'warn':'ok'); }
+    renderBeats();
+  }
+  function sigTexts(sec,lvl){ const a=_sigs[sec]||[]; return a.filter(s=>lvl==null||s.level===lvl).map(s=>s.text); }
+  function sigWorst(sec){ const a=_sigs[sec]||[]; return a.length?a.reduce((m,s)=>Math.max(m,s.level),0):-1; }
+  function setBeat(b,cls,hd,sub){
+    const d=$('dot-'+b); if(d) d.className='tl-dot'+(cls&&cls!=='none'?' '+cls:'');
+    const h=$('beat-'+b+'-hd'); if(h) h.textContent=hd;
+    const s=$('beat-'+b+'-sub'); if(s) s.textContent=sub||'';
+  }
+  // v3.12.0: deterministic story generator — same signals, plain English
+  function renderBeats(){
+    const v=_curViol; if(!v) return;
+    const tc=threatCtx(v)||{};
+    const geo=[v.geo_city,v.geo_country].filter(Boolean).join(', ')||'an unknown location';
+    const legacy=v.client_app&&/IMAP|POP|SMTP|ActiveSync/i.test(v.client_app);
+    // beat 1 — the attempt
+    { const parts=[];
+      if(legacy) parts.push('old-style (legacy) app — dodges MFA');
+      else if(v.client_app) parts.push(v.client_app);
+      const isp=sigTexts('attacker',0)[0]; if(isp) parts.push(isp);
+      if(sigWorst('attacker')>=1) parts.push('unknown device');
+      setBeat('b1', v.result==='success'?'bad':'warn',
+        fmtTime(v.event_time)+' — sign-in attempt from '+geo,
+        parts.join(' · ')||'—'); }
+    // beat 2 — the outcome
+    if(v.result==='success'){
+      setBeat('b2','bad','The password WORKED — they signed in',
+        tc.ca_status==='notApplied'?'And Conditional Access never ran ⚠ — act now':'Check sessions and MFA now');
+    } else {
+      const dec=decodeErr(v.failure_reason);
+      const b2hd=/smart lockout/.test(dec||'')?'Smart lockout tripped — blocked':'Wrong password — blocked';
+      const gaps=[];
+      if(dec&&!/wrong password/.test(dec)) gaps.push(dec);
+      if(tc.ca_status==='notApplied') gaps.push('but Conditional Access never ran ⚠');
+      const rd=sigTexts('defense',1).find(t=>/risk detection/.test(t)); if(rd) gaps.push(rd);
+      setBeat('b2','ok',b2hd, gaps.join(' · ')||'Defenses held');
+    }
+    // beat 3 — the real user
+    if(sigWorst('who')===2){
+      setBeat('b3','bad','This account belongs to a TERMINATED employee','Nobody should be signing in at all');
+    } else {
+      const pres=sigTexts('presence',0);
+      if(pres.length) setBeat('b3','ok','The real user appears active elsewhere', pres.slice(0,3).join(' · '));
+      else setBeat('b3','none',"Couldn't confirm where the real user was",'No Zscaler, ZDX, or session activity found');
+    }
+    // beat 4 — the campaign
+    { const cw=sigWorst('campaign');
+      if(cw===2) setBeat('b4','bad','Part of a wider campaign', (sigTexts('campaign',2)[0]||'')+' by the same attacker network');
+      else if(cw===1) setBeat('b4','warn','Signs of wider campaign activity', sigTexts('campaign',1).slice(0,2).join(' · '));
+      else if(cw===0) setBeat('b4','ok','No wider campaign detected', sigTexts('campaign',0)[0]||'This IP has not hit other watched accounts');
+      else setBeat('b4','none','Checking for wider campaign…',''); }
+  }
+  const BEAT_MAP={who:'b3',campaign:'b4',defense:'b2',presence:'b3',attacker:'b1'};
+  function jumpBeat(sec){
+    const b=BEAT_MAP[sec]||sec;
+    const body=$('body-'+b); if(!body) return;
+    if(body.classList.contains('hidden')) body.classList.remove('hidden');
+    const dot=$('dot-'+b); if(dot) dot.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+
+  function exitInvestigate(){
+    $('investMode').style.display='none';
+    $('monitorMode').style.display='';
+    $('sideRail').style.display='';
+    _curViol=null;
+  }
+
+  async function repush(id){
+    const j=await api('POST','/violations/'+id+'/repush');
+    if(j.ok) toast('Re-alerted: sent to '+j.sent.join(', ')+(j.failed&&j.failed.length?' · failed: '+j.failed.map(f=>f.name).join(', '):''));
+    else toast('Error: '+j.error);
+  }
+
+  async function ackFromInv(){
+    const j=await api('POST','/violations/'+_curViol.id+'/ack',{note:'ack from investigation'});
+    if(j.ok){toast('Acknowledged');_curViol.acked=1;_curViol.ack_by=_user?_user.email:'';investigate(_curViol.id)} else toast('Error: '+j.error);
+  }
+
+  async function createTicket(){
+    if(!_curViol) return;
+    const j=await api('POST','/violations/'+_curViol.id+'/sdp-ticket');
+    if(j.ok){
+      if(j.already_exists) toast('Ticket already exists: #'+j.ticket_id);
+      else toast('Ticket created: #'+j.ticket_id);
+      _curViol.sdp_ticket_id=j.ticket_id; _curViol.sdp_ticket_url=j.ticket_url;
+      investigate(_curViol.id);
+    } else toast('Error: '+j.error);
+  }
+
+  /* ── investigation panel fetchers ──
+     Each returns either a string (populated) or {html, empty, sig}.
+     empty=true collapses the panel to header-only.
+     sig={level:0 ok|1 warn|2 bad, text} feeds the section answer chip. */
+  const EMPTY = (msg) => ({html:'<div class="dim">'+esc(msg)+'</div>', empty:true});
+
+  // raw employee fetch for verdict + posture card
+  async function fetchEmployeeStatusRaw(upn){
+    const r=await fetch(API+'/employee-status?upn='+encodeURIComponent(upn));
+    return r.json();
+  }
+  function renderPosture(j){
+    if(!j||!j.ok||!j.found){ $('invPosture').innerHTML='<div class="emp-status" style="color:var(--text3)">Unknown</div><div class="emp-detail">No HR record</div>'; return; }
+    const r=j.record||{};
+    const stale=j.data_stale?'<div class="emp-detail" style="color:var(--warn)">HR data as of '+esc(r.updated_at?new Date(r.updated_at).toLocaleDateString():'?')+'</div>':'';
+    if(j.employee_status==='terminated'){
+      $('invPosture').innerHTML='<div class="emp-status" style="color:var(--bad)">Terminated</div>'+
+        '<div class="emp-detail">'+esc(r.termination_date||'')+'</div>'+
+        '<div class="emp-detail">'+esc(r.is_termination_reason||'')+'</div>'+stale;
+    } else {
+      $('invPosture').innerHTML='<div class="emp-status" style="color:var(--ok)">Active employee</div>'+
+        '<div class="emp-detail">'+esc(r.job_name||'')+'</div>'+
+        '<div class="emp-detail">'+esc(r.department||'')+'</div>'+
+        '<div class="emp-detail">'+esc(r.location_name||'')+'</div>'+stale;
+    }
+  }
+
+  async function fetchAD(upn){
+    const r=await(await fetch('/api/identity/lookup?q='+encodeURIComponent(upn))).json();
+    if(!r||r.error) return EMPTY(r&&r.error?r.error:'Not found');
+    const u=r.ad||r;
+    const enabled=u.userAccountControl===512||u.enabled===true?'Yes':u.userAccountControl===514||u.enabled===false?'DISABLED':(u.enabled!=null?String(u.enabled):(u.userAccountControl!=null?String(u.userAccountControl):'?'));
+    const ou=u.distinguishedName?u.distinguishedName.split(',').filter(p=>p.startsWith('OU=')).map(p=>p.slice(3)).join(' > '):null;
+    const html=kv([['Name',u.displayName||u.cn],['Title',u.title],['Dept',u.department],['Manager',u.manager],
+      ['Enabled',enabled],ou?['OU',ou]:null,
+      ['Last logon',u.lastLogonTimestamp||u.lastLogon],['Locked',u.lockoutTime?'YES':'No']]);
+    let sig=null;
+    if(enabled==='DISABLED') sig={level:0,text:'AD disabled'};
+    return {html, empty:false, sig};
+  }
+
+  async function fetchRiskDetections(upn,v){
+    const j=await(await fetch(API+'/risk-detections?upn='+encodeURIComponent(upn)+'&days=90')).json();
+    if(!j.ok) return EMPTY(j.error);
+    if(!j.rows||!j.rows.length) return EMPTY('No risk detections (90d)');
+    const vt=v&&v.event_time?new Date(v.event_time).getTime():null;
+    let h='', matched=null;
+    for(const d of j.rows.slice(0,6)){
+      const lvl=d.risk_level;
+      const color=lvl==='high'?'var(--bad)':lvl==='medium'?'var(--warn)':'var(--text2)';
+      const dt=new Date(d.activity_date_time||d.detected_date_time).getTime();
+      const isMatch=(v&&d.ip_address&&d.ip_address===v.ip)||(vt&&dt&&Math.abs(dt-vt)<=30*60000);
+      if(isMatch&&!matched) matched=d;
+      h+='<div style="margin-bottom:6px;padding:5px 7px;border-radius:6px;'+(isMatch?'background:var(--bad-dim);border:1px solid var(--bad);':'border-bottom:1px solid var(--stroke);')+'">'+
+        '<div style="font-size:11px;font-weight:500;color:'+color+'">'+(isMatch?'◉ ':'')+esc(d.risk_event_type)+' · '+esc(lvl)+(isMatch?' <span style="color:var(--bad);font-weight:700">this event</span>':'')+'</div>'+
+        '<div style="font-size:10.5px;color:var(--text3)">'+esc(fmtTime(d.detected_date_time))+' · '+esc(d.ip_address||'')+'</div>'+
+        '</div>';
+    }
+    let sig;
+    if(matched) sig={level:2,text:'Microsoft flagged this same event: '+matched.risk_event_type+' ('+matched.risk_level+')'};
+    else sig={level:1,text:j.rows.length+' risk detections (90d)'};
+    return {html:h, empty:false, sig};
+  }
+
+  async function fetchOkta(upn){
+    const r=await(await fetch('/api/identity/lookup?q='+encodeURIComponent(upn))).json();
+    const o=r.okta||{};
+    if(!o.status&&!o.id) return EMPTY('No Okta record');
+    return kv([['Status',o.status],['Last login',o.lastLogin],['MFA',o.mfaFactors?o.mfaFactors.length+' factor(s)':'?'],['Suspended',o.suspended||'No']]);
+  }
+
+  async function fetchAssignedDevices(upn){
+    const j=await(await fetch(API+'/assigned-devices?upn='+encodeURIComponent(upn))).json();
+    if(!j.ok) return EMPTY(j.error);
+    if(!j.rows||!j.rows.length) return EMPTY('No Intune devices');
+    return {html:j.rows.slice(0,4).map(d=>
+      '<div style="margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid var(--stroke)">'+
+      kv([['Name',d.device_name],['OS',(d.os||'')+' '+(d.os_version||'')],['Compliance',d.compliance],['Model',d.model]])+'</div>'
+    ).join(''), empty:false, sig:{level:0,text:j.rows.length+' managed device'+(j.rows.length===1?'':'s')}};
+  }
+
+  function fetchAppClient(v){
+    const tc=threatCtx(v)||{};
+    const legacy=v.client_app&&/IMAP|POP|SMTP|ActiveSync/i.test(v.client_app);
+    const html=kv([
+      ['App',v.app_name],['Client type',v.client_app],['Resource',tc.resource],
+      ['Interactive',tc.is_interactive!=null?String(tc.is_interactive):'—'],
+      legacy?['Legacy auth','YES — MFA bypass risk']:null,
+      tc.behaviors&&tc.behaviors!=='null'?['Okta behaviors',tc.behaviors]:null
+    ]);
+    return Promise.resolve({html, empty:false, sig:legacy?{level:2,text:'Legacy auth client'}:null});
+  }
+
+  function fetchAtkDevice(v){
+    const d=devInfo(v)||{};
+    const flags=[];
+    if(d.managed===false||d.managed==='false') flags.push('<span class="st warn">Unmanaged</span>');
+    if(d.compliant===false||d.compliant==='false') flags.push('<span class="st warn">Non-compliant</span>');
+    if(!d.deviceId||d.deviceId==='') flags.push('<span class="st warn">No device ID</span>');
+    const html=kv([['Browser',d.browser],['OS',d.os],['Device name',d.device||'—'],['Device ID',d.deviceId||'—'],['Zone',d.zone]])+
+      (flags.length?'<div style="margin-top:6px">'+flags.join(' ')+'</div>':'');
+    return Promise.resolve({html, empty:false, sig:flags.length?{level:1,text:'Unmanaged device'}:null});
+  }
+
+  async function fetchMSRisk(upn){
+    const j=await(await fetch(API+'/risky-user?upn='+encodeURIComponent(upn))).json();
+    if(!j.ok) return EMPTY(j.error||'Graph error');
+    if(!j.found) return EMPTY('Microsoft has no risk record for this user');
+    const risk=j.risk||{};
+    const lvl=risk.riskLevel||'none';
+    const color=lvl==='high'?'var(--bad)':lvl==='medium'?'var(--warn)':'var(--text2)';
+    const html='<div style="font-size:13px;font-weight:600;color:'+color+';margin-bottom:6px">'+esc(lvl.toUpperCase())+'</div>'+
+      kv([['State',risk.riskState],['Detail',risk.riskDetail],
+          ['Updated',risk.updated?fmtTime(risk.updated):'—']]);
+    let sig=null;
+    if(lvl==='high') sig={level:2,text:'Microsoft risk: HIGH ('+risk.riskState+')'};
+    else if(lvl==='medium') sig={level:1,text:'Microsoft risk: medium'};
+    else if(risk.riskState==='dismissed') sig={level:0,text:'MS risk dismissed '+(risk.updated?String(risk.updated).slice(0,4):'')};
+    return {html, empty:false, sig};
+  }
+
+  async function fetchMFA(upn){
+    const j=await(await fetch(API+'/mfa-posture?upn='+encodeURIComponent(upn))).json();
+    if(!j.ok) return EMPTY(j.error||'Graph error');
+    const ms=j.methods||[];
+    if(!ms.length) return EMPTY('No auth methods returned');
+    let h='';
+    for(const m of ms.slice(0,6)){
+      const mark=m.phishing_resistant?'<span style="color:var(--ok)">●</span> ':m.mfa?'<span style="color:var(--text2)">●</span> ':'<span style="color:var(--text3)">○</span> ';
+      h+='<div style="font-size:11px;margin-bottom:3px">'+mark+esc(m.type)+(m.detail?' <span style="color:var(--text3)">'+esc(m.detail)+'</span>':'')+'</div>';
+    }
+    if(!j.has_mfa){
+      h+='<div style="margin-top:6px;font-size:10.5px;color:var(--warn)">No MFA registered in Entra — Okta factors may still apply upstream (see Okta state)</div>';
+      return {html:h, empty:false, sig:{level:1,text:'No MFA registered in Entra'}};
+    }
+    if(j.phishing_resistant) return {html:h, empty:false, sig:{level:0,text:'Phishing-resistant MFA registered'}};
+    return {html:h, empty:false, sig:{level:0,text:ms.filter(m=>m.mfa).length+' MFA method'+(ms.filter(m=>m.mfa).length===1?'':'s')+' registered'}};
+  }
+
+  function fetchCA(v){
+    const tc=threatCtx(v)||{};
+    if(!tc.ca_status) return Promise.resolve(EMPTY('No CA data (Okta event)'));
+    let h=kv([['Status',tc.ca_status],['Risk at sign-in',tc.risk_during],['Aggregate risk',tc.risk_aggregate]]);
+    let policies=tc.ca_policies;
+    if(typeof policies==='string') try{policies=JSON.parse(policies)}catch(e){}
+    if(Array.isArray(policies)&&policies.length){
+      h+='<div style="margin-top:6px;font-size:10.5px;color:var(--text3)">'+policies.length+' CA policies evaluated</div>';
+      for(const p of policies.slice(0,4)){
+        h+='<div style="font-size:10.5px;color:var(--text2)">· '+esc(p.displayName||p.id||'—')+': '+esc(p.result||'—')+'</div>';
+      }
+    }
+    const sig=tc.ca_status==='notApplied'?{level:1,text:'CA not applied'}:{level:0,text:'CA '+tc.ca_status};
+    return Promise.resolve({html:h, empty:false, sig});
+  }
+
+  function fetchASN(v){
+    const tc=threatCtx(v)||{};
+    const asn=v.geo_asn||(tc.as_number?'AS'+tc.as_number:null);
+    const isp=v.geo_isp||tc.isp||null;
+    if(!asn&&!isp) return Promise.resolve(EMPTY('No ASN data (older event)'));
+    const html=kv([['ASN',asn],['ISP',isp],['Org',tc.as_org],['Domain',tc.domain],
+      tc.is_proxy!=null?['Proxy/VPN',String(tc.is_proxy)]:null]);
+    return Promise.resolve({html, empty:false, sig:{level:0,text:isp||asn}});
+  }
+
+  async function fetchUserHistory(upn){
+    const j=await(await fetch(API+'/user-history?upn='+encodeURIComponent(upn))).json();
+    if(!j.ok) return EMPTY(j.error);
+    const h0=j.history||{};
+    if(!h0.attempts) return EMPTY('First violation for this account');
+    const days=h0.first_seen?Math.max(1,Math.round((Date.now()-new Date(h0.first_seen).getTime())/86400000)):0;
+    let h='<div style="font-size:12px;font-weight:600;margin-bottom:6px">'+
+      Number(h0.attempts).toLocaleString()+' attempts · '+h0.unique_ips+' IPs · '+h0.countries+' countries · '+days+'d</div>';
+    h+=kv([['Successes',String(h0.successes||0)+(h0.successes>0?' ⚠':' — none')],
+      ['Last 24h',String(h0.last_24h||0)],['Last 7d',String(h0.last_7d||0)],
+      ['ASNs seen',String(h0.asns||0)],['Tickets',String(h0.tickets||0)]]);
+    if(j.top_countries&&j.top_countries.length){
+      h+='<div style="margin-top:6px;font-size:10.5px;color:var(--text3)">'+j.top_countries.map(c=>esc(c.country)+' '+c.n).join(' · ')+'</div>';
+    }
+    let sig=null;
+    const succ=Number(h0.successes||0), att=Number(h0.attempts||0), ctry=Number(h0.countries||0);
+    if(succ>0) sig={level:2,text:succ+' successful breach'+(succ===1?'':'es')+' on record'};
+    else if(att>=50&&ctry>=5) sig={level:2,text:'Sustained spray: '+att.toLocaleString()+' attempts / '+ctry+' countries'};
+    else if(att>10) sig={level:1,text:att+' prior attempts on this account'};
+    else sig={level:0,text:att+' prior attempts'};
+    return {html:h, empty:false, sig};
+  }
+
+  async function fetchSubnet(ip){
+    if(!ip) return EMPTY('No IP');
+    const j=await(await fetch(API+'/subnet-cluster?ip='+encodeURIComponent(ip))).json();
+    if(!j.ok) return EMPTY(j.error);
+    if(!j.ips||!j.ips.length) return EMPTY('No related IPs');
+    let h='<div style="font-size:11px;font-weight:500;margin-bottom:6px">'+j.cluster_size+' IPs in subnet · '+j.total_events+' events</div>';
+    for(const e of j.ips.slice(0,8)){
+      h+='<div style="font-size:10.5px;margin-bottom:3px"><span class="mono">'+esc(e.ip)+'</span> · '+e.count+'x · '+esc(e.geo||'')+'</div>';
+    }
+    return {html:h, empty:false, sig:j.cluster_size>1?{level:1,text:j.cluster_size+' IPs in same subnet'}:null};
+  }
+
+  async function fetchLssNss(upn, time){
+    const j=await(await fetch(API+'/lss-nss-xref?upn='+encodeURIComponent(upn)+'&time='+encodeURIComponent(time))).json();
+    if(!j.ok) return EMPTY(j.error);
+    const lssN=j.lss?(j.lss.row_count||0):0;
+    const nssN=j.nss?(j.nss.row_count||0):0;
+    if(lssN===0&&nssN===0) return EMPTY('No ZPA/ZIA activity ±30min');
+    let h='<div style="font-size:11px">ZPA (LSS): <b>'+lssN+'</b> · ZIA (NSS): <b>'+nssN+'</b> events ±30min</div>';
+    return {html:h, empty:false, sig:{level:0,text:'Zscaler active ±30min ('+lssN+'/'+nssN+')'}};
+  }
+
+  async function fetchZDX(upn){
+    try{
+      /* ZDX ignores a free-text q and returns the WHOLE fleet; emails= is the
+         real per-user filter. Guard on filtered so an unscoped list is never
+         reported as this user's presence. */
+      const r=await(await fetch('/api/zscaler/zdx/devices?emails='+encodeURIComponent(upn))).json();
+      if(r&&r.filtered===false) return EMPTY('ZDX presence not scoped to this user');
+      const devs=r.devices||r.items||(Array.isArray(r)?r:[]);
+      if(!Array.isArray(devs)||!devs.length) return EMPTY('No ZDX device presence');
+      return {html:devs.slice(0,3).map(d=>kv([['Name',d.name||d.hostname],['Platform',d.platform],['Score',d.score!=null?String(d.score):'—']])).join('<hr style="border:0;border-top:1px solid var(--stroke);margin:4px 0">'), empty:false, sig:{level:0,text:devs.length+' ZDX device'+(devs.length===1?'':'s')+' online'}};
+    }catch(e){ return EMPTY('ZDX unavailable'); }
+  }
+
+  async function fetchR7Auth(upn){
+    try{
+      const r=await(await fetch('/api/rapid7/auth-activity?username='+encodeURIComponent(upn)+'&hours=168')).json();
+      if(r.error) return EMPTY(r.error);
+      const evts=r.events||r.results||[];
+      if(!evts.length) return EMPTY('No auth events (7d)');
+      const byRes={}, ips=new Set();
+      evts.forEach(e=>{const res=(e.result||(e.fields&&e.fields.result)||'unknown');byRes[res]=(byRes[res]||0)+1;const eip=e.source_ip||(e.fields&&e.fields.source_ip);if(eip)ips.add(eip)});
+      return {html:kv([['Events (7d)',String(evts.length)],['Unique IPs',String(ips.size)],['Breakdown',Object.entries(byRes).map(([k,v])=>k+': '+v).join(', ')]]), empty:false, sig:{level:0,text:evts.length+' auth events (7d)'}};
+    }catch(e){ return EMPTY('Rapid7 unavailable'); }
+  }
+
+  async function fetchR7Cross(ip){
+    if(!ip) return EMPTY('No IP');
+    try{
+      const j=await(await fetch(API+'/rapid7-ip-xref?ip='+encodeURIComponent(ip)+'&subnet=1&hours=720')).json();
+      if(!j.ok) return EMPTY(j.error||'Rapid7 error');
+      if(!j.total_events) return EMPTY('IP/subnet not seen in Rapid7 (30d)');
+      let h='<div style="font-size:11px;margin-bottom:6px">'+
+        '<b>'+j.total_events+'</b> events · <b>'+j.unique_users+'</b> users · subnet: '+esc(j.search_term)+'</div>';
+      if(j.watched_hits>0){
+        h+='<div style="font-size:10px;font-weight:700;color:var(--bad);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">⚠️ Hits on watched accounts ('+j.watched_hits+')</div>';
+        for(const u of j.watched_users){
+          h+='<div style="font-size:11px;margin-bottom:3px;color:var(--bad)">'+esc(u.username)+
+            ' <span style="color:var(--text3)">· '+u.count+'x · '+esc(u.logsets.join(', '))+'</span></div>';
+        }
+      } else {
+        h+='<div style="font-size:11px;color:var(--ok);margin-bottom:4px">No watched accounts in results</div>';
+      }
+      if(j.other_users&&j.other_users.length){
+        h+='<div style="font-size:10px;color:var(--text3);margin-top:4px">'+j.other_users.length+' other users in org</div>';
+        for(const u of j.other_users.slice(0,5)){
+          h+='<div style="font-size:10.5px;color:var(--text2)">'+esc(u.username)+' · '+u.count+'x</div>';
+        }
+      }
+      const sig = j.watched_hits>0 ? {level:2,text:j.watched_hits+' other watched account'+(j.watched_hits===1?'':'s')+' hit'} : {level:0,text:'No shared attacker infra'};
+      return {html:h, empty:false, sig};
+    }catch(e){ return EMPTY('Rapid7 unavailable'); }
+  }
+
+  async function fetchOktaSessions(upn){
+    try{
+      const r=await(await fetch('/api/identity/okta-sessions?q='+encodeURIComponent(upn))).json();
+      const sessions=r.sessions||(Array.isArray(r)?r:[]);
+      if(!Array.isArray(sessions)||!sessions.length) return EMPTY('No active sessions');
+      return {html:sessions.slice(0,4).map(s=>kv([['Status',s.status],['Created',s.createdAt]])).join('<hr style="border:0;border-top:1px solid var(--stroke);margin:4px 0">'), empty:false, sig:{level:0,text:sessions.length+' Okta session'+(sessions.length===1?'':'s')}};
+    }catch(e){ return EMPTY('Okta sessions unavailable'); }
+  }
+
+  async function fetchZscaler(upn){
+    try{
+      const r=await(await fetch('/api/zscaler/zia/users?q='+encodeURIComponent(upn))).json();
+      const u=(r.users||(Array.isArray(r)?r:[]))[0];
+      if(!u) return EMPTY('No ZIA user record');
+      return kv([['Name',u.name],['Email',u.email],['Dept',u.department&&u.department.name],['Admin',u.adminUser?'Yes':'No']]);
+    }catch(e){ return EMPTY('ZIA unavailable'); }
+  }
+
+  async function fetchSpray(){
+    try{
+      const r=await(await fetch('/api/identity/spray-alerts')).json();
+      const alerts=r.alerts||r.detections||(Array.isArray(r)?r:[]);
+      if(!Array.isArray(alerts)||!alerts.length) return EMPTY('No active spray detections');
+      return {html:alerts.slice(0,4).map(a=>kv([['Type',a.type||a.risk_event_type],['Level',a.risk_level]])).join('<hr style="border:0;border-top:1px solid var(--stroke);margin:4px 0">'), empty:false, sig:{level:1,text:alerts.length+' spray alert'+(alerts.length===1?'':'s')}};
+    }catch(e){ return EMPTY('Spray detection unavailable'); }
+  }
+
+  /* ── init ── */
+  /* ── access gate ───────────────────────────────────────────────────────
+     The ITAM original read sessionStorage 'sso_user' and, when it was absent,
+     showed "Session required -- sign in from the Operations Hub IN THIS TAB".
+     That is not an authentication check. On corpit rbac-client only READS
+     sso_user; login.js / auth-complete.js write it, and only in the tab that
+     actually ran the sign-in flow. So a user holding a perfectly valid
+     it_session cookie who opens this page in a NEW TAB has no sso_user and is
+     told to sign in again on a live session -- the same new-tab bounce that was
+     fixed platform-wide on 2026-09-05.
+
+     /api/rbac/me via itRbac is the authoritative answer: cookie-based, and
+     independent of which tab signed in.
+
+     Three outcomes, never two. "We could not determine your access" is not
+     "you are signed out", and must not be reported as one:
+       verified + super-admin -> run
+       verified + not         -> say so plainly, and say why
+       not verified           -> say the check did not complete
+     Every route in signin-watch-routes.js is super-admin only, so a
+     non-super-admin who got past this gate would watch all 35 API calls fail
+     and be left staring at empty panels with nothing explaining it. */
+  function showGate(title, bodyHtml){
+    const g=$('authGate');
+    if(!g) return;
+    g.innerHTML='<svg><use href="#ic-lock"/></svg><h2>'+esc(title)+'</h2>'+
+                '<p>'+bodyHtml+'</p>'+
+                '<button class="btn primary" onclick="location.reload()">Retry</button>';
+    g.style.display='';
+    if(window.ITObserve) ITObserve.degraded('access-gate', title);
+  }
+
+  async function init(){
+    let me=null, verified=false;
+    try{
+      if(window.itRbac){ await itRbac.ready(); me=itRbac.me(); verified=itRbac.isVerified(); }
+    }catch(e){ verified=false; }
+
+    if(!verified){
+      showGate('Access check did not complete',
+        'The permission service did not answer, so this page cannot confirm what you are allowed to see. '+
+        'This is not a sign-out. Retry; if it persists, the hub API or the directory is unavailable.');
+      return;
+    }
+    if(!me || !me.email){
+      showGate('Session required',
+        'Your session is not active. <a href="/login.html">Sign in</a>, then return here.');
+      return;
+    }
+    if(!me.isSuperAdmin){
+      showGate('Super-admin required',
+        'Sign-In Watch reads and writes the sign-in violation queue, the account watchlist and the alert '+
+        'channels, so every one of its API routes is restricted to super-admins. Your account does not have '+
+        'that level, and no part of this page would function. Ask a platform owner if you need access.');
+      return;
+    }
+    _user={email:me.email, name:me.displayName||me.email};
+
+    // nav clicks
+    document.querySelectorAll('.rl-item[data-nav]').forEach(el=>{
+      el.addEventListener('click',()=>nav(el.dataset.nav));
+    });
+    document.querySelectorAll('[data-go]').forEach(el=>{
+      el.addEventListener('click',e=>{e.preventDefault();nav(el.dataset.go)});
+    });
+
+    // deep link: ?violation=<id>
+    const params=new URLSearchParams(location.search);
+    const violParam=params.get('violation');
+    if(violParam){
+      await loadVipBoard();  // preload VIP set for verdict banner
+      investigate(parseInt(violParam,10));
+    } else {
+      nav('overview');
+    }
+  }
+
+  init();
+
+  return { nav, investigate, exitInvestigate, toggleSec, ackOne, bulkAck, viewRaw,
+           loadViolations, loadWatchlist, loadNetworks, loadChannels, drillViolations, violGoto,
+           openFly, closeFly, saveWatch, saveNet, saveChan,
+           delWatch, delNet, testChan, delChan, toggleVip, repush,
+           pauseWatch, savePause, resumeWatch, jumpBeat,
+           ackFromInv, createTicket };
+})();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/feed-freshness.js" data-page="signin-watch" defer></script>
+<script src="/it-version.js" data-app-key="signin-watch" defer></script>
+</body>
+</html>

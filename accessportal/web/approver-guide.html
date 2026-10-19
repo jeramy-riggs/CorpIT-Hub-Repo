@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script id="portal-theme-boot">
+/* Runs before first paint — no flash. Shared key across every portal page. */
+(function(){try{var t=localStorage.getItem('portal_theme');
+if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Approver Quick Start Guide – Enterprise Approval Portal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0A1628;--surface:#0F1F35;--surface2:#162540;--surface3:#1c2f4a;
+    --border:rgba(255,255,255,.1);--border2:rgba(255,255,255,.06);
+    --text:#e2e8f0;--text-muted:#94a3b8;--text-faint:#64748b;
+    --blue:#3b82f6;--blue-light:#60a5fa;--blue-dark:#1d4ed8;
+    --accent:#2563eb;--accent-glow:rgba(37,99,235,.25);
+    --green:#22c55e;--yellow:#f59e0b;--red:#ef4444;--orange:#f97316;
+    --r:8px;--r-lg:12px;
+    --sidebar:260px;
+  }
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;line-height:1.6}
+
+  /* SIDEBAR */
+  .sidebar{
+    width:var(--sidebar);min-width:var(--sidebar);background:var(--surface);
+    border-right:1px solid var(--border);position:sticky;top:0;height:100vh;
+    overflow-y:auto;display:flex;flex-direction:column;flex-shrink:0;
+  }
+  .sidebar-brand{padding:20px 18px 14px;border-bottom:1px solid var(--border2)}
+  .sidebar-brand a{color:var(--text-muted);font-size:11px;text-decoration:none;display:flex;align-items:center;gap:5px;margin-bottom:8px;opacity:.7}
+  .sidebar-brand a:hover{opacity:1}
+  .sidebar-brand h2{font-size:13px;font-weight:700;color:var(--text)}
+  .sidebar-brand p{font-size:11px;color:var(--text-faint);margin-top:2px}
+  .sidebar-nav{flex:1;padding:12px 0}
+  .nav-section-label{
+    font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--text-faint);padding:12px 18px 4px
+  }
+  .nav-item{
+    display:block;padding:7px 18px;font-size:12px;color:var(--text-muted);
+    text-decoration:none;border-left:2px solid transparent;transition:.15s;cursor:pointer
+  }
+  .nav-item:hover{color:var(--text);background:rgba(255,255,255,.04)}
+  .nav-item.active{color:var(--blue-light);border-left-color:var(--blue);background:rgba(59,130,246,.08);font-weight:600}
+  .nav-sub{padding-left:28px;font-size:11px}
+
+  /* MAIN */
+  .main{flex:1;padding:48px 56px 80px;max-width:860px}
+  .page-hero{margin-bottom:48px}
+  .page-hero .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--blue-light);margin-bottom:10px}
+  .page-hero h1{font-size:32px;font-weight:800;letter-spacing:-.5px;margin-bottom:10px}
+  .page-hero p{font-size:15px;color:var(--text-muted);max-width:580px;line-height:1.7}
+
+  /* SECTION */
+  .guide-section{margin-bottom:64px;scroll-margin-top:24px}
+  .guide-section h2{
+    font-size:20px;font-weight:800;margin-bottom:4px;
+    display:flex;align-items:center;gap:10px
+  }
+  .guide-section h2 .section-icon{
+    width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:16px;background:var(--accent-glow);flex-shrink:0
+  }
+  .section-meta{font-size:12px;color:var(--text-faint);margin-bottom:20px;padding-left:42px}
+  .section-divider{border:none;border-top:1px solid var(--border2);margin:40px 0}
+
+  /* WORKFLOW BADGE */
+  .workflow-badge{
+    display:inline-flex;align-items:center;gap:0;background:var(--surface2);
+    border:1px solid var(--border);border-radius:20px;padding:4px 6px;margin-bottom:20px;
+    font-size:11px;flex-wrap:wrap;row-gap:4px
+  }
+  .wf-step{
+    display:flex;align-items:center;gap:0;color:var(--text-muted);white-space:nowrap
+  }
+  .wf-step span{
+    background:var(--surface3);border:1px solid var(--border);
+    border-radius:12px;padding:2px 10px;font-weight:600;font-size:11px;color:var(--text)
+  }
+  .wf-arrow{color:var(--text-faint);padding:0 4px;font-size:10px}
+  .wf-time{font-size:11px;color:var(--text-faint);padding:2px 10px;border-left:1px solid var(--border);margin-left:4px}
+
+  /* STEP CARD */
+  .step-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+    margin-bottom:20px;overflow:hidden
+  }
+  .step-header{
+    display:flex;align-items:center;gap:12px;padding:14px 18px;
+    border-bottom:1px solid var(--border2);background:var(--surface2)
+  }
+  .step-num{
+    width:26px;height:26px;border-radius:50%;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:800;flex-shrink:0;color:#fff
+  }
+  .step-header h3{font-size:14px;font-weight:700;flex:1}
+  .step-header .step-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);background:var(--surface3);padding:2px 8px;border-radius:4px}
+  .step-body{padding:18px}
+
+  /* FIELD */
+  .field-block{
+    border:1px solid var(--border2);border-radius:var(--r);margin-bottom:14px;overflow:hidden
+  }
+  .field-label{
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--text-faint);padding:8px 14px;background:var(--surface3);
+    border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:6px
+  }
+  .field-label .req{color:var(--red);font-size:13px}
+  .field-body{padding:12px 14px}
+  .field-body p{font-size:13px;color:var(--text-muted);margin-bottom:8px}
+  .field-example{
+    background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.2);
+    border-radius:6px;padding:8px 12px;margin-top:6px
+  }
+  .field-example .ex-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--blue-light);margin-bottom:3px}
+  .field-example .ex-val{font-size:12px;color:var(--text);font-family:monospace}
+  .field-why{
+    background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);
+    border-radius:6px;padding:8px 12px;margin-top:6px;display:flex;gap:7px;align-items:flex-start
+  }
+  .field-why .wy-icon{font-size:12px;margin-top:1px;flex-shrink:0}
+  .field-why p{font-size:12px;color:#86efac;margin:0}
+
+  /* CALLOUTS */
+  .callout{border-radius:var(--r);padding:12px 16px;margin-bottom:16px;font-size:13px;line-height:1.65;display:flex;gap:10px;align-items:flex-start}
+  .callout-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+  .callout.info{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:#93c5fd}
+  .callout.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#fcd34d}
+  .callout.danger{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#fca5a5}
+  .callout.success{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#86efac}
+  .callout strong{font-weight:700}
+  .callout ul{margin:8px 0 0 16px}
+  .callout li{margin-bottom:4px}
+
+  /* STATUS */
+  .status-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  .status-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+  .status-card .s-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+  .status-card h4{font-size:13px;font-weight:700;margin-bottom:4px}
+  .status-card p{font-size:12px;color:var(--text-muted)}
+
+  /* TIPS */
+  .tips-list{list-style:none;display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .tips-list li{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;font-size:13px;display:flex;gap:10px;align-items:flex-start}
+  .tips-list li .tip-n{font-weight:800;color:var(--blue-light);flex-shrink:0;width:18px}
+
+  /* CHECKPOINT */
+  .checkbox-group{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .chk-item{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--text-muted)}
+  .chk-item::before{content:'☐';font-size:15px;color:var(--blue-light);flex-shrink:0;line-height:1.4}
+
+  /* QUICK DECISION */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:12px}
+  .form-tile{
+    background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);
+    padding:16px;display:flex;flex-direction:column;gap:6px
+  }
+  .form-tile .ft-icon{font-size:22px}
+  .form-tile h4{font-size:13px;font-weight:700}
+  .form-tile p{font-size:11px;color:var(--text-faint);line-height:1.5}
+
+
+  /* request-type artwork chips — the same art as the portal tiles */
+  .ga{display:inline-flex;align-items:center;justify-content:center;border-radius:6px;overflow:hidden;vertical-align:middle;flex-shrink:0;width:46px;height:22px}
+  .ga svg{display:block}
+  .nav-item .ga{width:32px;height:16px;margin-right:7px;border-radius:4px}
+  .ft-icon .ga{width:72px;height:35px;border-radius:8px}
+  .guide-section h2 .section-icon.art{width:58px;height:28px;border-radius:7px;background:none;padding:0;overflow:hidden}
+  .guide-section h2 .section-icon.art .ga{width:58px;height:28px;border-radius:7px}
+  .step-num.art{width:52px;height:26px;border-radius:7px;background:none;padding:0;overflow:hidden}
+  .step-num.art .ga{width:52px;height:26px;border-radius:7px}
+
+  /* SCROLLSPY */
+  .nav-item.active{color:var(--blue-light);border-left-color:var(--blue);background:rgba(59,130,246,.08);font-weight:600}
+
+  @media(max-width:768px){
+    .sidebar{display:none}.main{padding:24px 20px 60px}
+    .form-grid{grid-template-columns:1fr 1fr}.status-grid{grid-template-columns:1fr}
+  }
+</style>
+
+
+
+
+
+
+
+
+<style id="pantone-theme">
+/* ═══ Auction.com brand theme — Step 2 ══════════════════════════════════ */
+.logo-icon,.ap-logo-icon,.pub-logo-icon{background:linear-gradient(135deg,#509E2F,#78BE20)!important}
+.btn-primary,button.btn-primary,a.btn-primary{background:#509E2F!important;background-color:#509E2F!important;border-color:#509E2F!important;color:#fff!important}
+.btn-primary:hover,button.btn-primary:hover{background:#3D7924!important;background-color:#3D7924!important}
+button.btn-primary[style],a.btn-primary[style]{background:#509E2F!important;background-color:#509E2F!important}
+.btn-success,button.btn-success{background:#509E2F!important;background-color:#509E2F!important;color:#fff!important}
+.section-title{border-bottom-color:var(--accent)!important}
+.form-section-title{border-left-color:var(--accent)!important}
+.stat-card{background:var(--bg-card)!important;border-top:2px solid color-mix(in srgb,var(--border) 70%,var(--accent) 30%)!important;border-radius:18px!important;box-shadow:0 1px 3px rgba(0,0,0,.06)!important}
+.stat-card:nth-child(1){border-top-color:var(--accent)!important}
+.stat-card:nth-child(2){border-top-color:#509E2F!important}
+.stat-card:nth-child(3){border-top-color:#78BE20!important}
+.chip{background:var(--bg-card)!important;border:1px solid color-mix(in srgb,var(--border) 88%,var(--accent) 12%)!important;color:var(--text-muted)!important;border-radius:20px!important}
+.chip.active,.chip.selected,.chip.on{background:color-mix(in srgb,var(--accent) 9%,var(--bg-card))!important;color:var(--accent)!important;border-color:var(--accent)!important}
+.wpill{background:color-mix(in srgb,var(--accent) 8%,var(--bg-card))!important;color:var(--accent)!important;border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)!important;border-radius:10px!important}
+.badge-approved{background:color-mix(in srgb,var(--pass) 15%,transparent)!important;color:var(--pass)!important;border-color:color-mix(in srgb,var(--pass) 40%,transparent)!important}
+.badge-pending,.badge-warning{background:color-mix(in srgb,var(--med) 15%,transparent)!important;color:var(--med)!important;border-color:color-mix(in srgb,var(--med) 40%,transparent)!important}
+.badge-danger,.badge-rejected,.badge-denied{background:color-mix(in srgb,var(--crit) 15%,transparent)!important;color:var(--crit)!important;border-color:color-mix(in srgb,var(--crit) 40%,transparent)!important}
+.badge-info,.badge-review{background:color-mix(in srgb,var(--accent) 12%,transparent)!important;color:var(--accent)!important;border-color:color-mix(in srgb,var(--accent) 35%,transparent)!important}
+thead th,th{font-size:10.5px!important;letter-spacing:.08em!important;text-transform:uppercase!important;color:var(--text-faint)!important;border-bottom:1px solid var(--border)!important;font-weight:700!important}
+.req-card{background:var(--bg-card)!important;border:1px solid var(--border)!important;border-radius:9px!important}
+.req-card:hover{background:color-mix(in srgb,var(--bg-card) 80%,var(--accent) 4%)!important;border-color:var(--accent)!important}
+.form-progress-fill,[class*="progress-fill"]{background:linear-gradient(to right,var(--accent),#509E2F)!important}
+input:focus,select:focus,textarea:focus{outline-color:var(--accent)!important;border-color:var(--accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent)!important}
+.ap-nav-item.active{background:color-mix(in srgb,var(--accent) 14%,transparent)!important;border-left-color:var(--accent)!important;color:#fff!important}
+.ap-logo-icon,.ap-avatar{background:var(--accent)!important}
+.ap-nav-badge{background:var(--crit)!important}
+.confirm-id,.req-id,.audit-id,.font-mono{font-family:"IBM Plex Mono",ui-monospace,monospace!important;color:var(--accent)!important}
+.tpill.active{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}
+</style>
+<link rel="stylesheet" href="/it-depth.css">
+
+<style id="pt-light">
+[data-theme="light"]{
+  --bg:#F0F2F4;
+  --surface:#FFFFFF;
+  --surface2:#F8F9FA;
+  --surface3:#E7EBEE;
+  --border:#DAE0E3;
+  --border2:#E4E9EC;
+  --text:#263238;
+  --text-muted:#5C676E;
+}
+[data-theme="light"] .page-hero,[data-theme="light"] .hero{
+  background:linear-gradient(100deg,rgba(6,14,24,.88) 0%,rgba(6,14,24,.55) 42%,rgba(6,14,24,.12) 80%),
+             url("/auction-hq-banner.png?v=1") center 42%/cover no-repeat,#071520!important;
+  background:linear-gradient(100deg,rgba(6,14,24,.88) 0%,rgba(6,14,24,.55) 42%,rgba(6,14,24,.12) 80%),
+             image-set(url("/auction-hq-banner.webp?v=20261001") type('image/webp'), url("/auction-hq-banner.png?v=1") type('image/png')) center 42%/cover no-repeat,#071520!important}
+[data-theme="light"] .page-hero *,[data-theme="light"] .hero *{color:#fff!important}
+</style>
+<link id="pt-shared" rel="stylesheet" href="/portal-theme.css?v=22">
+<script id="pt-shared-js" src="/portal-theme.js?v=21" defer></script>
+<script id="pt-content-js" src="/portal-content.js?v=7" defer></script>
+<style id="pg-hero-fix">
+/* The banner comes from portal-theme.css; .page-hero carried no inset, so the
+   eyebrow and heading sat on the very edge of the image and read as cut off. */
+.main .page-hero{
+  padding:34px 40px 36px!important;
+  border-radius:var(--r-lg)!important;
+  overflow:hidden!important;
+  background-position:center 40%!important;
+}
+.main .page-hero .eyebrow{margin-bottom:12px}
+.main .page-hero p{max-width:640px}
+@media(max-width:768px){.main .page-hero{padding:24px 22px 26px!important}}
+</style>
+</head>
+<body data-dp="accessportal">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <a href="/approver.html">&larr; Back to Approver Portal</a>
+    <h2>Approver Guide</h2>
+    <p>Reviewing and deciding requests</p>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Getting Started</div>
+    <a class="nav-item" href="#overview">What This Console Is</a>
+    <a class="nav-item" href="#signin">Signing In</a>
+    <a class="nav-item" href="#roles">Choosing Your Role</a>
+
+    <div class="nav-section-label">Day To Day</div>
+    <a class="nav-item" href="#dashboard">📊 Overview</a>
+    <a class="nav-item" href="#queues">⏳ Needs my action, All &amp; Completed</a>
+    <a class="nav-item nav-sub" href="#rm-search">Search, filters &amp; saved views</a>
+    <a class="nav-item" href="#drawer">🔍 Opening a Request</a>
+    <a class="nav-item" href="#decide">✅ Making a Decision</a>
+    <a class="nav-item nav-sub" href="#decide-approve">Approve</a>
+    <a class="nav-item nav-sub" href="#decide-reject">Reject</a>
+    <a class="nav-item nav-sub" href="#decide-return">Return</a>
+    <a class="nav-item" href="#audit">📜 Audit Trail</a>
+    <a class="nav-item" href="#ack-team">🛡️ AI Policy Acknowledgments (Managers)</a>
+
+    <a class="nav-item" href="#archiving">▣ Archiving</a>
+    <a class="nav-item" href="#inventory">🗂 AI Inventory (InfoSec / Legal)</a>
+
+    <div class="nav-section-label">Reference</div>
+    <a class="nav-item" href="#types">Request Types &amp; Chains</a>
+    <a class="nav-item" href="#statuses">Understanding Statuses</a>
+    <a class="nav-item" href="#rights">Who May Approve What</a>
+    <a class="nav-item" href="#emails">Which Emails Go Out</a>
+
+    <div class="nav-section-label">Administration</div>
+    <a class="nav-item" href="#admin">⚙️ Administrator Role</a>
+    <a class="nav-item nav-sub" href="#manage-roles">Manage Roles</a>
+    
+    <a class="nav-item nav-sub" href="#admin-emails">Notification Emails</a>
+    <a class="nav-item nav-sub" href="#manage-access">Approval Access</a>
+    <a class="nav-item nav-sub" href="#site-content">Site Content</a>
+    <a class="nav-item nav-sub" href="#form-policies">Form Policies (AI Policy)</a>
+    <a class="nav-item nav-sub" href="#ack-admin">AI Policy Acknowledgments</a>
+
+    <div class="nav-section-label">Help</div>
+    <a class="nav-item" href="#troubleshooting">Troubleshooting</a>
+    <a class="nav-item" href="#tips">Tips for Approvers</a>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="page-hero">
+    <div class="eyebrow">Enterprise Approval Portal</div>
+    <h1>Approver Quick Start Guide</h1>
+    <p>How to review, decide and administer access requests in the Approver Console. Everything described here is what the console does today &mdash; each screen is covered in the order you meet it.</p>
+  </div>
+
+  <!-- OVERVIEW -->
+  <section class="guide-section" id="overview">
+    <h2><span class="section-icon">🗺️</span> What This Console Is</h2>
+    <div class="section-meta">One screen per approval step, and one decision per request.</div>
+
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Requesters submit forms on the main portal. Each request type carries a fixed chain of approval steps. When a request reaches a step, the person or address configured for that step is emailed and the request appears here, waiting. You approve, reject or return it; the portal moves it to the next step or closes it, emails the people who need to know, and writes every event to an audit trail.</p>
+
+    <div class="form-grid">
+      <div class="form-tile">
+        <div class="ft-icon">👥</div>
+        <h4>A role is a step</h4>
+        <p>Dept. Manager, InfoSec, Human Resources, Legal, Chief Legal Officer, CTO, CEO. You see the requests that pass through your step.</p>
+      </div>
+      <div class="form-tile">
+        <div class="ft-icon">➡️</div>
+        <h4>Strictly in order</h4>
+        <p>Only the current step can decide. Later steps can watch a request but cannot act early.</p>
+      </div>
+      <div class="form-tile">
+        <div class="ft-icon">🔒</div>
+        <h4>Deny by default</h4>
+        <p>Every guard is enforced by the portal service, not the browser. An unassigned step has no approvers at all.</p>
+      </div>
+    </div>
+
+    <div class="callout info" style="margin-top:16px">
+      <span class="callout-icon">ℹ️</span>
+      <div>You never decide on your own request. If you submit a request that routes through your own step, the console shows it read-only and the service refuses the decision &mdash; separation of duties.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- SIGN IN -->
+  <section class="guide-section" id="signin">
+    <h2><span class="section-icon">🔑</span> Signing In</h2>
+    <div class="section-meta">Single sign-on &mdash; there is no separate portal password.</div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">1</div><h3>Open the Approver Portal</h3><span class="step-tag">accessportal.nrpi.local/approver.html</span></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">Use the <strong>Approver Portal</strong> button in the top-right of the main portal, or go to the address above. Your CorpIT sign-in identifies you; the portal reads your name, email and group membership from it.</p>
+        <div class="field-why"><span class="wy-icon">✔️</span><p>Because identity comes from sign-on, your decisions are recorded against your own name in the audit trail. Never review on someone else&rsquo;s behalf from their session.</p></div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>&ldquo;No approval access was found for your account.&rdquo;</strong> You are signed in correctly, but you hold no approval rights yet. Ask IT to add you to the step&rsquo;s approver group, or to grant you the step under <strong>Approval Access</strong>. Being a department manager is different &mdash; see <a href="#rights" style="color:var(--blue-light)">Who May Approve What</a>.</div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">📘</span>
+      <div><strong>Approver Guide</strong> and <strong>Requester portal</strong> sit next to <strong>Sign out</strong> in the top bar on every screen. <strong>Sign out</strong> ends your portal session; it does not sign you out of other CorpIT pages.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ROLES -->
+  <section class="guide-section" id="roles">
+    <h2><span class="section-icon">🎯</span> Choosing Your Role</h2>
+    <div class="section-meta">The first screen after sign-in. One tile per step you are allowed to see.</div>
+
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Pick the step you are reviewing as. The tile you choose scopes everything that follows: the dashboard counts, the queues and the sidebar all describe that step. Use <strong>Switch role</strong> in the top bar to come back.</p>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">A</div><h3>What each tile tells you</h3></div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Step name and description</div>
+          <div class="field-body"><p>The display name an administrator set for the step, and what that step reviews. <strong>Chief Legal Officer</strong> is a step of its own (Out-of-Country Access only), separate from the Legal team's step on other forms.</p></div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Blue badge &mdash; &ldquo;N request types&rdquo;</div>
+          <div class="field-body"><p>How many of the six request types route through this step. InfoSec sees all six; the CTO and CEO steps see one.</p></div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Red badge &mdash; &ldquo;Named as manager on N requests&rdquo;</div>
+          <div class="field-body"><p>Appears on the <strong>Dept. Manager</strong> tile. It counts the requests that name your address as the requester&rsquo;s manager. Those are the only requests that tile lets you act on.</p></div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Team acknowledgments tile</div>
+          <div class="field-body"><p>Appears when someone who names you as their manager has completed the <strong>Claude Access &ndash; Artificial Intelligence Policy Acknowledgment</strong>. It opens a read-only list of your team&rsquo;s acknowledgements &mdash; see <a href="#ack-team" style="color:var(--blue-light)">AI Policy Acknowledgments (Managers)</a>. Nothing to approve.</p></div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Administrator tile</div>
+          <div class="field-body"><p>Only for portal administrators. It carries the configuration pages and is covered under <a href="#admin" style="color:var(--blue-light)">Administrator Role</a>.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <div>If the portal holds more steps than you see tiles for, a note under the heading says how many are hidden and why. Hidden simply means you hold no approval access for that step.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- DASHBOARD -->
+  <section class="guide-section" id="dashboard">
+    <h2><span class="section-icon">📊</span> Overview</h2>
+    <div class="section-meta">Where your role lands (the sidebar calls it <strong>Overview</strong>). Every tile and card is a shortcut, and the counts cover every request type your role can see &mdash; AI Policy acknowledgements included where you are allowed to see them.</div>
+
+    <div class="status-grid">
+      <div class="status-card"><h4>⏰ Needs my action</h4><p>Requests sitting at a step you can decide right now. This is your real queue.</p></div>
+      <div class="status-card"><h4>🔄 In progress elsewhere</h4><p>Pending, but at another step in the chain. Nothing for you to do yet.</p></div>
+      <div class="status-card"><h4>✅ Approved</h4><p>Finished the whole chain.</p></div>
+      <div class="status-card"><h4>✖️ Rejected / Returned</h4><p>Closed without approval.</p></div>
+    </div>
+
+    <p style="font-size:13px;color:var(--text-muted);margin:16px 0 0">Below the tiles: <strong>Pending Approvals</strong> and <strong>Recently Completed</strong> show the five newest of each, <strong>Needs Your Attention</strong> lists high-priority items waiting at your step, and <strong>Quick Actions</strong> jumps to the pages you use most. Click any request to open it.</p>
+
+    <div class="callout warn" style="margin-top:16px">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>Administrators only:</strong> an amber note appears at the top of the dashboard when a step has no notification recipient. Requests reaching that step are escalated to the IT Service Desk until an address is set.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- QUEUES -->
+  <section class="guide-section" id="queues">
+    <h2><span class="section-icon">⏳</span> Needs my action, All Requests &amp; Completed</h2>
+    <div class="section-meta">Three lists over the same data, filtered differently. Each shows 50 rows a page with a type, stage and status column; every row opens the same detail drawer.</div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">1</div><h3>Needs my action</h3><span class="step-tag">your queue</span></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Only requests waiting at your step that you are allowed to decide. If this list is empty, nothing needs you.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">2</div><h3>All Requests</h3><span class="step-tag">context</span></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Every request whose workflow includes your step, whatever its status. Useful for &ldquo;has this already been through us?&rdquo;. Portal-wide grants see every request.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">3</div><h3>Completed</h3><span class="step-tag">history</span></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Approved, rejected and returned requests together &mdash; plus completed AI Policy acknowledgements for administrators and for the manager they name.</p></div>
+    </div>
+
+    <div class="step-card" id="rm-search">
+      <div class="step-header"><div class="step-num">🔎</div><h3>Search, filters &amp; saved views</h3></div>
+      <div class="step-body">
+        <div class="field-block">
+          <div class="field-label">Search box</div>
+          <div class="field-body">
+            <p>Plain text matches anywhere in the request &mdash; ID, requester, department, email, justification. Add a prefix to search one field only. Press <kbd>/</kbd> anywhere in the console to jump to the search box.</p>
+            <div class="field-example"><div class="ex-label">Prefixes</div><div class="ex-val">id: &nbsp; type: &nbsp; dept: &nbsp; requester: &nbsp; manager: &nbsp; approver: &nbsp; status: &nbsp; stage: &nbsp; submitted: &nbsp; completed:</div></div>
+            <div class="field-example"><div class="ex-label">Example</div><div class="ex-val">type:oca status:pending dept:Finance &nbsp;&nbsp;·&nbsp;&nbsp; requester:jdoe submitted:2026-09</div></div>
+          </div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Filter bar</div>
+          <div class="field-body"><p>Request type, status, stage, department and date range, combined with the search. Filters apply to the list you are on and the counts update as you go.</p></div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Saved views</div>
+          <div class="field-body"><p><strong>Save view</strong> keeps the current search and filters under a name of your choice so you can return to it in one click. Views are stored in your browser, not shared.</p></div>
+        </div>
+        <div class="field-block">
+          <div class="field-label">Export CSV</div>
+          <div class="field-body"><p>Downloads the rows you are looking at, with the filters applied, for a spreadsheet or a report.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">🔄</span>
+      <div>The list is a snapshot from when you loaded it. Use <strong>Refresh</strong> before a decision if the page has been open a while &mdash; and see <a href="#troubleshooting" style="color:var(--blue-light)">Troubleshooting</a> for what happens if someone else decided first.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- DRAWER -->
+  <section class="guide-section" id="drawer">
+    <h2><span class="section-icon">🔍</span> Opening a Request</h2>
+    <div class="section-meta">Click any row or tile. The detail panel slides in from the right.</div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">A</div><h3>Status</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Current status, priority, and &mdash; while pending &mdash; which step it is waiting at.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">B</div><h3>Requester</h3></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">Name, work email, department, job title, employee ID and direct manager, as captured at submission.</p>
+        <div class="callout warn" style="margin:10px 0 0">
+          <span class="callout-icon">⚠️</span>
+          <div>An amber pill reading <strong>&ldquo;no email &mdash; manager step uses the fallback recipient&rdquo;</strong> means the requester typed their manager&rsquo;s name without an address, so the Dept. Manager notification went to the fallback instead of their actual manager. Treat the manager approval on that request with extra care.</div>
+        </div>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">C</div><h3>Request details</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Every field the requester filled in for that form type, in the form&rsquo;s own words. This is what you are reviewing.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">D</div><h3>Approval workflow</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">The full chain as a ladder: each step, who decided, when, and the comment they left. A filled dot is decided, a ring is the current step, a hollow ring has not been reached.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">E</div><h3>History</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Every audited event on this request in order &mdash; submission, notifications, decisions, administrator edits &mdash; with timestamp and actor.</p></div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">F</div><h3>Word &middot; PDF &middot; Print</h3><span class="step-tag">every drawer</span></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Buttons in the drawer header download the full record &mdash; requester, every field, the workflow with decisions and comments, and the history &mdash; as a Word document or a PDF, or send it to the printer. AI Policy acknowledgement drawers export the same way. Each export is itself written to the audit trail.</p></div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">📖</span>
+      <div>Read the workflow ladder before deciding. An earlier approver&rsquo;s comment often answers the question you were about to ask the requester.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- DECIDE -->
+  <section class="guide-section" id="decide">
+    <h2><span class="section-icon">✅</span> Making a Decision</h2>
+    <div class="section-meta">Three buttons at the foot of the detail panel, plus one comment box.</div>
+
+    <div class="workflow-badge">
+      <span class="wf-step"><span>Read the request</span></span><span class="wf-arrow">&rarr;</span>
+      <span class="wf-step"><span>Write a comment</span></span><span class="wf-arrow">&rarr;</span>
+      <span class="wf-step"><span>Approve / Reject / Return</span></span>
+      <span class="wf-time">one decision per step</span>
+    </div>
+
+    <div class="callout danger">
+      <span class="callout-icon">🚨</span>
+      <div><strong>A decision is final.</strong> There is no undo, and no way to re-open a request you have decided. If you are unsure, return it instead &mdash; or ask the requester before you click.</div>
+    </div>
+
+    <div class="field-block">
+      <div class="field-label">Comment <span style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0">required to reject or return</span></div>
+      <div class="field-body">
+        <p>Optional when you approve, mandatory when you reject or return. It is shown to the requester in their email and on the workflow ladder to every other approver, so write it for them.</p>
+        <div class="field-example"><div class="ex-label">Good</div><div class="ex-val">Approved for the Madrid engagement only, 3&ndash;17 Oct. VPN + MFA required.</div></div>
+        <div class="field-example"><div class="ex-label">Good</div><div class="ex-val">Returned: name the client system and the data classification you need to reach.</div></div>
+      </div>
+    </div>
+
+    <div class="step-card" id="decide-approve">
+      <div class="step-header"><div class="step-num">✓</div><h3>Approve</h3><span class="step-tag">moves forward</span></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">Your step is recorded as approved and the request moves to the next step in the chain, whose recipient is emailed automatically. If yours was the last step, the request becomes <strong>Approved</strong>, the requester is told, and for access request types the IT Service Desk is emailed to action the grant.</p>
+        <div class="field-why"><span class="wy-icon">✔️</span><p>Conditions belong in the comment. The portal has no partial approval &mdash; an approval with conditions written down is how a limit gets carried to the next approver and to IT.</p></div>
+      </div>
+    </div>
+
+    <div class="step-card" id="decide-reject">
+      <div class="step-header"><div class="step-num">✗</div><h3>Reject</h3><span class="step-tag">closes the request</span></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">Use it when the answer is no and no rewrite would change it. The request closes immediately &mdash; remaining steps are not consulted &mdash; and the requester is emailed with your step, your comment and the request ID to reference if they submit again.</p>
+      </div>
+    </div>
+
+    <div class="step-card" id="decide-return">
+      <div class="step-header"><div class="step-num">↩</div><h3>Return</h3><span class="step-tag">closes the request</span></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">Use it when the request is reasonable but you cannot judge it as written &mdash; missing justification, wrong system named, no data classification. The requester is emailed your comment and asked to submit a new request that addresses it.</p>
+        <div class="callout warn" style="margin:10px 0 0">
+          <span class="callout-icon">⚠️</span>
+          <div><strong>Returned is a closed status, not a pause.</strong> The requester cannot edit and resubmit the same request; they file a new one. Say in your comment exactly what to change, so the second attempt is right.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout success">
+      <span class="callout-icon">✉️</span>
+      <div>All three outcomes email the requester automatically. You do not need to tell them separately.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- AUDIT -->
+  <section class="guide-section" id="audit">
+    <h2><span class="section-icon">📜</span> Audit Trail</h2>
+    <div class="section-meta">Under <strong>Tools</strong> in the sidebar. One expandable record per request, plus a live stream of the newest events across everything you can see.</div>
+
+    <p style="font-size:13px;color:var(--text-muted)">Click a request to expand its events: <strong>when</strong>, <strong>event</strong>, <strong>actor</strong> and <strong>note</strong>. Submissions, notifications, decisions and administrator edits all appear. An administrator edit is shown field by field as <em>old &rarr; new</em>. <strong>Open</strong> jumps to the full request.</p>
+
+    <div class="callout info" style="margin-top:14px">
+      <span class="callout-icon">🔎</span>
+      <div>This is the record to quote in a compliance review or when someone asks who approved something and when. It covers the requests your role can see.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ACK TEAM -->
+  <section class="guide-section" id="ack-team">
+    <h2><span class="section-icon">🛡️</span> AI Policy Acknowledgments <small style="font-size:14px;font-weight:500;color:var(--text-faint)">(Managers)</small></h2>
+    <div class="section-meta">Standard Claude access is obtained by completing the <strong>Claude Access &ndash; Artificial Intelligence Policy Acknowledgment</strong> on the public portal. Nothing is approved &mdash; you are informed.</div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">A</div><h3>What you receive</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">When a person who names you as their manager completes the acknowledgement, you receive a copy of the confirmation email. IT is notified separately and provisions the Claude access.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">B</div><h3>Team acknowledgments</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">The <strong>Team acknowledgments</strong> tile on the role screen (and the <strong>Completed</strong> list) shows your team&rsquo;s records: who signed, when, and against which policy version. Open a row for the full read-only record &mdash; details as signed, the statements accepted word for word, the signature &mdash; and download it as Word or PDF.</p></div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <div>A team member who needs Claude but is not a full-time employee will not see the acknowledgement until an administrator adds them to the eligibility list. Send that request to IT with the person&rsquo;s work email and the business reason.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- TYPES -->
+  <section class="guide-section" id="types">
+    <h2><span class="section-icon">📋</span> Request Types &amp; Approval Chains</h2>
+    <div class="section-meta">Six form types. The chain is fixed per type and snapshotted onto each request at submission.</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+      <div class="step-card" style="margin:0"><div class="step-header"><div class="step-num art"><span class="ga" style="background:linear-gradient(135deg,#0D1428,#1e3a5f)"><svg width="52" height="26" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><ellipse cx="60" cy="44" rx="22" ry="22" fill="none" stroke="#41B6E6" stroke-width="1.5"/><ellipse cx="60" cy="44" rx="9" ry="22" fill="none" stroke="#41B6E6" stroke-width="1"/><line x1="38" y1="44" x2="82" y2="44" stroke="#41B6E6" stroke-width="1"/><g transform="translate(96,30) rotate(-30)"><path d="M0,0 L18,5 L0,10 L4,5 Z" fill="#78BE20"/><path d="M3,3 L-6,8 L-4,5 L-6,2 Z" fill="rgba(120,190,32,.5)"/></g><path d="M44,54 Q78,14 124,38" stroke="rgba(65,182,230,.4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3"/><circle cx="148" cy="44" r="28" fill="rgba(255,255,255,.03)"/></svg></span></div><h3>Out-of-Country Access &mdash; OCA</h3><span class="step-tag">4 steps</span></div>
+        <div class="step-body"><div class="workflow-badge" style="margin:0" data-workflow="oca"><span class="wf-step"><span>Dept. Manager</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>InfoSec</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>Human Resources</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>Chief Legal Officer</span></span></div></div></div>
+      <div class="step-card" style="margin:0"><div class="step-header"><div class="step-num art"><span class="ga" style="background:linear-gradient(135deg,#2d1b69,#4c1d95)"><svg width="52" height="26" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><circle cx="32" cy="28" r="5" fill="#a78bfa"/><circle cx="32" cy="60" r="5" fill="#a78bfa"/><circle cx="60" cy="18" r="4" fill="#c4b5fd"/><circle cx="60" cy="44" r="4" fill="#c4b5fd"/><circle cx="60" cy="70" r="4" fill="#c4b5fd"/><circle cx="88" cy="28" r="5" fill="#7c3aed"/><circle cx="88" cy="60" r="5" fill="#7c3aed"/><line x1="37" y1="28" x2="56" y2="18" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="28" x2="56" y2="44" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="60" x2="56" y2="44" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="37" y1="60" x2="56" y2="70" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="18" x2="83" y2="28" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="44" x2="83" y2="28" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="44" x2="83" y2="60" stroke="rgba(167,139,250,.4)" stroke-width="1"/><line x1="64" y1="70" x2="83" y2="60" stroke="rgba(167,139,250,.4)" stroke-width="1"/><rect x="108" y="20" width="34" height="46" rx="6" fill="rgba(109,40,217,.55)" stroke="rgba(167,139,250,.5)" stroke-width="1.5"/><rect x="114" y="28" width="10" height="10" rx="2" fill="#c4b5fd"/><rect x="128" y="28" width="10" height="10" rx="2" fill="#c4b5fd"/><rect x="116" y="44" width="20" height="5" rx="2" fill="rgba(167,139,250,.5)"/></svg></span></div><h3>AI Use Case Intake &mdash; AIA</h3><span class="step-tag">3 steps</span></div>
+        <div class="step-body"><div class="workflow-badge" style="margin:0" data-workflow="aia"><span class="wf-step"><span>Dept. Manager</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>InfoSec</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>Legal</span></span></div></div></div>
+      <div class="step-card" style="margin:0"><div class="step-header"><div class="step-num art"><span class="ga" style="background:linear-gradient(135deg,#0D4F4F,#0f766e)"><svg width="52" height="26" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><rect x="20" y="14" width="86" height="58" rx="5" fill="rgba(255,255,255,.07)" stroke="#14b8a6" stroke-width="1.5"/><rect x="20" y="14" width="86" height="14" rx="5" fill="rgba(20,184,166,.28)"/><circle cx="28" cy="21" r="2.5" fill="#ef4444"/><circle cx="35" cy="21" r="2.5" fill="#f59e0b"/><circle cx="42" cy="21" r="2.5" fill="#22c55e"/><rect x="48" y="16" width="46" height="8" rx="3" fill="rgba(255,255,255,.15)"/><rect x="28" y="36" width="64" height="5" rx="2" fill="rgba(255,255,255,.18)"/><rect x="28" y="46" width="48" height="4" rx="2" fill="rgba(255,255,255,.1)"/><rect x="28" y="56" width="54" height="4" rx="2" fill="rgba(255,255,255,.1)"/><path d="M130,22 L148,14 L166,22 L166,42 Q166,56 148,64 Q130,56 130,42 Z" fill="rgba(20,184,166,.2)" stroke="#14b8a6" stroke-width="1.5"/><path d="M137,40 L144,48 L160,32" stroke="#78BE20" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></span></div><h3>Website / URL Access &mdash; WUA</h3><span class="step-tag">2 steps</span></div>
+        <div class="step-body"><div class="workflow-badge" style="margin:0" data-workflow="wua"><span class="wf-step"><span>Dept. Manager</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>InfoSec</span></span></div></div></div>
+      <div class="step-card" style="margin:0"><div class="step-header"><div class="step-num art"><span class="ga" style="background:linear-gradient(135deg,#4a0000,#7f1d1d)"><svg width="52" height="26" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="12" width="60" height="64" rx="4" fill="rgba(255,255,255,.06)" stroke="rgba(239,68,68,.45)" stroke-width="1.5"/><rect x="26" y="20" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="24" r="2.5" fill="#ef4444"/><rect x="26" y="33" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="37" r="2.5" fill="#f59e0b"/><rect x="26" y="46" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="50" r="2.5" fill="#22c55e"/><rect x="26" y="59" width="52" height="8" rx="2" fill="rgba(239,68,68,.2)"/><circle cx="71" cy="63" r="2.5" fill="#22c55e"/><circle cx="130" cy="38" r="14" fill="none" stroke="#fbbf24" stroke-width="2"/><line x1="140" y1="48" x2="156" y2="66" stroke="#fbbf24" stroke-width="2.5"/><circle cx="130" cy="38" r="6" fill="rgba(251,191,36,.2)"/></svg></span></div><h3>Privileged / Admin Access &mdash; PAA</h3><span class="step-tag">4 steps</span></div>
+        <div class="step-body"><div class="workflow-badge" style="margin:0" data-workflow="paa"><span class="wf-step"><span>Dept. Manager</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>InfoSec</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>Human Resources</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>Legal</span></span></div></div></div>
+      <div class="step-card" style="margin:0"><div class="step-header"><div class="step-num art"><span class="ga" style="background:linear-gradient(135deg,#3d2000,#78350f)"><svg width="52" height="26" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><path d="M60,6 L90,0 L120,6 L120,44 Q120,66 90,76 Q60,66 60,44 Z" fill="rgba(245,158,11,.13)" stroke="#f59e0b" stroke-width="1.5"/><rect x="86" y="18" width="8" height="26" rx="4" fill="#fbbf24"/><circle cx="90" cy="54" r="5" fill="#fbbf24"/></svg></span></div><h3>Security Exception Request &mdash; SER</h3><span class="step-tag">5 steps &middot; executive</span></div>
+        <div class="step-body"><div class="workflow-badge" style="margin:0" data-workflow="ser"><span class="wf-step"><span>Dept. Manager</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>InfoSec</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>Legal</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>CTO</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>CEO</span></span></div></div></div>
+      <div class="step-card" style="margin:0"><div class="step-header"><div class="step-num art"><span class="ga" style="background:linear-gradient(135deg,#1e1b4b,#3730a3)"><svg width="52" height="26" viewBox="0 0 180 88" xmlns="http://www.w3.org/2000/svg"><circle cx="72" cy="44" r="34" fill="none" stroke="rgba(129,140,248,.2)" stroke-width="1"/><circle cx="72" cy="44" r="24" fill="none" stroke="rgba(129,140,248,.3)" stroke-width="1"/><circle cx="72" cy="44" r="13" fill="none" stroke="rgba(129,140,248,.5)" stroke-width="1.5"/><circle cx="72" cy="44" r="4" fill="#818cf8"/><line x1="72" y1="44" x2="98" y2="20" stroke="rgba(99,102,241,.6)" stroke-width="1.5"/><circle cx="92" cy="24" r="3.5" fill="#ef4444" opacity=".9"/><circle cx="142" cy="32" r="14" fill="rgba(239,68,68,.18)" stroke="#ef4444" stroke-width="1.5"/><rect x="139" y="22" width="6" height="13" rx="3" fill="#ef4444"/><circle cx="142" cy="40" r="3.5" fill="#ef4444"/></svg></span></div><h3>IT Security Incident Form &mdash; SIR</h3><span class="step-tag">2 steps</span></div>
+        <div class="step-body"><div class="workflow-badge" style="margin:0" data-workflow="sir"><span class="wf-step"><span>Dept. Manager</span></span><span class="wf-arrow">&rarr;</span><span class="wf-step"><span>InfoSec</span></span></div></div></div>
+    </div>
+
+    <div class="callout info" style="margin-top:16px">
+      <span class="callout-icon">ℹ️</span>
+      <div>Step names shown here are the current display names. A request keeps the chain it was submitted with, so changing a workflow in the portal code affects new requests only &mdash; renaming a step, by contrast, changes the name everywhere at once.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- STATUSES -->
+  <section class="guide-section" id="statuses">
+    <h2><span class="section-icon">🏷️</span> Understanding Statuses</h2>
+    <div class="section-meta">Four statuses you will see. Three of them are final.</div>
+
+    <div class="status-grid">
+      <div class="status-card">
+        <h4><span class="s-dot" style="background:var(--yellow)"></span>Pending</h4>
+        <p>Somewhere in the chain. The detail panel says which step. Only that step can act.</p>
+      </div>
+      <div class="status-card">
+        <h4><span class="s-dot" style="background:var(--green)"></span>Approved</h4>
+        <p>Every step approved. Final. The requester is told, and access request types also notify the IT Service Desk for fulfilment.</p>
+      </div>
+      <div class="status-card">
+        <h4><span class="s-dot" style="background:var(--red)"></span>Rejected</h4>
+        <p>Declined at a step. Final &mdash; remaining steps are skipped. The requester gets the step and the comment.</p>
+      </div>
+      <div class="status-card">
+        <h4><span class="s-dot" style="background:#38bdf8"></span>Returned</h4>
+        <p>Sent back for rework, and also final: the requester submits a new request rather than editing this one.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- RIGHTS -->
+  <section class="guide-section" id="rights">
+    <h2><span class="section-icon">🛡️</span> Who May Approve What</h2>
+    <div class="section-meta">Three routes grant a step. All of them are deny-by-default.</div>
+
+    <ul class="tips-list">
+      <li><span class="tip-n">1</span><strong>The step&rsquo;s security group.</strong> Membership of a verified AD security group grants only the steps and request types selected in its enabled Approval Access policy. This is the route to use for a standing team.</li>
+      <li><span class="tip-n">2</span><strong>A named grant.</strong> A super-admin grants the person selected departments and request types under <strong>Approval Access → App-only override</strong>. The employee&rsquo;s HR Department does not determine this access. View and approval rights are separate; grants can expire.</li>
+      <li><span class="tip-n">3</span><strong>Being the manager on the request.</strong> The <strong>Dept. Manager</strong> step is granted per request to whoever the request names as the requester&rsquo;s manager. No group membership is needed, and it gives no rights on any other request.</li>
+    </ul>
+
+    <div class="callout danger" style="margin-top:16px">
+      <span class="callout-icon">🚫</span>
+      <div><strong>You cannot decide your own request</strong>, by any route, including as an administrator. The service refuses it.</div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <div>Seeing a request and deciding it are separate rights. A portal-wide grant may let someone read every request while deciding none &mdash; the detail panel says so in place of the decision buttons.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- EMAILS -->
+  <section class="guide-section" id="emails">
+    <h2><span class="section-icon">✉️</span> Which Emails Go Out</h2>
+    <div class="section-meta">Nobody has to send anything by hand.</div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">1</div><h3>On submission</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">The requester gets a confirmation with their request ID. The first step&rsquo;s recipient gets the &ldquo;approval needed&rdquo; email.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">2</div><h3>On approval, mid-chain</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">The next step&rsquo;s recipient is notified. For the Dept. Manager step that is the requester&rsquo;s own manager when the request carries their address, and the configured fallback when it does not.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">3</div><h3>On a final outcome</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)"><strong>Approved</strong>, <strong>Rejected</strong> and <strong>Returned</strong> all email the requester, naming the deciding step and quoting the comment. Approved access requests also email the IT Service Desk for fulfilment.</p></div>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>A step with no recipient does not fail silently.</strong> The request is escalated to the IT Service Desk address and a <code>notification.unroutable</code> event is written to the audit trail. Administrators also see an amber warning on the dashboard until the address is set.</div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ADMIN -->
+  <section class="guide-section" id="admin">
+    <h2><span class="section-icon">⚙️</span> Administrator Role</h2>
+    <div class="section-meta">Choose the <strong>Administrator</strong> tile on the role screen. The sidebar gains an Administration section.</div>
+
+    <div class="callout danger">
+      <span class="callout-icon">🚨</span>
+      <div>Administrator is configuration, not a licence to decide. It does not grant approval rights: an administrator can only decide a request whose current step they hold through one of the three routes above.</div>
+    </div>
+
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:6px">Every setting on a step applies to <strong>every request type and department</strong> that uses that step. The one exception is Dept. Manager, which routes per request.</p>
+  </section>
+
+  <!-- MANAGE ROLES -->
+  <section class="guide-section" id="manage-roles">
+    <h2><span class="section-icon">🧩</span> Manage Roles</h2>
+    <div class="section-meta">The map of the whole workflow, and where a step gets renamed.</div>
+
+    <div class="field-block">
+      <div class="field-label">The step table</div>
+      <div class="field-body"><p>One row per step: its display name, its internal key and policy ownership, its description, which request types use it, who may approve, and who is notified. The <strong>Approvers</strong> and <strong>Recipient</strong> buttons jump to the page that changes each.</p></div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Rename <span style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0">next to the step name</span></div>
+      <div class="field-body">
+        <p>Changes the display name everywhere at once &mdash; role tiles, queues, the workflow ladder, the request-type chips on the main portal and the notification emails. The internal key and access policies never change, so nobody&rsquo;s access is affected.</p>
+        <div class="field-example"><div class="ex-label">To reset</div><div class="ex-val">Clear the field and save &mdash; the built-in name comes back.</div></div>
+        <div class="field-why"><span class="wy-icon">✔️</span><p>Hard-reload the main portal (Cmd/Ctrl+Shift+R) after renaming if a browser still shows the old name from cache.</p></div>
+      </div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Workflows by request type</div>
+      <div class="field-body"><p>Administrators can reorder, add or remove steps and hide request types. Changes apply to new requests; existing requests retain their saved chain.</p></div>
+    </div>
+  </section>
+
+  <!-- ADMIN EMAILS -->
+  <section class="guide-section" id="admin-emails">
+    <h2><span class="section-icon">📧</span> Notification Emails</h2>
+    <div class="section-meta">Who is emailed at each step, and what that email says.</div>
+
+    <div class="field-block">
+      <div class="field-label">Recipient name and email</div>
+      <div class="field-body">
+        <p>One address per step, shared by every request type that uses it. <strong>Recipient name</strong> is only the greeting. Save applies immediately. Clearing the address unsets the step &mdash; requests reaching it escalate to the Service Desk.</p>
+        <div class="field-why"><span class="wy-icon">✔️</span><p>A shared team mailbox or distribution list survives holidays and staff changes; a single person&rsquo;s address does not.</p></div>
+      </div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Edit email</div>
+      <div class="field-body">
+        <p>Changes the subject and the opening wording for that step&rsquo;s &ldquo;approval needed&rdquo; email, with a <strong>Preview</strong> tab. Leave a field blank to keep the built-in template; a step with custom wording is marked <strong>Custom</strong>. The request-details table, the action button and the footer are always built by the portal service.</p>
+      </div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">Fixed recipient &mdash; IT Service Desk</div>
+      <div class="field-body"><p>Read-only here. It receives approved access requests for fulfilment and any step that has no recipient. It is set in the service environment, so changing it needs a service restart.</p></div>
+    </div>
+
+    <div class="callout warn">
+      <span class="callout-icon">⚠️</span>
+      <div>Who is <em>notified</em> and who may <em>approve</em> are configured separately, and the portal does not warn when they disagree. After changing one, check the other on <strong>Manage Roles</strong>.</div>
+    </div>
+  </section>
+
+  <!-- MANAGE ACCESS -->
+  <section class="guide-section" id="manage-access">
+    <h2><span class="section-icon">🔐</span> Approval Access</h2>
+    <div class="section-meta">Super-admin only. Everyone else sees a &ldquo;Super-admin only&rdquo; notice.</div>
+
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Policies are the standing grants. Each names a principal &mdash; one or more AD groups, or one person &mdash; and says which steps it can <strong>see</strong> and which of those it can <strong>decide</strong>. A policy can be edited, disabled without deleting, or deleted. A decide-everything policy is flagged <strong>high privilege</strong>.</p>
+
+    <div class="field-block">
+      <div class="field-label">Tier 2</div>
+      <div class="field-body"><p>Shown on its own card: the portal-wide policy for the <code>tier2</code> group. Its enabled policy determines its scope; Tier 2 membership alone does not grant approval decisions.</p></div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">App-only overrides</div>
+      <div class="field-body"><p>Use <strong>App-only override</strong> to select a person, departments, request types, view/approve rights, optional expiration and a reason. Edit or disable that person&rsquo;s policy in the same list. Person blocks take precedence over ordinary grants in the selected scope.</p></div>
+    </div>
+  </section>
+
+  <section class="guide-section" id="access-checks">
+    <h2>Check and manage department access</h2>
+    <p>In <strong>Administrator → Approval Access</strong>, enter a company email and choose <strong>Check access</strong> to see live directory membership, effective resource scope, grant sources and portal-entry blocks. Use <strong>Refresh AD access</strong> after directory changes.</p>
+    <p><strong>Manage AD security groups</strong> shows direct members of mapped groups. Adding or removing a member requires a reason and a review of any other application rights that group carries. Existing department groups also grant AI Usage Credits access; choose an app-only override when that extra access is unwanted. Nested memberships are not used.</p>
+    <p>The shared <strong>Portal entry rule</strong> allows entry, configuration administration, or an explicit block. Entry and configuration rights do not grant approval decisions. Corporate sign-in, disabled-account checks and additional site restrictions remain enforced. Superadmin recovery oversight is separate from decision rights.</p>
+    <p>CorpIT Access Control links to this owner screen. Subadmin site restrictions apply only to protected approver routes; requester forms remain public. Notification recipients never grant approval rights.</p>
+  </section>
+
+  <!-- SITE CONTENT -->
+  <section class="guide-section" id="site-content">
+    <h2><span class="section-icon">📝</span> Site Content</h2>
+    <div class="section-meta">The wording on the public portal and in the emails.</div>
+
+    <p style="font-size:13px;color:var(--text-muted)">A tabbed editor for the main portal&rsquo;s headings, the request-type names and descriptions, the confirmation page and the sentences used in notification emails. Edits are staged, then published together after a review dialog that shows every old &rarr; new change. Clearing a field restores the built-in default.</p>
+
+    <div class="callout warn" style="margin-top:14px">
+      <span class="callout-icon">⚠️</span>
+      <div>Placeholders such as <code>{id}</code> and <code>{type}</code> only work where the portal offers them for that sentence. Anything else is left as literal text. This guide and the Requestor Guide are static pages and are not edited here.</div>
+    </div>
+  </section>
+
+  <!-- FORM POLICIES -->
+  <section class="guide-section" id="form-policies">
+    <h2><span class="section-icon">📄</span> Form Policies <small style="font-size:14px;font-weight:500;color:var(--text-faint)">(Site Content tab)</small></h2>
+    <div class="section-meta">One AI Policy document serves both the AI Use Case form and the AI Policy Acknowledgement. Everything the employee reads on the acknowledgement page is set here.</div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">1</div><h3>AI Policy &mdash; document</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Upload the PDF and <strong>Publish new version</strong>. Each publish creates a new version; earlier versions are kept for the records that were signed against them. <strong>Release this page to employees</strong> must be ticked for the acknowledgement to be available on the portal. Employees see the document name, not the version number; the version is stamped on every record and shown in the audit trail and the admin console.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">2</div><h3>Introduction &amp; acknowledgment statements</h3></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)"><strong>Introduction</strong> is the blue box above the checkboxes. <strong>Acknowledgment statements</strong> are the checkboxes themselves &mdash; one required checkbox per line. Start a line with <code>- </code> for an indented checkbox under the line above it, and with <code>* </code> for a plain bullet inside that item. <code>&lt;strong&gt;&hellip;&lt;/strong&gt;</code> bolds a lead-in. Do not type ☐ &mdash; the page draws the boxes. Leave <strong>Key requirements</strong> empty unless a separate highlighted list is wanted.</p>
+        <div class="field-example"><div class="ex-label">Example</div><div class="ex-val" style="white-space:pre-wrap">I have read and understand the AI Policy&hellip;
+I further understand the key highlights&hellip;
+- &lt;strong&gt;Protect restricted data.&lt;/strong&gt; Do not enter&hellip;
+- &lt;strong&gt;New AI Use Case Intake Form Required&hellip;&lt;/strong&gt; If your use expands to:
+* Development of AI agents&hellip;
+* Connectivity to client systems&hellip;</div></div>
+        <p style="font-size:13px;color:var(--text-muted);margin-top:10px">Editing the statements changes what new signers see; it does not by itself ask existing signers to re-acknowledge. When Legal changes the provisions materially, publish a new document version as well &mdash; everyone who signed against the earlier version is then asked to acknowledge again on their next visit.</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">3</div><h3>Notifications &amp; provisioning</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)"><strong>Admin / IT notification recipients</strong> is the list that provisions Claude &mdash; it receives a notice per acknowledgement or a daily summary. <strong>Manager copy</strong> sends the employee&rsquo;s manager a copy of the confirmation. <strong>Claude provisioning lead time</strong> is the number of business days quoted to the employee and in the IT notice (default 2).</p></div>
+    </div>
+    <div class="callout warn" style="margin-top:14px">
+      <span class="callout-icon">⚠️</span>
+      <div>Edits here are staged like any other Site Content change: click <strong>Publish changes</strong> at the bottom, then hard-reload the portal page to check the result.</div>
+    </div>
+  </section>
+
+  <!-- ACK ADMIN -->
+  <section class="guide-section" id="ack-admin">
+    <h2><span class="section-icon">🛡️</span> AI Policy Acknowledgments <small style="font-size:14px;font-weight:500;color:var(--text-faint)">(Administration)</small></h2>
+    <div class="section-meta">Every acknowledgement recorded, who may complete one, and the notices that went out.</div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">A</div><h3>Records</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">One row per acknowledgement: person, department, manager, policy version, how they reviewed the policy, eligible via (HR roster or administrator grant) and when. Search, filter by version or date, open the full read-only record, download Word / PDF, or export the list as CSV or a ZIP of records for a compliance review. Counts at the top show eligible people and how many have not yet acknowledged.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">B</div><h3>Eligibility</h3></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">Full-time employees (HR pay class) are eligible automatically. The list adds exceptions: <strong>Allow</strong> lets a contractor or other worker type complete the acknowledgement; <strong>Block</strong> hides it from someone who would otherwise be eligible. Enter the work email, a reason, and tick <strong>Notify</strong> to email the person that the acknowledgement is now available (a resend button is on each row). Removing an entry is audited; earlier acknowledgements are kept.</p>
+        <div class="field-why"><span class="wy-icon">📌</span><p>Rule: eligible = (HR full-time <em>or</em> active Allow) <em>and not</em> active Block. A blocked or ineligible person who tries to submit is refused and the attempt is audited.</p></div>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">C</div><h3>What the audit trail shows</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Each record carries the employee confirmation, the manager copy and the IT notice as separate events (sent or failed, with the address), plus any export, refusal or eligibility change. Quote this when someone asks whether a person was notified.</p></div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ARCHIVING -->
+  <section class="guide-section" id="archiving">
+    <h2><span class="section-icon">▣</span> Archiving</h2>
+    <div class="section-meta">Move finished or test records out of the working views. Nothing is deleted — archived items keep their history and exports and can be brought back.</div>
+
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">A</div><h3>What archiving does</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">An archived request leaves Overview counts, Needs my action, All requests, Completed and the request-type tiles. It stays in the database and the Audit trail, its Word / PDF / Print exports still work, and the requester&rsquo;s Track Your Request shows it with an &ldquo;archived&rdquo; note. Every archive and un-archive is written to the audit trail with the reason you give.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">B</div><h3>How to archive</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)"><strong>One record:</strong> open it and click <strong>▣ Archive</strong> in the drawer header, next to Word / PDF / Print. <strong>Several:</strong> in All requests or Completed, tick the boxes in the first column and click <strong>Archive selected&hellip;</strong>. A reason is required either way.</p>
+      <div class="callout info" style="margin:10px 0 0"><span class="callout-icon">ℹ️</span><div>Approvers archive <strong>completed</strong> requests (approved, rejected, returned) in their own scope. A request that is still pending can only be archived by an administrator &mdash; if it is at your step, use Reject or Return instead. While a pending request is archived, nobody can decide it and no notifications go out.</div></div></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">C</div><h3>Finding archived records</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)"><strong>Archived</strong> in the sidebar (under Requests) lists everything archived that your role can see: who archived it, when and why. Search, open the full drawer, download the record, or export the list as CSV. Administrators can tick rows and <strong>Un-archive</strong> them, which restores the previous state.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">D</div><h3>Administrators — Archive by date</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Administration &rarr; <strong>Archive</strong>: archive everything submitted before a date (requests, acknowledgments or both), with a preview count first and a typed <strong>ARCHIVE</strong> confirmation. Used for the go-live clean-up of test data. Archived acknowledgments are treated as not signed: the person completes the real acknowledgement afresh.</p></div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- AI INVENTORY -->
+  <section class="guide-section" id="inventory">
+    <h2><span class="section-icon">🗂</span> AI Inventory <small style="font-size:14px;font-weight:500;color:var(--text-faint)">(InfoSec, Legal, administrators)</small></h2>
+    <div class="section-meta">The AI/ML Use Inventory workbook, column for column, kept inside the portal. Sidebar &rarr; <strong>AI Inventory</strong>. Other roles do not see it.</div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">A</div><h3>Where rows come from</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">When an AI Use Case Intake request is <strong>approved</strong>, a row appears automatically with everything the form provides (tagged <em>From intake</em> or <em>Partial</em>). Anything that never went through the form &mdash; an embedded SaaS feature, a tool already in use &mdash; is added with <strong>+ Add use case</strong> or <strong>Import from workbook</strong>. Nothing is asked of requesters.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">B</div><h3>Completing and reviewing a record</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Open a row &rarr; <strong>&#9998; Edit all fields</strong>. Every workbook column is editable with the Field Guide&rsquo;s allowed values; &ldquo;Unsure&rdquo; is always acceptable. Required columns are starred and the record lists which are still blank. Setting the <strong>Risk tier</strong> stamps Reviewed by / Review date and computes <strong>Next review due</strong> (High +3 months, Medium +12, Low on material change). The <strong>Auto-flag</strong> appears when NPI, client or consumer data, external output or fully automated oversight is Yes &mdash; it prompts review, it does not set the tier. Every change is written old &rarr; new to the record&rsquo;s history.</p></div>
+    </div>
+    <div class="step-card">
+      <div class="step-header"><div class="step-num">C</div><h3>Dashboard, import and export</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">The cards mirror the workbook&rsquo;s Summary tab and filter the table when clicked. <strong>Import from workbook</strong> reads a returned copy of the tracker, previews what would be created, updated (blank fields only) or rejected, and writes nothing until you confirm. <strong>&#11015; Excel / CSV</strong> export in the workbook&rsquo;s exact column order for audits and client inquiries. <strong>Coverage gaps</strong> shows which workbook fields the intake form provides and which InfoSec / Legal fill in.</p></div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- TROUBLESHOOTING -->
+  <section class="guide-section" id="troubleshooting">
+    <h2><span class="section-icon">🔧</span> Troubleshooting</h2>
+    <div class="section-meta">What the console is telling you, and what to do about it.</div>
+
+    <div class="field-block">
+      <div class="field-label">&ldquo;This request changed since you loaded it &mdash; refreshed&rdquo;</div>
+      <div class="field-body"><p>Someone decided, or an administrator edited the request, after your page loaded. Nothing of yours was saved. The panel reloads with the current version &mdash; read it again before deciding.</p></div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">&ldquo;It is not this step&rsquo;s turn&rdquo;</div>
+      <div class="field-body"><p>The request has moved on. Refresh; if it is now at your step it will be back in Pending Approvals.</p></div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">No decision buttons on a pending request</div>
+      <div class="field-body"><p>The panel says why: it is waiting at another step, or you hold view rights but not decide rights for the current step, or it is your own request.</p></div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">&ldquo;You are not an assigned approver for this step&rdquo;</div>
+      <div class="field-body"><p>Your grant does not cover the step the request is actually at. A super-admin can check your effective access and grant the required department/resource under Approval Access.</p></div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">A role tile you expected is missing</div>
+      <div class="field-body"><p>You hold no approval access for that step. The note under the heading counts the hidden roles.</p></div>
+    </div>
+    <div class="field-block">
+      <div class="field-label">An approver says they were never emailed</div>
+      <div class="field-body"><p>Open the request&rsquo;s History, or the Audit Trail, and look for the notification event for that step. A <code>notification.unroutable</code> event means the step had no recipient and the mail went to the Service Desk instead.</p></div>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- TIPS -->
+  <section class="guide-section" id="tips">
+    <h2><span class="section-icon">⚡</span> Tips for Approvers</h2>
+    <ul class="tips-list">
+      <li><span class="tip-n">1</span><strong>Work from Pending Approvals, not email.</strong> The queue is the truth; an email can be forwarded, filtered or stale.</li>
+      <li><span class="tip-n">2</span><strong>Read the ladder first.</strong> Earlier approvers&rsquo; comments usually contain the context you are missing.</li>
+      <li><span class="tip-n">3</span><strong>Write the comment before you click.</strong> It is the only thing the requester receives, and the only thing later approvers see from you.</li>
+      <li><span class="tip-n">4</span><strong>Return rather than guess.</strong> A returned request with a specific instruction costs the requester one form; a wrong approval costs an access review.</li>
+      <li><span class="tip-n">5</span><strong>Put conditions in writing.</strong> Dates, systems, IP restrictions, expiry &mdash; the comment is what IT reads when they action the grant.</li>
+      <li><span class="tip-n">6</span><strong>Check the manager pill</strong> on Dept. Manager approvals. A missing manager email means the notification went to the fallback address, not the requester&rsquo;s manager.</li>
+      <li><span class="tip-n">7</span><strong>Refresh before deciding</strong> on a page you have had open a while, especially when a step has several approvers.</li>
+      <li><span class="tip-n">8</span><strong>Prefer groups to named grants.</strong> Group membership follows joiners and leavers; a named grant has to be remembered and removed by hand.</li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+// Scroll spy
+const sections=document.querySelectorAll('.guide-section,[id]');
+const navItems=document.querySelectorAll('.nav-item');
+function onScroll(){
+  let current='';
+  document.querySelectorAll('[id]').forEach(el=>{
+    if(el.getBoundingClientRect().top<=80) current=el.id;
+  });
+  navItems.forEach(a=>{
+    const href=a.getAttribute('href');
+    if(href&&href==='#'+current) a.classList.add('active');
+    else a.classList.remove('active');
+  });
+}
+window.addEventListener('scroll',onScroll,{passive:true});
+onScroll();
+</script>
+
+</body>
+</html>

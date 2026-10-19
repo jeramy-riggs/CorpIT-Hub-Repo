@@ -1,0 +1,687 @@
+<!doctype html>
+<!-- MOCKUP A (overview) -- sign-in page for reporting.nrpi.local. NOT DEPLOYED.
+     Built from myprofile's live login.html (same chrome, card and glass), with a
+     reporting-specific schematic. Behaviour is the shared /login.js, so every id
+     is load-bearing: svc-status, svc-status-text, status-msg, login-form, btn-sso,
+     redirect-msg, local-details, local-section, login-pass, login-otp, local-error,
+     btn-local, app-version. Zero inline script (CSP). Schematic is skeletal: no names,
+     no numbers, never anyone's data. -->
+<html lang="en" data-sso-auto="off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in &middot; Reporting</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%274%27 fill=%27%2341B6E6%27/%3E%3Crect x=%273.2%27 y=%278.5%27 width=%272.2%27 height=%274.3%27 rx=%27.6%27 fill=%27%23071520%27/%3E%3Crect x=%276.9%27 y=%275.8%27 width=%272.2%27 height=%277%27 rx=%27.6%27 fill=%27%23071520%27/%3E%3Crect x=%2710.6%27 y=%273.2%27 width=%272.2%27 height=%279.6%27 rx=%27.6%27 fill=%27%23071520%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/fonts/fonts.css">
+<script src="/login.js" defer></script>
+<style>
+@font-face{font-family:'Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/files/plex-c36f509c0a8f.woff2) format('woff2')}
+@font-face{font-family:'Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/files/plex-a76f53ca6612.woff2) format('woff2')}
+
+/* Palette = my-profile.html's dark auction tokens, so signing in and landing
+   feel like one place. --live is the platform's live-data orange, which also
+   happens to be the sunset in the photograph. */
+:root{
+  --page:#071520; --panel:#0E1D2A; --card:#142533; --gray-lt:#20313F;
+  --line:#2E3F4C; --line-strong:#45596A;
+  --ink:#EBF1F6; --ink-2:#C3CDD6; --ink-3:#9AA7B2;
+  --accent:#41B6E6; --accent-h:#6FC8ED; --on-accent:#04121C;
+  --green:#78BE20; --live:#FC9B6F;
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  --ease-io:cubic-bezier(.77,0,.175,1);
+  --font:'Nunito','Helvetica Neue',Helvetica,Arial,sans-serif;
+  --mono:'Plex Mono','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--font);
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;min-height:100vh}
+.mono{font-family:var(--mono)}
+
+/* ---------- entrance vocabulary ----------
+   Page load is a once-per-visit moment, so it is allowed a little theatre --
+   but everything is opacity + transform only, and nothing blocks the CTA:
+   the card is fully interactive from first paint, it just fades up. */
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes settle{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:scale(1)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+@keyframes lit{to{background:var(--green);box-shadow:0 0 0 3px rgba(120,190,32,.18)}}
+/* shared with login.js reveals (.flash, .ferr, .redirect, details bodies) */
+@keyframes reveal{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+/* ---------- chrome ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:18px 34px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0E1D2A 0%,#0A1824 100%);position:relative;z-index:3}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.mark{width:28px;height:28px;flex:0 0 auto}
+.brand b{font-size:17px;font-weight:800;letter-spacing:-.01em;white-space:nowrap}
+.brand span{color:var(--ink-3);font-weight:600;font-size:14px}
+.brand span::before{content:"/";margin:0 8px 0 2px;color:var(--line-strong)}
+.status{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2);letter-spacing:.02em}
+.dot-ok{width:8px;height:8px;border-radius:50%;background:var(--ink-3);
+  box-shadow:0 0 0 3px rgba(154,167,178,.16);transition:background-color 200ms ease,box-shadow 200ms ease}
+/* Four measured states -- "could not measure" is not "down". */
+#svc-status[data-state="checking"] #svc-status-text,
+#svc-status[data-state="unknown"] #svc-status-text{color:var(--ink-3)}
+#svc-status[data-state="ok"] .dot-ok{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.16)}
+#svc-status[data-state="degraded"] .dot-ok{background:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.18)}
+#svc-status[data-state="degraded"] #svc-status-text{color:#f3d08a}
+#svc-status[data-state="down"] .dot-ok{background:#f87171;box-shadow:0 0 0 3px rgba(248,113,113,.18)}
+#svc-status[data-state="down"] #svc-status-text{color:#ffb3ac}
+
+/* ---------- split + hero ----------
+   The photograph is its own layer (not a background on .split) so it can
+   settle in with a transform without dragging the text with it. The shade
+   above it does three jobs, topmost-first:
+     1 horizontal dissolve toward the card
+     2 a left-hand pool of dark behind the headline -- the sky there is the
+       brightest orange in the image
+     3 a vertical scrim that opens over the plaza and closes at the rail */
+.split{flex:1;position:relative;display:grid;grid-template-columns:1.1fr .9fr;overflow:hidden;isolation:isolate}
+.photo{position:absolute;inset:0;z-index:-2;
+  background:url(/signin-hero.jpg) center 40% / cover no-repeat,var(--panel);
+  background:image-set(url(/signin-hero.webp?v=20261001) type('image/webp'), url(/signin-hero.jpg) type('image/jpeg')) center 40% / cover no-repeat,var(--panel);
+  transform-origin:50% 70%;animation:settle 1600ms var(--ease-out) both}
+.shade{position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:
+    linear-gradient(90deg,rgba(7,21,32,0) 0%,rgba(7,21,32,0) 46%,rgba(7,21,32,.22) 64%,rgba(7,21,32,.46) 84%,rgba(7,21,32,.56) 100%),
+    radial-gradient(75% 85% at 8% 30%,rgba(7,21,32,.80) 0%,rgba(7,21,32,.55) 45%,rgba(7,21,32,0) 100%),
+    linear-gradient(180deg,rgba(7,21,32,.18) 0%,rgba(7,21,32,0) 26%,rgba(7,21,32,.06) 58%,rgba(7,21,32,.50) 86%,rgba(7,21,32,.78) 100%)}
+
+.left{padding:60px 56px 36px;display:flex;flex-direction:column;min-width:0}
+.eyebrow{font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.16em;
+  color:var(--accent-h);margin:0 0 22px}
+h1{margin:0 0 20px;font-size:clamp(34px,4.3vw,54px);line-height:1.05;font-weight:800;
+  letter-spacing:-.025em;text-wrap:balance;max-width:13ch;text-shadow:0 2px 18px rgba(7,21,32,.5)}
+h1 em{font-style:normal;color:var(--accent-h)}
+.lede{margin:0;font-size:17px;line-height:1.6;color:var(--ink-2);max-width:40ch;text-shadow:0 1px 10px rgba(7,21,32,.6)}
+.left>.eyebrow{animation:rise 600ms var(--ease-out) 80ms both}
+.left>h1{animation:rise 600ms var(--ease-out) 150ms both}
+.left>.lede{animation:rise 600ms var(--ease-out) 220ms both}
+
+.peek{margin:auto 0 0;padding-top:44px;max-width:540px;animation:rise 700ms var(--ease-out) 320ms both}
+.pk{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border-radius:16px;
+  background:rgba(14,29,42,.62);border:1px solid rgba(69,89,106,.7);
+  -webkit-backdrop-filter:blur(14px) saturate(120%);backdrop-filter:blur(14px) saturate(120%);
+  box-shadow:0 24px 60px -30px rgba(0,0,0,.85)}
+.mod{background:rgba(20,37,51,.78);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
+  animation:rise 520ms var(--ease-out) both}
+.mod:nth-child(1){animation-delay:420ms}
+.mod:nth-child(2){animation-delay:490ms}
+.mod:nth-child(3){animation-delay:560ms}
+.mod:nth-child(4){animation-delay:630ms}
+.mod.wide{grid-column:1/-1}
+.ml{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.14em;color:var(--ink-3);margin:0 0 10px}
+.sk{display:block;height:7px;border-radius:4px;background:#2A3C4B}
+.sk.hi{background:#3A5061}
+.spark{display:block;width:100%;height:46px;overflow:visible}
+.spark .area{fill:url(#sparkfill);opacity:0;animation:fade 600ms ease 1500ms both}
+.spark .line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;
+  stroke-dasharray:300;stroke-dashoffset:300;animation:draw 1100ms var(--ease-io) 850ms both}
+/* The travelling point is the one piece of ambient motion on the page: it
+   rides the fortnight, rests on "today", fades and goes round again. Same
+   idea as the flow dot on the shared page, different job -- that one moves a
+   request through triage; this one reads your recent days. */
+.spark .now{fill:var(--live);opacity:0;
+  offset-path:path("M2 38 L26 33 L50 35 L74 24 L98 28 L122 18 L146 22 L170 12 L194 15 L218 6");
+  offset-rotate:0deg;filter:drop-shadow(0 0 6px rgba(252,155,111,.9));
+  animation:ride 5200ms var(--ease-io) 2100ms infinite}
+@keyframes ride{
+  0%{offset-distance:0%;opacity:0}
+  6%{opacity:1}
+  52%{offset-distance:100%;opacity:1}
+  80%{offset-distance:100%;opacity:1}
+  92%{offset-distance:100%;opacity:0}
+  100%{offset-distance:0%;opacity:0}}
+.meter{position:relative;height:8px;border-radius:999px;background:#1A2C3A;margin-top:12px;overflow:visible}
+.meter b{position:absolute;left:0;top:0;bottom:0;width:62%;border-radius:inherit;
+  background:linear-gradient(90deg,var(--accent),#7FD0F0);transform-origin:left center;
+  animation:fill 1000ms var(--ease-io) 1000ms both}
+.meter u{position:absolute;left:80%;top:-4px;bottom:-4px;width:2px;border-radius:1px;background:var(--live);
+  animation:fade 300ms ease 1700ms both}
+.rail{margin-top:34px;display:flex;flex-wrap:wrap;gap:10px 26px;font-size:12.5px;color:var(--ink-2);letter-spacing:.04em;
+  text-shadow:0 1px 8px rgba(7,21,32,.8);animation:fade 600ms ease 800ms both}
+.rail span::before{content:"\2014\00A0";color:var(--ink-3)}
+
+/* ---------- card ---------- */
+.right{display:flex;align-items:center;justify-content:center;padding:48px 44px}
+.card{width:100%;max-width:436px;position:relative;overflow:hidden;
+  background:rgba(20,37,51,.88);
+  -webkit-backdrop-filter:blur(22px) saturate(115%);backdrop-filter:blur(22px) saturate(115%);
+  border:1px solid var(--line-strong);border-radius:16px;padding:34px 34px 28px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 30px 70px -30px rgba(0,0,0,.85);
+  animation:rise 650ms var(--ease-out) 180ms both}
+/* my-profile's greeting banner carries a 3px accent bar on its left edge;
+   the card borrows it so the two read as the same family. */
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--accent) 0%,var(--live) 100%)}
+.who{width:52px;height:52px;border-radius:50%;margin-bottom:24px;display:grid;place-items:center;
+  background:#123243;border:1px solid #1F4A60;position:relative}
+.who::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid rgba(65,182,230,.28)}
+.card .eyebrow{margin-bottom:12px}
+h2{margin:0 0 10px;font-size:31px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.sub{margin:0 0 24px;color:var(--ink-2);font-size:15px;line-height:1.55}
+
+.ms{display:flex;align-items:center;gap:14px;width:100%;
+  background:var(--accent);color:var(--on-accent);border:0;border-radius:10px;
+  padding:15px 18px;font:inherit;font-size:15.5px;font-weight:800;text-decoration:none;cursor:pointer;
+  transition:background-color 150ms ease,transform 150ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.ms:hover{background:var(--accent-h)}}
+.ms:active{transform:scale(.97)}
+.ms:focus-visible{outline:2px solid var(--accent-h);outline-offset:3px}
+.ms .lbl{flex:1;text-align:center}
+.ms .arw{transition:transform 150ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.ms:hover .arw{transform:translateX(3px)}}
+.msq{display:grid;grid-template-columns:9px 9px;grid-template-rows:9px 9px;gap:2px;flex:0 0 auto;
+  padding:3px;background:#fff;border-radius:3px}
+.msq i{display:block}
+.msq i:nth-child(1){background:#f25022}.msq i:nth-child(2){background:#7fba00}
+.msq i:nth-child(3){background:#00a4ef}.msq i:nth-child(4){background:#ffb900}
+
+/* What signing in opens -- plain list, mirrors the page's own sections. */
+.inside{list-style:none;margin:22px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:9px 14px}
+.inside li{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink-2)}
+.inside svg{flex:0 0 auto;color:var(--accent)}
+
+.hr{height:1px;background:var(--line);margin:22px 0 18px}
+.foot-note{display:flex;align-items:center;gap:10px;color:var(--ink-2);font-size:13.5px}
+
+details>summary{list-style:none;cursor:pointer}
+details>summary::-webkit-details-marker{display:none}
+details[open]>.pwform,details[open]>.help-body{animation:reveal 180ms var(--ease-out) both}
+.help-d{margin-top:14px}
+.help{display:inline-block;font-size:14px;color:var(--ink);text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:var(--line-strong);padding:4px 0;border-radius:6px;transition:text-decoration-color 140ms ease,color 140ms ease}
+@media (hover:hover) and (pointer:fine){.help:hover{text-decoration-color:var(--ink-3);color:#fff}}
+.help:focus-visible{outline:2px solid var(--accent-h);outline-offset:2px}
+.help-d[open]>.help{color:var(--ink-2)}
+.help-body{margin:10px 0 0;color:var(--ink-2);font-size:13.5px;line-height:1.6}
+
+.pwform{margin-top:14px;display:flex;flex-direction:column;gap:12px}
+label{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-family:var(--mono)}
+input[type=text],input[type=password]{width:100%;background:#0E1D2A;border:1px solid var(--line-strong);border-radius:9px;
+  padding:12px 13px;color:var(--ink);font:inherit;font-size:15px;margin-top:6px;
+  transition:border-color 140ms ease,box-shadow 140ms ease}
+input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px rgba(65,182,230,.22)}
+.btn-local{background:var(--gray-lt);color:var(--ink);border:1px solid var(--line-strong);border-radius:9px;
+  padding:13px 16px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;
+  transition:background-color 140ms ease,transform 140ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.btn-local:hover{background:#2A3E4F}}
+.btn-local:active{transform:scale(.97)}
+.btn-local:focus-visible{outline:2px solid var(--accent-h);outline-offset:2px}
+.btn-local[disabled]{opacity:.55;cursor:default}
+.btn-local[disabled]:active{transform:none}
+
+.flash{border-radius:9px;padding:11px 14px;font-size:14px;margin-bottom:18px;line-height:1.45;animation:reveal 200ms var(--ease-out) both}
+.flash.error{background:rgba(247,111,100,.12);border:1px solid rgba(247,111,100,.45);color:#ffb3ac}
+.flash.ok{background:rgba(120,190,32,.12);border:1px solid rgba(120,190,32,.42);color:#b5dd84}
+.flash.info{background:rgba(65,182,230,.10);border:1px solid rgba(65,182,230,.38);color:#bfe4f4}
+.ferr{margin:0;font-size:13.5px;line-height:1.45;color:#ffb3ac;animation:reveal 180ms var(--ease-out) both}
+.redirect{display:flex;align-items:center;gap:12px;color:var(--ink-2);font-size:15px;padding:6px 0 2px;animation:reveal 200ms var(--ease-out) both}
+.spin{width:16px;height:16px;border-radius:50%;flex:0 0 auto;border:2px solid var(--line-strong);border-top-color:var(--accent);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Break-glass: a quiet + in the bottom-right, revealed by login.js only when
+   /api/breakglass/status confirms it. Slot reserved so nothing jumps. */
+.bg-toggle{margin-top:2px;opacity:1;transition:opacity 200ms var(--ease-out)}
+.bg-toggle[hidden]{display:block;visibility:hidden;opacity:0}
+.bg-toggle>summary{width:26px;height:26px;margin-left:auto;display:flex;align-items:center;justify-content:center;
+  border:1px solid transparent;border-radius:7px;color:var(--ink-3);font-family:var(--mono);font-size:16px;line-height:1;
+  transition:color 140ms ease,border-color 140ms ease,background-color 140ms ease}
+@media (hover:hover) and (pointer:fine){.bg-toggle>summary:hover{color:var(--ink-2);border-color:var(--line-strong);background:var(--gray-lt)}}
+.bg-toggle>summary:focus-visible{outline:2px solid var(--accent-h);outline-offset:2px}
+.bg-toggle[open]>summary{color:var(--ink-2);border-color:var(--line-strong);background:var(--gray-lt)}
+.bg-toggle .pl{display:block;transition:transform 160ms var(--ease-out)}
+.bg-toggle[open] .pl{transform:rotate(45deg)}
+
+.ver{color:var(--ink-3)}
+.bottom{display:flex;justify-content:space-between;gap:16px;padding:16px 34px;border-top:1px solid var(--line);
+  color:var(--ink-3);font-size:12px;letter-spacing:.05em;background:var(--page)}
+
+/* ---------- narrow ----------
+   Stacked, the order becomes headline -> sign in -> the schematic, so the
+   one thing you came to do is never below a decoration. .left dissolves
+   (display:contents) so its children can be ordered around the card. */
+@media (max-width:940px){
+  .split{grid-template-columns:1fr;padding:40px 24px 36px;gap:0}
+  .left{display:contents}
+  .left>.eyebrow{order:1}.left>h1{order:2}.left>.lede{order:3}
+  .right{order:4;padding:30px 0 0}
+  .peek{order:5;padding-top:30px;max-width:none}
+  .rail{order:6}
+  .shade{background:
+    linear-gradient(180deg,rgba(7,21,32,.82) 0%,rgba(7,21,32,.70) 22%,rgba(7,21,32,.80) 34%,rgba(7,21,32,.94) 46%,rgba(7,21,32,.96) 100%)}
+  .photo{background-position:30% 0,0 0;background-size:auto 70vh,auto;background-repeat:no-repeat}
+  .card{margin:0 auto}
+  .top{padding:16px 20px}
+  .bottom{padding:14px 20px}
+}
+@media (max-width:520px){
+  .pk{grid-template-columns:1fr}
+    .brand span{display:none}
+  .inside{grid-template-columns:1fr}
+  .card{padding:28px 22px 24px}
+  .status #svc-status-text{max-width:15ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+
+/* Reduced motion: remove MOVEMENT, keep fades and colour feedback. Every
+   drawn/filled element lands in its finished state. */
+@media (prefers-reduced-motion:reduce){
+  @keyframes rise{from{opacity:0}to{opacity:1}}
+  @keyframes settle{from{opacity:0}to{opacity:1}}
+  @keyframes pop{from{opacity:0}to{opacity:1}}
+  @keyframes reveal{from{opacity:0}to{opacity:1}}
+  .spark .line{animation:none;stroke-dashoffset:0}
+  .meter b{animation:none}
+  .spark .now{animation:none;offset-distance:100%;opacity:1}
+  .spin{animation:none}
+  .ms:active,.btn-local:active{transform:none}
+  .ms .arw,.bg-toggle .pl{transition:none}
+}
+/* ================= ambient motion =================
+   Same page and contract; adds ambient life. Every loop is slow (>=6s),
+   transform/opacity only, and switched off under reduced motion. */
+@property --spin{syntax:'<angle>';inherits:false;initial-value:0deg}
+/* 1. Photo keeps breathing after it settles: a very slow drift. */
+.photo{animation:settle 1600ms var(--ease-out) both,drift 38s ease-in-out 1600ms infinite alternate}
+@keyframes drift{from{transform:scale(1) translate3d(0,0,0)}to{transform:scale(1.07) translate3d(-1.5%,-1%,0)}}
+/* 2. A band of sunset light passes across the scene once, after load. */
+.glint{position:absolute;inset:-20% -40%;z-index:-1;pointer-events:none;
+  background:linear-gradient(105deg,transparent 42%,rgba(252,155,111,.16) 48%,rgba(255,214,170,.22) 50%,rgba(252,155,111,.16) 52%,transparent 58%);
+  transform:translateX(-60%);animation:glint 2600ms var(--ease-io) 700ms both;mix-blend-mode:screen}
+@keyframes glint{from{transform:translateX(-60%);opacity:1}to{transform:translateX(60%);opacity:0}}
+/* 3. Headline accent carries the sunset: cyan into orange, one slow sweep. */
+h1 em{background:linear-gradient(90deg,#6FC8ED 0%,#9FDCF3 30%,#FFC49E 55%,#6FC8ED 80%,#9FDCF3 100%);
+  background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:sheen 3200ms var(--ease-io) 900ms both;text-shadow:none;filter:drop-shadow(0 2px 14px rgba(7,21,32,.55))}
+@keyframes sheen{from{background-position:100% 0}to{background-position:0 0}}
+/* 4. The schematic sits in perspective and floats. */
+.peek{perspective:1400px}
+.pk{transform:rotateX(7deg) rotateY(-9deg);transform-origin:30% 60%;
+  animation:float 7s ease-in-out 1800ms infinite alternate}
+@keyframes float{from{transform:rotateX(7deg) rotateY(-9deg) translateY(0)}to{transform:rotateX(5deg) rotateY(-6deg) translateY(-6px)}}
+/* 5. A scan passes module to module -- the profile being assembled from its sources. */
+.mod{position:relative}
+.mod::after{content:"";position:absolute;inset:-1px;border-radius:inherit;border:1px solid rgba(111,200,237,.75);
+  box-shadow:0 0 0 3px rgba(65,182,230,.12),0 0 24px -6px rgba(65,182,230,.6);opacity:0;
+  animation:scan 8s ease-in-out 2200ms infinite}
+.mod:nth-child(2)::after{animation-delay:4200ms}
+.mod:nth-child(3)::after{animation-delay:6200ms}
+.mod:nth-child(4)::after{animation-delay:8200ms}
+@keyframes scan{0%,100%{opacity:0}6%{opacity:1}20%{opacity:0}}
+/* 6. The card's edge carries a slow orbit of light. */
+.card{isolation:isolate}
+.card::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:conic-gradient(from var(--spin),transparent 0deg,rgba(111,200,237,.9) 40deg,rgba(252,155,111,.8) 80deg,transparent 130deg,transparent 360deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  animation:orbit 9s linear infinite,fade 900ms ease 900ms both}
+@keyframes orbit{to{--spin:360deg}}
+/* 7. The CTA gets a single light pass once the page has settled. */
+.ms{position:relative;overflow:hidden}
+.ms::after{content:"";position:absolute;top:0;bottom:0;left:-40%;width:35%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-18deg) translateX(0);
+  animation:pass 1100ms var(--ease-io) 1900ms both}
+@keyframes pass{from{transform:skewX(-18deg) translateX(0)}to{transform:skewX(-18deg) translateX(480%)}}
+@media (max-width:940px){.pk{transform:none;animation:none}}
+@media (prefers-reduced-motion:reduce){
+  .photo{animation:settle 400ms ease both}
+  .glint,.ms::after{display:none}
+  .pk{animation:none;transform:none}
+  .mod::after{animation:none}
+  .card::after{animation:fade 400ms ease both}
+  h1 em{animation:none;background-position:0 0}
+}
+/* ================= usage-focused schematic + translucency ================= */
+/* Photo covers the whole viewport so the header and footer can be glass too. */
+.photo{position:fixed}
+.shade{position:fixed}
+.glint{position:fixed}
+.top{background:rgba(7,21,32,.42);border-bottom-color:rgba(69,89,106,.45);
+  -webkit-backdrop-filter:blur(18px) saturate(130%);backdrop-filter:blur(18px) saturate(130%)}
+.bottom{background:rgba(7,21,32,.55);border-top-color:rgba(69,89,106,.45);position:relative;z-index:3;
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+/* Glass: lower fill, stronger blur, a hairline highlight on the top edge. */
+.card{background:rgba(14,29,42,.56);border-color:rgba(111,200,237,.22);
+  -webkit-backdrop-filter:blur(28px) saturate(140%);backdrop-filter:blur(28px) saturate(140%);
+  box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 30px 70px -30px rgba(0,0,0,.85)}
+.pk{background:rgba(7,21,32,.26);border-color:rgba(111,200,237,.20);
+  -webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);
+  box-shadow:0 1px 0 rgba(255,255,255,.07) inset,0 24px 60px -30px rgba(0,0,0,.8)}
+.mod{background:rgba(14,29,42,.42);border-color:rgba(111,200,237,.16);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.who{background:rgba(18,50,67,.6)}
+.sk{background:rgba(154,167,178,.22)}
+.sk.hi{background:rgba(195,205,214,.34)}
+.ml{color:#B4C1CC}
+
+@media (max-width:940px){.photo{background-size:cover;background-position:30% 40%}}
+/* [SEE-THROUGH 2026-09-24] lighter glass on the sign-in card so the HQ building
+   behind it stays visible: less fill, much less blur. */
+.card{background:rgba(14,29,42,.34);-webkit-backdrop-filter:blur(3px) saturate(135%);backdrop-filter:blur(3px) saturate(135%)}
+
+
+/* ================= A: tower lights + report panel =================
+   The report panel is the approved reference image (site/dash-panel.webp,
+   cut from the comp). It swings in on its pedestal, then floats; a light
+   sweep crosses the glass and the latest point on the trend line pulses.
+   The tower windows in the photo come on floor by floor. */
+/* --- framing: one pair of vars positions both the photo and the lights --- */
+.va .photo{--px:.5;--py:.4;container-type:size;background-position:calc(var(--px)*100%) calc(var(--py)*100%),0 0}
+.lights{position:absolute;pointer-events:none;
+  width:max(100cqw,calc(100cqh*2.99310));height:max(100cqh,calc(100cqw*.334101));
+  left:calc((100cqw - max(100cqw,calc(100cqh*2.99310)))*var(--px));
+  top:calc((100cqh - max(100cqh,calc(100cqw*.334101)))*var(--py));
+  filter:blur(.35px) drop-shadow(0 0 4px rgba(255,170,90,.35))}
+.lights polygon{fill:url(#lamp);opacity:0;animation:lampon 1100ms linear both}
+/* a fluorescent tube catching: a blink, a dip, then steady -- never full white */
+@keyframes lampon{0%{opacity:0}6%{opacity:.56}11%{opacity:.1}19%{opacity:.44}26%{opacity:.26}100%{opacity:.46}}
+.lights polygon.c{fill:url(#lamp2)}
+.f0 polygon:nth-child(1){animation-delay:3400ms}
+.f0 polygon:nth-child(2){animation-delay:3478ms}
+.f0 polygon:nth-child(3){animation-delay:3556ms}
+.f0 polygon:nth-child(4){animation-delay:3544ms}
+.f0 polygon:nth-child(5){animation-delay:3622ms}
+.f0 polygon:nth-child(6){animation-delay:3610ms}
+.f0 polygon:nth-child(7){animation-delay:3688ms}
+.f0 polygon:nth-child(8){animation-delay:3766ms}
+.f0 polygon:nth-child(9){animation-delay:3754ms}
+.f0 polygon:nth-child(10){animation-delay:3832ms}
+.f0 polygon:nth-child(11){animation-delay:3820ms}
+.f0 polygon:nth-child(12){animation-delay:3898ms}
+.f0 polygon:nth-child(13){animation-delay:3976ms}
+.f1 polygon:nth-child(1){animation-delay:3228ms}
+.f1 polygon:nth-child(2){animation-delay:3306ms}
+.f1 polygon:nth-child(3){animation-delay:3294ms}
+.f1 polygon:nth-child(4){animation-delay:3372ms}
+.f1 polygon:nth-child(5){animation-delay:3450ms}
+.f1 polygon:nth-child(6){animation-delay:3438ms}
+.f1 polygon:nth-child(7){animation-delay:3516ms}
+.f1 polygon:nth-child(8){animation-delay:3504ms}
+.f1 polygon:nth-child(9){animation-delay:3582ms}
+.f1 polygon:nth-child(10){animation-delay:3660ms}
+.f1 polygon:nth-child(11){animation-delay:3648ms}
+.f1 polygon:nth-child(12){animation-delay:3726ms}
+.f1 polygon:nth-child(13){animation-delay:3714ms}
+.f1 polygon:nth-child(14){animation-delay:3792ms}
+.f2 polygon:nth-child(1){animation-delay:3056ms}
+.f2 polygon:nth-child(2){animation-delay:3134ms}
+.f2 polygon:nth-child(3){animation-delay:3122ms}
+.f2 polygon:nth-child(4){animation-delay:3200ms}
+.f2 polygon:nth-child(5){animation-delay:3188ms}
+.f2 polygon:nth-child(6){animation-delay:3266ms}
+.f2 polygon:nth-child(7){animation-delay:3344ms}
+.f2 polygon:nth-child(8){animation-delay:3332ms}
+.f2 polygon:nth-child(9){animation-delay:3410ms}
+.f2 polygon:nth-child(10){animation-delay:3398ms}
+.f2 polygon:nth-child(11){animation-delay:3476ms}
+.f2 polygon:nth-child(12){animation-delay:3554ms}
+.f3 polygon:nth-child(1){animation-delay:2884ms}
+.f3 polygon:nth-child(2){animation-delay:2872ms}
+.f3 polygon:nth-child(3){animation-delay:2950ms}
+.f3 polygon:nth-child(4){animation-delay:3028ms}
+.f3 polygon:nth-child(5){animation-delay:3016ms}
+.f3 polygon:nth-child(6){animation-delay:3094ms}
+.f3 polygon:nth-child(7){animation-delay:3082ms}
+.f3 polygon:nth-child(8){animation-delay:3160ms}
+.f3 polygon:nth-child(9){animation-delay:3238ms}
+.f4 polygon:nth-child(1){animation-delay:2712ms}
+.f4 polygon:nth-child(2){animation-delay:2700ms}
+.f4 polygon:nth-child(3){animation-delay:2778ms}
+.f4 polygon:nth-child(4){animation-delay:2766ms}
+.f4 polygon:nth-child(5){animation-delay:2844ms}
+.f4 polygon:nth-child(6){animation-delay:2922ms}
+.f4 polygon:nth-child(7){animation-delay:2910ms}
+.f4 polygon:nth-child(8){animation-delay:2988ms}
+.f4 polygon:nth-child(9){animation-delay:2976ms}
+.f5 polygon:nth-child(1){animation-delay:2450ms}
+.f5 polygon:nth-child(2){animation-delay:2528ms}
+.f5 polygon:nth-child(3){animation-delay:2606ms}
+.f5 polygon:nth-child(4){animation-delay:2594ms}
+.f5 polygon:nth-child(5){animation-delay:2672ms}
+.f5 polygon:nth-child(6){animation-delay:2660ms}
+.f5 polygon:nth-child(7){animation-delay:2738ms}
+.f5 polygon:nth-child(8){animation-delay:2816ms}
+.f5 polygon:nth-child(9){animation-delay:2804ms}
+.f5 polygon:nth-child(10){animation-delay:2882ms}
+.f5 polygon:nth-child(11){animation-delay:2870ms}
+.f5 polygon:nth-child(12){animation-delay:2948ms}
+.f5 polygon:nth-child(13){animation-delay:3026ms}
+.f5 polygon:nth-child(14){animation-delay:3014ms}
+.f6 polygon:nth-child(1){animation-delay:2278ms}
+.f6 polygon:nth-child(2){animation-delay:2356ms}
+.f6 polygon:nth-child(3){animation-delay:2344ms}
+.f6 polygon:nth-child(4){animation-delay:2422ms}
+.f6 polygon:nth-child(5){animation-delay:2500ms}
+.f6 polygon:nth-child(6){animation-delay:2488ms}
+.f6 polygon:nth-child(7){animation-delay:2566ms}
+.f6 polygon:nth-child(8){animation-delay:2554ms}
+.f7 polygon:nth-child(1){animation-delay:2106ms}
+.f7 polygon:nth-child(2){animation-delay:2184ms}
+.f7 polygon:nth-child(3){animation-delay:2172ms}
+.f7 polygon:nth-child(4){animation-delay:2250ms}
+.f7 polygon:nth-child(5){animation-delay:2238ms}
+.f7 polygon:nth-child(6){animation-delay:2316ms}
+.f7 polygon:nth-child(7){animation-delay:2394ms}
+.f7 polygon:nth-child(8){animation-delay:2382ms}
+.f7 polygon:nth-child(9){animation-delay:2460ms}
+.f7 polygon:nth-child(10){animation-delay:2448ms}
+.f7 polygon:nth-child(11){animation-delay:2526ms}
+.f7 polygon:nth-child(12){animation-delay:2604ms}
+.f7 polygon:nth-child(13){animation-delay:2592ms}
+.f7 polygon:nth-child(14){animation-delay:2670ms}
+.f7 polygon:nth-child(15){animation-delay:2658ms}
+.f8 polygon:nth-child(1){animation-delay:1934ms}
+.f8 polygon:nth-child(2){animation-delay:1922ms}
+.f8 polygon:nth-child(3){animation-delay:2000ms}
+.f8 polygon:nth-child(4){animation-delay:2078ms}
+.f8 polygon:nth-child(5){animation-delay:2066ms}
+.f9 polygon:nth-child(1){animation-delay:1762ms}
+.f9 polygon:nth-child(2){animation-delay:1750ms}
+.f9 polygon:nth-child(3){animation-delay:1828ms}
+.f9 polygon:nth-child(4){animation-delay:1816ms}
+.f9 polygon:nth-child(5){animation-delay:1894ms}
+.f10 polygon:nth-child(1){animation-delay:1500ms}
+.f10 polygon:nth-child(2){animation-delay:1578ms}
+.f10 polygon:nth-child(3){animation-delay:1656ms}
+.f10 polygon:nth-child(4){animation-delay:1644ms}
+/* afterwards a few rooms change, slowly -- someone leaving, someone arriving */
+.lights .f2 polygon:nth-child(3),.lights .f6 polygon:nth-child(5),.lights .f4 polygon:nth-child(2){
+  animation:lampon 1100ms linear both,late 23s ease-in-out 9s infinite}
+.lights .f6 polygon:nth-child(5){animation-delay:2280ms,14s}
+.lights .f4 polygon:nth-child(2){animation-delay:2600ms,19s}
+@keyframes late{0%,44%{opacity:.46}50%,88%{opacity:.04}94%,100%{opacity:.46}}
+
+
+/* --dw is the panel width; the card's bottom edge is set from it so the card
+   ends exactly where the panel's stand does (stand = 21/450 of the image
+   above the image's bottom edge; then the rail and the column padding) */
+/* [RP-SIZE 2026-09-24] Jeramy: panel ~3% bigger (870->896, 54->55.6vw) and a tad to the right.
+   The shift is clamped: up to +60px where the left column has room, none where the panel already
+   fills it, so it never crowds the card on smaller screens. */
+.va .split{--dw:min(896px,55.6vw)}
+.dash{max-width:none;margin:auto 0 0 clamp(-22px,calc(100% - var(--dw)),38px);padding-top:26px;perspective:1600px;width:var(--dw)}
+/* [SEE-THROUGH 2026-09-24] the report panel goes a tad see-through like the card.
+   filter:opacity on the outer wrapper (its own opacity is held at 1 by the rise
+   entrance), so the panel fades as one piece and every animation inside runs untouched. */
+.dash{filter:opacity(.8)}
+@media (min-width:941px){
+  .va .right{align-items:flex-end;padding-bottom:calc(36px + 14px + 26px + var(--dw)*0.024138)}
+}
+.dash-in{position:relative;transform-origin:30% 90%;
+  animation:dashin 1100ms var(--ease-out) 350ms both,dashfloat 9s ease-in-out 1500ms infinite alternate}
+.dash-in img{display:block;width:100%;height:auto;filter:drop-shadow(0 26px 40px rgba(0,0,0,.55))}
+@keyframes dashin{from{opacity:0;transform:rotateY(-14deg) rotateX(6deg) translateY(28px) scale(.96)}
+  to{opacity:1;transform:none}}
+@keyframes dashfloat{from{transform:translateY(3px)}to{transform:translateY(-3px)}}
+/* light sweep, masked to the panel's own shape */
+.dash-sheen{position:absolute;inset:0;pointer-events:none;overflow:hidden;
+  -webkit-mask:url(/dash-panel.webp) center/100% 100% no-repeat;mask:url(/dash-panel.webp) center/100% 100% no-repeat}
+.dash-sheen::before{content:"";position:absolute;top:0;bottom:0;left:0;width:34%;
+  background:linear-gradient(100deg,rgba(255,255,255,0) 0%,rgba(190,235,255,.16) 50%,rgba(255,255,255,0) 100%);
+  transform:translateX(-120%);animation:sheen 7s var(--ease-io) 1600ms infinite}
+@keyframes sheen{0%{transform:translateX(-120%)}38%,100%{transform:translateX(420%)}}
+/* trend plot redrawn as vectors over the image: the line climbs month by
+   month, the area rises behind it, each point lands as the pen reaches it */
+.trend{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.trend .tbg{fill:#132A46}
+.trend .tgrid{fill:none;stroke:rgba(111,160,210,.16);stroke-width:.7}
+.trend .tbase{stroke:rgba(140,190,230,.35);stroke-width:1}
+.trend .tarea{fill:url(#tarea);transform-box:fill-box;transform-origin:50% 100%;
+  animation:tarise 1400ms var(--ease-out) 1500ms both}
+@keyframes tarise{from{opacity:0;transform:scaleY(.35)}to{opacity:1;transform:scaleY(1)}}
+.trend .tline{fill:none;stroke:#48BFF3;stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round;
+  stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 2.5px rgba(80,190,245,.7));
+  animation:tdraw 1900ms cubic-bezier(.4,0,.2,1) 1250ms forwards}
+@keyframes tdraw{to{stroke-dashoffset:0}}
+.trend .tpt{fill:#63CBFA;transform-box:fill-box;transform-origin:center;animation:tpop 360ms var(--ease-out) both}
+@keyframes tpop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
+.tpt.t0{animation-delay:1230ms}
+.tpt.t1{animation-delay:1509ms}
+.tpt.t2{animation-delay:1617ms}
+.tpt.t3{animation-delay:1686ms}
+.tpt.t4{animation-delay:1752ms}
+.tpt.t5{animation-delay:1810ms}
+.tpt.t6{animation-delay:1880ms}
+.tpt.t7{animation-delay:1948ms}
+.tpt.t8{animation-delay:2033ms}
+.tpt.t9{animation-delay:2151ms}
+.tpt.t10{animation-delay:2311ms}
+.tpt.t11{animation-delay:2523ms}
+.tpt.t12{animation-delay:3089ms}
+/* the latest month on the trend line (Dec point in the image) */
+.dash-now{position:absolute;left:55%;top:56.6%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;
+  background:#8FE0FF;box-shadow:0 0 10px 2px rgba(111,200,237,.8);animation:fade 400ms ease 3150ms both}
+.dash-now::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:1px solid rgba(143,224,255,.8);
+  animation:ping 2.8s var(--ease-out) 3450ms infinite}
+@keyframes ping{0%{opacity:.9;transform:scale(.5)}70%,100%{opacity:0;transform:scale(1.9)}}
+.va .rail{text-transform:uppercase;letter-spacing:.14em;font-size:11px;gap:10px 30px;margin-top:26px}
+.va .rail span::before{content:none}
+@media (max-width:940px){.dash{width:auto;margin:0}}
+@media (prefers-reduced-motion:reduce){
+  .dash-in{animation:fade 400ms ease both}
+  .dash-sheen::before,.dash-now::after{animation:none;opacity:0}
+  .trend .tline{animation:none;stroke-dashoffset:0}
+  .trend .tarea,.trend .tpt{animation:fade 400ms ease both}
+}
+
+</style>
+</head>
+<body class="va">
+
+<header class="top">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+      <circle cx="14" cy="14" r="13" fill="#123243" stroke="#41B6E6" stroke-width="1.5"/>
+      <rect x="7.6" y="14.5" width="3" height="6" rx="1" fill="#41B6E6"/>
+      <rect x="12.5" y="10.5" width="3" height="10" rx="1" fill="#41B6E6"/>
+      <rect x="17.4" y="7.5" width="3" height="13" rx="1" fill="#FC9B6F"/>
+    </svg>
+    <b>Reporting</b><span>CorpIT</span>
+  </div>
+  <div class="status" id="svc-status" data-state="checking">
+    <span class="dot-ok" aria-hidden="true"></span>
+    <span class="mono" id="svc-status-text" role="status" aria-live="polite">Checking services</span>
+  </div>
+</header>
+
+<main class="split">
+  <div class="photo" aria-hidden="true"><svg class="lights" viewBox="0 0 2170 725" preserveAspectRatio="none"><defs><linearGradient id="lamp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE0A6"/><stop offset=".45" stop-color="#F6B869"/><stop offset="1" stop-color="#C9803F"/></linearGradient><linearGradient id="lamp2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF3DA"/><stop offset=".5" stop-color="#F9D9A6"/><stop offset="1" stop-color="#D9A56A"/></linearGradient></defs><g class="fl f10"><polygon points="387.5,297.6 398.6,297.2 398.6,307.7 387.5,308.1"/><polygon points="401.8,297.0 412.9,296.5 412.9,307.0 401.8,307.5"/><polygon points="416.1,296.4 427.3,295.9 427.3,306.4 416.1,306.9"/><polygon points="430.5,295.8 441.6,295.3 441.6,305.8 430.5,306.3"/></g><g class="fl f9"><polygon points="373.1,277.7 384.2,277.2 384.2,287.7 373.1,288.2"/><polygon points="416.1,275.8 427.3,275.3 427.3,285.8 416.1,286.3"/><polygon points="430.5,275.2 441.6,274.7 441.6,285.2 430.5,285.7"/><polygon points="459.2,274.0 470.3,273.5 470.3,284.0 459.2,284.5"/><polygon points="473.6,273.3 484.7,272.9 484.7,283.4 473.6,283.8"/></g><g class="fl f8"><polygon points="301.4,260.1 312.5,259.7 312.5,270.2 301.4,270.6"/><polygon points="315.7,259.5 326.8,259.0 326.8,269.5 315.7,270.0"/><polygon points="387.5,256.4 398.6,256.0 398.6,266.5 387.5,266.9"/><polygon points="401.8,255.8 412.9,255.3 412.9,265.8 401.8,266.3"/><polygon points="416.1,255.2 427.3,254.7 427.3,265.2 416.1,265.7"/></g><g class="fl f7"><polygon class="c" points="229.6,242.6 240.8,242.2 240.8,252.7 229.6,253.1"/><polygon class="c" points="243.9,242.0 255.1,241.5 255.1,252.0 243.9,252.5"/><polygon class="c" points="258.3,241.4 269.4,240.9 269.4,251.4 258.3,251.9"/><polygon class="c" points="272.7,240.8 283.8,240.3 283.8,250.8 272.7,251.3"/><polygon points="301.4,239.5 312.5,239.1 312.5,249.6 301.4,250.0"/><polygon points="315.7,238.9 326.8,238.4 326.8,248.9 315.7,249.4"/><polygon points="330.1,238.3 341.2,237.8 341.2,248.3 330.1,248.8"/><polygon points="344.4,237.7 355.5,237.2 355.5,247.7 344.4,248.2"/><polygon points="373.1,236.5 384.2,236.0 384.2,246.5 373.1,247.0"/><polygon points="387.5,235.8 398.6,235.4 398.6,245.9 387.5,246.3"/><polygon points="401.8,235.2 412.9,234.7 412.9,245.2 401.8,245.7"/><polygon points="459.2,232.8 470.3,232.3 470.3,242.8 459.2,243.3"/><polygon points="473.6,232.1 484.7,231.7 484.7,242.2 473.6,242.6"/><polygon points="487.9,231.5 499.0,231.0 499.0,241.5 487.9,242.0"/><polygon points="502.2,230.9 513.4,230.4 513.4,240.9 502.2,241.4"/></g><g class="fl f6"><polygon points="401.8,214.6 412.9,214.1 412.9,224.6 401.8,225.1"/><polygon points="416.1,214.0 427.3,213.5 427.3,224.0 416.1,224.5"/><polygon points="430.5,213.4 441.6,212.9 441.6,223.4 430.5,223.9"/><polygon points="444.9,212.8 456.0,212.3 456.0,222.8 444.9,223.3"/><polygon points="459.2,212.2 470.3,211.7 470.3,222.2 459.2,222.7"/><polygon points="473.6,211.5 484.7,211.1 484.7,221.6 473.6,222.0"/><polygon points="487.9,210.9 499.0,210.4 499.0,220.9 487.9,221.4"/><polygon points="502.2,210.3 513.4,209.8 513.4,220.3 502.2,220.8"/></g><g class="fl f5"><polygon points="229.6,201.4 240.8,201.0 240.8,211.5 229.6,211.9"/><polygon points="243.9,200.8 255.1,200.3 255.1,210.8 243.9,211.3"/><polygon points="272.7,199.6 283.8,199.1 283.8,209.6 272.7,210.1"/><polygon points="287.0,199.0 298.1,198.5 298.1,209.0 287.0,209.5"/><polygon points="301.4,198.3 312.5,197.9 312.5,208.4 301.4,208.8"/><polygon points="315.7,197.7 326.8,197.2 326.8,207.7 315.7,208.2"/><polygon points="344.4,196.5 355.5,196.0 355.5,206.5 344.4,207.0"/><polygon points="358.8,195.9 369.9,195.4 369.9,205.9 358.8,206.4"/><polygon points="373.1,195.3 384.2,194.8 384.2,205.3 373.1,205.8"/><polygon points="387.5,194.6 398.6,194.2 398.6,204.7 387.5,205.1"/><polygon points="401.8,194.0 412.9,193.5 412.9,204.0 401.8,204.5"/><polygon points="416.1,193.4 427.3,192.9 427.3,203.4 416.1,203.9"/><polygon points="430.5,192.8 441.6,192.3 441.6,202.8 430.5,203.3"/><polygon points="444.9,192.2 456.0,191.7 456.0,202.2 444.9,202.7"/></g><g class="fl f4"><polygon points="229.6,180.8 240.8,180.4 240.8,190.9 229.6,191.3"/><polygon points="243.9,180.2 255.1,179.7 255.1,190.2 243.9,190.7"/><polygon points="258.3,179.6 269.4,179.1 269.4,189.6 258.3,190.1"/><polygon points="344.4,175.9 355.5,175.4 355.5,185.9 344.4,186.4"/><polygon points="358.8,175.3 369.9,174.8 369.9,185.3 358.8,185.8"/><polygon points="430.5,172.2 441.6,171.7 441.6,182.2 430.5,182.7"/><polygon points="444.9,171.6 456.0,171.1 456.0,181.6 444.9,182.1"/><polygon points="459.2,171.0 470.3,170.5 470.3,181.0 459.2,181.5"/><polygon points="473.6,170.3 484.7,169.9 484.7,180.4 473.6,180.8"/></g><g class="fl f3"><polygon points="301.4,157.1 312.5,156.7 312.5,167.2 301.4,167.6"/><polygon points="315.7,156.5 326.8,156.0 326.8,166.5 315.7,167.0"/><polygon points="330.1,155.9 341.2,155.4 341.2,165.9 330.1,166.4"/><polygon points="344.4,155.3 355.5,154.8 355.5,165.3 344.4,165.8"/><polygon points="358.8,154.7 369.9,154.2 369.9,164.7 358.8,165.2"/><polygon points="373.1,154.1 384.2,153.6 384.2,164.1 373.1,164.6"/><polygon class="c" points="401.8,152.8 412.9,152.3 412.9,162.8 401.8,163.3"/><polygon class="c" points="416.1,152.2 427.3,151.7 427.3,162.2 416.1,162.7"/><polygon class="c" points="430.5,151.6 441.6,151.1 441.6,161.6 430.5,162.1"/></g><g class="fl f2"><polygon points="258.3,138.4 269.4,137.9 269.4,148.4 258.3,148.9"/><polygon points="272.7,137.8 283.8,137.3 283.8,147.8 272.7,148.3"/><polygon points="287.0,137.2 298.1,136.7 298.1,147.2 287.0,147.7"/><polygon points="387.5,132.8 398.6,132.4 398.6,142.9 387.5,143.3"/><polygon points="401.8,132.2 412.9,131.7 412.9,142.2 401.8,142.7"/><polygon points="416.1,131.6 427.3,131.1 427.3,141.6 416.1,142.1"/><polygon points="430.5,131.0 441.6,130.5 441.6,141.0 430.5,141.5"/><polygon points="444.9,130.4 456.0,129.9 456.0,140.4 444.9,140.9"/><polygon points="459.2,129.8 470.3,129.3 470.3,139.8 459.2,140.3"/><polygon points="473.6,129.1 484.7,128.7 484.7,139.2 473.6,139.6"/><polygon points="487.9,128.5 499.0,128.0 499.0,138.5 487.9,139.0"/><polygon points="502.2,127.9 513.4,127.4 513.4,137.9 502.2,138.4"/></g><g class="fl f1"><polygon points="301.4,115.9 312.5,115.5 312.5,126.0 301.4,126.4"/><polygon points="315.7,115.3 326.8,114.8 326.8,125.3 315.7,125.8"/><polygon points="330.1,114.7 341.2,114.2 341.2,124.7 330.1,125.2"/><polygon points="344.4,114.1 355.5,113.6 355.5,124.1 344.4,124.6"/><polygon points="358.8,113.5 369.9,113.0 369.9,123.5 358.8,124.0"/><polygon points="373.1,112.9 384.2,112.4 384.2,122.9 373.1,123.4"/><polygon points="387.5,112.2 398.6,111.8 398.6,122.3 387.5,122.7"/><polygon points="401.8,111.6 412.9,111.1 412.9,121.6 401.8,122.1"/><polygon points="416.1,111.0 427.3,110.5 427.3,121.0 416.1,121.5"/><polygon points="430.5,110.4 441.6,109.9 441.6,120.4 430.5,120.9"/><polygon points="459.2,109.2 470.3,108.7 470.3,119.2 459.2,119.7"/><polygon points="473.6,108.5 484.7,108.1 484.7,118.6 473.6,119.0"/><polygon points="487.9,107.9 499.0,107.4 499.0,117.9 487.9,118.4"/><polygon points="502.2,107.3 513.4,106.8 513.4,117.3 502.2,117.8"/></g><g class="fl f0"><polygon class="c" points="243.9,97.8 255.1,97.3 255.1,107.8 243.9,108.3"/><polygon class="c" points="258.3,97.2 269.4,96.7 269.4,107.2 258.3,107.7"/><polygon points="287.0,96.0 298.1,95.5 298.1,106.0 287.0,106.5"/><polygon points="301.4,95.3 312.5,94.9 312.5,105.4 301.4,105.8"/><polygon points="315.7,94.7 326.8,94.2 326.8,104.7 315.7,105.2"/><polygon points="330.1,94.1 341.2,93.6 341.2,104.1 330.1,104.6"/><polygon points="358.8,92.9 369.9,92.4 369.9,102.9 358.8,103.4"/><polygon points="373.1,92.3 384.2,91.8 384.2,102.3 373.1,102.8"/><polygon points="387.5,91.6 398.6,91.2 398.6,101.7 387.5,102.1"/><polygon points="401.8,91.0 412.9,90.5 412.9,101.0 401.8,101.5"/><polygon points="473.6,87.9 484.7,87.5 484.7,98.0 473.6,98.4"/><polygon points="487.9,87.3 499.0,86.8 499.0,97.3 487.9,97.8"/><polygon points="502.2,86.7 513.4,86.2 513.4,96.7 502.2,97.2"/></g></svg></div>
+  <div class="shade" aria-hidden="true"></div>
+  <div class="glint" aria-hidden="true"></div>
+
+  <section class="left">
+    <h1>AI spend, <em>across the&nbsp;organization.</em></h1>
+    <p class="lede">Calendar-year spend and the month-by-month trend, spend by organization and department, the products and models in use, and token consumption day by day &mdash; for the part of the organization you&rsquo;re scoped to see.</p>
+
+    <figure class="peek dash" role="img" aria-label="Preview of the AI usage report: organization spend, monthly spend trend, spend by product and spend by department">
+      <div class="dash-in" aria-hidden="true">
+        <img src="/dash-panel.webp" alt="" width="870" height="450" decoding="async">
+        <svg class="trend" viewBox="0 0 870 450" aria-hidden="true"><defs><linearGradient id="tarea" gradientUnits="userSpaceOnUse" x1="0" y1="255" x2="0" y2="349"><stop offset="0" stop-color="#2166B4" stop-opacity=".95"/><stop offset=".55" stop-color="#1A4F8C" stop-opacity=".8"/><stop offset="1" stop-color="#15385F" stop-opacity=".55"/></linearGradient></defs><polygon class="tbg" points="239.5,243.5 482.0,246.5 482.0,348.8 239.5,339.8"/><path class="tgrid" d="M239.5 267.6L482.0 272.1M239.5 291.6L482.0 297.6M239.5 315.7L482.0 323.2M239.5 243.5L482.0 246.5M261.0 243.8L261.0 340.6M282.0 244.0L282.0 341.4M303.0 244.3L303.0 342.2M324.0 244.5L324.0 342.9M345.0 244.8L345.0 343.7M366.0 245.1L366.0 344.5M386.0 245.3L386.0 345.2M407.0 245.6L407.0 346.0M427.0 245.8L427.0 346.8M447.0 246.1L447.0 347.5M465.0 246.3L465.0 348.2"/><path class="tbase" d="M239.5 339.8L482.0 348.8"/><path class="tarea" d="M240.0 316.5 L261.0 310.0 L282.0 298.5 L303.0 300.0 L324.0 289.5 L345.0 290.0 L366.0 279.5 L386.0 279.0 L407.0 280.5 L427.0 270.5 L447.0 262.5 L465.0 262.0 L479.0 255.5 L479.0 348.7 L240.0 339.8 Z"/><path class="tline" pathLength="1" d="M240.0 316.5 L261.0 310.0 L282.0 298.5 L303.0 300.0 L324.0 289.5 L345.0 290.0 L366.0 279.5 L386.0 279.0 L407.0 280.5 L427.0 270.5 L447.0 262.5 L465.0 262.0 L479.0 255.5"/><circle class="tpt t0" cx="240.0" cy="316.5" r="2.7"/><circle class="tpt t1" cx="261.0" cy="310.0" r="2.7"/><circle class="tpt t2" cx="282.0" cy="298.5" r="2.7"/><circle class="tpt t3" cx="303.0" cy="300.0" r="2.7"/><circle class="tpt t4" cx="324.0" cy="289.5" r="2.7"/><circle class="tpt t5" cx="345.0" cy="290.0" r="2.7"/><circle class="tpt t6" cx="366.0" cy="279.5" r="2.7"/><circle class="tpt t7" cx="386.0" cy="279.0" r="2.7"/><circle class="tpt t8" cx="407.0" cy="280.5" r="2.7"/><circle class="tpt t9" cx="427.0" cy="270.5" r="2.7"/><circle class="tpt t10" cx="447.0" cy="262.5" r="2.7"/><circle class="tpt t11" cx="465.0" cy="262.0" r="2.7"/><circle class="tpt t12" cx="479.0" cy="255.5" r="2.7"/></svg>
+        <span class="dash-sheen"></span>
+        <span class="dash-now"></span>
+      </div>
+    </figure>
+
+    <div class="rail mono">
+      <span>Calendar year</span><span>Spend by organization</span><span>Products &amp; models</span><span>Token consumption</span>
+    </div>
+  </section>
+
+  <section class="right">
+    <div class="card">
+      <div id="status-msg" class="flash" style="display:none" role="status" aria-live="polite"></div>
+
+      <div class="who" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6FC8ED" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 20h16"/><path d="M6.5 20v-6M11 20V9M15.5 20v-8M20 20V5"/></svg>
+      </div>
+
+      <p class="eyebrow">ORG REPORTING</p>
+      <h2>Welcome back</h2>
+
+      <div id="login-form">
+        <p class="sub">Sign in with your work account to see AI spend and usage for the teams you&rsquo;re scoped to.</p>
+
+        <a class="ms" id="btn-sso" href="/api/auth/login">
+          <span class="msq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="lbl">Continue with Microsoft</span>
+          <span class="arw" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <ul class="inside" aria-label="What you will find inside">
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="12" height="4" rx="1"/><rect x="3" y="16" width="7" height="4" rx="1"/></svg>Spend by organization</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-9"/><path d="M15 7h5v5"/></svg>Monthly spend trend</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/></svg>Models &amp; products</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Token consumption</li>
+        </ul>
+      </div>
+
+      <div id="redirect-msg" style="display:none">
+        <div class="redirect"><span class="spin" aria-hidden="true"></span><span>Signing you in&hellip;</span></div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="foot-note">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3l7 3v5.5c0 4.3-2.9 8.2-7 9.5-4.1-1.3-7-5.2-7-9.5V6z"/><path d="M9.2 12.2l1.9 1.9 3.7-3.9"/></svg>
+        <span>Protected by Microsoft Entra ID</span>
+      </div>
+
+      <details class="help-d">
+        <summary class="help">Need help signing in?</summary>
+        <p class="help-body">If &ldquo;Continue with Microsoft&rdquo; brings you back here, your
+          account may not have access to Reporting yet &mdash; ask the IT service desk to add you.</p>
+      </details>
+
+      <details class="bg-toggle" id="local-details" hidden>
+        <summary aria-label="Local administrator sign-in" title="Local administrator sign-in"><span class="pl" aria-hidden="true">+</span></summary>
+        <form class="pwform" id="local-section" novalidate>
+          <div><label for="login-pass">Password</label>
+            <input id="login-pass" type="password" autocomplete="current-password"></div>
+          <div><label for="login-otp">Authenticator code</label>
+            <input id="login-otp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"></div>
+          <p class="ferr" id="local-error" style="display:none" role="alert"></p>
+          <button class="btn-local" type="submit" id="btn-local">Sign in</button>
+        </form>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="bottom mono">
+  <span>CorpIT &middot; Reporting<span id="app-version" class="ver"></span></span>
+  <span>Authorized use only</span>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<!-- report-bug.html v2.0.0 — Report a Bug · CorpIT Hub
+     Ported from ITAM 2026-09-07. ITAM defects corrected here, not there:
+       * The apps list failed silently (catch{}). A user whose changelog fetch
+         failed got an empty required <select> with nothing to pick and no
+         reason given. Now the select carries a stated failure and the form
+         says why it cannot be submitted.
+       * On a whoami failure the page still asserted "your identity will be
+         captured from SSO on submit" — a claim about a mechanism it had just
+         failed to reach.
+       * The page promised "you'll get an email when it's fixed". SMTP is not
+         configured on this host, so no reporter has ever been emailed. The
+         sentence is now driven by /api/bugs/capabilities and states whichever
+         is true.
+       * The 10 MB / image-type limit was stated in a label and enforced only
+         on the server, where multer's error bypassed the JSON handler; the
+         user saw a JSON parse error. Checked here before upload, and the
+         server now answers JSON either way.
+       * Hand-rolled query parsing split on '=', so any value containing '='
+         was truncated. URLSearchParams.
+       * A ?app= value not in the list was silently ignored.
+       * /helpdesk/ links (an ITAM path that does not exist on corpit).
+       * Status messages were not announced; focus stayed on a hidden form
+         after submit.
+     Corpit conventions added: it-theme/it-theme-toggle, fonts.css, it-depth,
+     rbac-client, it-observe beacon, it-topbar, it-version watermark,
+     data-rbac-* on the write control. -->
+<html lang="en" data-theme="dark">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report a Bug · CorpIT Hub</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<style>
+:root{
+  --accent:#63BBF3;--accent-line:rgba(99,187,243,.28);--accent-soft:rgba(99,187,243,.12);
+  --bg:#0C1627;--layer1:#121F33;--layer2:#182A44;--layer3:#1E304C;
+  --stroke:#223753;--stroke2:#2C4568;
+  --text:#EFF4FA;--text2:#93A3BC;--text3:#5D6F88;
+  --ok:#55B685;--ok-dim:rgba(85,182,133,.13);--ok-line:rgba(85,182,133,.32);
+  --warn:#E9A23B;--warn-dim:rgba(233,162,59,.12);--warn-line:rgba(233,162,59,.3);
+  --bad:#DD524C;--bad-dim:rgba(221,82,76,.13);--bad-line:rgba(221,82,76,.3);
+  --font:"IBM Plex Sans",-apple-system,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --on-accent:#0C1627;
+  --radius:10px;
+}
+/* Light mode. Same token names, light values — every rule below reads through
+   the tokens, so nothing here needs a second declaration. --accent is absent
+   deliberately: it-theme.js writes it as an INLINE style on :root, which
+   outranks this block, and it-theme-toggle.js re-asserts the darkened twin. */
+[data-theme="light"]{
+  --accent-line:rgba(14,124,134,.32);--accent-soft:rgba(14,124,134,.10);
+  --bg:#F4F6F9;--layer1:#FFFFFF;--layer2:#EDF1F6;--layer3:#E2E8F0;
+  --stroke:#D3DBE5;--stroke2:#BAC6D4;
+  --text:#16212F;--text2:#4A5A70;--text3:#6B7C93;
+  --ok:#0F7A54;--ok-dim:rgba(15,122,84,.10);--ok-line:rgba(15,122,84,.3);
+  --warn:#9A6608;--warn-dim:rgba(154,102,8,.10);--warn-line:rgba(154,102,8,.3);
+  --bad:#B3312C;--bad-dim:rgba(179,49,44,.09);--bad-line:rgba(179,49,44,.28);
+  --on-accent:#FFFFFF;
+}
+*{box-sizing:border-box;}
+/* [hidden] is a UA rule, so any author `display` on the same element beats it.
+   This page hides the form with form.hidden while also setting form{display:grid},
+   which left the submitted form on screen under the success card and let the
+   same report be filed twice. */
+[hidden]{display:none!important;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--font);min-height:100vh;line-height:1.55;
+}
+.wrap{max-width:760px;margin:0 auto;padding:36px 24px 80px;}
+header.page-head{margin-bottom:22px;}
+h1{margin:0;font-size:26px;font-weight:650;letter-spacing:-.3px;}
+.subtitle{color:var(--text2);font-size:14px;margin:6px 0 0;}
+
+.card{background:var(--layer1);border:1px solid var(--stroke);border-radius:var(--radius);padding:26px 26px 22px;}
+form{display:grid;gap:14px;}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+
+label.field-label{display:block;font-size:11px;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;margin-bottom:5px;}
+input[type="text"],select,textarea{
+  width:100%;background:var(--layer2);color:var(--text);
+  border:1px solid var(--stroke);border-radius:8px;
+  padding:9px 11px;font-size:13.5px;font-family:inherit;
+}
+input[type="text"]:focus,select:focus,textarea:focus,input[type="file"]:focus{
+  outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent-line);
+}
+textarea{resize:vertical;}
+input[type="file"]{
+  width:100%;background:var(--layer2);color:var(--text2);
+  border:1px solid var(--stroke);border-radius:8px;padding:7px 10px;font-size:12.5px;
+}
+input[type="file"]::file-selector-button{
+  background:var(--layer3);color:var(--text);border:1px solid var(--stroke2);
+  border-radius:6px;padding:4px 10px;margin-right:10px;font-size:12px;cursor:pointer;font-family:inherit;
+}
+.hint{font-size:11.5px;color:var(--text3);margin-top:5px;}
+.hint.bad{color:var(--bad);}
+
+.reporter-line{
+  font-size:12.5px;color:var(--text2);
+  background:var(--layer2);border:1px dashed var(--stroke2);
+  border-radius:8px;padding:9px 11px;
+}
+.reporter-line.unknown{border-color:var(--warn-line);background:var(--warn-dim);color:var(--warn);}
+
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px;}
+button[type="submit"]{
+  background:var(--accent);color:var(--on-accent);border:0;
+  padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;
+  cursor:pointer;letter-spacing:.3px;font-family:inherit;
+}
+button[type="submit"]:disabled{opacity:.45;cursor:not-allowed;}
+a.secondary,button.secondary{
+  background:transparent;color:var(--text2);border:1px solid var(--stroke2);
+  padding:9px 16px;border-radius:8px;font-size:12.5px;cursor:pointer;
+  font-family:inherit;text-decoration:none;display:inline-block;
+}
+a.secondary:hover,button.secondary:hover{border-color:var(--accent-line);color:var(--accent);}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+.msg{font-size:13px;}
+.msg.ok{color:var(--ok);}
+.msg.err{color:var(--bad);}
+
+/* A stated failure, not an empty control. Used when the apps list or the
+   reporter identity cannot be loaded — the form says what is wrong and what
+   it means, instead of rendering a select with nothing in it. */
+.banner{
+  border-radius:8px;padding:10px 12px;font-size:12.5px;
+  border:1px solid var(--warn-line);background:var(--warn-dim);color:var(--warn);
+}
+.banner.bad{border-color:var(--bad-line);background:var(--bad-dim);color:var(--bad);}
+.banner b{font-weight:650;}
+
+.success-card{
+  background:var(--ok-dim);border:1px solid var(--ok-line);
+  border-radius:var(--radius);padding:20px;margin-top:18px;
+}
+.success-card h2{margin:0 0 6px;color:var(--ok);font-size:15px;font-weight:650;}
+.success-card .ticket{font-family:var(--mono);color:var(--text);font-size:14px;font-weight:600;}
+.success-card p{margin:6px 0 0;color:var(--text2);font-size:13px;}
+.success-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+
+/* Narrow viewports. The topbar cluster is fixed at the top-right; below 560px
+   it drops its label and the page reclaims the room, same rule as the other
+   ported consoles. */
+@media (max-width:600px){
+  .row-2{grid-template-columns:1fr;}
+  .wrap{padding:28px 16px 64px;}
+}
+@media (max-width:560px){
+  .wrap{padding-top:52px;}
+  .card{padding:18px 16px 16px;}
+}
+</style>
+<link rel="stylesheet" href="/it-depth.css">
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="report-bug"></script>
+</head>
+<body data-dp="report-bug">
+  <div class="wrap">
+    <header class="page-head">
+      <h1>Report a Bug</h1>
+      <p class="subtitle" id="brLede">Spot something broken in CorpIT Hub? Tell us what happened.</p>
+    </header>
+
+    <div class="card">
+      <div id="brLoadBanner" class="banner" hidden></div>
+
+      <form id="bugReportForm">
+        <div class="row-2">
+          <div>
+            <label class="field-label" for="brApp">App *</label>
+            <select name="app_name" id="brApp" required>
+              <option value="">Loading apps…</option>
+            </select>
+            <div class="hint" id="brAppHint" hidden></div>
+          </div>
+          <div>
+            <label class="field-label" for="brSeverity">Severity</label>
+            <select name="severity" id="brSeverity">
+              <option value="low">Low — minor annoyance</option>
+              <option value="medium" selected>Medium — functional but wrong</option>
+              <option value="high">High — major feature broken</option>
+              <option value="critical">Critical — app unusable</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="field-label" for="brTitle">Title *</label>
+          <input type="text" name="title" id="brTitle" required maxlength="200"
+            placeholder="e.g. User lookup returns 500 for @auction.com addresses">
+        </div>
+
+        <div>
+          <label class="field-label" for="brDesc">Description *</label>
+          <textarea name="description" id="brDesc" required rows="5"
+            placeholder="What happened? What were you trying to do?"></textarea>
+        </div>
+
+        <div>
+          <label class="field-label" for="brSteps">Steps to reproduce (optional)</label>
+          <textarea name="steps_to_reproduce" id="brSteps" rows="4"
+            placeholder="1. Open X page&#10;2. Click Y&#10;3. Observe Z"></textarea>
+        </div>
+
+        <div>
+          <label class="field-label" for="brShot">Screenshot (optional)</label>
+          <input type="file" name="screenshot" id="brShot"
+            accept="image/png,image/jpeg,image/gif,image/webp">
+          <div class="hint" id="brShotHint">PNG, JPG, GIF or WebP.</div>
+        </div>
+
+        <input type="hidden" name="app_version" id="brVersion">
+        <input type="hidden" name="page_url"    id="brPageUrl">
+
+        <div class="reporter-line" id="brReporter">Checking who you are signed in as…</div>
+
+        <div class="actions">
+          <!-- No data-rbac-page here on purpose. rbac_pages lists report-bug with
+           access_policy 'authenticated', so the verdict would come back 'read'
+           for everyone - but rbac-client is fail-closed BEFORE the verdict
+           arrives and stays hidden if /me never answers. Guarding the only
+           control on a page every signed-in user is entitled to use would turn
+           a transient :3001 blip into a dead page. The real control is the
+           blanket /api session gate on the server. -->
+          <button type="submit" id="brSubmit">Submit Bug Report</button>
+          <a href="/landing.html" class="secondary">Cancel</a>
+          <div class="msg" id="brMsg" role="status" aria-live="polite"></div>
+        </div>
+      </form>
+
+      <div class="success-card" id="brSuccess" hidden tabindex="-1">
+        <h2>Report submitted</h2>
+        <div class="ticket" id="brSuccessTicket"></div>
+        <p id="brSuccessMsg"></p>
+        <div class="success-actions">
+          <a href="/report-bug.html" class="secondary">Submit another</a>
+          <a href="/landing.html" class="secondary">Back to the hub</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var form = $('bugReportForm'), msg = $('brMsg'), appSel = $('brApp'),
+      vInput = $('brVersion'), urlInput = $('brPageUrl'), repoDiv = $('brReporter'),
+      submitBtn = $('brSubmit'), shot = $('brShot'), shotHint = $('brShotHint'),
+      appHint = $('brAppHint'), banner = $('brLoadBanner'), lede = $('brLede'),
+      successCard = $('brSuccess'), successTkt = $('brSuccessTicket'), successMsg = $('brSuccessMsg');
+
+  var caps = null;               // /api/bugs/capabilities, once known
+  var appsLoaded = false;        // the App select holds real options
+  var identity = null;           // the signed-in reporter, once known
+  var MAX_BYTES = 10 * 1024 * 1024;
+  var OK_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+  function showBanner(text, bad) {
+    banner.textContent = text;
+    banner.className = 'banner' + (bad ? ' bad' : '');
+    banner.hidden = false;
+  }
+  // A control that cannot do its job must say so rather than sit there looking
+  // ready. Both reasons are named, because they need different fixes.
+  function refreshSubmitState() {
+    var why = !appsLoaded ? 'The app list did not load, so a report cannot be filed against an app.'
+            : !identity   ? 'Your identity could not be confirmed, so a report cannot be attributed.'
+            : '';
+    submitBtn.disabled = !!why;
+    submitBtn.title = why;
+  }
+
+  function jsonFetch(url) {
+    return fetch(url, { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  // ---- what this service can actually do -----------------------------------
+  jsonFetch('/api/bugs/capabilities')
+    .then(function (c) {
+      caps = c;
+      if (c.max_upload_mb) {
+        MAX_BYTES = c.max_upload_mb * 1024 * 1024;
+        shotHint.textContent = 'PNG, JPG, GIF or WebP, up to ' + c.max_upload_mb + ' MB.';
+      }
+      if (Array.isArray(c.accepted_types) && c.accepted_types.length) OK_TYPES = c.accepted_types;
+      // The ITAM page said "you'll get an email when it's fixed" on every host,
+      // including ones with no mailer configured. Say the true thing.
+      lede.textContent = (c.notify_reporter === 'email')
+        ? 'Spot something broken in CorpIT Hub? Tell us what happened — you will be emailed when it is fixed.'
+        : 'Spot something broken in CorpIT Hub? Tell us what happened. Email notification is not configured on this server, so check back here for the outcome.';
+    })
+    .catch(function () {
+      // Not fatal: the form still works. Leave the neutral lede rather than
+      // promising or denying a notification we could not ask about.
+      shotHint.textContent = 'PNG, JPG, GIF or WebP, up to 10 MB.';
+    });
+
+  // ---- apps list -----------------------------------------------------------
+  var qp = new URLSearchParams(location.search);
+
+  jsonFetch('/api/bugs/changelog')
+    .then(function (data) {
+      var apps = (data && data.apps) || [];
+      appSel.innerHTML = '';
+      var first = document.createElement('option');
+      first.value = ''; first.textContent = '— Select an app —';
+      appSel.appendChild(first);
+      apps.forEach(function (a) {
+        var opt = document.createElement('option');
+        opt.value = a.app_name;
+        opt.textContent = a.app_name + (a.current_version ? ' (v' + a.current_version + ')' : '');
+        if (a.current_version) opt.dataset.version = a.current_version;
+        appSel.appendChild(opt);
+      });
+      if (!apps.length) {
+        showBanner('The app registry returned no applications, so there is nothing to file a report against. Tell IT that /api/bugs/changelog is empty.', true);
+        return;
+      }
+      appsLoaded = true;
+      applyPrefill();
+    })
+    .catch(function (e) {
+      appSel.innerHTML = '<option value="">Could not load the app list</option>';
+      showBanner('The app list could not be loaded (' + e.message + '), so this form cannot be submitted yet. Reload the page; if it keeps failing, tell IT that /api/bugs/changelog is down.', true);
+    })
+    .then(refreshSubmitState, refreshSubmitState);
+
+  // Prefill from the version watermark's "Report a Bug" link.
+  function applyPrefill() {
+    var app = qp.get('app'), ver = qp.get('version'), page = qp.get('page');
+    if (page) urlInput.value = page;
+    if (app) {
+      var match = Array.prototype.some.call(appSel.options, function (o) { return o.value === app; });
+      if (match) {
+        appSel.value = app;
+      } else {
+        // Silently ignoring this used to leave the user staring at an unset
+        // required field they thought had been filled in for them.
+        appHint.textContent = '"' + app + '" is not in the app registry — pick the closest match.';
+        appHint.className = 'hint bad';
+        appHint.hidden = false;
+      }
+    }
+    if (ver) vInput.value = ver;
+    else syncVersion();
+  }
+  function syncVersion() {
+    var opt = appSel.selectedOptions[0];
+    if (opt && opt.dataset.version) vInput.value = opt.dataset.version;
+    else vInput.value = '';
+  }
+  appSel.addEventListener('change', function () { if (!qp.get('version')) syncVersion(); });
+
+  // ---- who is filing it ----------------------------------------------------
+  jsonFetch('/api/bugs/whoami')
+    .then(function (me) {
+      if (!me || !me.email) throw new Error('no identity');
+      identity = me;
+      repoDiv.classList.remove('unknown');
+      repoDiv.textContent = 'Filing as ' + (me.displayName ? me.displayName + ' (' + me.email + ')' : me.email) + '.';
+    })
+    .catch(function () {
+      // The ITAM page asserted the identity would be captured from SSO on
+      // submit. It would not: the same session it just failed to read is the
+      // one the submit would use.
+      identity = null;
+      repoDiv.classList.add('unknown');
+      repoDiv.textContent = 'Your identity could not be read from your session, so this report cannot be attributed to you. Sign in again and reload this page.';
+    })
+    .then(refreshSubmitState, refreshSubmitState);
+
+  // ---- screenshot: check here, not only on the server ----------------------
+  shot.addEventListener('change', function () {
+    var f = shot.files && shot.files[0];
+    shotHint.className = 'hint';
+    if (!f) { shotHint.textContent = 'PNG, JPG, GIF or WebP' + (caps ? ', up to ' + caps.max_upload_mb + ' MB.' : ', up to 10 MB.'); return; }
+    if (OK_TYPES.indexOf(f.type) === -1) {
+      shotHint.textContent = f.name + ' is ' + (f.type || 'an unrecognised type') + '. Only PNG, JPG, GIF or WebP are accepted.';
+      shotHint.className = 'hint bad'; shot.value = ''; return;
+    }
+    if (f.size > MAX_BYTES) {
+      shotHint.textContent = f.name + ' is ' + (f.size / 1048576).toFixed(1) + ' MB, over the ' + (MAX_BYTES / 1048576) + ' MB limit.';
+      shotHint.className = 'hint bad'; shot.value = ''; return;
+    }
+    shotHint.textContent = f.name + ' — ' + (f.size / 1024).toFixed(0) + ' KB.';
+  });
+
+  // ---- submit --------------------------------------------------------------
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    msg.className = 'msg';
+    msg.textContent = 'Submitting…';
+    submitBtn.disabled = true;
+
+    fetch('/api/bugs/submit', { method: 'POST', body: new FormData(form), credentials: 'same-origin' })
+      .then(function (r) {
+        return r.json().catch(function () { throw new Error('HTTP ' + r.status); })
+          .then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; });
+      })
+      .then(function (d) {
+        form.hidden = true;
+        banner.hidden = true;
+        successTkt.textContent = d.ticket_number || '';
+        successMsg.textContent = d.message || 'Your report has been logged.';
+        successCard.hidden = false;
+        msg.textContent = '';
+        // The form the user was in is now hidden; without this, focus is left
+        // on a display:none control and a screen reader hears nothing.
+        successCard.focus();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      })
+      .catch(function (err) {
+        msg.className = 'msg err';
+        msg.textContent = 'Error: ' + err.message;
+        submitBtn.disabled = false;
+        refreshSubmitState();
+      });
+  });
+
+  refreshSubmitState();
+})();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/it-version.js" data-app-key="report-bug" defer></script>
+</body>
+</html>

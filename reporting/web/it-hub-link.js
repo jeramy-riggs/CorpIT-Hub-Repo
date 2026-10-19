@@ -1,0 +1,1 @@
+/var/www/html/it-hub-link.js

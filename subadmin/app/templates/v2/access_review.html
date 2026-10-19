@@ -1,0 +1,82 @@
+<div class="agw" data-access-workspace>
+  <section class="agw-summary" aria-label="Access review summary">
+    <div class="agw-recommended"><h3>Start with {{ access_lab_recommended.label }}</h3><p>{{ access_lab_recommended.cleanup_count }} review items · highest-priority evidence gaps</p><button class="btn pri" type="button" data-agw-start="{{ access_lab_recommended.index }}">Start review</button></div>
+    <div><b>{{ access_lab_site_summary.attention_sites }}</b><span>Sites need attention</span></div>
+    <div><b>{{ access_summary.unowned }}</b><span>Groups need owners</span></div>
+    <div><b>{{ access_lab_site_summary.role_gaps }}</b><span>Approver role gaps</span></div>
+  </section>
+
+  {% if access_lab_evidence.stale or access_lab_evidence.errors %}
+  <div class="note warn" role="status"><div><b>Some access evidence is stale or incomplete.</b> Re-run the read-only collector before making a decision.{% for err in access_lab_evidence.errors %} {{ err }}.{% endfor %}</div></div>
+  {% endif %}
+
+  <div class="agw-toolbar">
+    <div class="agw-lenses" role="tablist" aria-label="Access review lens">
+      <button type="button" role="tab" aria-selected="true" data-agw-lens="sites">Sites &amp; access paths <span>{{ access_lab_sites|length }}</span></button>
+      <button type="button" role="tab" aria-selected="false" data-agw-lens="groups">AD group registry <span>{{ access_lab_rows|length }}</span></button>
+    </div>
+    <span class="agw-source">{{ access_lab_policy_source }} · evidence {{ access_lab_evidence.captured_at }}</span>
+  </div>
+
+  <section class="agw-board" data-agw-panel="sites">
+    <aside class="agw-queue" aria-labelledby="agw-site-title">
+      <div class="agw-queue-head"><div><h3 id="agw-site-title">Review queue</h3><span data-agw-site-count>{{ access_lab_sites|length }} sites</span></div><label><span class="sr-only">Find a site</span><input type="search" placeholder="Find a site" data-agw-site-search autocomplete="off"></label></div>
+      <div class="agw-filters" aria-label="Filter sites">
+        <button class="is-active" type="button" data-agw-site-filter="all">All</button>
+        <button type="button" data-agw-site-filter="attention">Needs attention</button>
+        <button type="button" data-agw-site-filter="groups">AD groups</button>
+        <button type="button" data-agw-site-filter="zpa">ZPA gaps</button>
+      </div>
+      <div class="agw-list" role="listbox" aria-label="Governed sites">
+        {% for site in access_lab_sites %}<button type="button" role="option" tabindex="{{ '0' if loop.first else '-1' }}" aria-selected="{{ 'true' if loop.first else 'false' }}" class="agw-row{% if loop.first %} is-selected{% endif %}" data-agw-site="{{ loop.index0 }}" data-name="{{ (site.label ~ ' ' ~ site.fqdn)|lower }}" data-attention="{{ '1' if site.cleanup_count else '0' }}" data-groups="{{ '1' if site.mode == 'groups' else '0' }}" data-zpa="{{ '1' if not site.zpa_segment else '0' }}"><i class="{{ 'warn' if site.cleanup_count else 'good' }}"></i><span><b>{{ site.label }}</b><small>{{ site.fqdn }}</small></span><em>{{ site.cleanup_count ~ ' open' if site.cleanup_count else 'clear' }}</em></button>{% endfor %}
+        <div class="agw-empty" data-agw-site-empty hidden>No sites match this filter.</div>
+      </div>
+    </aside>
+
+    <article class="agw-detail" aria-live="polite">
+      <header class="agw-detail-head"><div><span>Site access review</span><h3 data-agw-site-name>Select a site</h3><p data-agw-site-fqdn></p></div><div class="agw-detail-tools"><button class="btn sm" type="button" data-goto="sites" data-agw-site-settings hidden>Site settings</button><strong data-agw-site-status>Review</strong></div></header>
+      <dl class="agw-facts"><div><dt>Admission</dt><dd data-agw-site-mode>—</dd></div><div><dt>Allowed groups</dt><dd data-agw-site-groups>—</dd></div><div><dt>ZPA segment</dt><dd data-agw-site-zpa>—</dd></div><div><dt>Entra apps</dt><dd data-agw-site-apps>—</dd></div></dl>
+      <section class="agw-review"><div class="agw-progress"><span class="done">Queue</span><i></i><span class="current">Evidence</span><i></i><span>Decision</span><i></i><span>Proposal</span></div><div><small data-agw-review-progress>Review item</small><h4 data-agw-review-title>Choose a site</h4><p data-agw-review-reason>The next useful decision will appear here.</p></div><div class="agw-review-actions"><button class="btn pri sm" type="button" data-agw-review-open>Review evidence</button><button class="btn sm" type="button" data-agw-review-next>Next item</button><button class="btn sm" type="button" data-agw-propose>{% if can('access.propose') %}Model decision{% else %}Proposal history{% endif %}</button></div></section>
+      <section class="agw-section"><div class="agw-section-head"><div><h4>Effective access path</h4><p>Each layer must admit the person before the page opens.</p></div></div><div class="agw-route" data-agw-route></div></section>
+      <section class="agw-section"><h4>Entra enterprise applications</h4><p class="agw-section-description">Assignments associated with this site.</p><div class="agw-app-cards" data-agw-apps></div></section><section class="agw-section"><h4>AD group allow list</h4><p class="agw-section-description">Groups checked by the sign-in gate.</p><div class="agw-tags" data-agw-groups></div></section>
+      <section class="agw-section" data-agw-approvers-section hidden><h4>Access Portal approver groups</h4><p class="agw-section-description">AD groups supply portal roles. Approval policy has its own administrator.</p><div data-agw-approvers></div><a href="https://accessportal.nrpi.local/approver.html">Open Approval Access</a></section>
+      <section class="agw-section"><div class="agw-section-head"><div><h4>Sign-in evidence</h4><p data-agw-signin-window></p></div><span class="pill p-mut" data-agw-people-count></span></div><div class="agw-people"><div><h5>Signed in</h5><ul data-agw-signed></ul></div><div><h5>Allowed, not seen</h5><ul data-agw-unused></ul></div></div></section>
+    </article>
+  </section>
+
+  <section class="agw-board" data-agw-panel="groups" hidden>
+    <aside class="agw-queue" aria-labelledby="agw-group-title">
+      <div class="agw-queue-head"><div><h3 id="agw-group-title">Group review</h3><span data-agw-group-count>{{ access_lab_rows|length }} groups</span></div><label><span class="sr-only">Find a group</span><input type="search" placeholder="Find a group" data-agw-group-search autocomplete="off"></label></div>
+      <div class="agw-filters" aria-label="Filter groups"><button class="is-active" type="button" data-agw-group-filter="all">All</button><button type="button" data-agw-group-filter="owner">No owner</button><button type="button" data-agw-group-filter="unmapped">Unmapped</button><button type="button" data-agw-group-filter="critical">Critical</button></div>
+      <div class="agw-list" role="listbox" aria-label="AD access groups">{% for group in access_lab_rows %}<button type="button" role="option" tabindex="{{ '0' if loop.first else '-1' }}" aria-selected="{{ 'true' if loop.first else 'false' }}" class="agw-row{% if loop.first %} is-selected{% endif %}" data-agw-group="{{ loop.index0 }}" data-name="{{ group.name|lower }}" data-owner="{{ '1' if not group.owner else '0' }}" data-unmapped="{{ '1' if not group.referenced else '0' }}" data-critical="{{ '1' if group.level == 'critical' else '0' }}"><i class="{{ 'crit' if group.level == 'critical' else 'warn' if group.issues else 'good' }}"></i><span><b>{{ group.name }}</b><small>{{ group.owner or 'Owner needed' }}</small></span><em>{{ group.level }}</em></button>{% endfor %}<div class="agw-empty" data-agw-group-empty hidden>No groups match this filter.</div></div>
+    </aside>
+    <article class="agw-detail" aria-live="polite"><header class="agw-detail-head"><div><span>AD entitlement review</span><h3 data-agw-group-name>Select a group</h3><p data-agw-group-description></p></div><strong data-agw-group-status>Review</strong></header><dl class="agw-facts"><div><dt>Direct members</dt><dd data-agw-group-members>—</dd></div><div><dt>Directory owner</dt><dd data-agw-group-owner>—</dd></div><div><dt>Console role</dt><dd data-agw-group-role>—</dd></div><div><dt>Last changed</dt><dd data-agw-group-changed>—</dd></div></dl><section class="agw-section"><h4>Entitlement route</h4><div class="agw-route four" data-agw-group-route></div></section><section class="agw-section"><h4>What needs attention</h4><ul class="agw-issues" data-agw-group-issues></ul></section><section class="agw-recommendation"><div><h4 data-agw-group-action></h4><p data-agw-group-reason></p></div><button class="btn pri" type="button" data-agw-propose>{% if can('access.propose') %}Record proposal{% else %}Proposal history{% endif %}</button></section></article>
+  </section>
+
+  <aside class="agw-drawer" role="dialog" aria-modal="false" aria-labelledby="agw-drawer-title" aria-hidden="true" hidden data-agw-drawer>
+    <header><div><h3 id="agw-drawer-title">Record a decision</h3><p>Planning only · no directory write</p></div><button class="btn sm" type="button" data-agw-close>Close</button></header>
+    {% if can('access.propose') %}
+    <form method="post" action="{{ url_for('access_governance_proposal') }}" data-access-proposal-form>
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <div class="f"><label for="ag-action">Proposal type</label><select id="ag-action" name="action" required>{% for key, label in access_proposal_actions.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
+      <div class="f"><label for="ag-group">AD group</label><input id="ag-group" name="group_name" type="text" list="ag-groups" required><datalist id="ag-groups">{% for g in access_registry if not g.missing %}<option value="{{ g.name }}"></option>{% endfor %}</datalist></div>
+      <div class="f"><label for="ag-purpose">Business purpose</label><textarea id="ag-purpose" name="purpose" required placeholder="Who needs this access and why?"></textarea></div>
+      <div class="f-row"><div class="f"><label for="ag-business-owner">Business owner</label><input id="ag-business-owner" name="business_owner" type="text" required></div><div class="f"><label for="ag-technical-owner">Technical owner</label><input id="ag-technical-owner" name="technical_owner" type="text" required></div></div>
+      <div class="f"><label for="ag-cycle">Review cycle</label><select id="ag-cycle" name="review_cycle" required>{% for key, label in access_review_cycles.items() %}<option value="{{ key }}"{% if key == 'quarterly' %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="f"><label for="ag-resources">Intended enforcement</label><textarea id="ag-resources" name="resources" required placeholder="One site, role, or console action per line"></textarea></div>
+      <div class="f"><label for="ag-notes">Evidence and notes <span class="hint">Optional</span></label><textarea id="ag-notes" name="notes"></textarea></div>
+      <div class="note quiet"><div><b>This records intent only.</b> It cannot create a group, change membership, or alter Active Directory.</div></div>
+      <button class="btn pri" type="submit">Record proposal</button>
+    </form>
+    {% else %}<div class="empty"><b>Review-only access.</b>Your role cannot record proposals.</div>{% endif %}
+    <details class="agw-history">
+      <summary>Recent proposals <span>{{ access_proposals|length }}</span></summary>
+      {% if access_proposals %}<ol>{% for proposal in access_proposals[:6] %}<li><div><b class="mono">AG-{{ '%04d'|format(proposal.id) }}</b><span class="pill p-info">{{ proposal.status }}</span></div><strong>{{ proposal.group_name }}</strong><small>{{ proposal.action_label }} · {{ proposal.created_at }} · {{ proposal.created_by }}</small></li>{% endfor %}</ol>
+      {% else %}<p>No proposals yet. The first recorded decision will appear here.</p>{% endif %}
+    </details>
+  </aside>
+  <div class="agw-backdrop" data-agw-close hidden></div>
+
+  <script type="application/json" data-agw-sites>{{ access_lab_sites|tojson }}</script>
+  <script type="application/json" data-agw-group-data>{{ access_lab_rows|tojson }}</script>
+</div>

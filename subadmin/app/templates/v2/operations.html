@@ -1,0 +1,68 @@
+{# OPERATIONS — local server facts, direct controls, and the audit trail.
+   The daily triage registry lives on Overview; this section keeps the deeper
+   operational context and maintenance handoff available without duplicating it. #}
+<section class="page" data-view="operations" hidden>
+  <div class="page-h">
+    <div><h2>Operations &amp; maintenance</h2>
+      <p>Inspect this host, use the owning control, or enter the full maintenance workspace for long-tail server tasks.</p></div>
+    <div class="actions">
+      <a class="btn" href="{{ url_for('console_page') }}#operations">Refresh</a>
+      <a class="btn pri" href="/operations/workspace" target="_blank" rel="noopener">Open full workspace
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 5h5v5M10 14 19 5"/><path d="M19 14v5H5V5h5"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Sites</div><div class="v">{{ subs|length }}</div><div class="n">{{ dns_live_count }} with DNS live · {{ cert_ca_count }} with a real certificate</div></div>
+    <div class="stat"><div class="k">Home page links</div><div class="v">{{ landing_total - landing_hidden }}</div><div class="n">{% if landing_hidden %}{{ landing_hidden }} hidden · {% endif %}{{ landing_sections|length }} sections</div></div>
+    <div class="stat"><div class="k">Directory recipients</div><div class="v">{{ gal_recipient_count }}</div><div class="n">across {{ gal_lists|length }} list{{ '' if gal_lists|length == 1 else 's' }}</div></div>
+    <div class="stat"><div class="k">Open findings</div><div class="v{% if attention %} warn{% endif %}">{{ attention|length }}</div><div class="n"><button class="linkbtn" type="button" data-goto="overview">review on Overview</button></div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-h"><h3>This server</h3><span class="meta mono">{{ host_ip }}</span></div>
+      <div class="card-b">
+        <dl class="kv">
+          <dt>Up for</dt><dd>{{ host_uptime }}</dd>
+          <dt>Load</dt><dd class="mono">{{ host_load }}</dd>
+          <dt>Memory</dt><dd>{{ host_mem }}</dd>
+          <dt>Disk</dt><dd>{{ host_disk }}</dd>
+          <dt>Time</dt><dd class="mono">{{ now_utc }}</dd>
+        </dl>
+      </div>
+      {% for s in services %}
+      <div class="row">
+        <span class="st {{ 'good' if s.state == 'active' else 'crit' }}"><i></i></span>
+        <div class="main"><b class="mono">{{ s.unit }}</b><small>{{ s.what }}</small></div>
+        <div class="end"><span class="pill {{ 'p-good' if s.state == 'active' else 'p-crit' }}">{{ 'running' if s.state == 'active' else s.state }}</span></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>Quick actions</h3></div>
+      <div class="row"><div class="main"><b>Add a link to the home page</b><small>pick an icon, it goes live when you save</small></div><div class="end"><button class="btn sm" data-goto="landing">Open</button></div></div>
+      <div class="row"><div class="main"><b>Create a new site</b><small>a new <span class="mono">*.{{ base_domain }}</span> name with DNS and a certificate</small></div><div class="end"><button class="btn sm" data-goto="sites" data-open="new-site">Open</button></div></div>
+      <div class="row"><div class="main"><b>Run a directory sync</b><small>push the company address book to mailboxes now</small></div><div class="end"><button class="btn sm" data-goto="directory">Open</button></div></div>
+      <div class="row"><div class="main"><b>Change who can do what</b><small>permissions by AD group</small></div><div class="end"><button class="btn sm" data-goto="iam">Open</button></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><h3>Recent activity</h3><span class="meta">the last {{ audit|length }} of {{ audit_total }} recorded actions</span>
+      <div class="actions"><button class="btn sm" data-goto="ops" data-tab="audit">See everything</button></div></div>
+    {% if audit %}
+    <div class="tblwrap"><table class="grid">
+      <thead><tr><th>When</th><th>Who</th><th>What</th><th>Detail</th></tr></thead>
+      <tbody>{% for a in audit %}
+        <tr><td class="mono" style="white-space:nowrap">{{ a['ts'] }}</td><td>{{ a['user'] }}</td>
+            <td><span class="pill p-mut">{{ a['action'] }}</span></td><td class="mono">{{ a['detail'] }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}
+    <div class="empty"><b>No activity yet.</b></div>
+    {% endif %}
+  </div>
+</section>

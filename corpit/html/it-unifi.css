@@ -1,0 +1,372 @@
+/* ══════════════════════════════════════════════════════════════════════
+   it-unifi.css — shared UniFi-style design system for IT Command network
+   pages (Network Health, Switches, Device Trace).
+
+   Light-first, like UniFi Network: white surfaces, hairline borders,
+   small radii, one blue accent, generous breathing room, flat depth.
+   Dark variant follows UniFi's dark console.
+
+   Theme resolution (three states, matching it-theme.js):
+     :root                                  → light palette (default)
+     @media (prefers-color-scheme: dark)    → dark, unless [data-theme="light"]
+     :root[data-theme="dark"]               → dark, explicit toggle wins
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --u-font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  --u-mono:'JetBrains Mono','IBM Plex Mono',ui-monospace,SFMono-Regular,monospace;
+
+  --u-bg:#f5f7f9;
+  --u-surface:#ffffff;
+  --u-surface-2:#fafbfc;
+  --u-surface-3:#eff2f5;
+  --u-rail:#ffffff;
+
+  --u-border:#e2e6ea;
+  --u-border-2:#d2d8de;
+  --u-hair:#edf0f3;
+
+  --u-text:#1b2027;
+  --u-text-2:#59616b;
+  --u-text-3:#858d98;
+  --u-muted:#a3aab4;
+
+  --u-accent:#006fff;
+  --u-accent-2:#0057cc;
+  --u-accent-wash:#e9f2ff;
+  --u-accent-line:#b4d6ff;
+
+  --u-good:#12a150;
+  --u-good-wash:#e6f6ed;
+  --u-warn:#e08700;
+  --u-warn-wash:#fdf3e2;
+  --u-bad:#d93a3a;
+  --u-bad-wash:#fdeaea;
+  /* signal palette — one meaning, one colour, everywhere (maps, trails, nodes).
+     Tuned per theme so the hue reads the same on either ground. */
+  --u-sig-clean:#0d9488; --u-sig-slow:#c2740a; --u-sig-fault:#e11d48; --u-sig-live:#0284c7;
+  /* instrument stage: a display surface, tuned per theme rather than fixed dark */
+  --u-stage:#ffffff; --u-stage-2:#eff4fa; --u-stage-hair:rgba(19,45,84,.16);
+  --u-stage-text:#0f1a2b; --u-stage-dim:#51637c; --u-stage-grid:rgba(19,45,84,.06);
+  --u-info:#6b52d6;
+  --u-info-wash:#efebfc;
+
+  --u-r-xs:3px; --u-r-sm:5px; --u-r:7px; --u-r-lg:10px;
+  --u-sh:0 1px 2px rgba(20,28,40,.06);
+  --u-sh-2:0 1px 3px rgba(20,28,40,.08),0 6px 16px -8px rgba(20,28,40,.12);
+  --u-rail-w:212px;
+}
+
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --u-bg:#15181b;
+    --u-surface:#1d2125;
+    --u-surface-2:#22272c;
+    --u-surface-3:#2a3037;
+    --u-rail:#191d20;
+    --u-border:#2e343a;
+    --u-border-2:#3b434b;
+    --u-hair:#262c32;
+    --u-text:#e7eaee;
+    --u-text-2:#a5adb7;
+    --u-text-3:#79828d;
+    --u-muted:#616a75;
+    --u-accent:#3f92ff;
+    --u-accent-2:#6aabff;
+    --u-accent-wash:rgba(63,146,255,.14);
+    --u-accent-line:rgba(63,146,255,.4);
+    --u-good:#2fc46b; --u-good-wash:rgba(47,196,107,.14);
+    --u-warn:#f0a53c; --u-warn-wash:rgba(240,165,60,.14);
+    --u-bad:#f2635c;  --u-bad-wash:rgba(242,99,92,.14);
+  --u-sig-clean:#2dd4bf; --u-sig-slow:#fbbf24; --u-sig-fault:#fb7185; --u-sig-live:#38bdf8;
+  --u-stage:#0a0f1a; --u-stage-2:#0e1424; --u-stage-hair:rgba(125,211,252,.13);
+  --u-stage-text:#e9eff8; --u-stage-dim:#93a4bd; --u-stage-grid:rgba(125,211,252,.08);
+    --u-info:#9b86f0; --u-info-wash:rgba(155,134,240,.14);
+    --u-sh:0 1px 2px rgba(0,0,0,.3);
+    --u-sh-2:0 1px 3px rgba(0,0,0,.34),0 8px 20px -10px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --u-bg:#15181b;
+  --u-surface:#1d2125;
+  --u-surface-2:#22272c;
+  --u-surface-3:#2a3037;
+  --u-rail:#191d20;
+  --u-border:#2e343a;
+  --u-border-2:#3b434b;
+  --u-hair:#262c32;
+  --u-text:#e7eaee;
+  --u-text-2:#a5adb7;
+  --u-text-3:#79828d;
+  --u-muted:#616a75;
+  --u-accent:#3f92ff;
+  --u-accent-2:#6aabff;
+  --u-accent-wash:rgba(63,146,255,.14);
+  --u-accent-line:rgba(63,146,255,.4);
+  --u-good:#2fc46b; --u-good-wash:rgba(47,196,107,.14);
+  --u-warn:#f0a53c; --u-warn-wash:rgba(240,165,60,.14);
+  --u-bad:#f2635c;  --u-bad-wash:rgba(242,99,92,.14);
+  --u-sig-clean:#2dd4bf; --u-sig-slow:#fbbf24; --u-sig-fault:#fb7185; --u-sig-live:#38bdf8;
+  --u-stage:#0a0f1a; --u-stage-2:#0e1424; --u-stage-hair:rgba(125,211,252,.13);
+  --u-stage-text:#e9eff8; --u-stage-dim:#93a4bd; --u-stage-grid:rgba(125,211,252,.08);
+  --u-info:#9b86f0; --u-info-wash:rgba(155,134,240,.14);
+  --u-sh:0 1px 2px rgba(0,0,0,.3);
+  --u-sh-2:0 1px 3px rgba(0,0,0,.34),0 8px 20px -10px rgba(0,0,0,.5);
+}
+
+/* ── base ─────────────────────────────────────────────────────────── */
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body.u{margin:0;background:var(--u-bg);color:var(--u-text);font-family:var(--u-font);
+  font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.u-mono{font-family:var(--u-mono);font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+body.u a{color:var(--u-accent);text-decoration:none}
+body.u a:hover{text-decoration:underline;text-underline-offset:2px}
+body.u ::selection{background:var(--u-accent);color:#fff}
+body.u :focus-visible{outline:2px solid var(--u-accent);outline-offset:2px;border-radius:var(--u-r-sm)}
+body.u *{scrollbar-width:thin;scrollbar-color:var(--u-border-2) transparent}
+body.u ::-webkit-scrollbar{width:10px;height:10px}
+body.u ::-webkit-scrollbar-thumb{background:var(--u-border-2);border-radius:6px;border:2px solid transparent;background-clip:content-box}
+body.u ::-webkit-scrollbar-thumb:hover{background:var(--u-text-3)}
+body.u ::-webkit-scrollbar-track{background:transparent}
+
+/* ── app shell ────────────────────────────────────────────────────── */
+.u-app{display:flex;min-height:100vh}
+.u-rail{width:var(--u-rail-w);flex:none;background:var(--u-rail);border-right:1px solid var(--u-border);
+  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:30}
+.u-brand{display:flex;align-items:center;gap:10px;padding:15px 16px 14px;border-bottom:1px solid var(--u-hair)}
+.u-brand .mark{width:29px;height:29px;border-radius:var(--u-r-sm);background:var(--u-accent);color:#fff;
+  display:grid;place-items:center;flex:none}
+.u-brand .mark svg{width:17px;height:17px}
+.u-brand b{font-size:13px;font-weight:650;letter-spacing:-.1px;display:block;line-height:1.2}
+.u-brand span{font-size:10.5px;color:var(--u-text-3);display:block;margin-top:1px}
+.u-nav{padding:10px 9px;flex:1;overflow-y:auto}
+.u-navlabel{font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--u-muted);
+  padding:10px 8px 6px}
+.u-nav a{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:var(--u-r-sm);color:var(--u-text-2);
+  font-size:12.5px;font-weight:500;margin-bottom:1px;transition:background .12s,color .12s}
+.u-nav a:hover{background:var(--u-surface-3);color:var(--u-text);text-decoration:none}
+.u-nav a.on{background:var(--u-accent-wash);color:var(--u-accent);font-weight:600}
+.u-nav a svg{width:16px;height:16px;flex:none;opacity:.9}
+.u-nav a .n{margin-left:auto;font-family:var(--u-mono);font-size:9.5px;font-weight:600;padding:1px 6px;
+  border-radius:9px;background:var(--u-surface-3);color:var(--u-text-3)}
+.u-nav a.on .n{background:var(--u-accent);color:#fff}
+.u-nav a .n.bad{background:var(--u-bad);color:#fff}
+.u-railfoot{padding:10px 12px;border-top:1px solid var(--u-hair);font-size:10.5px;color:var(--u-muted)}
+
+.u-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.u-top{display:flex;align-items:center;gap:14px;padding:0 20px;height:52px;background:var(--u-surface);
+  border-bottom:1px solid var(--u-border);position:sticky;top:0;z-index:20}
+.u-top h1{font-size:15px;font-weight:650;margin:0;letter-spacing:-.15px}
+.u-top .crumb{font-size:12px;color:var(--u-text-3)}
+.u-topr{margin-left:auto;display:flex;align-items:center;gap:10px}
+.u-body{padding:18px 20px 56px;max-width:1440px;width:100%}
+
+/* mobile: rail becomes a top bar */
+.u-burger{display:none}
+@media(max-width:860px){
+  .u-app{flex-direction:column}
+  .u-rail{position:static;width:100%;height:auto;border-right:none;border-bottom:1px solid var(--u-border)}
+  .u-rail .u-nav{display:none;padding:6px 9px 10px}
+  .u-rail.open .u-nav{display:block}
+  .u-nav a{padding:10px 9px}
+  .u-navlabel{display:none}
+  .u-railfoot{display:none}
+  .u-brand{border-bottom:none}
+  .u-burger{display:grid;place-items:center;margin-left:auto;width:32px;height:32px;border-radius:var(--u-r-sm);
+    border:1px solid var(--u-border);background:var(--u-surface);color:var(--u-text-2);cursor:pointer}
+  .u-burger svg{width:16px;height:16px}
+  .u-body{padding:14px 14px 46px}
+  .u-top{padding:9px 14px;height:auto;min-height:50px;flex-wrap:wrap;gap:10px}
+  .u-top h1{font-size:14px;white-space:nowrap}
+}
+@media(max-width:520px){ .u-sm-hide{display:none!important} }
+
+/* ── controls ─────────────────────────────────────────────────────── */
+.u-btn{font:inherit;font-size:12px;font-weight:550;color:var(--u-text-2);background:var(--u-surface);
+  border:1px solid var(--u-border-2);border-radius:var(--u-r-sm);padding:6px 12px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;transition:.13s;white-space:nowrap}
+.u-btn:hover{border-color:var(--u-text-3);color:var(--u-text)}
+.u-btn svg{width:14px;height:14px}
+.u-btn.pri{background:var(--u-accent);border-color:var(--u-accent);color:#fff}
+.u-btn.pri:hover{background:var(--u-accent-2);border-color:var(--u-accent-2);color:#fff}
+.u-btn:disabled{opacity:.5;cursor:default}
+.u-input{font:inherit;font-size:13px;padding:8px 11px;border-radius:var(--u-r-sm);border:1px solid var(--u-border-2);
+  background:var(--u-surface);color:var(--u-text);width:100%}
+.u-input::placeholder{color:var(--u-muted)}
+.u-input:focus{outline:none;border-color:var(--u-accent);box-shadow:0 0 0 3px var(--u-accent-wash)}
+.u-seg{display:inline-flex;background:var(--u-surface-3);border-radius:var(--u-r-sm);padding:2px;gap:2px}
+.u-seg button{font:inherit;font-size:11.5px;font-weight:550;padding:5px 11px;border:none;background:none;
+  color:var(--u-text-2);border-radius:var(--u-r-xs);cursor:pointer;transition:.12s}
+.u-seg button:hover{color:var(--u-text)}
+.u-seg button[aria-pressed="true"],.u-seg button[aria-selected="true"]{background:var(--u-surface);color:var(--u-text);
+  box-shadow:var(--u-sh);font-weight:600}
+
+/* ── surfaces ─────────────────────────────────────────────────────── */
+.u-card{background:var(--u-surface);border:1px solid var(--u-border);border-radius:var(--u-r);overflow:hidden}
+.u-card>header{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--u-hair)}
+.u-card>header h2,.u-card>header h3{margin:0;font-size:12.5px;font-weight:600;letter-spacing:-.05px}
+.u-card>header svg.ci{width:15px;height:15px;color:var(--u-text-3);flex:none}
+.u-card>header .tag{margin-left:auto}
+.u-pad{padding:14px}
+
+.u-grid{display:grid;gap:12px}
+.u-g4{grid-template-columns:repeat(4,1fr)}
+.u-g3{grid-template-columns:repeat(3,1fr)}
+.u-g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:1080px){.u-g4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:880px){.u-g3,.u-g2{grid-template-columns:1fr}}
+@media(max-width:560px){.u-g4{grid-template-columns:1fr}}
+
+/* stat tile — UniFi keeps these quiet: number, label, one detail */
+.u-stat{background:var(--u-surface);border:1px solid var(--u-border);border-radius:var(--u-r);padding:13px 15px}
+.u-stat .lab{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--u-text-2);font-weight:500}
+.u-stat .lab svg{width:14px;height:14px;color:var(--u-text-3)}
+.u-stat .lab .tag{margin-left:auto}
+.u-stat .val{font-size:25px;font-weight:650;letter-spacing:-.7px;line-height:1.1;margin-top:9px;
+  font-variant-numeric:tabular-nums}
+.u-stat .val sup{font-size:13px;font-weight:550;color:var(--u-text-3);letter-spacing:0;vertical-align:baseline}
+.u-stat .sub{font-size:11.5px;color:var(--u-text-3);margin-top:4px}
+.u-stat .val.good{color:var(--u-good)} .u-stat .val.warn{color:var(--u-warn)} .u-stat .val.bad{color:var(--u-bad)}
+
+/* ── indicators ───────────────────────────────────────────────────── */
+.u-dot{width:8px;height:8px;border-radius:50%;background:var(--u-good);flex:none;display:inline-block}
+.u-dot.warn{background:var(--u-warn)} .u-dot.bad{background:var(--u-bad)}
+.u-dot.off{background:var(--u-muted)} .u-dot.info{background:var(--u-accent)}
+.u-tag{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:11px;background:var(--u-surface-3);
+  color:var(--u-text-2);display:inline-flex;align-items:center;gap:5px;white-space:nowrap;line-height:1.6}
+.u-tag.good{background:var(--u-good-wash);color:var(--u-good)}
+.u-tag.warn{background:var(--u-warn-wash);color:var(--u-warn)}
+.u-tag.bad{background:var(--u-bad-wash);color:var(--u-bad)}
+.u-tag.accent{background:var(--u-accent-wash);color:var(--u-accent)}
+.u-tag.info{background:var(--u-info-wash);color:var(--u-info)}
+.u-tag.mono{font-family:var(--u-mono);font-size:10px}
+.txt-good{color:var(--u-good)} .txt-warn{color:var(--u-warn)} .txt-bad{color:var(--u-bad)}
+.txt-2{color:var(--u-text-2)} .txt-3{color:var(--u-text-3)}
+
+/* meter */
+.u-meter{height:5px;border-radius:3px;background:var(--u-surface-3);overflow:hidden}
+.u-meter>i{display:block;height:100%;border-radius:3px;background:var(--u-accent);transition:width .45s cubic-bezier(.2,.7,.2,1)}
+.u-meter>i.good{background:var(--u-good)} .u-meter>i.warn{background:var(--u-warn)} .u-meter>i.bad{background:var(--u-bad)}
+
+/* ── list rows (UniFi device list) ────────────────────────────────── */
+.u-list{display:flex;flex-direction:column}
+.u-row{display:flex;align-items:center;gap:11px;padding:10px 14px;border-top:1px solid var(--u-hair);
+  transition:background .12s}
+.u-row:first-child{border-top:none}
+.u-row:hover{background:var(--u-surface-2)}
+.u-row.click{cursor:pointer}
+.u-row .ico{width:30px;height:30px;border-radius:var(--u-r-sm);display:grid;place-items:center;flex:none;
+  background:var(--u-surface-3);color:var(--u-text-3)}
+.u-row .ico svg{width:15px;height:15px}
+.u-row .ico.good{background:var(--u-good-wash);color:var(--u-good)}
+.u-row .ico.warn{background:var(--u-warn-wash);color:var(--u-warn)}
+.u-row .ico.bad{background:var(--u-bad-wash);color:var(--u-bad)}
+.u-row .main{flex:1;min-width:0}
+.u-row .main .t{font-size:12.5px;font-weight:550;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.u-row .main .s{font-size:11.5px;color:var(--u-text-3);margin-top:2px;line-height:1.45}
+.u-row .side{text-align:right;font-size:11.5px;color:var(--u-text-2);white-space:nowrap;flex:none}
+.u-row .side small{display:block;font-size:10px;color:var(--u-muted);margin-top:1px}
+.u-row .chev{color:var(--u-muted);flex:none;width:15px;height:15px}
+.u-row:hover .chev{color:var(--u-accent)}
+.u-group{padding:7px 14px;background:var(--u-surface-2);border-top:1px solid var(--u-hair);
+  font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--u-text-3)}
+
+/* key/value */
+.u-kv{display:flex;gap:12px;padding:9px 14px;align-items:baseline;border-top:1px solid var(--u-hair);font-size:12.5px}
+.u-kv:first-child{border-top:none}
+.u-kv>.k{color:var(--u-text-3);min-width:118px;flex:none;font-size:11.5px}
+.u-kv>.v{color:var(--u-text);flex:1;min-width:0;word-break:break-word}
+
+/* ── table ────────────────────────────────────────────────────────── */
+.u-tw{overflow-x:auto}
+table.u-table{width:100%;border-collapse:collapse;font-size:12.5px}
+table.u-table thead th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.03em;color:var(--u-text-3);
+  padding:9px 14px;background:var(--u-surface-2);border-bottom:1px solid var(--u-border);white-space:nowrap}
+table.u-table tbody td{padding:9px 14px;border-top:1px solid var(--u-hair)}
+table.u-table tbody tr:hover{background:var(--u-surface-2)}
+table.u-table .num{text-align:right;font-family:var(--u-mono);font-variant-numeric:tabular-nums}
+
+/* ── feedback ─────────────────────────────────────────────────────── */
+.u-empty{padding:34px 18px;text-align:center;color:var(--u-text-3);font-size:12.5px}
+.u-empty svg{width:26px;height:26px;color:var(--u-text-3);opacity:.7;margin-bottom:10px;display:block;margin-inline:auto}
+.u-empty b{display:block;color:var(--u-text);font-size:13.5px;font-weight:600;margin-bottom:4px}
+.u-skel{background:linear-gradient(100deg,transparent 18%,var(--u-hair) 42%,transparent 68%);
+  background-size:220% 100%;animation:u-shim 1.25s ease-in-out infinite;border-radius:var(--u-r-xs);height:12px}
+@keyframes u-shim{to{background-position:-220% 0}}
+.u-note{display:flex;gap:11px;align-items:flex-start;padding:12px 14px;border-radius:var(--u-r);
+  background:var(--u-surface-2);border:1px solid var(--u-border);font-size:12.5px}
+.u-note svg{width:16px;height:16px;flex:none;margin-top:1px}
+.u-note.bad{background:var(--u-bad-wash);border-color:var(--u-bad);color:var(--u-text)}
+.u-note.bad svg{color:var(--u-bad)}
+.u-note.warn{background:var(--u-warn-wash);border-color:var(--u-warn)}
+.u-note.warn svg{color:var(--u-warn)}
+.u-fade{animation:u-rise .32s cubic-bezier(.2,.7,.2,1) both}
+@keyframes u-rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  .u-skel{animation:none;background:var(--u-hair)}
+  .u-fade{animation:none}
+  .u-meter>i{transition:none}
+}
+.u-sec{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--u-text-3);
+  margin:22px 0 10px}
+.u-sec:first-child{margin-top:0}
+
+/* ── detail drawer — any list row can open one (same on every tab) ──── */
+.u-scrim{position:fixed;inset:0;background:rgba(12,18,26,.42);opacity:0;pointer-events:none;
+  transition:opacity .18s ease;z-index:60}
+.u-scrim.on{opacity:1;pointer-events:auto}
+.u-drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--u-surface);
+  border-left:1px solid var(--u-border);box-shadow:var(--u-sh-2);transform:translateX(100%);
+  transition:transform .22s cubic-bezier(.25,.8,.3,1);z-index:61;display:flex;flex-direction:column}
+.u-drawer.on{transform:none}
+.u-drawer>header{display:flex;align-items:flex-start;gap:12px;padding:15px 16px;border-bottom:1px solid var(--u-hair);flex:none}
+.u-drawer>header .di{width:34px;height:34px;border-radius:var(--u-r-sm);display:grid;place-items:center;flex:none;
+  background:var(--u-accent-wash);color:var(--u-accent)}
+.u-drawer>header .di svg{width:17px;height:17px}
+.u-drawer>header .dt{flex:1;min-width:0}
+.u-drawer>header h2{margin:0;font-size:15px;font-weight:650;letter-spacing:-.15px;word-break:break-word}
+.u-drawer>header .ds{font-size:11.5px;color:var(--u-text-3);margin-top:2px;word-break:break-word}
+.u-drawer>header .dx{border:none;background:none;cursor:pointer;color:var(--u-text-3);padding:5px;
+  border-radius:var(--u-r-sm);flex:none;display:inline-flex}
+.u-drawer>header .dx:hover{background:var(--u-surface-3);color:var(--u-text)}
+.u-drawer>header .dx svg{width:16px;height:16px}
+.u-drawer .dbody{flex:1;overflow-y:auto;padding:0 0 24px}
+.u-drawer .dsec{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--u-text-3);
+  padding:14px 16px 7px}
+@media(max-width:620px){ .u-drawer{width:100vw} }
+@media(prefers-reduced-motion:reduce){ .u-drawer,.u-scrim{transition:none} }
+.u-row.click .chev{transition:transform .12s}
+.u-row.click:hover .chev{transform:translateX(2px)}
+
+/* guard: any bare icon inside a list row stays icon-sized */
+.u-row > svg{width:15px;height:15px;flex:none}
+.u-drawer .u-row > svg{width:15px;height:15px;flex:none}
+
+/* clickable stat tile */
+.u-stat.click{cursor:pointer;transition:border-color .13s,box-shadow .13s}
+.u-stat.click:hover{border-color:var(--u-accent-line);box-shadow:var(--u-sh)}
+.u-stat.click .lab::after{content:"›";margin-left:auto;color:var(--u-muted);font-size:15px;line-height:1}
+.u-stat.click .lab{display:flex;align-items:center;gap:7px}
+.u-stat.click:hover .lab::after{color:var(--u-accent)}
+
+/* probable-cause block — the "what is actually wrong" panel */
+.u-diag{margin:12px 16px;border:1px solid var(--u-border);border-radius:var(--u-r);overflow:hidden}
+.u-diag>.h{display:flex;align-items:center;gap:9px;padding:10px 13px;font-size:12.5px;font-weight:600}
+.u-diag>.h svg{width:16px;height:16px;flex:none}
+.u-diag>.h .cf{margin-left:auto;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  padding:2px 7px;border-radius:9px;background:var(--u-surface-3);color:var(--u-text-3)}
+.u-diag.critical>.h{background:var(--u-bad-wash);color:var(--u-bad)}
+.u-diag.warn>.h{background:var(--u-warn-wash);color:var(--u-warn)}
+.u-diag.info>.h{background:var(--u-surface-2);color:var(--u-text-2)}
+.u-diag.ok>.h{background:var(--u-good-wash);color:var(--u-good)}
+.u-diag .cause{padding:11px 13px;font-size:12.5px;color:var(--u-text-2);line-height:1.55;border-top:1px solid var(--u-hair)}
+.u-diag .act{padding:11px 13px;font-size:12.5px;line-height:1.55;border-top:1px solid var(--u-hair);
+  background:var(--u-surface-2);display:flex;gap:9px}
+.u-diag .act b{color:var(--u-text);font-weight:600;flex:none}
+.u-diag .ev{padding:9px 13px;border-top:1px solid var(--u-hair);display:flex;gap:6px;flex-wrap:wrap}
+.u-diag .ev span{font-family:var(--u-mono);font-size:10.5px;padding:2px 7px;border-radius:var(--u-r-xs);
+  background:var(--u-surface-3);color:var(--u-text-2)}
+
+/* icon guard: a bare svg inside a link or value cell is an icon, never a canvas */
+.u-card a > svg, .u-kv .v > svg, .u-note a > svg { width:13px; height:13px; vertical-align:-2px; flex:none }

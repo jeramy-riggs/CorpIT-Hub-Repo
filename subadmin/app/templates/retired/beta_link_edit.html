@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Edit link{% endblock %}
+{% block content %}
+
+<div class="card">
+  <h2>Edit beta link</h2>
+  <div class="body">
+    <form method="post" action="{{ url_for('beta_links_edit', link_id=l['id']) }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <div class="row">
+        <div>
+          <label for="title">Title</label>
+          <input id="title" type="text" name="title" maxlength="80" required
+                 value="{{ l['title'] }}">
+        </div>
+        <div>
+          <label for="url">Link <span class="hint">— full URL or a /path on this host</span></label>
+          <input id="url" type="text" name="url" maxlength="500" required value="{{ l['url'] }}">
+        </div>
+      </div>
+      <label for="description" style="margin-top:16px">Description <span class="hint">(optional)</span></label>
+      <input id="description" type="text" name="description" maxlength="160"
+             value="{{ l['description'] or '' }}">
+      <div style="margin-top:16px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+        <button class="btn" type="submit">Save changes</button>
+        <a class="btn ghost" href="{{ url_for('beta_links_page') }}">Cancel</a>
+        <label style="font-weight:400;margin:0;display:flex;align-items:center;gap:7px">
+          <input type="checkbox" name="new_tab" value="1" style="width:auto"
+                 {% if l['new_tab'] %}checked{% endif %}>
+          <span class="hint">Open in a new tab</span>
+        </label>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

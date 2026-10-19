@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Not answering right now &middot; CorpIT</title>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/access-pass/pass.css">
+</head>
+<body>
+<div class="sky" aria-hidden="true"></div>
+<p class="sr-only" id="live" role="status" aria-live="polite"></p>
+<div class="shell">
+  <main class="stage" id="stage">
+    <header class="head">
+      <h1 id="h">Checking what isn&rsquo;t answering</h1>
+      <p class="lead" id="lead">Nobody is being let through while sign-in can&rsquo;t be checked, and that includes you. This page is checking now and will take you back in as soon as it can.</p>
+    </header>
+    <div class="actions" id="actions">
+      <noscript><p class="lead">This page checks automatically when JavaScript is on. Without it, reload in a minute.</p></noscript>
+    </div>
+    <aside class="board rise" id="board" aria-label="What was checked">
+      <div class="radar" id="radar" aria-hidden="true">
+        <svg viewBox="0 0 150 150" focusable="false">
+          <circle class="ring" cx="75" cy="75" r="70"/>
+          <circle class="ring" cx="75" cy="75" r="70"/>
+          <circle class="ring" cx="75" cy="75" r="70"/>
+          <circle class="core" cx="75" cy="75" r="7"/>
+        </svg>
+      </div>
+      <ul class="checks" id="checks"></ul>
+      <div class="board-foot"><span class="num" id="next">Checking&hellip;</span><span>Last checked <time id="last">&mdash;</time></span></div>
+    </aside>
+  </main>
+</div>
+<script src="/access-pass/unavailable.js"></script>
+</body>
+</html>

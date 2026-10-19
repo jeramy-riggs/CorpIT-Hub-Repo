@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live Building — IT Command</title>
+<link rel="stylesheet" href="/it-unifi.css">
+<link rel="stylesheet" href="/it-command.css">
+<link rel="stylesheet" href="/it-noc.css">
+<style>
+/* the card header now names these panels, so their own headings would repeat it */
+#oPath .hd,#apCard .hd{display:none}
+#oPath{border:0;box-shadow:none;background:none;border-radius:0}
+#apCard{border:0;box-shadow:none;background:none;padding:0}
+.stgflex{min-width:0}
+</style>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<style>
+/* Page-specific to the observatory. The shared world — palette, header,
+   workspace switcher, stat strip, card/table/tab restyling — lives in
+   /it-command.css so every page in the suite stays identical. */
+
+/* ── stage ──────────────────────────────────────────────────────────── */
+.ostage{background:var(--o-panel);border:1px solid var(--o-line);border-radius:18px;
+  box-shadow:var(--o-shadow);padding:15px 16px 13px;margin-bottom:12px}
+.stghd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.stghd .t b{font-size:16.5px;font-weight:740;letter-spacing:-.015em;display:block}
+.stghd .t span{font-size:12.5px;color:var(--o-dim)}
+.stghd .sp{flex:1}
+.viewbar{display:flex;gap:7px;flex-wrap:wrap}
+.vbtn{border:1px solid var(--o-line);background:var(--o-panel2);color:var(--o-dim);font:inherit;
+  font-size:13px;font-weight:640;padding:8px 15px;border-radius:999px;cursor:pointer}
+.vbtn:hover{color:var(--o-ink)}
+.vbtn[aria-pressed="true"]{background:var(--o-mint-wash);border-color:var(--o-mint);color:var(--o-mint)}
+.stgbody{position:relative;background:
+  radial-gradient(90% 70% at 50% 30%,var(--o-bg2),transparent 70%),var(--o-bg);
+  border:1px solid var(--o-hair);border-radius:14px;padding:16px 16px 14px;overflow:hidden}
+.stgbody::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(var(--o-hair) 1px,transparent 1px),
+    linear-gradient(90deg,var(--o-hair) 1px,transparent 1px);
+  background-size:44px 44px}
+.stgflex{position:relative;display:flex;gap:14px;align-items:flex-start}
+.floorstack{display:flex;flex-direction:column;gap:8px;flex:none;width:118px;z-index:3}
+.fbtn{background:var(--o-panel);border:1px solid var(--o-line);border-radius:12px;
+  padding:9px 11px;text-align:left;cursor:pointer;color:var(--o-ink);font:inherit;line-height:1.25}
+.fbtn:hover{border-color:var(--o-mint)}
+.fbtn[aria-pressed="true"]{border-color:var(--o-mint);background:var(--o-mint-wash);
+  box-shadow:0 0 16px -6px var(--o-mint)}
+.fbtn .site{display:block;font-family:var(--u-mono);font-size:10.5px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--o-faint)}
+.fbtn b{display:block;font-size:13.5px;font-weight:720;margin:2px 0 1px}
+.fbtn .cl{font-size:11.5px;color:var(--o-dim)}
+.fbtn .cl i{font-style:normal;font-weight:700;color:var(--o-mint);font-variant-numeric:tabular-nums}
+.stgmap{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center}
+.plate{position:relative;width:100%;border-radius:12px}
+.plate img.plan{display:block;width:100%;height:100%;border-radius:12px;
+  filter:saturate(.25) contrast(.92);opacity:.85}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .plate img.plan{
+    filter:invert(1) hue-rotate(185deg) saturate(.28) brightness(.82) contrast(.88);opacity:.5}}
+:root[data-theme="dark"] .plate img.plan{
+  filter:invert(1) hue-rotate(185deg) saturate(.28) brightness(.82) contrast(.88);opacity:.5}
+.plate canvas.heat{position:absolute;inset:0;width:100%;height:100%;border-radius:12px;
+  opacity:var(--o-heat-op);pointer-events:none;image-rendering:auto}
+.plate svg.trails{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+
+/* AP nodes: glowing ring + dark core, label beneath (the mockup node) */
+.apn{position:absolute;transform:translate(-50%,-50%);background:none;border:0;padding:0;
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;z-index:2;
+  color:var(--o-ink);font:inherit}
+.apn .ring{position:relative;display:grid;place-items:center;border-radius:50%;
+  background:var(--o-core);border:2px solid var(--o-sig);
+  box-shadow:0 0 14px -1px var(--o-sig),inset 0 0 8px -4px var(--o-sig);
+  color:var(--o-corei);font-weight:750;font-variant-numeric:tabular-nums;font-size:12px}
+.apn.slow .ring{border-color:var(--o-slow);box-shadow:0 0 14px -1px var(--o-slow),inset 0 0 8px -4px var(--o-slow)}
+.apn.fault .ring{border-color:var(--o-fault);box-shadow:0 0 16px 0 var(--o-fault),inset 0 0 8px -4px var(--o-fault)}
+.apn.off .ring{border-color:var(--o-off);box-shadow:none;opacity:.75}
+.apn .nm{font-family:var(--u-mono);font-size:11px;font-weight:700;letter-spacing:.02em;
+  background:var(--o-panel);border:1px solid var(--o-line);color:var(--o-ink);
+  border-radius:6px;padding:1.5px 6px;white-space:nowrap}
+.apn .cc{font-size:10.5px;color:var(--o-dim);margin-top:-1px;white-space:nowrap}
+.apn.sel .ring{outline:2px solid var(--o-ink);outline-offset:2px}
+.apn.dimmed{opacity:.32}
+.apn:hover .ring{transform:scale(1.06)}
+@media (prefers-reduced-motion:no-preference){
+  .apn.fault .ring{animation:faultpulse 1.8s ease-in-out infinite}}
+@keyframes faultpulse{50%{box-shadow:0 0 26px 2px var(--o-fault),inset 0 0 8px -4px var(--o-fault)}}
+
+/* roaming callout chip */
+.ocall{position:absolute;z-index:4;transform:translate(-50%,-130%);background:var(--o-panel);
+  border:1px solid var(--o-line);border-radius:10px;box-shadow:var(--o-shadow);
+  padding:7px 11px;font-size:12px;line-height:1.35;pointer-events:none;white-space:nowrap}
+.ocall b{font-size:12.5px}
+.ocall .m{font-family:var(--u-mono);font-size:11px;color:var(--o-dim)}
+
+/* per-view legend pill */
+.legend{display:flex;justify-content:center;margin-top:12px}
+.legend .pill{display:inline-flex;align-items:center;gap:15px;flex-wrap:wrap;justify-content:center;
+  background:var(--o-panel);border:1px solid var(--o-line);border-radius:999px;
+  padding:8px 17px;font-size:12px;color:var(--o-dim)}
+.legend .pill span{display:inline-flex;align-items:center;gap:6px}
+.legend .pill i{width:9px;height:9px;border-radius:50%;flex:none}
+.legend .grad{width:110px;height:8px;border-radius:4px;flex:none;
+  background:linear-gradient(90deg,#38bdf8,#2dd4bf,#facc15,#fb923c,#f43f5e)}
+
+/* hex grid (AP health view) */
+.hexwrap{position:relative;display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+  gap:10px;padding:6px 2px}
+.hex{clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  aspect-ratio:.92;border:0;cursor:pointer;font:inherit;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;color:var(--o-ink);
+  background:linear-gradient(160deg,var(--o-panel2),var(--o-panel))}
+.hex b{font-family:var(--u-mono);font-size:11px;font-weight:700}
+.hex i{font-style:normal;font-size:19px;font-weight:760;font-variant-numeric:tabular-nums}
+.hex span{font-size:10.5px;color:var(--o-dim)}
+.hex.sig i{color:var(--o-sig)} .hex.slow i{color:var(--o-slow)}
+.hex.fault i{color:var(--o-fault)} .hex.off{opacity:.6}
+.hex.fault{background:linear-gradient(160deg,color-mix(in srgb,var(--o-fault) 16%,var(--o-panel)),var(--o-panel))}
+.hex.sel{outline:2px solid var(--o-mint);outline-offset:-2px}
+.empty{padding:26px 14px;text-align:center;color:var(--o-dim);font-size:13.5px;position:relative}
+
+/* ── network path strip ─────────────────────────────────────────────── */
+.opath{background:var(--o-panel);border:1px solid var(--o-line);border-radius:16px;
+  box-shadow:var(--o-shadow);padding:13px 16px;margin-bottom:12px}
+.opath .hd{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.opath .hd b{font-size:14px;font-weight:720}
+.opath .hd .c{margin-left:auto;font-family:var(--u-mono);font-size:11.5px;color:var(--o-dim)}
+.pstrip{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:2px}
+.pseg{flex:1;min-width:118px;padding:9px 13px 10px;border-top:2px solid transparent;position:relative}
+.pseg+.pseg::before{content:"";position:absolute;left:0;top:14px;bottom:12px;width:1px;background:var(--o-hair)}
+.pseg .k{font-family:var(--u-mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--o-faint);display:flex;align-items:center;gap:5px}
+.pseg .k svg{width:11px;height:11px;flex:none;opacity:.7}
+.pseg .v{font-size:14.5px;font-weight:720;margin:4px 0 2px;letter-spacing:-.01em}
+.pseg .s{font-size:11.5px;color:var(--o-dim)}
+.pseg.warn{border-top-color:var(--o-slow)}
+.pseg.warn .v{color:var(--o-slow)}
+.pseg.bad{border-top-color:var(--o-fault)}
+.pseg.bad .v{color:var(--o-fault)}
+.pseg.okc .v{color:var(--o-sig)}
+.pdetail{border-top:1px solid var(--o-hair);margin-top:10px;padding-top:12px;display:none}
+.opath.expanded .pdetail{display:block}
+.pdetail .cause{font-size:13.5px;line-height:1.55;color:var(--o-ink);max-width:75ch}
+.pdetail .act{margin-top:9px;font-size:13.5px;line-height:1.5;color:var(--o-ink);
+  background:var(--o-mint-wash);border:1px solid color-mix(in srgb,var(--o-mint) 30%,transparent);
+  border-radius:10px;padding:10px 13px;max-width:75ch}
+.pdetail .act b{color:var(--o-mint)}
+.pdetail .ev{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.pdetail .ev span{font-family:var(--u-mono);font-size:11.5px;background:var(--o-panel2);
+  border:1px solid var(--o-line);border-radius:7px;padding:4px 9px;color:var(--o-dim)}
+
+/* ── movement replay row ────────────────────────────────────────────── */
+.oreplay{display:flex;align-items:center;gap:13px;background:var(--o-panel);
+  border:1px solid var(--o-line);border-radius:14px;box-shadow:var(--o-shadow);
+  padding:11px 16px;margin-bottom:12px}
+.oreplay .lb{font-size:13px;font-weight:680;flex:none}
+.oreplay .pb{width:34px;height:34px;flex:none;border-radius:50%;border:1px solid var(--o-line);
+  background:var(--o-panel2);color:var(--o-mint);display:grid;place-items:center;cursor:pointer}
+.oreplay .pb svg{width:15px;height:15px}
+.oreplay input[type=range]{flex:1;accent-color:var(--o-mint);min-width:120px;height:22px}
+.oreplay .t{font-family:var(--u-mono);font-size:12px;color:var(--o-dim);flex:none;min-width:74px;text-align:right}
+.oreplay[hidden]{display:none}
+.mvnow{font-size:12.5px;color:var(--o-dim);margin:-4px 4px 12px;min-height:17px}
+.mvnow b{color:var(--o-ink)}
+
+/* ── bottom: selected AP + right now ────────────────────────────────── */
+.obottom{display:grid;grid-template-columns:1fr 1.15fr;gap:12px;align-items:start}
+.apcard,.nowcard{background:var(--o-panel);border:1px solid var(--o-line);border-radius:16px;
+  box-shadow:var(--o-shadow);padding:15px 17px}
+.apcard .hd,.nowcard .hd{display:flex;align-items:baseline;gap:9px;margin-bottom:11px}
+.apcard .hd{font-family:var(--u-mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--o-faint)}
+.apcard .hd .st{margin-left:auto;font-weight:700}
+.apcard .hd .st.sig{color:var(--o-sig)} .apcard .hd .st.slow{color:var(--o-slow)}
+.apcard .hd .st.fault{color:var(--o-fault)} .apcard .hd .st.off{color:var(--o-off)}
+.gaugerow{display:flex;gap:15px;align-items:center;margin-bottom:12px}
+.gauge{position:relative;width:92px;height:92px;flex:none}
+.gauge svg{width:100%;height:100%;transform:rotate(-90deg)}
+.gauge .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;font-size:26px;font-weight:770;letter-spacing:-1px;line-height:1}
+.gauge .num small{font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--o-faint);margin-top:2px}
+.apmeta h3{margin:0 0 4px;font-size:18px;font-weight:750;letter-spacing:-.02em}
+.apmeta .l{font-size:12.5px;color:var(--o-dim);line-height:1.55}
+.apgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px}
+.apg{background:var(--o-panel2);border:1px solid var(--o-hair);border-radius:10px;padding:9px 12px}
+.apg .k{font-family:var(--u-mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--o-faint)}
+.apg .v{font-size:16px;font-weight:730;margin-top:3px;font-variant-numeric:tabular-nums}
+.apg .v.sig{color:var(--o-sig)} .apg .v.fault{color:var(--o-fault)} .apg .v.slow{color:var(--o-slow)}
+.apfoot{margin-top:12px;font-size:12.5px;color:var(--o-dim);line-height:1.55;
+  border-top:1px solid var(--o-hair);padding-top:11px}
+.apfoot b{color:var(--o-ink)}
+.nact{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.nact a,.nact button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--o-line);
+  background:var(--o-panel2);color:var(--o-ink);font:inherit;font-size:12.5px;font-weight:640;
+  border-radius:999px;padding:7px 14px;cursor:pointer;min-height:32px}
+.nact a:hover,.nact button:hover{border-color:var(--o-mint);color:var(--o-mint);text-decoration:none}
+.nact a svg{width:13px;height:13px}
+.nact .claimed{border-color:var(--o-mint);color:var(--o-mint);background:var(--o-mint-wash)}
+.nowcard .hd b{font-size:15.5px;font-weight:740}
+.nowcard .hd .c{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--o-fault)}
+.nowcard .hd .c.ok{color:var(--o-sig)}
+.nrow{display:flex;gap:12px;padding:12px 2px;border-top:1px solid var(--o-hair)}
+.nrow:first-child{border-top:0}
+.nrow .sq{width:38px;height:38px;flex:none;border-radius:10px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--o-fault) 14%,transparent);color:var(--o-fault)}
+.nrow.warn .sq{background:color-mix(in srgb,var(--o-slow) 14%,transparent);color:var(--o-slow)}
+.nrow .sq svg{width:18px;height:18px}
+.nrow .b{flex:1;min-width:0}
+.nrow .t{font-size:14px;font-weight:700;letter-spacing:-.01em;line-height:1.3}
+.nrow .s{font-size:12.5px;color:var(--o-dim);margin-top:3px;line-height:1.5}
+.nrow .mono{font-family:var(--u-mono);font-size:11.5px;color:var(--o-faint)}
+.nowempty{padding:18px 4px;color:var(--o-dim);font-size:13.5px;display:flex;align-items:center;gap:10px}
+.nowempty svg{width:18px;height:18px;color:var(--o-sig);flex:none}
+
+/* responsive */
+@media (max-width:920px){
+  .obottom{grid-template-columns:1fr}
+  .stgflex{flex-direction:column}
+  .floorstack{flex-direction:row;width:100%;overflow-x:auto}
+  .fbtn{min-width:126px}
+}
+@media (max-width:520px){
+}
+</style>
+</head>
+<body class="u cmd noc" data-page="building">
+<div id="nocContent">
+  <div id="obsDegraded" class="nempty" style="display:none;text-align:left;padding:8px 12px;margin-bottom:10px" hidden></div>
+  <div class="ngrid" id="kpis"></div>
+
+  <div class="ngrid" style="margin-top:10px">
+    <section class="ncard c8">
+      <div class="nch">
+        <h2><b id="stgT">&mdash;</b><span id="stgS" style="font-weight:450;color:var(--o-faint);margin-left:6px"></span></h2>
+        <div class="tools"><div class="nseg" id="obsViews"></div></div>
+      </div>
+      <div class="ncb">
+        <div class="stgflex">
+          <div class="stgmap">
+            <div class="plate" id="plate">
+              <img class="plan" id="planImg" alt="">
+              <canvas class="heat" id="heatC"></canvas>
+              <svg class="trails" id="trailSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+            </div>
+          </div>
+        </div>
+        <div class="legend" id="obsLegend"></div>
+        <div class="oreplay" id="replayBar" hidden>
+          <span class="lb">Movement replay</span>
+          <button class="pb" id="mvPlay" aria-label="Play movement replay" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
+          <input type="range" id="mvScrub" min="0" max="0" value="0" step="1"
+            aria-label="Movement replay position">
+          <span class="t" id="mvTime"></span>
+        </div>
+        <div class="mvnow" id="mvNow" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <div class="c4" style="display:grid;gap:10px;align-content:start">
+      <section class="ncard">
+        <div class="nch"><h2>Floors</h2><div class="tools"><span class="sev info" id="floorN">&mdash;</span></div></div>
+        <div class="ncb flush"><div class="nlist" id="floorList"></div></div>
+      </section>
+      <section class="ncard">
+        <div class="nch"><h2>Needs action</h2><div class="tools"><span class="sev" id="issueN">&mdash;</span></div></div>
+        <div class="ncb flush"><div class="nlist" id="issueList"></div></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="ngrid" style="margin-top:10px">
+    <section class="ncard c8">
+      <div class="nch"><h2>Network path</h2></div>
+      <div class="ncb flush"><section class="opath" id="oPath" aria-label="Network path"></section></div>
+    </section>
+    <section class="ncard c4">
+      <div class="nch"><h2>Selected access point</h2></div>
+      <div class="ncb"><section class="apcard" id="apCard" aria-label="Selected access point"></section></div>
+    </section>
+  </div>
+
+  <span class="osite" id="oSite" hidden><span id="oSiteT"></span></span>
+</div>
+
+<script src="/it-netnav.js"></script>
+<script src="/it-noc.js"></script>
+<script src="/it-panel.js"></script>
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="network-observatory"></script>
+<script>
+NOC.mount({page:'building', title:'Live building', sub:'NRPI \u00b7 wireless'});
+/* Live/Paused is a real control: it stops the 30s auto-reload so a tech can
+   study a frozen floor without it moving under them. */
+NOC.act('<button class="nbtn" id="oLive" aria-pressed="true">'+
+  '<span class="nfoot" style="padding:0;border:0"><span class="dot"></span></span>'+
+  '<span id="oLiveT">Live</span></button>'+
+  '<button class="nbtn" id="nRefresh">'+NOC.icon('refresh')+'Refresh</button>');
+document.getElementById('oSite').hidden=false;
+
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+var enc=encodeURIComponent;
+function ic(p){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';}
+var I={alert:'<path d="M12 3 2 20h20z"/><path d="M12 9v5M12 17.5h.01"/>',
+  cable:'<path d="M6 4v6a6 6 0 0 0 12 0V4"/><path d="M4 4h4M16 4h4M12 16v4"/>',
+  wifi:'<path d="M2 8.5a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0"/><path d="M12 19h.01"/>',
+  users:'<circle cx="9" cy="8" r="3.4"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3.4 3.4 0 0 1 0 5.6M17.5 14.2A6.5 6.5 0 0 1 21.5 20"/>',
+  sw:'<rect x="3" y="9" width="18" height="6" rx="1.5"/><path d="M6.5 12h.01M9.5 12h.01"/>',
+  port:'<rect x="7" y="4" width="10" height="12" rx="1.5"/><path d="M10 16v4M14 16v4M10 8h4"/>',
+  ok:'<path d="M20 6 9 17l-5-5"/>',
+  ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>'};
+async function jget(u){var r=await fetch(u,{credentials:'include'});
+  if(r.status===401)throw Object.assign(new Error('sign-in required'),{code:401});
+  return await r.json().catch(function(){return{ok:false};});}
+function ago(s){if(s==null)return'—';if(s<90)return s+'s ago';if(s<5400)return Math.round(s/60)+'m ago';
+  if(s<172800)return Math.round(s/3600)+'h ago';return Math.round(s/86400)+'d ago';}
+function hhmm(ts){try{var d=new Date(ts*1000);
+  return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}catch(e){return'';}}
+function plural(n,w){return n+' '+w+(n===1?'':'s');}
+function shortAp(n){return String(n||'').replace(/^[A-Z]{3}\d+-/,'');}
+var SITES={SNA01:'Irvine HQ',DFW02:'Plano'};
+function siteName(net){return SITES[net]||net||'';}
+function floorLabel(n){
+  var m=String(n||'').match(/(\d+)\s*(st|nd|rd|th)/i);
+  if(m)return m[1]+m[2].toLowerCase()+' floor';
+  return String(n||'').replace(/^HQ-?/,'')||'Floor';}
+/* one severity ladder, used everywhere on this page */
+var STATE={sig:{t:'Healthy',v:'--o-sig'},slow:{t:'Degraded',v:'--o-slow'},
+  fault:{t:'Faulting uplink',v:'--o-fault'},off:{t:'Offline',v:'--o-off'}};
+
+var ROT={g_591097451092378945:1,g_591097451092378946:1};   /* quarter-turns CCW */
+function rotN(){return ROT[S.floor]||0;}
+function rotPt(x,y,n){for(var i=0;i<n;i++){var t=x;x=y;y=1-t;}return{x:x,y:y};}
+var S={data:null,floor:null,view:'people',mode:'flow',sel:null,claims:{},live:true,
+  mv:{i:0,timer:null,list:[]},plan:{}};
+
+/* The AP coords are fractions of the FLOOR PLAN, so the plate has to be exactly
+   the plan's box — otherwise object-fit letterboxes the image and every node
+   drifts. Cap the height by capping the width at the plan's own ratio. */
+function applyPlate(){
+  var plate=document.getElementById('plate'); if(!plate)return;
+  var g=S.plan[S.floor];
+  if(!g){plate.style.aspectRatio='4 / 3';plate.style.maxWidth='';return;}
+  var r=g.w/g.h;
+  plate.style.aspectRatio=g.w+' / '+g.h;
+  plate.style.maxWidth='min(100%, calc(58vh * '+r.toFixed(4)+'))';
+}
+
+/* ── load ───────────────────────────────────────────────────────────── */
+async function load(){
+  try{
+    var r=await Promise.all([
+      jget('/api/netswitch/observatory'),
+      jget('/api/netswitch/claims').catch(function(){return null;})]);
+    var d=r[0], cl=r[1];
+    if(!d||d.ok===false) throw new Error((d&&d.detail)||'observatory unavailable');
+    S.data=d; S.claims={};
+    if(cl&&cl.ok)(cl.claims||[]).forEach(function(c){S.claims[c.ref]=c;});
+    var fl=d.floors||[];
+    if(!S.floor||!fl.filter(function(f){return f.floorPlanId===S.floor;}).length){
+      S.floor=(fl[0]||{}).floorPlanId||null; S.sel=null;}
+    paint(); loadPlan();
+  }catch(e){
+    var m=(e.code===401)?'Your session expired. <a href="/login.html">Sign in</a> to continue.':esc(e.message);
+    var q=document.getElementById('kpis');
+    if(q)q.innerHTML='<div class="c12"><div class="ncard"><div class="ncb"><div class="nempty">'+
+      '<b>Couldn\u2019t read the building</b>'+m+'</div></div></div></div>';
+  }
+}
+
+function floorAps(){
+  var d=S.data||{},n=rotN();
+  return (d.aps||[]).filter(function(a){return !S.floor||a.floorPlanId===S.floor;})
+    .map(function(a){
+      if(a.x==null||a.y==null||!n) return a;
+      var r=rotPt(a.x,a.y,n),o={};for(var k in a)o[k]=a[k];o.x=r.x;o.y=r.y;return o;});
+}
+function apIssues(name){
+  if(!name)return[];
+  var re=new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![0-9])');
+  return ((S.data||{}).issues||[]).filter(function(i){
+    return re.test(String(i.descr||'')) || re.test(String(i.port_desc||''));});
+}
+function apState(a){
+  if(a.status&&/offline|dormant|alerting/i.test(a.status))return'off';
+  var ai=apIssues(a.name);
+  if(a.fault||ai.filter(function(i){return i.severity==='critical';}).length)return'fault';
+  if(a.slow||ai.length)return'slow';
+  return'sig';
+}
+function issueDiag(i){var dg=null;
+  try{dg=typeof i.diag==='string'?JSON.parse(i.diag):(i.diag||null);}catch(e){}
+  return dg||{};}
+/* detail strings arrive as "Title — cause"; never show the title twice */
+function issueCause(i){
+  var dg=issueDiag(i), c=dg.cause||i.detail||'';
+  var t=dg.title||'';
+  if(t&&c.indexOf(t)===0)c=c.slice(t.length).replace(/^[\s—–:-]+/,'');
+  return c;}
+function issueTitle(i){
+  var dg=issueDiag(i);
+  if(dg.title)return dg.title;
+  var K={crc:'Physical layer errors (CRC)',err:'Interface errors',disc:'Packets being discarded',
+    flap:'Port flapping',down:'Port down'};
+  return K[i.kind]||'Port issue';}
+
+/* ── paint ──────────────────────────────────────────────────────────── */
+function paint(){
+  var d=S.data||{},sum=d.summary||{},fl=d.floors||[];
+  var age=d.polled_at?Math.max(0,Math.floor(Date.now()/1000)-d.polled_at):null;
+  NOC.stamp(age!=null?'polled '+ago(age):'no poll yet', age!=null&&age>900);
+  /* feeds the API could not read are stated on the page, not silently absent */
+  var dg=(d.degraded||[]).map(function(x){return typeof x==='string'?x:((x&&(x.message||x.detail||x.source||x.what))||JSON.stringify(x));});
+  var dgEl=document.getElementById('obsDegraded');
+  if(dgEl){ dgEl.hidden=!dg.length; dgEl.style.display=dg.length?'':'none'; dgEl.innerHTML=dg.length?'<b>Partial data:</b> '+dg.map(esc).join(' · '):''; }
+  if(dg.length){ try{ if(window.ITObserve&&typeof ITObserve.degraded==='function') ITObserve.degraded('observatory-feeds','Observatory is showing partial data',dg.join(' | ')); }catch(_){} }
+
+  var aps=floorAps(), fault=aps.filter(function(a){return apState(a)==='fault';}).length,
+      off=aps.filter(function(a){return apState(a)==='off';}).length,
+      slow=aps.filter(function(a){return apState(a)==='slow';}).length,
+      cl=aps.reduce(function(n,a){return n+(a.clients||0);},0),
+      mv15=sum.moves_15m||0;
+  var fcur=(fl.filter(function(f){return f.floorPlanId===S.floor;})[0])||{};
+  var fname=fcur.name||'', place=siteName(fcur.network)+(fname?' · '+floorLabel(fname):'');
+
+  /* headline — plain English, computed from what is actually there */
+  var h,sub;
+  if(fault||off){
+    h=plural(fault+off,'access point')+((fault+off)===1?' needs':' need')+' attention';
+    sub=cl.toLocaleString()+' people connected here · '+
+      (off?off+' offline':'')+(off&&fault?' · ':'')+
+      (fault?fault+' with a faulting uplink':'');
+  }else if(slow){
+    h=plural(slow,'access point')+' running degraded';
+    sub=cl.toLocaleString()+' people connected · everything else is handing off cleanly';
+  }else{
+    h=cl.toLocaleString()+' people connected';
+    sub='Every access point on this floor is online and clean'+
+      (mv15?' · '+plural(mv15,'movement')+' in the last 15 minutes':'');
+  }
+  S.h1=h; S.h2=sub; S.place=place; S.sum=sum; S.cl=cl; S.mv15=mv15; S.off=off;
+  document.getElementById('oSiteT').textContent=place||'\u2014';
+  document.getElementById('stgT').textContent=place||'\u2014';
+  document.getElementById('stgS').textContent=
+    plural(cl,'client')+' \u00b7 '+plural(mv15,'movement')+' in the last 15 minutes';
+  NOC.badge('building',(d.issues||[]).length,'warn');
+  renderKpis(aps,fault,off,slow,cl,mv15,sum);
+  NOC.vitals([
+    {k:'Polled',v:age!=null?ago(age):'—'},
+    {k:'Floor',v:place||'—'},
+    {k:'Here',v:cl.toLocaleString(),s:'clients'},
+    {k:'APs',v:(sum.aps_online!=null?sum.aps_online+'/'+(sum.aps_total||0):'—'),
+     cls:(sum.aps_total-sum.aps_online)?'warn':'good'},
+    {k:'Moves 15m',v:mv15},
+    {k:'Needs action',v:(d.issues||[]).length,cls:(d.issues||[]).length?'warn':'good'}
+  ]);
+  renderQueue();
+
+  /* views */
+  var views=[['people','People'],['coverage','Coverage'],['roaming','Roaming'],['health','AP health']];
+  document.getElementById('obsViews').innerHTML=views.map(function(v){
+    return '<button data-view="'+v[0]+'" aria-pressed="'+(S.view===v[0])+'">'+v[1]+'</button>';}).join('');
+  document.querySelectorAll('#obsViews [data-view]').forEach(function(b){
+    b.addEventListener('click',function(){setView(b.dataset.view);});});
+
+  drawPlate();
+  drawLegend();
+  drawPath();
+  drawApCard();
+  drawNow();
+}
+function refocus(sel){var el=document.querySelector(sel);if(el)el.focus();}
+/* ── the work list ──────────────────────────────────────────────────
+   Floors and faults live here so the map keeps the full width of the pane.
+   Picking a fault selects its access point, so the map, the path strip and
+   the detail card all move together.                                    */
+function issueTitleOf(i){var dg=issueDiag(i);
+  return dg.title||({crc:'Physical layer errors (CRC)',err:'Interface errors',
+    disc:'Packets being discarded',flap:'Port flapping',down:'Port down'}[i.kind])||'Port issue';}
+function issueApName(i){return (String(i.descr||'').match(/[A-Z]{3}\d+-WAP\d+/)||[])[0]||null;}
+
+/* ── KPI strip: every figure is one paint() already computed ─────────── */
+function renderKpis(aps,fault,off,slow,cl,mv15,sum){
+  var K=function(o){return '<div class="c2"><div class="nkpi'+(o.tone?' '+o.tone:'')+'">'+
+    '<span class="k">'+esc(o.k)+'</span><span class="v">'+o.v+'</span>'+
+    (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+
+    (o.meter!=null?'<span class="nmeter"><i class="'+(o.mt||'')+'" style="width:'+o.meter+'%"></i></span>':'')+
+    '</div></div>';};
+  var fl=((S.data||{}).floors||[]).length;
+  var apTot=sum.aps_total||0, apUp=sum.aps_online!=null?sum.aps_online:0;
+  document.getElementById('kpis').innerHTML=
+    K({k:'People here',v:cl.toLocaleString(),tone:'info',s:'on this floor'})+
+    K({k:'Access points',v:aps.length,s:'on this floor'})+
+    K({k:'Needs attention',v:fault+off,tone:(fault+off)?'bad':'good',
+       s:(fault+off)?(off?off+' offline ':'')+(fault?fault+' faulting uplink':''):'all clean'})+
+    K({k:'Degraded',v:slow,tone:slow?'warn':'good',s:slow?'running slow':'none degraded'})+
+    K({k:'Moves · 15m',v:mv15,s:'wireless hand-offs'})+
+    K({k:'Fleet APs',v:apUp+'<small>/'+apTot+'</small>',tone:(apTot-apUp)?'warn':'good',
+       s:'across all sites',meter:apTot?Math.round(apUp/apTot*100):0,
+       mt:(apTot-apUp)?'warn':'good'});
+}
+
+/* ── floors and faults, as console rows ──────────────────────────────── */
+function renderQueue(){
+  var d=S.data||{}, fl=d.floors||[], iss=d.issues||[];
+  var fe=document.getElementById('floorList'), ie=document.getElementById('issueList');
+  if(!fe||!ie)return;
+
+  document.getElementById('floorN').textContent=fl.length+(fl.length===1?' floor':' floors');
+  fe.innerHTML=fl.map(function(f){
+    return '<button class="nrow" data-floor="'+esc(f.floorPlanId)+'" aria-current="'+
+      (f.floorPlanId===S.floor)+'" aria-label="'+esc(siteName(f.network)+', '+floorLabel(f.name)+
+      ', '+plural(f.clients||0,'client'))+'">'+
+      '<span class="ic'+(f.floorPlanId===S.floor?' ok':'')+'">'+ic(I.pin||I.ok)+'</span>'+
+      '<span class="bd"><span class="t">'+esc(floorLabel(f.name))+'</span>'+
+      '<span class="s">'+esc(siteName(f.network))+'</span></span>'+
+      '<span class="rt">'+Number(f.clients||0).toLocaleString()+'</span></button>';}).join('')
+    ||'<div class="nempty"><b>No floor plans</b>Nothing published from Meraki.</div>';
+
+  var crit=iss.filter(function(i){return i.severity==='critical';}).length;
+  var ne=document.getElementById('issueN');
+  ne.textContent=iss.length||'clear';
+  ne.className='sev '+(crit?'crit':(iss.length?'warn':'ok'));
+  if(!iss.length){
+    ie.innerHTML='<div class="nempty">'+ic(I.ok)+'<b>Nothing needs attention</b>'+
+      'Every uplink behind these access points came back clean.</div>';
+  }else{
+    ie.innerHTML=iss.map(function(i){
+      var ref=i.switch_ip+':'+i.port, c=S.claims[ref], ap=issueApName(i);
+      return '<button class="nrow" data-issue="'+esc(ref)+'" data-ap="'+esc(ap||'')+'" aria-current="'+
+        (!!ap&&S.sel===ap)+'">'+
+        '<span class="ic '+(i.severity==='critical'?'bad':'warn')+'">'+
+        ic(i.kind==='crc'?I.cable:I.alert)+'</span>'+
+        '<span class="bd"><span class="t">'+esc(issueTitleOf(i))+'</span>'+
+        '<span class="s">'+esc(i.switch)+' \u00b7 '+esc(i.port)+(ap?' \u00b7 '+esc(shortAp(ap)):'')+'</span>'+
+        '</span>'+
+        (c?'<span class="rt"><span class="sev ok">'+esc(String(c.claimed_by).split('@')[0])+'</span></span>':'')+
+        '</button>';}).join('');
+  }
+
+  fe.querySelectorAll('[data-floor]').forEach(function(b){
+    b.addEventListener('click',function(){S.floor=b.dataset.floor;S.sel=null;mvStop();paint();loadPlan();
+      refocus('[data-floor="'+b.dataset.floor+'"]');});});
+  ie.querySelectorAll('[data-issue]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var ap=b.dataset.ap;
+      if(ap){ var onFloor=floorAps().filter(function(a){return a.name===ap;}).length;
+        if(!onFloor){ var home=((S.data||{}).aps||[]).filter(function(a){return a.name===ap;})[0];
+          if(home&&home.floorPlanId!==S.floor){S.floor=home.floorPlanId;loadPlan();} }
+        S.sel=ap; }
+      paint();
+      document.getElementById('oPath').scrollIntoView({behavior:'smooth',block:'nearest'});});});
+  [fe,ie].forEach(function(el){
+    if(el.dataset.kb)return; el.dataset.kb='1';
+    el.addEventListener('keydown',function(e){
+      if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;
+      var rows=[].slice.call(el.querySelectorAll('.nrow'));
+      var at=rows.indexOf(document.activeElement); if(at<0)return;
+      e.preventDefault();
+      var nxt=rows[at+(e.key==='ArrowDown'?1:-1)]; if(nxt){nxt.focus();nxt.click();}});});
+}
+
+function setView(v){S.view=v;mvStop();paint();refocus('[data-view="'+v+'"]');}
+
+/* ── the plate: nodes, heat, trails, or hex grid ────────────────────── */
+function drawPlate(){
+  var plate=document.getElementById('plate'), aps=floorAps();
+  plate.querySelectorAll('.apn,.hexwrap,.empty,.ocall').forEach(function(n){n.remove();});
+  var heat=document.getElementById('heatC'), svg=document.getElementById('trailSvg'),
+      plan=document.getElementById('planImg');
+  var hex=(S.view==='health');
+  if(!hex) applyPlate(); else {plate.style.maxWidth='';plate.style.aspectRatio='auto';}
+  if(S.view!=='roaming'){document.getElementById('replayBar').hidden=true;
+    document.getElementById('mvNow').textContent='';mvStop();}
+  plan.style.display=hex?'none':'';
+  heat.style.display=(S.view==='coverage')?'':'none';
+  svg.style.display=hex?'none':'';
+  svg.innerHTML='';
+
+  if(hex){
+    if(!aps.length){plate.insertAdjacentHTML('beforeend','<div class="empty">No access points on this floor.</div>');return;}
+    var h='<div class="hexwrap">'+aps.slice().sort(function(a,b){return (b.clients||0)-(a.clients||0);})
+      .map(function(a){var st=apState(a);
+        return '<button class="hex '+st+(S.sel===a.name?' sel':'')+'" data-ap="'+esc(a.name)+'"'+
+          ' aria-pressed="'+(S.sel===a.name)+'" aria-label="'+esc(a.name+' — '+plural(a.clients||0,'client')+' · '+STATE[st].t)+'">'+
+          '<b>'+esc(shortAp(a.name))+'</b><i>'+(a.clients||0)+'</i><span>clients</span></button>';}).join('')+'</div>';
+    plate.insertAdjacentHTML('beforeend',h);
+    plate.querySelectorAll('.hex').forEach(function(b){
+      b.addEventListener('click',function(){S.sel=b.dataset.ap;paint();revealApCard();
+        refocus('.hex[data-ap="'+(CSS&&CSS.escape?CSS.escape(b.dataset.ap):b.dataset.ap)+'"]');});});
+    return;
+  }
+
+  var placed=aps.filter(function(a){return a.x!=null&&a.y!=null;});
+  if(!placed.length){
+    plate.insertAdjacentHTML('beforeend','<div class="empty">These access points aren’t placed on a floor plan in Meraki yet, so they can’t be mapped. Switch to <b>AP health</b> to see them.</div>');
+    return;
+  }
+  var max=Math.max.apply(null,placed.map(function(a){return a.clients||0;}).concat([1]));
+  placed.forEach(function(a){
+    var sz=Math.round(26+Math.sqrt((a.clients||0)/max)*18);
+    var st=apState(a), dim=(S.view==='roaming'&&S.sel&&S.sel!==a.name);
+    var b=document.createElement('button');
+    b.className='apn '+st+(S.sel===a.name?' sel':'')+(dim?' dimmed':'');
+    b.dataset.ap=a.name;
+    b.style.left=(a.x*100).toFixed(2)+'%'; b.style.top=(a.y*100).toFixed(2)+'%';
+    b.setAttribute('aria-pressed',String(S.sel===a.name));
+    b.setAttribute('aria-label',a.name+' — '+plural(a.clients||0,'client')+' · '+STATE[st].t);
+    b.innerHTML='<span class="ring" style="width:'+sz+'px;height:'+sz+'px">'+(a.clients||0)+'</span>'+
+      '<span class="nm">'+esc(shortAp(a.name))+'</span>'+
+      '<span class="cc">'+plural(a.clients||0,'client')+'</span>';
+    b.addEventListener('click',function(){S.sel=(S.sel===a.name)?null:a.name;paint();
+      refocus('.apn[data-ap="'+(CSS&&CSS.escape?CSS.escape(a.name):a.name)+'"]');
+      if(S.sel)revealApCard();});
+    plate.appendChild(b);
+  });
+
+  if(S.view==='coverage') drawHeat(placed);
+  if(S.view==='roaming') drawTrails(placed);
+}
+function revealApCard(){
+  var el=document.getElementById('apCard'),r=el.getBoundingClientRect();
+  if(r.top>window.innerHeight-120)el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* per-view legend, so the key always matches what is on the plate */
+function drawLegend(){
+  var el=document.getElementById('obsLegend'),h='';
+  function dot(v,t){return '<span><i style="background:var('+v+')"></i>'+t+'</span>';}
+  if(S.view==='coverage'){
+    h='<span>weak</span><span class="grad" role="img" aria-label="Signal ramp from weak (blue) to strong (red)"></span><span>strong</span>'+
+      '<span>estimated from AP placement — not a site survey</span>';
+  }else if(S.view==='roaming'){
+    h=dot('--o-sig','clean hand-off')+dot('--o-slow','involves a degraded AP')+
+      '<span>trail width = hand-off volume</span>';
+  }else{
+    h=dot('--o-sig','healthy')+dot('--o-slow','degraded')+dot('--o-fault','faulting uplink')+
+      dot('--o-off','offline')+'<span>ring size = clients connected</span>';
+  }
+  el.innerHTML='<div class="pill">'+h+'</div>';
+}
+
+function drawHeat(aps){
+  var cv=document.getElementById('heatC'); if(!cv||!aps.length)return;
+  var W=260,H=195; cv.width=W; cv.height=H;
+  var ctx=cv.getContext('2d'), img=ctx.createImageData(W,H), px=img.data;
+  var STOPS=[[0,56,189,248,0],[.18,56,189,248,.20],[.38,45,212,191,.30],
+             [.60,250,204,21,.36],[.80,251,146,60,.42],[1,244,63,94,.48]];
+  function col(t){for(var k=1;k<STOPS.length;k++){if(t<=STOPS[k][0]){
+    var a=STOPS[k-1],c=STOPS[k],f=(t-a[0])/((c[0]-a[0])||1);
+    return [a[1]+(c[1]-a[1])*f,a[2]+(c[2]-a[2])*f,a[3]+(c[3]-a[3])*f,a[4]+(c[4]-a[4])*f];}}
+    var e=STOPS[STOPS.length-1];return [e[1],e[2],e[3],e[4]];}
+  var pts=aps.map(function(a){return {x:a.x,y:a.y,s:0.13};});
+  for(var y=0;y<H;y++){var ny=(y+.5)/H;
+    for(var x=0;x<W;x++){var nx=(x+.5)/W,best=0,sec=0;
+      for(var i=0;i<pts.length;i++){var p=pts[i],dx=nx-p.x,dy=ny-p.y;
+        var v=Math.exp(-(dx*dx+dy*dy)/(2*p.s*p.s));
+        if(v>best){sec=best;best=v;}else if(v>sec){sec=v;}}
+      var t=Math.min(1,best+sec*.3); if(t<.05)continue;
+      var c=col(t),o=(y*W+x)*4;
+      px[o]=c[0];px[o+1]=c[1];px[o+2]=c[2];px[o+3]=Math.round(c[3]*255);}}
+  ctx.putImageData(img,0,0);
+}
+
+function tok(n,f){try{return getComputedStyle(document.body).getPropertyValue(n).trim()||f;}catch(e){return f;}}
+function moveWarm(m){ /* a hand-off "needs attention" if either AP is degraded/faulting */
+  var aps=floorAps(),f=null,t=null;
+  aps.forEach(function(a){if(a.name===m.from_ap)f=a;if(a.name===m.to_ap)t=a;});
+  function bad(a){if(!a)return false;var st=apState(a);return st==='fault'||st==='slow';}
+  return bad(f)||bad(t);}
+function drawTrails(aps){
+  var svg=document.getElementById('trailSvg'), d=S.data||{};
+  var pos={}; aps.forEach(function(a){pos[a.name]={x:a.x*100,y:a.y*100};});
+  var moves=(d.movements||[]).filter(function(m){return pos[m.from_ap]&&pos[m.to_ap];});
+  if(S.sel) moves=moves.filter(function(m){return m.from_ap===S.sel||m.to_ap===S.sel;});
+  S.mv.list=moves.slice().reverse();               /* oldest → newest for replay */
+  var bar=document.getElementById('replayBar');
+  bar.hidden=!S.mv.list.length;
+  var sc=document.getElementById('mvScrub');
+  sc.max=Math.max(0,S.mv.list.length-1);
+
+  if(!moves.length){
+    document.getElementById('mvNow').textContent=(d.movements&&d.movements.length)
+      ? 'No movement between placed access points on this floor in the last hour.'
+      : 'No hand-offs in the last hour — the floor is quiet. Movements appear here as people walk the building.';
+    return;
+  }
+  var agg={};
+  moves.forEach(function(m){var k=m.from_ap+'>'+m.to_ap;
+    (agg[k]=agg[k]||{a:m.from_ap,b:m.to_ap,n:0,warm:false}).n++;
+    if(moveWarm(m))agg[k].warm=true;});
+  var h='';
+  Object.keys(agg).forEach(function(k){
+    var g=agg[k],A=pos[g.a],B=pos[g.b];
+    var mx=(A.x+B.x)/2,my=(A.y+B.y)/2;
+    var dx=B.x-A.x,dy=B.y-A.y,len=Math.sqrt(dx*dx+dy*dy)||1;
+    var cx=mx-dy/len*Math.min(len*.22,9), cy=my+dx/len*Math.min(len*.22,9);
+    var w=(0.5+Math.min(g.n,6)*0.24).toFixed(2);
+    var col=g.warm?tok('--o-slow','#fbbf24'):tok('--o-sig','#2dd4bf');
+    h+='<path d="M'+A.x.toFixed(2)+','+A.y.toFixed(2)+' Q'+cx.toFixed(2)+','+cy.toFixed(2)+
+      ' '+B.x.toFixed(2)+','+B.y.toFixed(2)+'" fill="none" stroke="'+col+'" stroke-width="'+w+
+      '" stroke-linecap="round" stroke-dasharray="2.2 1.6" opacity=".62"/>';
+  });
+  svg.innerHTML=h+'<circle id="mvDot" r="1.5" fill="'+tok('--o-ink','#fff')+'" opacity="0"/>';
+  document.getElementById('mvNow').textContent=plural(moves.length,'hand-off')+
+    ' in the last hour'+(S.sel?' involving '+shortAp(S.sel):'')+' — press play to walk through them.';
+  mvStep(0);
+}
+
+/* ── movement replay (real hand-offs, oldest → newest) ──────────────── */
+function mvStop(){if(S.mv.timer){clearInterval(S.mv.timer);S.mv.timer=null;}
+  var b=document.getElementById('mvPlay');
+  if(b){b.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+    b.setAttribute('aria-label','Play movement replay');b.setAttribute('aria-pressed','false');}}
+function mvStep(i){
+  var list=S.mv.list; if(!list.length)return;
+  i=Math.max(0,Math.min(i,list.length-1)); S.mv.i=i;
+  var m=list[i], sc=document.getElementById('mvScrub');
+  sc.value=i;
+  document.getElementById('mvTime').textContent=hhmm(m.ts)+' · '+(i+1)+'/'+list.length;
+  var who=m.label||String(m.mac||'').slice(-8);
+  sc.setAttribute('aria-valuetext',who+' moved '+shortAp(m.from_ap)+' to '+shortAp(m.to_ap)+' at '+hhmm(m.ts));
+  var aps=floorAps(),pos={};
+  aps.forEach(function(a){if(a.x!=null)pos[a.name]={x:a.x*100,y:a.y*100};});
+  var A=pos[m.from_ap],B=pos[m.to_ap],dot=document.getElementById('mvDot');
+  if(dot&&A&&B){
+    dot.setAttribute('opacity','.95');
+    dot.setAttribute('cx',A.x.toFixed(2)); dot.setAttribute('cy',A.y.toFixed(2));
+    requestAnimationFrame(function(){
+      dot.style.transition='cx .55s cubic-bezier(.4,0,.2,1),cy .55s cubic-bezier(.4,0,.2,1)';
+      dot.setAttribute('cx',B.x.toFixed(2)); dot.setAttribute('cy',B.y.toFixed(2));});
+  }
+  /* floating callout chip near the destination AP — mockup style */
+  var plate=document.getElementById('plate');
+  plate.querySelectorAll('.ocall').forEach(function(n){n.remove();});
+  if(B){
+    var chip=document.createElement('div');chip.className='ocall';
+    chip.style.left=B.x+'%';chip.style.top=B.y+'%';
+    chip.innerHTML='<b>'+esc(who)+'</b><br><span class="m">'+
+      esc(shortAp(m.from_ap))+' → '+esc(shortAp(m.to_ap))+' · '+hhmm(m.ts)+'</span>';
+    plate.appendChild(chip);
+  }
+  document.getElementById('mvNow').innerHTML='<b>'+esc(who)+'</b> moved '+
+    esc(shortAp(m.from_ap))+' → '+esc(shortAp(m.to_ap))+
+    (m.ssid?' on '+esc(m.ssid):'')+' at '+hhmm(m.ts);
+}
+
+/* ── network path strip: the degraded corridor, from real switch data ─
+   Only hops we truly measure are shown: access switch, port, AP, people.
+   WAN/firewall/core have no data source on this page, so they don't appear. */
+function pathIssue(){
+  var iss=(S.data||{}).issues||[];
+  if(S.sel){var mine=apIssues(S.sel);if(mine.length)return mine[0];}
+  return iss[0]||null;
+}
+function drawPath(){
+  var el=document.getElementById('oPath'), d=S.data||{}, i=pathIssue();
+  el.classList.add('expanded');
+  function seg(icon,k,v,s,cls){return '<div class="pseg '+(cls||'')+'"><div class="k">'+
+    ic(icon)+esc(k)+'</div><div class="v">'+esc(v)+'</div><div class="s">'+esc(s)+'</div></div>';}
+  if(!i){
+    var aps=(d.aps||[]),cl=(d.summary||{}).clients||0;
+    el.innerHTML='<div class="hd"><b>Network path</b><span class="c">all monitored uplinks clean</span></div>'+
+      '<div class="pstrip">'+
+      seg(I.sw,'Access','No faults','every monitored uplink is clean','okc')+
+      seg(I.wifi,'Wireless',plural(aps.length,'AP'),((d.summary||{}).aps_online!=null?(d.summary||{}).aps_online:aps.length)+' reporting','okc')+
+      seg(I.users,'Experience',plural(cl,'person'),'no one behind a faulted path','okc')+
+      '</div>'+
+      '<div class="pdetail"><div class="cause">Nothing to chase: none of the monitored access-switch uplinks behind the Wi-Fi are reporting errors. When a fault appears, this strip walks it hop by hop — switch, port, access point, people affected.</div></div>';
+    return;
+  }
+  var dg=issueDiag(i);
+  var apName=(String(i.descr||'').match(/[A-Z]{3}\d+-WAP\d+/)||[])[0]||null;
+  var ap=(d.aps||[]).filter(function(a){return a.name===apName;})[0];
+  var affected=ap?(ap.clients||0):null;
+  var sev=i.severity==='critical'?'bad':'warn';
+  var isite=siteName((String(i.switch||i.descr||'').match(/^([A-Z]{3}\d+)/)||[])[1]);
+  el.innerHTML='<div class="hd"><b>Network path</b>'+
+    '<span class="c">'+esc((isite?isite+' · ':'')+(i.switch||'')+' · '+(i.port||''))+'</span></div>'+
+    '<div class="pstrip">'+
+    seg(I.sw,'Access',i.switch||'—',issueTitle(i),sev)+
+    seg(I.port,'Port',i.port||'—',(dg.evidence&&dg.evidence[0])||'errors detected',sev)+
+    (apName?seg(I.wifi,'Wireless',shortAp(apName),ap?plural(ap.clients||0,'client'):'access point','')
+           :seg(I.wifi,'Wireless','—','no AP tied to this port',''))+
+    seg(I.users,'Experience',affected!=null?plural(affected,'person'):'—','behind this uplink','')+
+    '</div>'+
+    '<div class="pdetail">'+
+      '<div class="cause">'+esc(issueCause(i))+'</div>'+
+      (dg.action?'<div class="act"><b>What to do:</b> '+esc(dg.action)+'</div>':'')+
+      ((dg.evidence&&dg.evidence.length)?'<div class="ev">'+dg.evidence.map(function(e){
+        return '<span>'+esc(e)+'</span>';}).join('')+'</div>':'')+
+    '</div>';
+}
+
+/* ── selected AP card ───────────────────────────────────────────────── */
+function drawApCard(){
+  var el=document.getElementById('apCard'), aps=floorAps(), d=S.data||{};
+  var a=aps.filter(function(x){return x.name===S.sel;})[0];
+  if(!a){
+    var busiest=aps.slice().sort(function(x,y){return (y.clients||0)-(x.clients||0);})[0];
+    el.innerHTML='<div class="hd">Selected access point</div>'+
+      '<div class="apmeta"><h3>Pick an access point</h3><div class="l">'+
+      (busiest?'Click any ring on the floor map — busiest right now is <b>'+esc(shortAp(busiest.name))+
+        '</b> with '+plural(busiest.clients||0,'client')+'.':'No access points on this floor.')+
+      '</div></div>'; return;
+  }
+  var st=apState(a), moves=(d.movements||[]).filter(function(m){return m.from_ap===a.name||m.to_ap===a.name;});
+  var iss=apIssues(a.name);
+  /* score: real inputs — issue severity, degraded state, offline, load */
+  var score=100;
+  if(st==='off')score=0;
+  else{
+    if(iss.filter(function(i){return i.severity==='critical';}).length)score-=55;
+    else if(iss.length)score-=30;
+    if(st==='slow'&&!iss.length)score-=18;
+    if((a.clients||0)>24)score-=8;
+  }
+  score=Math.max(0,Math.min(100,score));
+  var ring=tok(STATE[st].v,'#2dd4bf');
+  var C=2*Math.PI*40, off=C*(1-score/100);
+  var last=moves[0];
+  var foot='';
+  if(iss.length){
+    foot='<b>'+esc(issueTitle(iss[0]))+'</b> on <span class="u-mono">'+esc(iss[0].port||'')+' · '+
+      esc(iss[0].switch||'')+'</span>'+(issueCause(iss[0])?' — '+esc(issueCause(iss[0])):'');
+  }else if(last){
+    foot='<b>'+esc(last.label||String(last.mac||'').slice(-8))+'</b> completed the last hand-off here — '+
+      esc(shortAp(last.from_ap))+' → '+esc(shortAp(last.to_ap))+' at '+hhmm(last.ts)+'.';
+  }
+  var apLeds=[
+    {k:'Status', v:(a.status||'unknown'), state:(st==='off'?'bad':(st==='slow'?'warn':'good'))},
+    {k:'Uplink', v:(iss.length?(iss[0].severity==='critical'?'faulting':'degraded'):'clean'),
+     state:(iss.length?(iss[0].severity==='critical'?'bad':'warn'):'good')},
+    {k:'Hand-offs 1h', v:String(moves.length), state:(moves.length>6?'warn':'good')}];
+  el.innerHTML='<div class="hd">Selected access point'+
+      '<span class="st '+st+'">'+esc(STATE[st].t)+'</span></div>'+
+    '<div class="gaugerow"><div class="gauge">'+
+      '<svg viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="48" r="40" fill="none" stroke="'+tok('--o-hair','rgba(125,211,252,.14)')+'" stroke-width="8"/>'+
+      '<circle cx="48" cy="48" r="40" fill="none" stroke="'+ring+'" stroke-width="8" stroke-linecap="round" '+
+      'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
+      '<div class="num" style="color:'+ring+'">'+score+'<small>health</small></div></div>'+
+      '<div class="apmeta"><h3>'+esc(shortAp(a.name))+'</h3><div class="l">'+
+        esc(a.model||'access point')+(a.serial?' · <span class="u-mono">'+esc(a.serial)+'</span>':'')+'<br>'+
+        plural(a.clients||0,'client')+' connected'+(a.status?' · '+esc(a.status):'')+'</div></div></div>'+
+    '<div id="apPlate" class="applate"></div>'+
+    (foot?'<div class="apfoot">'+foot+'</div>':'')+
+    '<div class="nact">'+
+      (iss.length&&iss[0].switch_ip?'<a href="/network-switches.html?switch='+enc(iss[0].switch_ip)+'" title="'+
+        esc((iss[0].switch||iss[0].switch_ip)+' port '+(iss[0].port||''))+'">Inspect uplink switch '+ic(I.ext)+'</a>':'')+
+      (moves.length?'<button data-roam="1">Show its hand-offs</button>':'')+'</div>';
+  /* an access point has no ports to draw — Meraki reports its status and its
+     client count, and the hourly switch scan tells us whether its uplink is
+     faulting. Those are the only three real signals, so those are the only
+     three lights. No radio-level telemetry is collected, so none is shown. */
+  if(window.ITPanel) ITPanel.plate(document.getElementById('apPlate'),{
+    title:shortAp(a.name), sub:(a.model||'access point'), leds:apLeds,
+    meter:{k:'Clients', v:(a.clients||0), cap:30}});
+  var rb=el.querySelector('[data-roam]');
+  if(rb) rb.addEventListener('click',function(){setView('roaming');});
+}
+
+/* ── right now ──────────────────────────────────────────────────────── */
+function drawNow(){ renderQueue(); }
+
+/* ── floor plan image (needs the bearer token, so fetch as a blob) ──── */
+async function loadPlan(){
+  var im=document.getElementById('planImg'); if(!S.floor){im.removeAttribute('src');return;}
+  var want=S.floor;
+  var fl=((S.data||{}).floors||[]).filter(function(f){return f.floorPlanId===want;})[0]||{};
+  im.alt=(siteName(fl.network)+' '+floorLabel(fl.name)+' floor plan').trim();
+  try{
+    var r=await fetch('/api/netswitch/floorplan-image?id='+enc(want),{credentials:'include'});
+    if(!r.ok){if(want===S.floor)im.removeAttribute('src');return;}
+    var bmp=await createImageBitmap(await r.blob());
+    var n=rotN(),w=bmp.width,h=bmp.height,cw=w,ch=h;
+    if(n%2===1){cw=h;ch=w;}
+    var oc=document.createElement('canvas');oc.width=cw;oc.height=ch;
+    var cx=oc.getContext('2d');
+    cx.translate(cw/2,ch/2);cx.rotate(-Math.PI/2*n);cx.drawImage(bmp,-w/2,-h/2);
+    if(want!==S.floor)return;                       /* floor changed mid-flight */
+    im.src=oc.toDataURL('image/png');
+    S.plan[want]={w:cw,h:ch};
+    applyPlate(); drawPlate();                      /* re-place nodes on the true box */
+  }catch(e){if(want===S.floor)im.removeAttribute('src');}
+}
+
+/* ── page controls (header/switcher/drawer come from ITCmd) ─────────── */
+document.getElementById('oLive').addEventListener('click',function(){
+  S.live=!S.live;
+  this.setAttribute('aria-pressed',String(S.live));
+  document.getElementById('oLiveT').textContent=S.live?'Live':'Paused';
+  if(S.live)load();
+});
+/* the flow/path toggle is gone — the path strip is always shown in full */
+document.getElementById('mvPlay').addEventListener('click',function(){
+  var b=this;
+  if(S.mv.timer){mvStop();return;}
+  b.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+  b.setAttribute('aria-label','Pause movement replay');b.setAttribute('aria-pressed','true');
+  if(S.mv.i>=S.mv.list.length-1)S.mv.i=-1;
+  S.mv.timer=setInterval(function(){
+    if(S.mv.i>=S.mv.list.length-1){mvStop();return;}
+    mvStep(S.mv.i+1);},900);
+});
+document.getElementById('mvScrub').addEventListener('input',function(){mvStop();mvStep(+this.value);});
+document.getElementById('nRefresh').addEventListener('click',load);
+setInterval(function(){if(S.live&&!document.hidden&&!S.mv.timer)load();},60000);
+load();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/it-version.js" data-app-key="network-observatory" defer></script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Access workspace · SubAdmin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='access-governance-lab.css') }}">
+</head>
+<body>
+  <a class="skip" href="#workspace">Skip to workspace</a>
+  <div class="shell">
+    <header class="mast">
+      <a class="brand" href="{{ url_for('console_page') }}#overview" aria-label="SubAdmin overview">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 28 9v14l-12 7L4 23V9Z"/><path d="m4 9 12 7 12-7M16 16v14M9 12.5l7-4 7 4"/></svg>
+        <span>SubAdmin</span>
+      </a>
+      <nav class="primary" aria-label="Primary">
+        <a href="{{ url_for('console_page') }}#overview">Overview</a>
+        <a href="{{ url_for('console_page') }}#resources/all">Estate</a>
+        <a href="{{ url_for('console_page') }}#findings">Operations</a>
+        <a class="active" href="{{ url_for('access_governance_lab') }}" aria-current="page">Access</a>
+        <a href="{{ url_for('console_page') }}#system/settings">System</a>
+      </nav>
+      <div class="mast-end">
+        <span class="environment"><i></i> {{ 'Development' if host_name == 'itam' or request.host.startswith('dev-') or request.headers.get('X-Forwarded-Host', '').startswith('dev-') else 'Production' }}</span>
+        <span class="identity"><b>{{ user_display }}</b><small>{{ role }}</small></span>
+        <a class="icon-button" href="{{ url_for('console_page') }}#iam/governance" aria-label="Open current Access Governance page" title="Open current console">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7zM3 12h4m10 0h4M12 3v4m0 10v4"/></svg>
+        </a>
+      </div>
+    </header>
+
+    <main id="workspace">
+      <section class="page-intro">
+        <div>
+          <h1>Access workspace</h1>
+          <p>Review who can reach each site, verify the evidence, then record a safe change proposal.</p>
+        </div>
+        <div class="intro-actions">
+          <button class="quiet-button" type="button" id="refresh-view">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+            Reset view
+          </button>
+          <a class="primary-button" href="{{ url_for('console_page') }}#iam/governance">View proposals</a>
+        </div>
+      </section>
+
+      <nav class="workspace-tabs" aria-label="Access workspace views">
+        <button class="selected" type="button" data-workspace="sites" aria-pressed="true">Sites &amp; access paths <span>{{ access_lab_site_summary.sites }}</span></button>
+        <button type="button" data-workspace="groups" aria-pressed="false">AD group registry <span>{{ access_summary.groups }}</span></button>
+      </nav>
+
+      <div id="site-workspace">
+        <section class="cleanup-start" aria-labelledby="cleanup-start-title">
+          <div class="cleanup-recommendation">
+            <div>
+              <div class="cleanup-title-line"><h2 id="cleanup-start-title">Start with {{ access_lab_recommended.label }}</h2><span>Recommended</span></div>
+              <p>It has {{ access_lab_recommended.cleanup_count }} open review item{{ '' if access_lab_recommended.cleanup_count == 1 else 's' }}, including the highest-priority mapping and ownership gaps.</p>
+            </div>
+            <button type="button" id="start-cleanup" data-site-index="{{ access_lab_recommended.index }}">Start review <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+          </div>
+          <div class="cleanup-counts" aria-label="Cleanup summary">
+            <button type="button" data-cleanup-filter="attention"><b>{{ access_lab_site_summary.attention_sites }}</b><span>Sites need attention</span></button>
+            <button type="button" data-cleanup-workspace="groups"><b>{{ access_summary.unowned }}</b><span>Groups need owners</span></button>
+            <button type="button" data-site-index="{{ access_lab_recommended.index }}"><b>{{ access_lab_site_summary.role_gaps }}</b><span>Approver role gaps</span></button>
+          </div>
+        </section>
+        <section class="status-line" aria-label="Site access posture">
+          <p><strong>{{ access_lab_site_summary.sites }} governed sites.</strong> {{ access_lab_site_summary.group_rules }} use AD group allow lists and {{ access_lab_site_summary.zpa_unmapped }} still need a recorded ZPA segment.</p>
+          <div class="status-meter" role="img" aria-label="ZPA mapping coverage: {{ access_lab_site_summary.sites - access_lab_site_summary.zpa_unmapped }} of {{ access_lab_site_summary.sites }} sites mapped"><span style="width:{{ ((access_lab_site_summary.sites - access_lab_site_summary.zpa_unmapped) / access_lab_site_summary.sites * 100) if access_lab_site_summary.sites else 0 }}%"></span><small>ZPA coverage</small></div>
+          <span class="evidence-time">{{ access_lab_policy_source }} · ZPA, Entra &amp; sign-ins collected {{ access_lab_evidence.captured_at }}</span>
+        </section>
+        {% if access_lab_evidence.stale or access_lab_evidence.errors %}
+        <div class="evidence-alert" role="status"><b>{% if access_lab_evidence.stale %}The ZPA, Entra and sign-in evidence is {% if access_lab_evidence.age_hours is not none %}{{ access_lab_evidence.age_hours|round(0)|int }} hours old{% else %}undated{% endif %}.{% else %}Part of the evidence could not be collected.{% endif %}</b>{% for err in access_lab_evidence.errors %} {{ err }}.{% endfor %} Re-run the collector on corpit A before relying on it.</div>
+        {% endif %}
+
+        <div class="work-grid site-grid">
+          <aside class="queue" aria-labelledby="site-queue-title">
+            <div class="queue-head">
+              <div><h2 id="site-queue-title">Sites</h2><p id="site-count">{{ access_lab_sites|length }} sites</p></div>
+              <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><span class="sr-only">Find a site</span><input id="site-search" type="search" placeholder="Find a site" autocomplete="off"></label>
+            </div>
+            <div class="filters" role="group" aria-label="Filter sites">
+              <button class="selected" type="button" data-site-filter="all" aria-pressed="true">All <span>{{ access_lab_sites|length }}</span></button>
+              <button type="button" data-site-filter="groups" aria-pressed="false">AD groups</button>
+              <button type="button" data-site-filter="attention" aria-pressed="false">Needs attention <span>{{ access_lab_site_summary.attention_sites }}</span></button>
+              <button type="button" data-site-filter="zpa" aria-pressed="false">ZPA gaps <span>{{ access_lab_site_summary.zpa_unmapped }}</span></button>
+            </div>
+            <div class="queue-list" id="site-list" role="listbox" aria-label="Governed sites">
+              {% for site in access_lab_sites %}
+              <button class="queue-row site-row{% if loop.first %} current{% endif %}" type="button" role="option" aria-selected="{{ 'true' if loop.first else 'false' }}" data-site-index="{{ loop.index0 }}" data-name="{{ (site.label ~ ' ' ~ site.fqdn)|lower }}" data-groups="{{ '1' if site.mode == 'groups' else '0' }}" data-attention="{{ '1' if site.cleanup_count else '0' }}" data-zpa="{{ '1' if not site.zpa_segment else '0' }}">
+                <span class="route-mark {{ 'warning' if not site.zpa_segment else 'healthy' }}"><i></i></span>
+                <span class="queue-copy"><b>{{ site.label }}</b><small>{{ site.fqdn }} · {{ site.cleanup_count }} review item{{ '' if site.cleanup_count == 1 else 's' }}</small></span>
+                <span class="queue-state">{{ site.cleanup_count ~ ' open' if site.cleanup_count else 'clear' }}</span>
+                <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+              </button>
+              {% endfor %}
+              <div class="queue-empty" id="site-empty" hidden><b>No matching sites</b><span>Clear a filter or search for another hostname.</span></div>
+            </div>
+          </aside>
+
+          <section class="record" aria-labelledby="site-name" aria-live="polite">
+            <div class="record-head">
+              <div><p class="breadcrumb">Site policy <span>/</span> Effective access</p><h2 id="site-name">Select a site</h2><p id="site-fqdn">Choose a site from the queue.</p></div>
+              <span class="record-status review" id="site-status">Review</span>
+            </div>
+            <div class="facts" aria-label="Selected site facts">
+              <div><span>Policy mode</span><b id="site-fact-mode">Pending</b></div>
+              <div><span>AD allow list</span><b id="site-fact-groups">Pending</b></div>
+              <div><span>ZPA segment</span><b id="site-fact-zpa">Pending</b></div>
+              <div><span>Entra SSO apps</span><b id="site-fact-apps">Pending</b></div>
+            </div>
+            <section class="guided-review" id="guided-review" aria-labelledby="guided-review-title">
+              <div class="review-steps" aria-label="Review progress">
+                <span class="complete" data-review-stage="queue">1 <b>Queue</b></span><i></i><span class="current" data-review-stage="evidence">2 <b>Evidence</b></span><i></i><span data-review-stage="decision">3 <b>Decision</b></span><i></i><span data-review-stage="proposal">4 <b>Proposal</b></span>
+              </div>
+              <div class="guided-copy"><span id="guided-progress">Review item</span><h3 id="guided-review-title">Choose a site to begin</h3><p id="guided-review-reason">The next useful decision will appear here.</p></div>
+              <div class="guided-actions">
+                <button class="guided-primary" type="button" id="guided-open">Review evidence</button>
+                <button type="button" id="guided-next">Next item</button>
+                <button type="button" id="open-policy-editor" aria-controls="policy-editor" aria-expanded="false">Model a change</button>
+              </div>
+            </section>
+            <section class="route" aria-labelledby="site-route-title">
+              <div class="section-heading"><div><h3 id="site-route-title">Effective access path</h3><p>Each layer must admit the person before the page opens.</p></div><span class="route-legend"><i></i> access path</span></div>
+              <div class="route-track site-route-track">
+                <article class="route-stop"><span class="stop-dot"><i></i></span><div><span>Person</span><b>CorpIT identity</b><p>Starts with an Entra sign-in</p></div></article>
+                <article class="route-stop" id="site-route-entra"><span class="stop-dot"><i></i></span><div><span>Entra assignment</span><b id="site-route-app">Pending</b><p id="site-route-app-detail">Enterprise application</p></div></article>
+                <article class="route-stop is-gap" id="site-route-zpa"><span class="stop-dot"><i></i></span><div><span>Private access</span><b id="site-route-zpa-name">ZPA mapping needed</b><p id="site-route-zpa-detail">Segment must include this hostname</p><p id="site-route-zpa-policy" hidden></p></div></article>
+                <article class="route-stop" id="site-route-gate"><span class="stop-dot"><i></i></span><div><span>Hub gate</span><b id="site-route-mode">Pending</b><p id="site-route-groups">Pending</p></div></article>
+                <article class="route-stop"><span class="stop-dot"><i></i></span><div><span>Destination</span><b id="site-route-destination">Pending</b><p>Requested page or site</p></div></article>
+              </div>
+            </section>
+            <section class="evidence entra-evidence" aria-labelledby="entra-apps-title">
+              <div class="section-heading"><div><h3 id="entra-apps-title">Entra enterprise applications</h3><p>The SSO apps and assignment requirements associated with this site.</p></div></div>
+              <div class="app-cards" id="site-app-cards"></div>
+            </section>
+            <section class="evidence" aria-labelledby="allow-list-title">
+              <div class="section-heading"><div><h3 id="allow-list-title">AD group allow list</h3><p>The effective groups checked by the sign-in gate.</p></div></div>
+              <div class="group-chips" id="site-group-chips"></div>
+              <p class="pending-note" id="site-pending-note" hidden></p>
+              <p class="separate-note" id="site-separate-note" hidden><b>Separate governance boundary.</b> Access Portal approver rules are managed in the separate Rey project and cannot be changed here.</p>
+            </section>
+            <section class="evidence site-people" aria-labelledby="site-people-title">
+              <div class="section-heading"><div><h3 id="site-people-title">Who signs in</h3><p id="site-people-window">{{ access_lab_evidence.signin_window or 'Sign-in evidence unavailable.' }}</p></div><span class="read-only-badge" id="site-people-count">Pending</span></div>
+              <div class="people-columns">
+                <div><h4>Signed in to this site</h4><ul class="people-list" id="site-people-signed"></ul></div>
+                <div><h4>Admitted, not signed in</h4><ul class="people-list" id="site-people-unused"></ul></div>
+              </div>
+            </section>
+            <section class="evidence portal-approvers" id="portal-approvers" aria-labelledby="portal-approvers-title" hidden>
+              <div class="section-heading">
+                <div><h3 id="portal-approvers-title">Access Portal approver groups</h3><p>AD groups supply portal roles. Approval policy remains in its separately governed admin page.</p></div>
+                <span class="read-only-badge">Read only</span>
+              </div>
+              <div class="approver-group-list" id="approver-group-list"></div>
+              <div class="approver-gaps" id="approver-gaps" hidden>
+                <h4>Role mapping gaps</h4>
+                <ul id="approver-gap-list"></ul>
+              </div>
+              <a class="approver-link" id="approver-governance-link" href="#" target="_blank" rel="noopener">Open separate Approval Access <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
+            </section>
+          </section>
+
+          <aside class="next policy-editor" id="policy-editor" role="dialog" aria-modal="false" aria-labelledby="policy-editor-title" aria-hidden="true" hidden>
+            <div class="next-head"><span class="next-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M9 17h6"/></svg></span><div><h2 id="policy-editor-title">Model a decision</h2><p>Local test draft · no enforcement write</p></div><button class="drawer-close" type="button" id="close-policy-editor" aria-label="Close decision panel">Close</button></div>
+            <div class="editor-field"><label id="site-mode-label">Access mode</label><select class="sr-only" id="site-mode" aria-labelledby="site-mode-label"><option value="superadmin">Locked down</option><option value="groups">AD groups</option><option value="authenticated">Everyone with CorpIT sign-in</option></select><div class="mode-buttons" role="group" aria-labelledby="site-mode-label"><button type="button" data-mode="superadmin">Locked down</button><button type="button" data-mode="groups">AD groups</button><button type="button" data-mode="authenticated">Everyone signed in</button></div><small id="site-mode-help">Choose how the Hub gate should admit people.</small></div>
+            <div class="editor-field" id="site-groups-field"><label for="site-groups">Allowed AD groups</label><textarea id="site-groups" rows="7" spellcheck="false" placeholder="One AD group per line (SaaS-ITH-* role and approver groups)"></textarea><small>Names are modeled here and must be verified in AD before an enforced change.</small></div>
+            <div class="editor-field"><label for="site-zpa-input">ZPA segment</label><input id="site-zpa-input" type="text" placeholder="Record the exact ZPA segment name"><small>Read from ZPA by the evidence collector; an exact hostname match wins over a wildcard.</small></div>
+            <button class="plan-button editor-save" type="button" id="save-site-draft">Save test draft <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+            <button class="editor-reset" type="button" id="clear-site-draft">Restore current policy</button>
+            <p class="draft-state" id="site-draft-state" role="status">Changes update the path preview immediately.</p>
+            <a class="proposal-link" href="{{ url_for('console_page') }}#iam/governance">Continue to proposal</a>
+            <p class="boundary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/></svg>This design cannot change ZPA, the Hub gate, or Active Directory.</p>
+          </aside>
+        </div>
+      </div>
+
+      <div id="group-workspace" hidden>
+
+      <section class="status-line" aria-label="Current access posture">
+        <p><strong>{{ access_summary.attention }} of {{ access_summary.groups }} groups need review.</strong> {{ access_summary.unowned }} have no directory owner and {{ access_summary.unreferenced }} have no known SubAdmin enforcement.</p>
+        <div class="status-meter" aria-hidden="true"><span style="width:{{ ((access_summary.groups - access_summary.attention) / access_summary.groups * 100) if access_summary.groups else 0 }}%"></span></div>
+        <span class="evidence-time">Live AD · 2 minute cache</span>
+      </section>
+
+      {% if access_directory_error %}
+      <div class="evidence-alert" role="status"><b>Directory evidence is unavailable.</b> The workspace is showing known policy references without treating missing evidence as healthy.</div>
+      {% endif %}
+
+      <div class="work-grid">
+        <aside class="queue" aria-labelledby="queue-title">
+          <div class="queue-head">
+            <div><h2 id="queue-title">Review queue</h2><p id="queue-count">{{ access_registry|length }} groups</p></div>
+            <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><span class="sr-only">Find a group</span><input id="group-search" type="search" placeholder="Find a group" autocomplete="off"></label>
+          </div>
+          <div class="filters" role="group" aria-label="Filter review queue">
+            <button class="selected" type="button" data-filter="all" aria-pressed="true">All <span>{{ access_registry|length }}</span></button>
+            <button type="button" data-filter="owner" aria-pressed="false">No owner <span>{{ access_summary.unowned }}</span></button>
+            <button type="button" data-filter="duplicate" aria-pressed="false">Duplicates</button>
+            <button type="button" data-filter="unmapped" aria-pressed="false">Unmapped <span>{{ access_summary.unreferenced }}</span></button>
+          </div>
+          <div class="queue-list" id="group-list" role="listbox" aria-label="AD access groups">
+            {% for g in access_registry %}
+            <button class="queue-row group-row{% if loop.first %} current{% endif %}" type="button" role="option" aria-selected="{{ 'true' if loop.first else 'false' }}" data-index="{{ loop.index0 }}" data-name="{{ g.name|lower }}" data-owner="{{ '1' if not g.owner and not g.missing else '0' }}" data-duplicate="{{ '1' if g.duplicates else '0' }}" data-unmapped="{{ '1' if not g.referenced else '0' }}">
+              <span class="route-mark {{ g.level }}"><i></i></span>
+              <span class="queue-copy"><b>{{ g.name }}</b><small>{% if g.missing %}Missing from AD{% elif not g.owner %}Owner needed{% else %}{{ g.owner }}{% endif %} · {{ g.member_count if g.member_count is not none else '?' }} direct</small></span>
+              <span class="queue-state">{{ g.level }}</span>
+              <svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+            </button>
+            {% endfor %}
+            <div class="queue-empty" id="queue-empty" hidden><b>No matching groups</b><span>Clear a filter or search for another name.</span></div>
+          </div>
+        </aside>
+
+        <section class="record" aria-labelledby="record-name" aria-live="polite">
+          <div class="record-head">
+            <div>
+              <p class="breadcrumb">Active Directory <span>/</span> CorpIT Hub roles</p>
+              <h2 id="record-name">Select a group</h2>
+              <p id="record-description">Choose a record from the review queue.</p>
+            </div>
+            <span class="record-status" id="record-status">Review</span>
+          </div>
+
+          <div class="facts" aria-label="Selected group facts">
+            <div><span>Direct members</span><b id="fact-members">Pending</b></div>
+            <div><span>Directory owner</span><b id="fact-owner">Pending</b></div>
+            <div><span>Scope</span><b id="fact-scope">Pending</b></div>
+            <div><span>Last changed</span><b id="fact-changed">Pending</b></div>
+          </div>
+
+          <section class="route" aria-labelledby="route-title">
+            <div class="section-heading"><div><h3 id="route-title">Entitlement route</h3><p>Where authority starts, how it travels, and where it lands.</p></div><span class="route-legend"><i></i> evidence path</span></div>
+            <div class="route-track" id="route-track">
+              <article class="route-stop" data-stop="directory">
+                <span class="stop-dot"><i></i></span><div><span>Authority</span><b>Active Directory</b><p id="route-directory">Pending</p></div>
+              </article>
+              <article class="route-stop" data-stop="role">
+                <span class="stop-dot"><i></i></span><div><span>Sign-in role</span><b id="route-role">Pending</b><p>Resolved from direct membership</p></div>
+              </article>
+              <article class="route-stop" data-stop="enforcement">
+                <span class="stop-dot"><i></i></span><div><span>Enforcement</span><b id="route-enforcement">Pending</b><p id="route-targets">Pending</p></div>
+              </article>
+              <article class="route-stop" data-stop="review">
+                <span class="stop-dot"><i></i></span><div><span>Assurance</span><b id="route-review">Pending</b><p>Owner, purpose, and mapping checks</p></div>
+              </article>
+            </div>
+          </section>
+
+          <section class="evidence entra-evidence" aria-labelledby="group-entra-title">
+            <div class="section-heading"><div><h3 id="group-entra-title">Entra application assignments</h3><p>Enterprise applications that include this AD group.</p></div></div>
+            <div class="app-cards" id="group-app-cards"></div>
+          </section>
+
+          <section class="evidence" aria-labelledby="evidence-title">
+            <div class="section-heading"><div><h3 id="evidence-title">What needs attention</h3><p>Evidence is written plainly so the next reviewer can verify the decision.</p></div></div>
+            <ul id="issue-list"></ul>
+          </section>
+        </section>
+
+        <aside class="next" aria-labelledby="next-title">
+          <div class="next-head"><span class="next-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7zM8 12l2.4 2.4L16 9"/></svg></span><div><h2 id="next-title">Next safe action</h2><p>Planning only · AD stays authoritative</p></div></div>
+          <div class="recommendation"><span>Recommended</span><h3 id="next-action">Select a group to begin</h3><p id="next-reason">The workspace will turn its evidence into a reviewable next step.</p></div>
+          <ol class="checklist" id="next-checklist">
+            <li><span></span><div><b>Confirm the evidence</b><p>Compare the directory record with each enforcement point.</p></div></li>
+            <li><span></span><div><b>Name accountable owners</b><p>One business owner and one technical owner.</p></div></li>
+            <li><span></span><div><b>Record the change plan</b><p>Leave implementation and rollback notes before any AD work.</p></div></li>
+          </ol>
+          <a class="plan-button" href="{{ url_for('console_page') }}#iam/governance">Open proposal form <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+          <p class="boundary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7v5c0 5-3.4 8-8 9-4.6-1-8-4-8-9V7z"/></svg>This preview cannot create groups, change membership, or modify directory attributes.</p>
+        </aside>
+      </div>
+      </div>
+
+      <footer class="lab-footer"><p><b>Access workspace.</b> Tracks the SaaS-ITH role and approver groups and the sites they gate. The current console remains available.</p><a href="{{ url_for('console_page') }}#iam/governance">Return to current Access Governance</a></footer>
+    </main>
+  </div>
+
+  <script type="application/json" id="access-data">{{ access_lab_rows|tojson }}</script>
+  <script type="application/json" id="site-data">{{ access_lab_sites|tojson }}</script>
+  <script src="{{ url_for('access_governance_lab_js') }}" defer></script>
+</body>
+</html>

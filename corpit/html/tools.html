@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/it-theme.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tools · Operations Hub</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<script src="/rbac-client.js?v=20260904"></script>
+<script src="/it-observe.js" data-app-key="tools"></script>
+<script src="/it-profile.js" defer></script>
+<style>
+:root{
+  --ease-out: cubic-bezier(0.23,1,0.32,1);
+  --navy-1:#0D294C; --navy-2:#103463;
+  --page:#F6F9FC; --surface:#FEFEFE;
+  --line:#EDF1F6; --line-2:#E3EBF2;
+  --ink:#0F172A; --muted:#64748B; --dim:#94A3B8;
+  --blue:#1C77FA; --blue-dk:#1668E0; --blue-tint:#E4F2FD;
+  --green:#0F9D58; --green-tint:#E6F8F2;
+  --purple:#7C4DFF; --purple-tint:#F1EDFE;
+  --rose:#E11D48; --rose-tint:#FDECF0;
+  --amber:#D48806; --amber-tint:#FDF3E2;
+  --orange:#EA580C; --orange-tint:#FDEDE2;
+  --teal:#0E9384; --teal-tint:#E2F6F3;
+  --red:#E11D48; --red-tint:#FDECF0;
+  --shadow-panel: 0 1px 2px rgba(15,42,80,.05), 0 8px 22px -16px rgba(15,42,80,.30);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{min-height:100%;font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input{font:inherit;color:inherit}
+svg{display:block}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+.hdr :focus-visible{outline-color:#8FC0FF}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.wrap{width:min(1462px, 100% - 48px);margin-inline:auto}
+
+/* header — identical to the Overview page so the shell never shifts */
+.hdr{position:relative;display:flex;align-items:center;height:57px;padding:0 34px 0 40px;
+  background:linear-gradient(90deg,var(--navy-1),var(--navy-2));color:#fff}
+.brand{display:flex;align-items:center;gap:16px;flex:0 0 auto;padding-right:10px;border-radius:10px}
+.brand-sq{width:33px;height:33px;border-radius:8px;background:#1C77FA;display:grid;place-items:center;
+  color:#fff;flex:0 0 auto}
+.brand-sq svg{width:19px;height:19px}
+.brand-tx{display:flex;flex-direction:column;gap:2px;line-height:1}
+.brand-tx b{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.brand-tx i{font-style:normal;font-size:9.5px;font-weight:600;letter-spacing:.17em;color:rgba(255,255,255,.52)}
+.nav{display:flex;align-items:center;gap:31px;margin-inline:auto;height:100%}
+.nav-i{position:relative;display:inline-flex;align-items:center;height:100%;padding:0 13px;
+  font-size:14px;font-weight:500;color:rgba(255,255,255,.78);
+  transition:color 160ms var(--ease-out)}
+.nav-i::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:#2479EF;
+  opacity:0;transition:opacity 180ms var(--ease-out)}
+.nav-i.is-active{color:#fff}
+.nav-i.is-active::after{opacity:1}
+@media (hover:hover) and (pointer:fine){ .nav-i:hover{color:#fff} }
+.hdr-r{display:flex;align-items:center;gap:24px;flex:0 0 auto}
+.hdr-btn{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;color:rgba(255,255,255,.86);
+  transition:background-color 160ms var(--ease-out),color 160ms var(--ease-out),transform 120ms var(--ease-out)}
+.hdr-btn svg{width:19px;height:19px}
+@media (hover:hover) and (pointer:fine){ .hdr-btn:hover{background:rgba(255,255,255,.12);color:#fff} }
+.hdr-btn:active{transform:scale(.94)}
+.hdr-av{display:flex;align-items:center}
+.hdr .ittb{gap:0;margin:0}
+.hdr .ittb .ittb-av{width:36px;height:36px;background:#548AE4;color:#fff;
+  border-color:rgba(255,255,255,.22);font-weight:600;font-size:13px}
+.hdr .ittb .ittb-av:hover,.hdr .ittb .ittb-av[aria-expanded="true"]{border-color:#fff}
+
+/* page */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;
+  padding:30px 0 20px;flex-wrap:wrap}
+.top h1{font-size:28px;font-weight:700;letter-spacing:-.022em;line-height:1.1}
+.top p{margin-top:8px;font-size:14.5px;color:var(--muted)}
+.filter{display:flex;align-items:center;gap:11px;width:360px;max-width:100%;height:42px;
+  padding:0 14px;border-radius:11px;background:#fff;border:1px solid #DDE5EE;
+  box-shadow:0 1px 2px rgba(15,42,80,.05);
+  transition:border-color 150ms var(--ease-out),box-shadow 150ms var(--ease-out)}
+.filter:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(28,119,250,.15)}
+.filter svg{width:17px;height:17px;color:#94A3B8;flex:0 0 auto}
+.filter input{flex:1;border:none;outline:none;background:none;font-size:14.5px}
+.filter input::placeholder{color:#9AA9BC}
+.sect{margin-bottom:30px}
+.sect-h{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+.sect-h h2{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8496AC}
+.sect-h span{flex:1;height:1px;background:var(--line-2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:14px}
+.card{position:relative;display:flex;flex-direction:column;gap:5px;padding:16px 17px 17px;
+  background:var(--surface);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow-panel);
+  transition:box-shadow 200ms var(--ease-out),border-color 200ms var(--ease-out),transform 140ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){
+  .card:hover{border-color:#D8E4F2;box-shadow:0 10px 26px -14px rgba(15,42,80,.4)}
+}
+.card:active{transform:scale(.99)}
+.sq{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;margin-bottom:7px}
+.sq svg{width:20px;height:20px}
+.sq .ic{display:grid;place-items:center;width:20px;height:20px}
+.sq .ic img,.sq .ic svg{max-width:20px;max-height:20px}
+.sq.logo{background:#fff;border:1px solid var(--line-2)}
+.tn{font-size:15.5px;font-weight:700;letter-spacing:-.012em}
+.td{font-size:13.5px;color:var(--muted);line-height:1.45}
+.tx{margin-top:6px;font-size:11.5px;color:#8496AC}
+.pin{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:8px;
+  display:grid;place-items:center;color:#C3CFDE;opacity:0;
+  transition:opacity 160ms var(--ease-out),color 160ms var(--ease-out),background-color 160ms var(--ease-out)}
+.pin svg{width:16px;height:16px}
+.pin[aria-pressed="true"]{opacity:1;color:#F2B01E;fill:#F2B01E}
+.pin[aria-pressed="true"] svg{fill:#F2B01E}
+.card:hover .pin,.pin:focus-visible{opacity:1}
+@media (hover:hover) and (pointer:fine){ .pin:hover{background:#F1F5F9;color:#F2B01E} }
+.t-blue{background:var(--blue-tint);color:var(--blue)}
+.t-green{background:var(--green-tint);color:var(--green)}
+.t-purple{background:var(--purple-tint);color:var(--purple)}
+.t-rose,.t-red{background:var(--rose-tint);color:var(--rose)}
+.t-amber{background:var(--amber-tint);color:var(--amber)}
+.t-orange{background:var(--orange-tint);color:var(--orange)}
+.t-teal{background:var(--teal-tint);color:var(--teal)}
+.note{padding:26px 4px;font-size:14.5px;color:var(--muted)}
+.foot{padding:6px 0 40px;font-size:13px;color:var(--dim)}
+@media (max-width:1100px){ .hdr{padding:0 20px} .nav{gap:16px} .hdr-r{gap:16px} }
+@media (max-width:860px){
+  .brand-tx i{display:none}
+  .hdr{height:auto;flex-wrap:wrap;padding:10px 16px 0;row-gap:8px}
+  .nav{width:100%;order:3;margin:0;overflow-x:auto;gap:4px}
+  .nav-i{height:42px;padding:0 12px;font-size:13.5px}
+  .brand{margin-right:auto}
+  .filter{width:100%}
+}
+@media (max-width:560px){ .wrap{width:min(1462px, 100% - 32px)} }
+@media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <a class="brand" href="/landing.html" aria-label="Operations Hub — Overview">
+    <span class="brand-sq" aria-hidden="true"><span data-icon="building"></span></span>
+    <span class="brand-tx"><b>Operations Hub</b><i>IT COMMAND CENTER</i></span>
+  </a>
+  <nav class="nav" aria-label="Primary">
+    <a class="nav-i" href="/landing.html">Overview</a>
+    <a class="nav-i is-active" href="/tools.html" aria-current="page">Tools</a>
+    <a class="nav-i" href="/service-desk-portal.html">Service Desk</a>
+    <a class="nav-i" href="https://itam.nrpi.local/it-command-quickstart.html" target="_blank" rel="noopener noreferrer">Knowledge</a>
+  </nav>
+  <div class="hdr-r">
+    <button type="button" class="hdr-btn" id="hdr-search" aria-label="Filter tools"><span data-icon="search"></span></button>
+    <div class="hdr-av" id="it-topbar"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="top">
+    <div>
+      <h1>Tools &amp; systems</h1>
+      <p id="sub">The full catalog published in the admin console.</p>
+    </div>
+    <label class="filter">
+      <span data-icon="search" aria-hidden="true"></span>
+      <input id="q" type="search" autocomplete="off" placeholder="Filter by name or purpose" aria-label="Filter tools">
+    </label>
+  </div>
+  <div id="out"></div>
+  <p class="foot" id="foot"></p>
+</main>
+
+<script>
+const ICONS = {
+  building:'<path d="M3 21h18"/><path d="M5 21V8l4-2v15"/><path d="M13 21V4l5 2v15"/><path d="M9 21V11h4"/><path d="M15.5 9.5h.01M15.5 12.5h.01M15.5 15.5h.01"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>',
+  'user-search':'<circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/>',
+  ticket:'<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 17v2M13 11v2"/>',
+  user:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  'user-cog':'<circle cx="9" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="18" cy="15" r="3"/><path d="M18 11.5v1M18 17.5v1M21 15h-1M16 15h-1"/>',
+  grid:'<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  'shield-alert':'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+  shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  monitor:'<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
+  server:'<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
+  radio:'<circle cx="12" cy="12" r="2"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M7.76 7.76a6 6 0 0 0 0 8.49"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  activity:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  cloud:'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  globe:'<circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  headset:'<path d="M3 11v3a1 1 0 0 0 1 1h3v-5H4a1 1 0 0 0-1 1Z"/><path d="M21 11v3a1 1 0 0 1-1 1h-3v-5h3a1 1 0 0 1 1 1Z"/><path d="M9 18v1a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1"/><path d="M4 14v1a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1"/><path d="M3 11a9 9 0 0 1 18 0"/>',
+  x:'<line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>',
+  star:'<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+};
+function icon(n){ const d=ICONS[n]||ICONS.grid;
+  return '<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'; }
+function hydrate(root){ (root||document).querySelectorAll('[data-icon]').forEach(el=>{ el.innerHTML = icon(el.dataset.icon); }); }
+
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const safeHref = u => { if(!u) return '#'; if(u.startsWith('/') && !u.startsWith('//')) return u;
+  try { return new URL(u).protocol==='https:' ? u : '#'; } catch(e){ return '#'; } };
+const hostOf = u => { try { return new URL(u).hostname; } catch(e){ return ''; } };
+const opensNewTab = (t, href) => t.newTab === undefined ? href.startsWith('https://') : !!t.newTab;
+const targetAttr = (t, href) => opensNewTab(t, href) ? ' target="_blank" rel="noopener noreferrer"' : '';
+const isLogo = t => t.iconKind === 'logo';
+function degraded(w,m,d){ try{ if(window.ITObserve) ITObserve.degraded(w,m,d||null); }catch(e){} }
+
+/* Built-in list = fallback only; the console's landing.json is the source. */
+const ITAM='https://itam.nrpi.local';
+let CATS=[
+  {key:'dev',label:'Devices'},{key:'iam',label:'Identity & Access'},{key:'apps',label:'Applications & SSO'},
+  {key:'sec',label:'Security'},{key:'data',label:'Data & Collaboration'},{key:'net',label:'Network & Monitoring'},
+  {key:'desk',label:'Service Desk'},{key:'res',label:'Resources'}];
+let TILES=[
+  {id:'it-inventory',name:'Asset Inventory',cat:'dev',icon:'monitor',tone:'t-teal',href:'/IT_Inventory_App.html',purpose:'Track hardware, warranties, Intune endpoints & patch health.',favorite:true,quick:true},
+  {id:'identity-diag',name:'Identity Diagnostics',cat:'iam',icon:'search',tone:'t-blue',href:'/identity-diag.html',purpose:'Diagnose AD lockouts, password issues & group access.',favorite:true,quick:true},
+  {id:'ad-management',name:'AD Management',cat:'iam',icon:'user-cog',tone:'t-blue',href:'/ad-management.html',purpose:'Clean up stale accounts, groups & computers; GPO audit for super-admins.'},
+  {id:'user-projects',name:'User Projects',cat:'iam',icon:'user',tone:'t-blue',href:'/identity-diag.html#projects',purpose:'Grant time-bound AD group access for POCs.'},
+  {id:'access-portal',name:'Access Portal',cat:'iam',icon:'ticket',tone:'t-blue',href:'https://accessportal.itam.nrpi.local/',purpose:'Submit access, AI-tool and security-exception requests.'},
+  {id:'app-migration',name:'App Migration',cat:'apps',icon:'grid',tone:'t-purple',href:'/app-migration.html',purpose:'Move SSO apps from Okta to Entra & confirm matches.'},
+  {id:'okta',name:'Okta Dashboard',cat:'apps',icon:'globe',tone:'t-purple',href:'/okta-dashboard.html',purpose:'SSO usage, account health & security events.'},
+  {id:'ai-usage-credits',name:'AI Usage & Credits',cat:'apps',icon:'activity',tone:'t-purple',href:'https://reporting.nrpi.local/ai-usage-credits.html',purpose:'Track shared AI service usage, credit balances & per-user spend.'},
+  {id:'cert-watchtower',name:'Cert Watchtower',cat:'sec',icon:'shield',tone:'t-amber',href:'/cert-watchtower.html',purpose:'Monitor TLS & Windows cert expiry with alerts.'},
+  {id:'signin-watch',name:'Sign-In Watch',cat:'sec',icon:'shield-alert',tone:'t-red',href:'/signin-watch.html',purpose:'Monitor sign-ins for watched accounts & alert on untrusted networks.'},
+  {id:'security-center',name:'M365 Control Center',cat:'sec',icon:'activity',tone:'t-red',href:'/tenant-sentinel.html',purpose:'Security score, findings & fix tracking.'},
+  {id:'sharepoint-gov',name:'SharePoint Governance',cat:'data',icon:'grid',tone:'t-amber',href:'/sharepoint-governance-dashboard.html',purpose:'Audit site lifecycle, external sharing & tenant storage.'},
+  {id:'network-diag',name:'Network Health',cat:'net',icon:'radio',tone:'t-green',href:'/network-health.html',purpose:'Switch, firewall and Wi-Fi health, plus ports and devices needing attention.'},
+  {id:'device-trace',name:'Device Trace',cat:'net',icon:'search',tone:'t-teal',href:'/device-trace.html',purpose:'Look up any IP, MAC or user to see its switch port, Wi-Fi and firewall path.',favorite:true},
+  {id:'network-switches',name:'Switches',cat:'net',icon:'server',tone:'t-blue',href:'/network-switches.html',purpose:'Every switch: model, serial, IOS version, uptime and port utilization.'},
+  {id:'zscaler-diag',name:'Zscaler Command Center',cat:'net',icon:'cloud',tone:'t-blue',href:'/zscaler-command-center.html',purpose:'Live visibility into users, web activity, DLP & policy.'},
+  {id:'server-health',name:'Server Health',cat:'net',icon:'server',tone:'t-purple',href:'/server-health.html',purpose:'Infrastructure stats, forecasts & maintenance.',favorite:true},
+  {id:'service-desk-portal',name:'Service Desk Portal',cat:'desk',icon:'headset',tone:'t-blue',href:'/service-desk-portal.html',purpose:'Submit and track IT service desk tickets.',favorite:true,quick:true},
+  {id:'report-bug',name:'Report a Bug',cat:'desk',icon:'x',tone:'t-red',href:'/report-bug.html',purpose:'Flag something broken; get emailed when it is fixed.'},
+  {id:'quickstart',name:'IT Quick Start',cat:'res',icon:'grid',tone:'t-amber',href:ITAM+'/it-command-quickstart.html',purpose:'What each tool does & when to use it.',favorite:true},
+];
+let MEASURED = false, PINS = [], Q = '';
+
+function tileIcon(t){
+  if (t.iconHtml) return '<span class="ic">'+t.iconHtml+'</span>';
+  return icon(t.icon);
+}
+function render(){
+  const out = document.getElementById('out');
+  const needle = Q.trim().toLowerCase();
+  const match = t => !needle || (t.name+' '+(t.purpose||'')).toLowerCase().indexOf(needle) !== -1;
+  let shown = 0;
+  const html = CATS.map(cat => {
+    const list = TILES.filter(t => t.cat === cat.key && match(t));
+    if (!list.length) return '';
+    shown += list.length;
+    return '<section class="sect"><div class="sect-h"><h2>'+esc(cat.label)+'</h2><span></span></div><div class="grid">' +
+      list.map(t => {
+        const href = safeHref(t.href), ext = href.startsWith('https://');
+        const pinned = PINS.indexOf(t.id) !== -1;
+        return '<a class="card" href="'+esc(href)+'" data-app="'+esc(t.id)+'" data-name="'+esc(t.name)+'"'+targetAttr(t,href)+'>' +
+          '<button type="button" class="pin" data-pin="'+esc(t.id)+'" aria-pressed="'+pinned+'" ' +
+            'aria-label="'+(pinned?'Unpin ':'Pin ')+esc(t.name)+'"><span data-icon="star"></span></button>' +
+          '<span class="sq '+esc(t.tone||'t-blue')+(isLogo(t)?' logo':'')+'" aria-hidden="true">'+tileIcon(t)+'</span>' +
+          '<span class="tn">'+esc(t.name)+'</span>' +
+          '<span class="td">'+esc(t.purpose||'')+'</span>' +
+          (ext ? '<span class="tx">'+esc(hostOf(href))+' · opens in a new tab</span>' : '') +
+        '</a>';
+      }).join('') + '</div></section>';
+  }).join('');
+  out.innerHTML = html || '<p class="note">No tool matches “'+esc(Q)+'”.</p>';
+  hydrate(out);
+  document.getElementById('foot').textContent =
+    (needle ? shown + ' of ' + TILES.length + ' tools shown' : TILES.length + ' tools') +
+    (MEASURED ? ' · published in the admin console' : ' · built-in list (the published configuration could not be read)');
+}
+
+function applyConfig(cfg){
+  const cats=[], tiles=[];
+  (cfg.sections||[]).forEach(s=>{
+    const key='s'+s.id;
+    cats.push({key,label:s.name});
+    (s.links||[]).forEach(l=>tiles.push({
+      id:'l'+l.id, name:l.title, cat:key,
+      iconHtml:l.icon_html||'', iconKind:l.icon_kind||'glyph', icon:'grid',
+      tone:'t-'+(l.tone||'blue'), href:l.url, purpose:l.description||'',
+      newTab:l.new_tab!==false, favorite:!!l.favorite, quick:!!l.quick,
+    }));
+  });
+  if(!tiles.length) return false;
+  CATS=cats; TILES=tiles; return true;
+}
+fetch('/landing/landing.json?v='+Date.now(), {credentials:'same-origin', cache:'no-store', signal:AbortSignal.timeout(8000)})
+  .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(cfg => { if(cfg && Array.isArray(cfg.sections) && applyConfig(cfg)) MEASURED = true; render(); })
+  .catch(e => { degraded('tile-config','Showing the built-in tool list — the configured one could not be loaded',
+                         'GET /landing/landing.json: '+((e&&e.message)||e)); render(); });
+
+fetch('/api/profile/pins', {credentials:'same-origin', cache:'no-store', signal:AbortSignal.timeout(6000)})
+  .then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(p => { PINS = (p && p.pins) || []; render(); })
+  .catch(e => degraded('favourites','Your pinned tools could not be loaded','GET /api/profile/pins: '+((e&&e.message)||e)));
+
+document.addEventListener('click', e => {
+  const pin = e.target.closest('button.pin[data-pin]');
+  if (pin) {
+    e.preventDefault(); e.stopPropagation();
+    if (!window.itProfile) return;
+    pin.disabled = true;
+    window.itProfile.togglePin(pin.getAttribute('data-pin'))
+      .then(r => { PINS = r.pins || []; render(); })
+      .catch(() => { pin.disabled = false; });
+    return;
+  }
+  const a = e.target.closest('a.card[data-app]');
+  if (a && window.itProfile) {
+    try { window.itProfile.open({ id:a.getAttribute('data-app'), name:a.getAttribute('data-name'), href:a.getAttribute('href') }); }
+    catch (err) {}
+  }
+}, true);
+
+const qEl = document.getElementById('q');
+let t = null;
+qEl.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { Q = qEl.value; render(); }, 120); });
+qEl.addEventListener('keydown', e => { if (e.key === 'Escape') { qEl.value=''; Q=''; render(); } });
+document.getElementById('hdr-search').addEventListener('click', () => qEl.focus());
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); qEl.focus(); qEl.select(); }
+});
+
+hydrate();
+render();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script>
+(function () {
+  function patch() {
+    document.querySelectorAll('a.ittb-ctl, button.ittb-ctl').forEach(el => {
+      if (/operations hub|corpit hub/i.test(el.textContent)) el.remove();
+    });
+    document.querySelectorAll('a, button').forEach(el => {
+      if (el.textContent.trim().toLowerCase() === 'admin center') {
+        el.setAttribute('href', 'https://subadmin.nrpi.local');
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+        el.onclick = null;
+      }
+    });
+  }
+  new MutationObserver(patch).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('DOMContentLoaded', patch);
+  window.addEventListener('load', () => { patch(); setTimeout(patch, 400); });
+})();
+</script>
+<script src="/it-session-watch.js?v=20260904" defer></script>
+<script src="/it-version.js" data-app-key="corpit-platform" data-label="Tools" defer></script>
+</body>
+</html>

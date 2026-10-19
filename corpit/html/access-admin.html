@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Access Control · CorpIT</title>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<script src="/rbac-client.js?v=20260904"></script>
+<script src="/it-observe.js" data-app-key="access-admin"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   Access Control — corpit.nrpi.local (2026-09-09)
+   Super-admin only. Registered as page_key `rbac-admin`, which is in
+   HARD_EXCLUDED_PAGES in rbac-middleware.js — no role grant and no per-user
+   override can reach it, and the super-admin branch of computeEffectivePages
+   returns before that exclusion, so SAs still get admin. That is the ONLY
+   reason it is safe to register a new page while tier2's default is admin:
+   any ordinary page_key would inherit tier2 admin the moment it is created.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --accent: #22D3EE; --accent-hover: #67E8F9; --accent-tint: #0E3A4A; --on-accent: #03121C;
+  --page: #05101F; --panel: #0A1A30; --card: #0E2240; --gray-lt: #13294B; --input-bg: #0A1A30;
+  --line: #16304F; --line-2: #122A48; --line-strong: #1E3A5F;
+  --ink: #E6EEF7; --text: #C5D3E4; --muted: #8FA5BD; --dim: #5E7590;
+  --green: #34D399; --green-lt: #0B2E24; --red: #F87171; --red-lt: #3A1518;
+  --amber: #FBBF24; --amber-lt: #2E2508; --purple: #A78BFA; --purple-lt: #231A3E;
+  --font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  --shadow: 0 1px 2px rgba(0,0,0,.35); --shadow-menu: 0 12px 32px rgba(0,0,0,.55);
+  --r-card: 10px; --r-ctl: 8px;
+}
+html[data-theme="light"] {
+  --accent: #0E7C86; --accent-hover: #0B6570; --accent-tint: #D6F1F5; --on-accent: #FFFFFF;
+  --page: #EEF1F6; --panel: #FFFFFF; --card: #FFFFFF; --gray-lt: #F7F9FC; --input-bg: #F7F9FC;
+  --line: #DDE3EC; --line-2: #EEF1F6; --line-strong: #CBD5E3;
+  --ink: #0F1B2D; --text: #41526B; --muted: #586A80; --dim: #7387A1;
+  --green: #0C6B46; --green-lt: #D9F2E6; --red: #C01640; --red-lt: #FDE2E8;
+  --amber: #A16207; --amber-lt: #FBEFD3; --purple: #6D4AC7; --purple-lt: #E9E2FB;
+  --shadow: 0 1px 2px rgba(16,24,40,.06); --shadow-menu: 0 12px 32px rgba(20,40,80,.18);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); font-size: 13px; line-height: 1.45; color: var(--ink); background: var(--page); -webkit-font-smoothing: antialiased; padding-bottom: 76px; }
+a { color: var(--accent); text-decoration: none; }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+select, input { font: inherit; color: inherit; }
+.container { max-width: 1520px; margin: 0 auto; padding: 22px 26px 40px; }
+
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+.breadcrumb { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+.breadcrumb a { color: var(--muted); } .breadcrumb a:hover { color: var(--accent); }
+h1 { font-size: 22px; font-weight: 650; letter-spacing: -.01em; }
+.sub { font-size: 12.5px; color: var(--muted); margin-top: 5px; max-width: 76ch; }
+.head-right { display: flex; gap: 8px; align-items: center; }
+
+.btn { border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); padding: 7px 14px; border-radius: var(--r-ctl); font-size: 12.5px; font-weight: 500; transition: background .12s, border-color .12s; }
+.btn:hover { border-color: var(--accent); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:disabled:hover { border-color: var(--line-strong); }
+
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+.tab { padding: 9px 16px; font-size: 13px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 550; }
+.panel { display: none; } .panel.active { display: block; }
+
+.note { border: 1px solid var(--line); background: var(--card); border-radius: var(--r-card); padding: 12px 14px; font-size: 12.5px; color: var(--text); margin-bottom: 16px; }
+.note b { color: var(--ink); }
+.note.warn { border-color: var(--amber); background: var(--amber-lt); }
+
+.tblwrap { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--panel); overflow: auto; max-height: calc(100vh - 300px); }
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line-2); vertical-align: middle; }
+thead th { position: sticky; top: 0; z-index: 3; background: var(--gray-lt); border-bottom: 1px solid var(--line-strong); font-weight: 600; font-size: 11.5px; color: var(--text); }
+tbody tr:hover td { background: var(--gray-lt); }
+tbody tr:last-child td { border-bottom: 0; }
+
+/* first column pinned: page identity stays visible while scrolling the roles */
+.pin { position: sticky; left: 0; z-index: 2; background: var(--panel); border-right: 1px solid var(--line); }
+thead .pin { z-index: 4; background: var(--gray-lt); }
+tbody tr:hover .pin { background: var(--gray-lt); }
+.pk { font-weight: 550; color: var(--ink); }
+.pk small { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--dim); font-weight: 400; margin-top: 1px; }
+
+.rolehead { min-width: 150px; }
+.rolehead .rn { font-size: 12.5px; color: var(--ink); font-weight: 600; }
+.rolehead .rm { font-size: 10.5px; color: var(--dim); font-weight: 400; margin: 1px 0 5px; }
+.rolehead .xtra { color: var(--amber); cursor: help; border-bottom: 1px dotted var(--amber); }
+.bypass { background: var(--purple-lt); color: var(--purple); border-radius: 6px; padding: 4px 6px;
+          font-size: 11.5px; font-weight: 600; text-align: center; cursor: help; }
+.lvl { width: 100%; background: var(--input-bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 11.5px; }
+.lvl:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.lvl.set { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.lvl.deny { border-color: var(--red); color: var(--red); font-weight: 600; }
+.lvl.dirty { box-shadow: 0 0 0 2px var(--amber-lt); border-color: var(--amber); }
+.defsel { border-color: var(--line-strong); font-weight: 600; }
+
+.tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; }
+.tag.admin { background: var(--purple-lt); color: var(--purple); }
+.tag.read { background: var(--green-lt); color: var(--green); }
+.tag.none { background: var(--red-lt); color: var(--red); }
+.tag.auth { background: var(--accent-tint); color: var(--accent); }
+
+.toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.search { background: var(--input-bg); border: 1px solid var(--line); border-radius: var(--r-ctl); padding: 7px 11px; min-width: 260px; }
+.search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.chk { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+
+.savebar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--panel); border-top: 1px solid var(--line-strong); box-shadow: var(--shadow-menu); padding: 12px 26px; display: none; }
+.savebar.on { display: block; }
+.savebar-in { max-width: 1520px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.changes { font-size: 12px; color: var(--text); max-height: 62px; overflow: auto; }
+.changes b { color: var(--ink); } .changes .d { font-family: var(--mono); font-size: 11px; }
+
+.people { display: grid; grid-template-columns: 296px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1080px) { .people { grid-template-columns: 1fr; } }
+.plist { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--panel); overflow: hidden; }
+.prow { display: block; width: 100%; text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line-2); }
+.prow:last-child { border-bottom: 0; }
+.prow:hover { background: var(--gray-lt); }
+.prow.sel { background: var(--accent-tint); }
+.prow .pn { font-size: 12.5px; font-weight: 550; }
+.prow .pe { font-size: 11px; color: var(--dim); font-family: var(--mono); }
+.prow .pr { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.pdet { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--panel); padding: 16px; }
+.pdet h2 { font-size: 16px; font-weight: 620; }
+.pdet .meta { font-size: 12px; color: var(--muted); margin: 3px 0 14px; }
+.empty { padding: 44px 20px; text-align: center; color: var(--dim); font-size: 13px; }
+
+.aud { font-size: 12px; }
+.aud td { vertical-align: top; }
+.aud .ts { font-family: var(--mono); font-size: 11px; color: var(--dim); white-space: nowrap; }
+.aud .det { font-family: var(--mono); font-size: 11px; color: var(--muted); word-break: break-word; max-width: 620px; }
+.act { font-family: var(--mono); font-size: 11px; }
+
+.toast { position: fixed; bottom: 92px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--page); padding: 10px 18px; border-radius: var(--r-ctl); font-size: 12.5px; font-weight: 550; z-index: 60; box-shadow: var(--shadow-menu); }
+.toast.err { background: var(--red); color: #fff; }
+.skel { display: inline-block; height: 11px; border-radius: 4px; background: var(--gray-lt); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: .45 } 50% { opacity: .9 } }
+</style>
+</head>
+<body data-dp="access-admin">
+
+<div class="container" data-rbac-page="rbac-admin" data-rbac-level="admin">
+  <header class="page-head">
+    <div>
+      <div class="breadcrumb"><a href="/landing.html">CorpIT Hub</a> &nbsp;/&nbsp; Administration</div>
+      <h1>Access Control</h1>
+      <div class="sub">Roles decide what a group of people can reach. A role's <b>default</b> applies to every page that has no explicit setting, so it is the field that decides what a newly added page inherits. Per-person settings override the role in both directions — grant above it, or deny below it.</div>
+    </div>
+    <div class="head-right">
+      <button class="btn" id="btn-reload">↻ Reload</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="matrix">Roles &amp; pages</button>
+    <button class="tab" data-tab="people">People</button>
+    <button class="tab" data-tab="activity">Activity</button>
+  </nav>
+
+  <!-- ══════════ MATRIX ══════════ -->
+  <section class="panel active" id="panel-matrix">
+    <div class="note" id="matrix-note">
+      <span class="skel" style="width:520px"></span>
+    </div>
+    <div class="toolbar">
+      <input type="text" class="search" id="m-search" placeholder="Filter pages by name or key…">
+      <label class="chk"><input type="checkbox" id="m-inactive"> show retired &amp; draft pages</label>
+      <label class="chk"><input type="checkbox" id="m-onlyset"> only pages with an explicit setting</label>
+    </div>
+    <div class="tblwrap">
+      <table id="matrix"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table>
+    </div>
+  </section>
+
+  <!-- ══════════ PEOPLE ══════════ -->
+  <section class="panel" id="panel-people">
+    <div class="note">Per-person settings are the exception hatch. <b>Deny</b> holds someone below their role — the only way to take one page away from a single person without changing the whole role. <b>Grant</b> lifts them above it. Everything else stays on <b>Default</b>, which follows the role and keeps following it as roles change.</div>
+    <div class="toolbar">
+      <input type="text" class="search" id="p-search" placeholder="Find a person…">
+      <label class="chk"><input type="checkbox" id="p-inactive"> include inactive accounts</label>
+    </div>
+    <div class="people">
+      <div class="plist" id="plist"><div class="empty">Loading…</div></div>
+      <div class="pdet" id="pdet"><div class="empty">Select a person to see what they can reach.</div></div>
+    </div>
+  </section>
+
+  <!-- ══════════ ACTIVITY ══════════ -->
+  <section class="panel" id="panel-activity">
+    <div class="note">Every change made here is written to <span class="act">rbac_audit_log</span> with who made it. People already signed in keep their current access until their session refreshes.</div>
+    <div class="toolbar">
+      <label class="chk"><input type="checkbox" id="a-lookups"> include read-only lookups</label>
+    </div>
+    <div class="tblwrap">
+      <table class="aud" id="audit"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table>
+    </div>
+  </section>
+
+  <div class="savebar" id="savebar">
+    <div class="savebar-in">
+      <div class="changes" id="changes"></div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn" id="btn-discard">Discard</button>
+        <button class="btn btn-primary" id="btn-save">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const API = '/api/rbac';
+const LEVELS = ['none', 'read', 'admin'];
+const RANK = { none: 0, read: 1, admin: 2 };
+const LOOKUP_ACTIONS = new Set(['view_as_lookup', 'superadmin_access']);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const S = {
+  pages: [], roles: [], users: [],
+  roleDirty: {},          // role_key -> { default_access?, grants: {page: level|null} }
+  person: null,           // { email, display_name, roles[], override{}, effective{} }
+  personDirty: null,      // page -> level | null  (null === back to Default)
+  tab: 'matrix',
+};
+
+/* ── plumbing ─────────────────────────────────────────────────────── */
+async function api(method, path, body) {
+  const r = await fetch(API + path, {
+    method,
+    credentials: 'same-origin',
+    headers: body ? { 'content-type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let j = null;
+  try { j = await r.json(); } catch (e) { /* empty body */ }
+  if (!r.ok) {
+    const msg = (j && (j.error || j.code)) || (r.status + ' ' + r.statusText);
+    throw new Error(msg);
+  }
+  return j;
+}
+let toastT = null;
+function toast(msg, isErr) {
+  const old = document.querySelector('.toast'); if (old) old.remove();
+  const el = document.createElement('div');
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.remove(), isErr ? 6500 : 2600);
+}
+
+/* ── resolution, mirroring rbac-middleware.computeEffectiveLevel ──── */
+const portalOwned = key => ['accessportal','approver-portal'].includes(key);
+const portalLink = '<a href="https://accessportal.nrpi.local/approver.html">Manage in Approval Access →</a>';
+function roleGrant(role, pageKey) {
+  const d = S.roleDirty[role.role_key];
+  if (d && d.grants && Object.prototype.hasOwnProperty.call(d.grants, pageKey)) return d.grants[pageKey];
+  const g = role.grantMap[pageKey];
+  return g === undefined ? null : g;                    // null === inherit the default
+}
+function roleDefault(role) {
+  const d = S.roleDirty[role.role_key];
+  return (d && d.default_access !== undefined) ? d.default_access : role.default_access;
+}
+// What the cell would resolve to if it were set back to Default. This is NOT
+// roleEffective: that one honours the explicit grant, so using it as the caption
+// made a cell set to read announce "Default (read)" when Default meant none.
+function roleFallback(role, page) {
+  if (page.hard_excluded) return 'none';
+  let lvl = roleDefault(role);
+  if (page.access_policy === 'authenticated' && RANK[lvl] < RANK.read) lvl = 'read';
+  return lvl;
+}
+function roleEffective(role, page) {
+  // rbac-middleware returns 'none' for these before it ever reads the tables.
+  if (page.hard_excluded) return 'none';
+  const g = roleGrant(role, page.page_key);
+  let lvl = g === null ? roleDefault(role) : g;
+  if (page.access_policy === 'authenticated' && RANK[lvl] < RANK.read) lvl = 'read';
+  return lvl;
+}
+function rolesEffective(roleKeys, page) {           // most-permissive merge across roles
+  if (page.hard_excluded) return 'none';
+  let lvl = 'none';
+  for (const rk of roleKeys) {
+    const role = S.roles.find((r) => r.role_key === rk);
+    if (!role) continue;
+    const e = roleEffective(role, page);
+    if (RANK[e] > RANK[lvl]) lvl = e;
+  }
+  if (page.access_policy === 'authenticated' && RANK[lvl] < RANK.read) lvl = 'read';
+  return lvl;
+}
+const tag = (lvl) => '<span class="tag ' + lvl + '">' + lvl + '</span>';
+
+// rbac_user_roles is the membership authority, but it also carries @local test
+// accounts and rows for people with no user record. Reporting the raw count as
+// "people" overstates a role's reach, so the extras are named, not folded in.
+function memberLine(r) {
+  const n = r.user_count;
+  const base = n + (n === 1 ? ' person' : ' people');
+  // The chip counts ROWS, not categories — one row can be both @local and
+  // missing a user record, and summing the categories would count it twice.
+  const extras = Math.max(0, r.member_rows - n);
+  const why = [];
+  if (r.test_accounts)  why.push(r.test_accounts + ' @local test');
+  if (r.orphan_rows)    why.push(r.orphan_rows + ' with no user record');
+  if (r.inactive_users) why.push(r.inactive_users + ' inactive');
+  let out = extras
+    ? base + ' <span class="xtra" title="' + extras + ' more row' + (extras === 1 ? '' : 's') +
+      ' in this role, not counted as people' +
+      (why.length ? '. They are: ' + esc(why.join(', ')) + ' — one row can fall into two of those.' : '') +
+      '">+' + extras + '</span>'
+    : base;
+  if (r.bypasses_matrix) {
+    out += ' <span class="xtra" title="Anyone listed in the RBAC_SUPERADMINS environment variable is ' +
+           'also a super admin without holding this role, and does not appear in this count.">+env</span>';
+  }
+  return out;
+}
+
+/* ── matrix ───────────────────────────────────────────────────────── */
+function visiblePages() {
+  const q = $('m-search').value.trim().toLowerCase();
+  const inactive = $('m-inactive').checked;
+  const onlyset = $('m-onlyset').checked;
+  return S.pages.filter((p) => {
+    if (!inactive && p.status !== 'active') return false;
+    if (q && !(p.page_key.toLowerCase().includes(q) ||
+               String(p.display_name || '').toLowerCase().includes(q))) return false;
+    if (onlyset && !S.roles.some((r) => roleGrant(r, p.page_key) !== null)) return false;
+    return true;
+  });
+}
+function levelSelect(cls, current, defaultLabel, attrs) {
+  let h = '<select class="' + cls + '" ' + attrs + '>';
+  h += '<option value="">' + esc(defaultLabel) + '</option>';
+  for (const l of LEVELS) {
+    h += '<option value="' + l + '"' + (current === l ? ' selected' : '') + '>' +
+         l.charAt(0).toUpperCase() + l.slice(1) + '</option>';
+  }
+  return h + '</select>';
+}
+function renderMatrix() {
+  const pages = visiblePages();
+  const t = $('matrix');
+  let h = '<colgroup><col style="width:250px">' +
+          S.roles.map(() => '<col style="width:150px">').join('') + '</colgroup>';
+
+  h += '<thead><tr><th class="pin">' +
+       '<div style="font-size:12.5px;color:var(--ink)">Page</div>' +
+       '<div style="font-size:10.5px;color:var(--dim);font-weight:400">' + pages.length + ' shown</div>' +
+       '</th>';
+  for (const r of S.roles) {
+    const dd = roleDefault(r);
+    const changed = S.roleDirty[r.role_key] && S.roleDirty[r.role_key].default_access !== undefined;
+    h += '<th class="rolehead">' +
+         '<div class="rn">' + esc(r.display_name || r.role_key) + '</div>' +
+         '<div class="rm">' + memberLine(r) + '</div>' +
+         (r.bypasses_matrix
+           ? '<div class="bypass" title="rbac-middleware resolves super admins before it reads these tables">' +
+             'always admin' + '</div>'
+           : '<select class="lvl defsel' + (changed ? ' dirty' : '') + '" data-roledef="' + esc(r.role_key) + '" ' +
+                 'title="Applies to every page with no explicit setting below">' +
+             LEVELS.map((l) => '<option value="' + l + '"' + (dd === l ? ' selected' : '') + '>default: ' + l + '</option>').join('') +
+             '</select>') +
+         '</th>';
+  }
+  h += '</tr></thead><tbody>';
+
+  if (!pages.length) {
+    h += '<tr><td class="empty" colspan="' + (S.roles.length + 1) + '">No pages match that filter.</td></tr>';
+  }
+  for (const p of pages) {
+    h += '<tr><td class="pin"><div class="pk">' + esc(p.display_name || p.page_key);
+    if (p.status !== 'active') h += ' <span class="tag none">' + esc(p.status) + '</span>';
+    if (p.hard_excluded) h += ' <span class="tag admin">locked</span>';
+    if (p.access_policy === 'authenticated') h += ' <span class="tag auth">all signed in</span>';
+    h += '<small>' + esc(p.page_key) + '</small></div></td>';
+    if (portalOwned(p.page_key)) {
+      h += '<td colspan="' + S.roles.length + '">' + portalLink + '<div style="color:var(--muted);font-size:12px">Department policies, person exceptions and portal entry are managed inside the approval app. Public requester forms do not use this matrix.</div></td></tr>';
+      continue;
+    }
+    if (p.hard_excluded) {
+      h += '<td colspan="' + S.roles.length + '" style="color:var(--muted)">' +
+           '<span class="tag admin">super admins only</span> ' +
+           'locked in code — no role grant or personal exception can open this page.</td></tr>';
+      continue;
+    }
+    for (const r of S.roles) {
+      if (r.bypasses_matrix) {
+        h += '<td style="color:var(--purple)">' + (p.access_policy === 'authenticated' ? 'read' : 'admin') + '</td>';
+        continue;
+      }
+      const g = roleGrant(r, p.page_key);
+      const eff = roleFallback(r, p);
+      const d = S.roleDirty[r.role_key];
+      const isDirty = d && d.grants && Object.prototype.hasOwnProperty.call(d.grants, p.page_key);
+      const cls = 'lvl' + (g === 'none' ? ' deny' : g ? ' set' : '') + (isDirty ? ' dirty' : '');
+      h += '<td>' + levelSelect(cls, g, 'Default (' + eff + ')',
+             'data-role="' + esc(r.role_key) + '" data-page="' + esc(p.page_key) + '"') + '</td>';
+    }
+    h += '</tr>';
+  }
+  t.innerHTML = h + '</tbody>';
+
+  const sa = S.roles.find((r) => r.role_key === 'superadmin');
+  $('matrix-note').innerHTML =
+    'A <b>Default</b> cell follows the role default in the column header — it keeps following it, including for pages added later. ' +
+    'Set a cell only to make that page an exception. <b>None</b> hides the page from the role entirely.' +
+    (sa ? ' Super admins are resolved before any of this is read, so their column shows what they get rather than what the table says; ' +
+          'this screen itself is reachable by them alone.' : '') +
+    ' Member counts are people — <span class="act">@local</span> test accounts and rows with no user record are counted separately.';
+}
+
+/* ── people ───────────────────────────────────────────────────────── */
+function renderPeopleList() {
+  const q = $('p-search').value.trim().toLowerCase();
+  const list = S.users.filter((u) => !q ||
+    u.email.toLowerCase().includes(q) ||
+    String(u.display_name || '').toLowerCase().includes(q) ||
+    (u.roles || []).some((r) => r.toLowerCase().includes(q)));
+  $('plist').innerHTML = list.length
+    ? list.map((u) => '<button class="prow' + (S.person && S.person.email === u.email ? ' sel' : '') +
+        '" data-email="' + esc(u.email) + '">' +
+        '<div class="pn">' + esc(u.display_name || u.email) +
+        (u.is_active ? '' : ' <span class="tag none">inactive</span>') + '</div>' +
+        '<div class="pe">' + esc(u.email) + '</div>' +
+        '<div class="pr">' + esc((u.roles && u.roles.length) ? u.roles.join(', ') : 'no role') +
+        (u.grant_count ? ' · ' + u.grant_count + ' exception' + (u.grant_count === 1 ? '' : 's') : '') +
+        '</div></button>').join('')
+    : '<div class="empty">Nobody matches that.</div>';
+}
+async function selectPerson(email) {
+  $('pdet').innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const [acc, eff] = await Promise.all([
+      api('GET', '/users/' + encodeURIComponent(email) + '/access'),
+      api('GET', '/admin/view-as/' + encodeURIComponent(email)).catch(() => null),
+    ]);
+    const u = S.users.find((x) => x.email === email) || {};
+    S.person = {
+      email,
+      display_name: u.display_name || email,
+      roles: acc.roles || (acc.role_key ? [acc.role_key] : []),
+      override: Object.fromEntries((acc.access || []).map((a) => [a.page_key, a.access_level])),
+      effective: (eff && (eff.pages || eff.effective_pages)) || null,
+      isSuperAdmin: !!(eff && (eff.isSuperAdmin || (eff.user && eff.user.isSuperAdmin))),
+    };
+    S.personDirty = {};
+    renderPeopleList();
+    renderPerson();
+  } catch (e) {
+    $('pdet').innerHTML = '<div class="empty">Could not load ' + esc(email) + ' — ' + esc(e.message) + '</div>';
+  }
+}
+function personSetting(pageKey) {
+  if (S.personDirty && Object.prototype.hasOwnProperty.call(S.personDirty, pageKey)) return S.personDirty[pageKey];
+  const o = S.person.override[pageKey];
+  return o === undefined ? null : o;
+}
+function renderPerson() {
+  const p = S.person;
+  const pages = S.pages.filter((x) => x.status === 'active');
+  let h = '<h2>' + esc(p.display_name) + '</h2>' +
+    '<div class="meta">' + esc(p.email) + ' · roles: <b>' + esc(p.roles.join(', ') || 'none') + '</b>' +
+    (p.isSuperAdmin ? ' · <span class="tag admin">super admin</span>' : '') + '</div>';
+
+  if (p.isSuperAdmin) {
+    h += '<div class="note warn">This account is a super admin, so it holds admin on every active page no matter what is set below. ' +
+         'Super admin comes from the <span class="act">SaaS-ITH-SA</span> AD group or the <span class="act">RBAC_SUPERADMINS</span> ' +
+         'environment variable — neither is editable from this screen.</div>';
+  }
+  h += '<div class="tblwrap" style="max-height:calc(100vh - 420px)"><table>' +
+       '<colgroup><col style="width:44%"><col style="width:18%"><col style="width:20%"><col style="width:18%"></colgroup>' +
+       '<thead><tr><th>Page</th><th>From their roles</th><th>This person</th><th>Result</th></tr></thead><tbody>';
+  for (const pg of pages) {
+    if (portalOwned(pg.page_key)) {
+      const entry = p.effective && p.effective[pg.page_key];
+      h += '<tr><td><div class="pk">' + esc(pg.display_name || pg.page_key) + '<small>' + esc(pg.page_key) + '</small></div></td><td colspan="3">' + portalLink + '<div style="color:var(--muted);font-size:12px">' + (pg.page_key === 'accessportal' ? 'Public requester forms; approval records require separate access.' : 'Saved portal entry: ' + esc(entry || 'unavailable') + '. Check live account, directory and department scope in the app.') + '</div></td></tr>';
+      continue;
+    }
+    const fromRoles = p.isSuperAdmin
+      ? (pg.access_policy === 'authenticated' ? 'read' : 'admin')   // resolved before the tables
+      : rolesEffective(p.roles, pg);
+    const set = personSetting(pg.page_key);
+    let result = set === null ? fromRoles : set;
+    if (pg.access_policy === 'authenticated' && RANK[result] < RANK.read) result = 'read';
+    if (pg.hard_excluded) result = 'none';
+    if (p.isSuperAdmin) result = pg.access_policy === 'authenticated' ? 'read' : 'admin';
+    const isDirty = S.personDirty && Object.prototype.hasOwnProperty.call(S.personDirty, pg.page_key);
+    const cls = 'lvl' + (set === 'none' ? ' deny' : set ? ' set' : '') + (isDirty ? ' dirty' : '');
+    h += '<tr><td><div class="pk">' + esc(pg.display_name || pg.page_key) +
+         (pg.hard_excluded ? ' <span class="tag admin">locked</span>' : '') +
+         '<small>' + esc(pg.page_key) + '</small></div></td>' +
+         '<td>' + tag(fromRoles) + '</td>' +
+         '<td>' + (pg.hard_excluded
+           ? '<span style="color:var(--muted);font-size:11.5px">super admins only</span>'
+           : levelSelect(cls, set, 'Default', 'data-uspage="' + esc(pg.page_key) + '"')) + '</td>' +
+         '<td>' + tag(result) + '</td></tr>';
+  }
+  $('pdet').innerHTML = h + '</tbody></table></div>';
+}
+
+/* ── activity ─────────────────────────────────────────────────────── */
+async function loadAudit() {
+  try {
+    const j = await api('GET', '/audit?limit=120');
+    let rows = j.entries || [];
+    // Opening someone in the People tab calls view-as, which audits a row each
+    // time. Those are real records, but they drown the changes, so hide them here.
+    if (!$('a-lookups').checked) rows = rows.filter((a) => !LOOKUP_ACTIONS.has(a.action));
+    rows = rows.slice(0, 60);
+    $('audit').innerHTML =
+      '<colgroup><col style="width:150px"><col style="width:190px"><col style="width:170px"><col></colgroup>' +
+      '<thead><tr><th>When</th><th>Who</th><th>What</th><th>Detail</th></tr></thead><tbody>' +
+      (rows.length ? rows.map((a) => {
+        let d = a.details;
+        if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { /* leave as text */ } }
+        const target = [a.target_email, a.target_page_key].filter(Boolean).join(' · ');
+        return '<tr><td class="ts">' + esc(new Date(a.created_at).toLocaleString()) + '</td>' +
+               '<td>' + esc(a.actor_email) + '</td>' +
+               '<td><span class="act">' + esc(a.action) + '</span>' +
+               (target ? '<div class="pe" style="font-size:10.5px;color:var(--dim)">' + esc(target) + '</div>' : '') + '</td>' +
+               '<td class="det">' + esc(d && typeof d === 'object' ? JSON.stringify(d) : (d || '')) + '</td></tr>';
+      }).join('') : '<tr><td class="empty" colspan="4">No entries.</td></tr>') + '</tbody>';
+  } catch (e) {
+    $('audit').innerHTML = '<tbody><tr><td class="empty">Could not load the audit feed — ' + esc(e.message) + '</td></tr></tbody>';
+  }
+}
+
+/* ── dirty tracking + save ────────────────────────────────────────── */
+function describeChanges() {
+  const out = [];
+  for (const [rk, d] of Object.entries(S.roleDirty)) {
+    const role = S.roles.find((r) => r.role_key === rk);
+    const name = role ? (role.display_name || rk) : rk;
+    if (d.default_access !== undefined) {
+      out.push('<b>' + esc(name) + '</b> default <span class="d">' +
+               esc(role.default_access) + ' → ' + esc(d.default_access) + '</span>');
+    }
+    for (const [pk, lvl] of Object.entries(d.grants || {})) {
+      const was = role.grantMap[pk] === undefined ? 'default' : role.grantMap[pk];
+      out.push('<b>' + esc(name) + '</b> <span class="d">' + esc(pk) + ': ' +
+               esc(was) + ' → ' + esc(lvl === null ? 'default' : lvl) + '</span>');
+    }
+  }
+  if (S.person && S.personDirty) {
+    for (const [pk, lvl] of Object.entries(S.personDirty)) {
+      const was = S.person.override[pk] === undefined ? 'default' : S.person.override[pk];
+      out.push('<b>' + esc(S.person.display_name) + '</b> <span class="d">' + esc(pk) + ': ' +
+               esc(was) + ' → ' + esc(lvl === null ? 'default' : lvl) + '</span>');
+    }
+  }
+  return out;
+}
+function refreshSaveBar() {
+  const c = describeChanges();
+  $('savebar').classList.toggle('on', c.length > 0);
+  $('changes').innerHTML = c.length
+    ? '<b>' + c.length + ' change' + (c.length === 1 ? '' : 's') + ' pending</b> — ' + c.join(' &nbsp;·&nbsp; ')
+    : '';
+}
+function markRole(rk) { if (!S.roleDirty[rk]) S.roleDirty[rk] = { grants: {} }; return S.roleDirty[rk]; }
+
+async function save() {
+  const btn = $('btn-save'); btn.disabled = true; btn.textContent = 'Saving…';
+  const failures = [];
+  try {
+    for (const [rk, d] of Object.entries(S.roleDirty)) {
+      const role = S.roles.find((r) => r.role_key === rk);
+      if (!role) continue;
+      // PUT replaces the WHOLE grant set, so send the merged result, not the
+      // delta — and only when a grant actually moved, so a default-only edit
+      // does not rewrite every row and bury the audit trail.
+      const body = {};
+      if (Object.keys(d.grants || {}).length) {
+        const merged = Object.assign({}, role.grantMap);
+        for (const [pk, lvl] of Object.entries(d.grants)) {
+          if (lvl === null) delete merged[pk]; else merged[pk] = lvl;
+        }
+        body.grants = merged;
+      }
+      if (d.default_access !== undefined) body.default_access = d.default_access;
+      if (!Object.keys(body).length) continue;
+      try { await api('PUT', '/roles/' + encodeURIComponent(rk), body); }
+      catch (e) { failures.push(rk + ': ' + e.message); }
+    }
+    if (S.person && S.personDirty && Object.keys(S.personDirty).length) {
+      const merged = Object.assign({}, S.person.override);
+      for (const [pk, lvl] of Object.entries(S.personDirty)) {
+        if (lvl === null) delete merged[pk]; else merged[pk] = lvl;
+      }
+      try { await api('PUT', '/users/' + encodeURIComponent(S.person.email) + '/access', { access: merged }); }
+      catch (e) { failures.push(S.person.email + ': ' + e.message); }
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save changes';
+  }
+  if (failures.length) { toast('Not saved — ' + failures.join('; '), true); return; }
+  toast('Saved. People already signed in keep their access until their session refreshes.');
+  const who = S.person && S.person.email;
+  S.roleDirty = {}; S.personDirty = null;
+  await loadAll();
+  if (who) await selectPerson(who);
+  if (S.tab === 'activity') loadAudit();
+}
+
+/* ── load ─────────────────────────────────────────────────────────── */
+async function loadAll() {
+  const [pagesR, rolesR, usersR] = await Promise.all([
+    api('GET', '/pages'),
+    api('GET', '/roles'),
+    api('GET', '/users' + ($('p-inactive').checked ? '?include_inactive=1' : '')),
+  ]);
+  S.pages = (pagesR.pages || []).slice().sort((a, b) =>
+    String(a.display_name || a.page_key).localeCompare(String(b.display_name || b.page_key)));
+  S.roles = (rolesR.roles || []).map((r) => Object.assign({}, r, {
+    grantMap: Object.fromEntries((r.grants || []).map((g) => [g.page_key, g.access_level])),
+  })).sort((a, b) => (b.user_count - a.user_count) || a.role_key.localeCompare(b.role_key));
+  S.users = usersR.users || [];
+  renderMatrix();
+  renderPeopleList();
+  refreshSaveBar();
+}
+
+/* ── events ───────────────────────────────────────────────────────── */
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.dataset.roledef !== undefined) {
+    const rk = t.dataset.roledef, role = S.roles.find((r) => r.role_key === rk);
+    const d = markRole(rk);
+    if (t.value === role.default_access) delete d.default_access; else d.default_access = t.value;
+    if (d.default_access === undefined && !Object.keys(d.grants).length) delete S.roleDirty[rk];
+    renderMatrix(); refreshSaveBar(); return;
+  }
+  if (t.dataset.role !== undefined && t.dataset.page !== undefined) {
+    const rk = t.dataset.role, pk = t.dataset.page;
+    const role = S.roles.find((r) => r.role_key === rk);
+    const d = markRole(rk);
+    const want = t.value === '' ? null : t.value;
+    const orig = role.grantMap[pk] === undefined ? null : role.grantMap[pk];
+    if (want === orig) delete d.grants[pk]; else d.grants[pk] = want;
+    if (d.default_access === undefined && !Object.keys(d.grants).length) delete S.roleDirty[rk];
+    renderMatrix(); refreshSaveBar(); return;
+  }
+  if (t.dataset.uspage !== undefined) {
+    const pk = t.dataset.uspage;
+    const want = t.value === '' ? null : t.value;
+    const orig = S.person.override[pk] === undefined ? null : S.person.override[pk];
+    if (want === orig) delete S.personDirty[pk]; else S.personDirty[pk] = want;
+    renderPerson(); refreshSaveBar(); return;
+  }
+  if (t.id === 'm-inactive' || t.id === 'm-onlyset') { renderMatrix(); return; }
+  if (t.id === 'a-lookups') { loadAudit(); return; }
+  if (t.id === 'p-inactive') { loadAll().catch((err) => toast(err.message, true)); return; }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'm-search') renderMatrix();
+  if (e.target.id === 'p-search') renderPeopleList();
+});
+document.addEventListener('click', (e) => {
+  const tab = e.target.closest('.tab');
+  if (tab) {
+    S.tab = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === tab));
+    document.querySelectorAll('.panel').forEach((x) => x.classList.toggle('active', x.id === 'panel-' + S.tab));
+    if (S.tab === 'activity') loadAudit();
+    return;
+  }
+  const row = e.target.closest('.prow');
+  if (row) {
+    if (S.personDirty && Object.keys(S.personDirty).length &&
+        !confirm('Discard the unsaved changes for ' + S.person.display_name + '?')) return;
+    selectPerson(row.dataset.email);
+    return;
+  }
+  if (e.target.id === 'btn-save') { save().catch((err) => toast(err.message, true)); return; }
+  if (e.target.id === 'btn-discard') {
+    S.roleDirty = {}; if (S.personDirty) S.personDirty = {};
+    renderMatrix(); if (S.person) renderPerson(); refreshSaveBar(); return;
+  }
+  if (e.target.id === 'btn-reload') {
+    S.roleDirty = {}; S.personDirty = S.person ? {} : null;
+    loadAll().then(() => { if (S.person) selectPerson(S.person.email); toast('Reloaded'); })
+             .catch((err) => toast(err.message, true));
+  }
+});
+window.addEventListener('beforeunload', (e) => {
+  if (describeChanges().length) { e.preventDefault(); e.returnValue = ''; }
+});
+
+loadAll().catch((err) => {
+  $('matrix').innerHTML = '<tbody><tr><td class="empty">Could not load access data — ' + esc(err.message) +
+    '<br><br>This screen is super-admin only; a 401 or 403 here means the session is not one.</td></tr></tbody>';
+});
+</script>
+<script src="/it-version.js" data-app-key="corpit-platform" data-label="Access Control" defer></script>
+</body>
+</html>

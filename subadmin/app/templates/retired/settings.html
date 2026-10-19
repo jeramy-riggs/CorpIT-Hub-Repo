@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+
+<p style="margin:0 0 16px"><a href="{{ url_for('dashboard') }}">&larr; Dashboard</a></p>
+
+{# CORPIT-SECRET-EXPIRY - advisory notices. Distinct from "Needs attention":
+   these never block a save, they are things that bite later if ignored. #}
+{% if advisories %}
+<div class="card" style="max-width:760px;margin-bottom:16px">
+  <h2>Heads up</h2>
+  <div class="body">
+    <ul style="margin:0;padding-left:18px">
+      {% for level, msg in advisories %}
+      <li style="margin-bottom:6px{% if level == 'urgent' %};font-weight:600{% endif %}">{{ msg }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+{% if problems %}
+<div class="card" style="max-width:760px;margin-bottom:16px">
+  <h2>Needs attention</h2>
+  <div class="body">
+    <ul style="margin:0;padding-left:18px">
+      {% for p in problems %}<li>{{ p }}</li>{% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('settings_page') }}">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+
+  {% for group in groups %}
+  <div class="card" style="max-width:760px;margin-bottom:16px">
+    <h2>{{ group }}</h2>
+    <div class="body">
+      {% for s in settings if s.group == group %}
+      <div style="padding:14px 0;border-bottom:1px solid rgba(128,128,128,.18)">
+
+        {% if s.kind == 'bool' %}
+          <label for="{{ s.key }}" style="display:flex;align-items:center;gap:10px;margin:0">
+            <input id="{{ s.key }}" type="checkbox" name="{{ s.key }}" value="1"
+                   style="width:auto;margin:0" {% if values[s.key] %}checked{% endif %}>
+            <span>{{ s.label }}</span>
+          </label>
+
+        {% elif s.kind == 'secret' %}
+          <label for="{{ s.key }}">{{ s.label }}
+            <span class="hint">
+              {% if secrets_set[s.key] %}currently set &mdash; leave blank to keep it
+              {% else %}not set{% endif %}
+            </span>
+          </label>
+          <input id="{{ s.key }}" type="password" name="{{ s.key }}" value=""
+                 autocomplete="new-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+
+        {% elif s.kind == 'email_list' %}
+          <label for="{{ s.key }}">{{ s.label }}</label>
+          <textarea id="{{ s.key }}" name="{{ s.key }}" rows="2"
+                    style="width:100%">{{ values[s.key] }}</textarea>
+
+        {% elif s.kind == 'date' %}
+          <label for="{{ s.key }}">{{ s.label }}</label>
+          <input id="{{ s.key }}" type="date" name="{{ s.key }}" value="{{ values[s.key] }}">
+
+        {% elif s.kind == 'int' %}
+          <label for="{{ s.key }}">{{ s.label }}</label>
+          <input id="{{ s.key }}" type="number" name="{{ s.key }}" value="{{ values[s.key] }}"
+                 min="{{ s.minimum }}" max="{{ s.maximum }}">
+
+        {% else %}
+          <label for="{{ s.key }}">{{ s.label }}</label>
+          <input id="{{ s.key }}" type="text" name="{{ s.key }}" value="{{ values[s.key] }}"
+                 spellcheck="false" autocapitalize="none">
+        {% endif %}
+
+        {% if s.help %}<div class="hint" style="margin-top:6px">{{ s.help }}</div>{% endif %}
+        {% if s.restart_hint %}<div class="hint" style="margin-top:4px">{{ s.restart_hint }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <div style="max-width:760px;display:flex;gap:10px;align-items:center">
+    <button class="btn" type="submit">Save settings</button>
+    <span class="hint">Every change is written to the audit log with who changed it.</span>
+  </div>
+</form>
+
+<div class="card" style="max-width:760px;margin-top:22px">
+  <h2>Recent settings changes</h2>
+  <div class="body">
+    {% if recent %}
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        {% for r in recent %}
+        <tr style="border-bottom:1px solid rgba(128,128,128,.15)">
+          <td style="padding:6px 8px 6px 0;white-space:nowrap" class="mono">{{ r['ts'] }}</td>
+          <td style="padding:6px 8px 6px 0;white-space:nowrap">{{ r['user'] }}</td>
+          <td style="padding:6px 0">{{ r['detail'] }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    {% else %}
+      <div class="empty">No settings have been changed yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

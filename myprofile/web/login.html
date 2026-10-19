@@ -1,0 +1,613 @@
+<!doctype html>
+<!-- Sign-in page for myprofile.nrpi.local (2026-09-23). Served ONLY on this host via the
+     $corpit_login_page map (conf.d/corpit-login-page.conf). Behaviour is the shared /login.js,
+     so every id below is load-bearing: svc-status, svc-status-text, status-msg, login-form,
+     btn-sso, redirect-msg, local-details, local-section, login-pass, login-otp, local-error,
+     btn-local, app-version. data-sso-auto="off" makes this page SHOWN on a gate bounce
+     instead of silently skipped. Zero inline script (CSP).
+     Hero: /signin-hero.jpg is the same auction HQ sunset as my-profile's .greet-hero
+     (/auction-hq-banner.png), re-encoded 2.5MB PNG -> 425KB JPG and served anonymously. -->
+<html lang="en" data-sso-auto="off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in &middot; My Profile</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%278%27 cy=%278%27 r=%278%27 fill=%27%2341B6E6%27/%3E%3Ccircle cx=%278%27 cy=%276.2%27 r=%272.6%27 fill=%27%23071520%27/%3E%3Cpath d=%27M3.4 13.2a4.8 4.8 0 0 1 9.2 0%27 fill=%27%23071520%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/fonts/fonts.css">
+<script src="/login.js" defer></script>
+<style>
+@font-face{font-family:'Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url(/fonts/files/plex-c36f509c0a8f.woff2) format('woff2')}
+@font-face{font-family:'Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url(/fonts/files/plex-a76f53ca6612.woff2) format('woff2')}
+
+/* Palette = my-profile.html's dark auction tokens, so signing in and landing
+   feel like one place. --live is the platform's live-data orange, which also
+   happens to be the sunset in the photograph. */
+:root{
+  --page:#071520; --panel:#0E1D2A; --card:#142533; --gray-lt:#20313F;
+  --line:#2E3F4C; --line-strong:#45596A;
+  --ink:#EBF1F6; --ink-2:#C3CDD6; --ink-3:#9AA7B2;
+  --accent:#41B6E6; --accent-h:#6FC8ED; --on-accent:#04121C;
+  --green:#78BE20; --live:#FC9B6F;
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  --ease-io:cubic-bezier(.77,0,.175,1);
+  --font:'Nunito','Helvetica Neue',Helvetica,Arial,sans-serif;
+  --mono:'Plex Mono','IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:var(--font);
+  -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;min-height:100vh}
+.mono{font-family:var(--mono)}
+
+/* ---------- entrance vocabulary ----------
+   Page load is a once-per-visit moment, so it is allowed a little theatre --
+   but everything is opacity + transform only, and nothing blocks the CTA:
+   the card is fully interactive from first paint, it just fades up. */
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes settle{from{opacity:0;transform:scale(1.06)}to{opacity:1;transform:scale(1)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+@keyframes lit{to{background:var(--green);box-shadow:0 0 0 3px rgba(120,190,32,.18)}}
+/* shared with login.js reveals (.flash, .ferr, .redirect, details bodies) */
+@keyframes reveal{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+/* ---------- chrome ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:18px 34px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0E1D2A 0%,#0A1824 100%);position:relative;z-index:3}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.mark{width:28px;height:28px;flex:0 0 auto}
+.brand b{font-size:17px;font-weight:800;letter-spacing:-.01em;white-space:nowrap}
+.brand span{color:var(--ink-3);font-weight:600;font-size:14px}
+.brand span::before{content:"/";margin:0 8px 0 2px;color:var(--line-strong)}
+.status{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-2);letter-spacing:.02em}
+.dot-ok{width:8px;height:8px;border-radius:50%;background:var(--ink-3);
+  box-shadow:0 0 0 3px rgba(154,167,178,.16);transition:background-color 200ms ease,box-shadow 200ms ease}
+/* Four measured states -- "could not measure" is not "down". */
+#svc-status[data-state="checking"] #svc-status-text,
+#svc-status[data-state="unknown"] #svc-status-text{color:var(--ink-3)}
+#svc-status[data-state="ok"] .dot-ok{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.16)}
+#svc-status[data-state="degraded"] .dot-ok{background:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.18)}
+#svc-status[data-state="degraded"] #svc-status-text{color:#f3d08a}
+#svc-status[data-state="down"] .dot-ok{background:#f87171;box-shadow:0 0 0 3px rgba(248,113,113,.18)}
+#svc-status[data-state="down"] #svc-status-text{color:#ffb3ac}
+
+/* ---------- split + hero ----------
+   The photograph is its own layer (not a background on .split) so it can
+   settle in with a transform without dragging the text with it. The shade
+   above it does three jobs, topmost-first:
+     1 horizontal dissolve toward the card
+     2 a left-hand pool of dark behind the headline -- the sky there is the
+       brightest orange in the image
+     3 a vertical scrim that opens over the plaza and closes at the rail */
+.split{flex:1;position:relative;display:grid;grid-template-columns:1.1fr .9fr;overflow:hidden;isolation:isolate}
+.photo{position:absolute;inset:0;z-index:-2;
+  background:url(/signin-hero.jpg) center 40% / cover no-repeat,var(--panel);
+  background:image-set(url(/signin-hero.webp?v=20261001) type('image/webp'), url(/signin-hero.jpg) type('image/jpeg')) center 40% / cover no-repeat,var(--panel);
+  transform-origin:50% 70%;animation:settle 1600ms var(--ease-out) both}
+.shade{position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:
+    linear-gradient(90deg,rgba(7,21,32,0) 0%,rgba(7,21,32,0) 46%,rgba(7,21,32,.22) 64%,rgba(7,21,32,.46) 84%,rgba(7,21,32,.56) 100%),
+    radial-gradient(75% 85% at 8% 30%,rgba(7,21,32,.80) 0%,rgba(7,21,32,.55) 45%,rgba(7,21,32,0) 100%),
+    linear-gradient(180deg,rgba(7,21,32,.18) 0%,rgba(7,21,32,0) 26%,rgba(7,21,32,.06) 58%,rgba(7,21,32,.50) 86%,rgba(7,21,32,.78) 100%)}
+
+.left{padding:60px 56px 36px;display:flex;flex-direction:column;min-width:0}
+.eyebrow{font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.16em;
+  color:var(--accent-h);margin:0 0 22px}
+h1{margin:0 0 20px;font-size:clamp(34px,4.3vw,54px);line-height:1.05;font-weight:800;
+  letter-spacing:-.025em;text-wrap:balance;max-width:13ch;text-shadow:0 2px 18px rgba(7,21,32,.5)}
+h1 em{font-style:normal;color:var(--accent-h)}
+.lede{margin:0;font-size:17px;line-height:1.6;color:var(--ink-2);max-width:40ch;text-shadow:0 1px 10px rgba(7,21,32,.6)}
+.left>.eyebrow{animation:rise 600ms var(--ease-out) 80ms both}
+.left>h1{animation:rise 600ms var(--ease-out) 150ms both}
+.left>.lede{animation:rise 600ms var(--ease-out) 220ms both}
+
+/* ---------- the profile, assembling ----------
+   A schematic of what sits behind the door: the four things my-profile is
+   made of -- who you are, where you can go, your AI usage against its limit,
+   and your trail -- drawing themselves in. Deliberately skeletal: no names,
+   no numbers. It shows the SHAPE of the page, never anyone's data. */
+.peek{margin:auto 0 0;padding-top:44px;max-width:540px;animation:rise 700ms var(--ease-out) 320ms both}
+.pk{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border-radius:16px;
+  background:rgba(14,29,42,.62);border:1px solid rgba(69,89,106,.7);
+  -webkit-backdrop-filter:blur(14px) saturate(120%);backdrop-filter:blur(14px) saturate(120%);
+  box-shadow:0 24px 60px -30px rgba(0,0,0,.85)}
+.mod{background:rgba(20,37,51,.78);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
+  animation:rise 520ms var(--ease-out) both}
+.mod:nth-child(1){animation-delay:420ms}
+.mod:nth-child(2){animation-delay:490ms}
+.mod:nth-child(3){animation-delay:560ms}
+.mod:nth-child(4){animation-delay:630ms}
+.mod.wide{grid-column:1/-1}
+.ml{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.14em;color:var(--ink-3);margin:0 0 10px}
+.sk{display:block;height:7px;border-radius:4px;background:#2A3C4B}
+.sk.hi{background:#3A5061}
+
+/* identity */
+.id{display:flex;align-items:center;gap:13px}
+.av{width:44px;height:44px;flex:0 0 auto}
+.av .ring{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linecap:round;
+  stroke-dasharray:132;stroke-dashoffset:132;animation:draw 900ms var(--ease-out) 700ms both}
+.av .face{fill:#20313F}
+.av .head,.av .body{fill:#4A6275}
+.id-lines{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0}
+.id-lines .sk:nth-child(1){width:58%;height:9px}
+.id-lines .sk:nth-child(2){width:40%}
+.badge{align-self:flex-start;display:inline-flex;align-items:center;gap:5px;height:16px;padding:0 8px;border-radius:999px;
+  background:rgba(120,190,32,.14);animation:fade 400ms ease 1250ms both}
+.badge i{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.badge .sk{width:36px;height:5px;background:rgba(147,206,74,.45)}
+.facts{display:flex;flex-direction:column;gap:7px;width:34%}
+.facts .sk:nth-child(1){width:100%}.facts .sk:nth-child(2){width:78%}.facts .sk:nth-child(3){width:88%}
+
+/* access: one pill per site; each is checked in turn */
+.sites{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.site{display:flex;align-items:center;gap:7px;height:24px;padding:0 8px;border-radius:7px;background:#1A2C3A;border:1px solid #26394A}
+.site i{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:#3A5061;animation:lit 260ms ease both}
+.site .sk{flex:1;height:5px}
+.site:nth-child(1) i{animation-delay:900ms}
+.site:nth-child(2) i{animation-delay:980ms}
+.site:nth-child(3) i{animation-delay:1060ms}
+.site:nth-child(4) i{animation-delay:1140ms}
+.site:nth-child(5) i{animation-delay:1220ms}
+.site:nth-child(6) i{animation-delay:1300ms}
+
+/* AI usage: fourteen days of activity, and spend against the limit */
+.spark{display:block;width:100%;height:46px;overflow:visible}
+.spark .area{fill:url(#sparkfill);opacity:0;animation:fade 600ms ease 1500ms both}
+.spark .line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;
+  stroke-dasharray:300;stroke-dashoffset:300;animation:draw 1100ms var(--ease-io) 850ms both}
+/* The travelling point is the one piece of ambient motion on the page: it
+   rides the fortnight, rests on "today", fades and goes round again. Same
+   idea as the flow dot on the shared page, different job -- that one moves a
+   request through triage; this one reads your recent days. */
+.spark .now{fill:var(--live);opacity:0;
+  offset-path:path("M2 38 L26 33 L50 35 L74 24 L98 28 L122 18 L146 22 L170 12 L194 15 L218 6");
+  offset-rotate:0deg;filter:drop-shadow(0 0 6px rgba(252,155,111,.9));
+  animation:ride 5200ms var(--ease-io) 2100ms infinite}
+@keyframes ride{
+  0%{offset-distance:0%;opacity:0}
+  6%{opacity:1}
+  52%{offset-distance:100%;opacity:1}
+  80%{offset-distance:100%;opacity:1}
+  92%{offset-distance:100%;opacity:0}
+  100%{offset-distance:0%;opacity:0}}
+.meter{position:relative;height:8px;border-radius:999px;background:#1A2C3A;margin-top:12px;overflow:visible}
+.meter b{position:absolute;left:0;top:0;bottom:0;width:62%;border-radius:inherit;
+  background:linear-gradient(90deg,var(--accent),#7FD0F0);transform-origin:left center;
+  animation:fill 1000ms var(--ease-io) 1000ms both}
+.meter u{position:absolute;left:80%;top:-4px;bottom:-4px;width:2px;border-radius:1px;background:var(--live);
+  animation:fade 300ms ease 1700ms both}
+
+/* activity trail */
+.trail{position:relative;display:flex;justify-content:space-between;align-items:center;height:18px}
+.trail::before{content:"";position:absolute;left:4px;right:4px;top:50%;height:2px;margin-top:-1px;background:#26394A;
+  transform-origin:left center;animation:fill 900ms var(--ease-io) 1100ms both}
+.trail i{position:relative;width:10px;height:10px;border-radius:50%;background:#142533;border:2px solid #4A6275;
+  animation:pop 320ms var(--ease-out) both}
+.trail i:nth-child(1){animation-delay:1200ms}
+.trail i:nth-child(2){animation-delay:1260ms}
+.trail i:nth-child(3){animation-delay:1320ms}
+.trail i:nth-child(4){animation-delay:1380ms}
+.trail i:nth-child(5){animation-delay:1440ms}
+.trail i:nth-child(6){animation-delay:1500ms}
+.trail i:nth-child(7){animation-delay:1560ms;border-color:var(--accent);background:#123243}
+.trail-sk{display:flex;justify-content:space-between;margin-top:9px}
+.trail-sk .sk{width:12%;height:5px;background:#243646}
+
+.rail{margin-top:34px;display:flex;flex-wrap:wrap;gap:10px 26px;font-size:12.5px;color:var(--ink-2);letter-spacing:.04em;
+  text-shadow:0 1px 8px rgba(7,21,32,.8);animation:fade 600ms ease 800ms both}
+.rail span::before{content:"\2014\00A0";color:var(--ink-3)}
+
+/* ---------- card ---------- */
+.right{display:flex;align-items:center;justify-content:center;padding:48px 44px}
+.card{width:100%;max-width:436px;position:relative;overflow:hidden;
+  background:rgba(20,37,51,.88);
+  -webkit-backdrop-filter:blur(22px) saturate(115%);backdrop-filter:blur(22px) saturate(115%);
+  border:1px solid var(--line-strong);border-radius:16px;padding:34px 34px 28px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 30px 70px -30px rgba(0,0,0,.85);
+  animation:rise 650ms var(--ease-out) 180ms both}
+/* my-profile's greeting banner carries a 3px accent bar on its left edge;
+   the card borrows it so the two read as the same family. */
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--accent) 0%,var(--live) 100%)}
+.who{width:52px;height:52px;border-radius:50%;margin-bottom:24px;display:grid;place-items:center;
+  background:#123243;border:1px solid #1F4A60;position:relative}
+.who::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid rgba(65,182,230,.28)}
+.card .eyebrow{margin-bottom:12px}
+h2{margin:0 0 10px;font-size:31px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.sub{margin:0 0 24px;color:var(--ink-2);font-size:15px;line-height:1.55}
+
+.ms{display:flex;align-items:center;gap:14px;width:100%;
+  background:var(--accent);color:var(--on-accent);border:0;border-radius:10px;
+  padding:15px 18px;font:inherit;font-size:15.5px;font-weight:800;text-decoration:none;cursor:pointer;
+  transition:background-color 150ms ease,transform 150ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.ms:hover{background:var(--accent-h)}}
+.ms:active{transform:scale(.97)}
+.ms:focus-visible{outline:2px solid var(--accent-h);outline-offset:3px}
+.ms .lbl{flex:1;text-align:center}
+.ms .arw{transition:transform 150ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.ms:hover .arw{transform:translateX(3px)}}
+.msq{display:grid;grid-template-columns:9px 9px;grid-template-rows:9px 9px;gap:2px;flex:0 0 auto;
+  padding:3px;background:#fff;border-radius:3px}
+.msq i{display:block}
+.msq i:nth-child(1){background:#f25022}.msq i:nth-child(2){background:#7fba00}
+.msq i:nth-child(3){background:#00a4ef}.msq i:nth-child(4){background:#ffb900}
+
+/* What signing in opens -- plain list, mirrors the page's own sections. */
+.inside{list-style:none;margin:22px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:9px 14px}
+.inside li{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink-2)}
+.inside svg{flex:0 0 auto;color:var(--accent)}
+
+.hr{height:1px;background:var(--line);margin:22px 0 18px}
+.foot-note{display:flex;align-items:center;gap:10px;color:var(--ink-2);font-size:13.5px}
+
+details>summary{list-style:none;cursor:pointer}
+details>summary::-webkit-details-marker{display:none}
+details[open]>.pwform,details[open]>.help-body{animation:reveal 180ms var(--ease-out) both}
+.help-d{margin-top:14px}
+.help{display:inline-block;font-size:14px;color:var(--ink);text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:var(--line-strong);padding:4px 0;border-radius:6px;transition:text-decoration-color 140ms ease,color 140ms ease}
+@media (hover:hover) and (pointer:fine){.help:hover{text-decoration-color:var(--ink-3);color:#fff}}
+.help:focus-visible{outline:2px solid var(--accent-h);outline-offset:2px}
+.help-d[open]>.help{color:var(--ink-2)}
+.help-body{margin:10px 0 0;color:var(--ink-2);font-size:13.5px;line-height:1.6}
+
+.pwform{margin-top:14px;display:flex;flex-direction:column;gap:12px}
+label{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-family:var(--mono)}
+input[type=text],input[type=password]{width:100%;background:#0E1D2A;border:1px solid var(--line-strong);border-radius:9px;
+  padding:12px 13px;color:var(--ink);font:inherit;font-size:15px;margin-top:6px;
+  transition:border-color 140ms ease,box-shadow 140ms ease}
+input:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px rgba(65,182,230,.22)}
+.btn-local{background:var(--gray-lt);color:var(--ink);border:1px solid var(--line-strong);border-radius:9px;
+  padding:13px 16px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;
+  transition:background-color 140ms ease,transform 140ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.btn-local:hover{background:#2A3E4F}}
+.btn-local:active{transform:scale(.97)}
+.btn-local:focus-visible{outline:2px solid var(--accent-h);outline-offset:2px}
+.btn-local[disabled]{opacity:.55;cursor:default}
+.btn-local[disabled]:active{transform:none}
+
+.flash{border-radius:9px;padding:11px 14px;font-size:14px;margin-bottom:18px;line-height:1.45;animation:reveal 200ms var(--ease-out) both}
+.flash.error{background:rgba(247,111,100,.12);border:1px solid rgba(247,111,100,.45);color:#ffb3ac}
+.flash.ok{background:rgba(120,190,32,.12);border:1px solid rgba(120,190,32,.42);color:#b5dd84}
+.flash.info{background:rgba(65,182,230,.10);border:1px solid rgba(65,182,230,.38);color:#bfe4f4}
+.ferr{margin:0;font-size:13.5px;line-height:1.45;color:#ffb3ac;animation:reveal 180ms var(--ease-out) both}
+.redirect{display:flex;align-items:center;gap:12px;color:var(--ink-2);font-size:15px;padding:6px 0 2px;animation:reveal 200ms var(--ease-out) both}
+.spin{width:16px;height:16px;border-radius:50%;flex:0 0 auto;border:2px solid var(--line-strong);border-top-color:var(--accent);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Break-glass: a quiet + in the bottom-right, revealed by login.js only when
+   /api/breakglass/status confirms it. Slot reserved so nothing jumps. */
+.bg-toggle{margin-top:2px;opacity:1;transition:opacity 200ms var(--ease-out)}
+.bg-toggle[hidden]{display:block;visibility:hidden;opacity:0}
+.bg-toggle>summary{width:26px;height:26px;margin-left:auto;display:flex;align-items:center;justify-content:center;
+  border:1px solid transparent;border-radius:7px;color:var(--ink-3);font-family:var(--mono);font-size:16px;line-height:1;
+  transition:color 140ms ease,border-color 140ms ease,background-color 140ms ease}
+@media (hover:hover) and (pointer:fine){.bg-toggle>summary:hover{color:var(--ink-2);border-color:var(--line-strong);background:var(--gray-lt)}}
+.bg-toggle>summary:focus-visible{outline:2px solid var(--accent-h);outline-offset:2px}
+.bg-toggle[open]>summary{color:var(--ink-2);border-color:var(--line-strong);background:var(--gray-lt)}
+.bg-toggle .pl{display:block;transition:transform 160ms var(--ease-out)}
+.bg-toggle[open] .pl{transform:rotate(45deg)}
+
+.ver{color:var(--ink-3)}
+.bottom{display:flex;justify-content:space-between;gap:16px;padding:16px 34px;border-top:1px solid var(--line);
+  color:var(--ink-3);font-size:12px;letter-spacing:.05em;background:var(--page)}
+
+/* ---------- narrow ----------
+   Stacked, the order becomes headline -> sign in -> the schematic, so the
+   one thing you came to do is never below a decoration. .left dissolves
+   (display:contents) so its children can be ordered around the card. */
+@media (max-width:940px){
+  .split{grid-template-columns:1fr;padding:40px 24px 36px;gap:0}
+  .left{display:contents}
+  .left>.eyebrow{order:1}.left>h1{order:2}.left>.lede{order:3}
+  .right{order:4;padding:30px 0 0}
+  .peek{order:5;padding-top:30px;max-width:none}
+  .rail{order:6}
+  .shade{background:
+    linear-gradient(180deg,rgba(7,21,32,.82) 0%,rgba(7,21,32,.70) 22%,rgba(7,21,32,.80) 34%,rgba(7,21,32,.94) 46%,rgba(7,21,32,.96) 100%)}
+  .photo{background-position:30% 0,0 0;background-size:auto 70vh,auto;background-repeat:no-repeat}
+  .card{margin:0 auto}
+  .top{padding:16px 20px}
+  .bottom{padding:14px 20px}
+}
+@media (max-width:520px){
+  .pk{grid-template-columns:1fr}
+  .facts{display:none}
+  .brand span{display:none}
+  .inside{grid-template-columns:1fr}
+  .card{padding:28px 22px 24px}
+  .status #svc-status-text{max-width:15ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+
+/* Reduced motion: remove MOVEMENT, keep fades and colour feedback. Every
+   drawn/filled element lands in its finished state. */
+@media (prefers-reduced-motion:reduce){
+  @keyframes rise{from{opacity:0}to{opacity:1}}
+  @keyframes settle{from{opacity:0}to{opacity:1}}
+  @keyframes pop{from{opacity:0}to{opacity:1}}
+  @keyframes reveal{from{opacity:0}to{opacity:1}}
+  .av .ring,.spark .line{animation:none;stroke-dashoffset:0}
+  .meter b,.trail::before{animation:none}
+  .spark .now{animation:none;offset-distance:100%;opacity:1}
+  .spin{animation:none}
+  .ms:active,.btn-local:active{transform:none}
+  .ms .arw,.bg-toggle .pl{transition:none}
+}
+
+/* ================= ambient motion =================
+   Same page and contract; adds ambient life. Every loop is slow (>=6s),
+   transform/opacity only, and switched off under reduced motion. */
+@property --spin{syntax:'<angle>';inherits:false;initial-value:0deg}
+/* 1. Photo keeps breathing after it settles: a very slow drift. */
+.photo{animation:settle 1600ms var(--ease-out) both,drift 38s ease-in-out 1600ms infinite alternate}
+@keyframes drift{from{transform:scale(1) translate3d(0,0,0)}to{transform:scale(1.07) translate3d(-1.5%,-1%,0)}}
+/* 2. A band of sunset light passes across the scene once, after load. */
+.glint{position:absolute;inset:-20% -40%;z-index:-1;pointer-events:none;
+  background:linear-gradient(105deg,transparent 42%,rgba(252,155,111,.16) 48%,rgba(255,214,170,.22) 50%,rgba(252,155,111,.16) 52%,transparent 58%);
+  transform:translateX(-60%);animation:glint 2600ms var(--ease-io) 700ms both;mix-blend-mode:screen}
+@keyframes glint{from{transform:translateX(-60%);opacity:1}to{transform:translateX(60%);opacity:0}}
+/* 3. Headline accent carries the sunset: cyan into orange, one slow sweep. */
+h1 em{background:linear-gradient(90deg,#6FC8ED 0%,#9FDCF3 30%,#FFC49E 55%,#6FC8ED 80%,#9FDCF3 100%);
+  background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:sheen 3200ms var(--ease-io) 900ms both;text-shadow:none;filter:drop-shadow(0 2px 14px rgba(7,21,32,.55))}
+@keyframes sheen{from{background-position:100% 0}to{background-position:0 0}}
+/* 4. The schematic sits in perspective and floats. */
+.peek{perspective:1400px}
+.pk{transform:rotateX(7deg) rotateY(-9deg);transform-origin:30% 60%;
+  animation:float 7s ease-in-out 1800ms infinite alternate}
+@keyframes float{from{transform:rotateX(7deg) rotateY(-9deg) translateY(0)}to{transform:rotateX(5deg) rotateY(-6deg) translateY(-6px)}}
+/* 5. A scan passes module to module -- the profile being assembled from its sources. */
+.mod{position:relative}
+.mod::after{content:"";position:absolute;inset:-1px;border-radius:inherit;border:1px solid rgba(111,200,237,.75);
+  box-shadow:0 0 0 3px rgba(65,182,230,.12),0 0 24px -6px rgba(65,182,230,.6);opacity:0;
+  animation:scan 8s ease-in-out 2200ms infinite}
+.mod:nth-child(2)::after{animation-delay:4200ms}
+.mod:nth-child(3)::after{animation-delay:6200ms}
+.mod:nth-child(4)::after{animation-delay:8200ms}
+@keyframes scan{0%,100%{opacity:0}6%{opacity:1}20%{opacity:0}}
+/* 6. The card's edge carries a slow orbit of light. */
+.card{isolation:isolate}
+.card::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:conic-gradient(from var(--spin),transparent 0deg,rgba(111,200,237,.9) 40deg,rgba(252,155,111,.8) 80deg,transparent 130deg,transparent 360deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+  animation:orbit 9s linear infinite,fade 900ms ease 900ms both}
+@keyframes orbit{to{--spin:360deg}}
+/* 7. The CTA gets a single light pass once the page has settled. */
+.ms{position:relative;overflow:hidden}
+.ms::after{content:"";position:absolute;top:0;bottom:0;left:-40%;width:35%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-18deg) translateX(0);
+  animation:pass 1100ms var(--ease-io) 1900ms both}
+@keyframes pass{from{transform:skewX(-18deg) translateX(0)}to{transform:skewX(-18deg) translateX(480%)}}
+@media (max-width:940px){.pk{transform:none;animation:none}}
+@media (prefers-reduced-motion:reduce){
+  .photo{animation:settle 400ms ease both}
+  .glint,.ms::after{display:none}
+  .pk{animation:none;transform:none}
+  .mod::after{animation:none}
+  .card::after{animation:fade 400ms ease both}
+  h1 em{animation:none;background-position:0 0}
+}
+
+/* ================= usage-focused schematic + translucency ================= */
+/* Photo covers the whole viewport so the header and footer can be glass too. */
+.photo{position:fixed}
+.shade{position:fixed}
+.glint{position:fixed}
+.top{background:rgba(7,21,32,.42);border-bottom-color:rgba(69,89,106,.45);
+  -webkit-backdrop-filter:blur(18px) saturate(130%);backdrop-filter:blur(18px) saturate(130%)}
+.bottom{background:rgba(7,21,32,.55);border-top-color:rgba(69,89,106,.45);position:relative;z-index:3;
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+/* Glass: lower fill, stronger blur, a hairline highlight on the top edge. */
+.card{background:rgba(14,29,42,.56);border-color:rgba(111,200,237,.22);
+  -webkit-backdrop-filter:blur(28px) saturate(140%);backdrop-filter:blur(28px) saturate(140%);
+  box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 30px 70px -30px rgba(0,0,0,.85)}
+.pk{background:rgba(7,21,32,.26);border-color:rgba(111,200,237,.20);
+  -webkit-backdrop-filter:blur(10px) saturate(140%);backdrop-filter:blur(10px) saturate(140%);
+  box-shadow:0 1px 0 rgba(255,255,255,.07) inset,0 24px 60px -30px rgba(0,0,0,.8)}
+.mod{background:rgba(14,29,42,.42);border-color:rgba(111,200,237,.16);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.who{background:rgba(18,50,67,.6)}
+.sk{background:rgba(154,167,178,.22)}
+.sk.hi{background:rgba(195,205,214,.34)}
+.ml{color:#B4C1CC}
+
+/* your AI tools: two seats + this month's KPI tiles */
+.seats{display:flex;flex-direction:column;gap:6px}
+.seat{display:inline-flex;align-items:center;gap:7px;height:22px;padding:0 9px 0 7px;border-radius:999px;
+  font-size:11.5px;font-weight:700;color:var(--ink-2);background:rgba(20,37,51,.55);border:1px solid rgba(111,200,237,.18)}
+.seat .sk{width:42px;height:5px}
+.seat i{width:7px;height:7px;border-radius:50%;background:#3A5061;animation:lit 260ms ease both}
+.seat:nth-child(1) i{animation-delay:950ms}.seat:nth-child(2) i{animation-delay:1050ms}
+.kpis{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;min-width:0}
+.kpi{display:flex;flex-direction:column;gap:6px;padding:8px 9px;border-radius:9px;background:rgba(20,37,51,.45);
+  border:1px solid rgba(111,200,237,.12);animation:rise 420ms var(--ease-out) both}
+.kpi:nth-child(1){animation-delay:900ms}.kpi:nth-child(2){animation-delay:960ms}.kpi:nth-child(3){animation-delay:1020ms}
+.kpi .sk:nth-child(1){width:70%;height:9px}.kpi .sk:nth-child(2){width:45%;height:5px}
+
+/* spend vs limit */
+.cap{display:flex;flex-direction:column;gap:6px}
+.cap .sk:nth-child(1){width:46%;height:10px}.cap .sk:nth-child(2){width:62%;height:5px}
+.meter{background:rgba(20,37,51,.7)}
+.cap-ax{display:flex;justify-content:space-between;margin-top:8px}
+.cap-ax .sk{width:18%;height:5px}
+
+/* product mix: one stacked bar, segments grow in turn */
+.mix{display:flex;gap:3px;height:12px}
+.mix b{display:block;height:100%;border-radius:3px;transform-origin:left center;animation:fill 700ms var(--ease-io) both}
+.mix b:nth-child(1){flex:46;background:#41B6E6;animation-delay:1100ms}
+.mix b:nth-child(2){flex:27;background:#46D3D5;animation-delay:1200ms}
+.mix b:nth-child(3){flex:17;background:#B9A9FD;animation-delay:1300ms}
+.mix b:nth-child(4){flex:10;background:#FC9B6F;animation-delay:1400ms}
+.legend{display:flex;gap:16px;margin-top:10px;animation:fade 500ms ease 1500ms both}
+.legend>span{display:flex;align-items:center;gap:6px;flex:1}
+.legend i{width:7px;height:7px;border-radius:2px;flex:0 0 auto}
+.legend>span:nth-child(1) i{background:#41B6E6}.legend>span:nth-child(2) i{background:#46D3D5}
+.legend>span:nth-child(3) i{background:#B9A9FD}.legend>span:nth-child(4) i{background:#FC9B6F}
+.legend .sk{flex:1;height:5px}
+
+@media (max-width:940px){.photo{background-size:cover;background-position:30% 40%}}
+@media (max-width:520px){.kpis{display:none}}
+@media (prefers-reduced-motion:reduce){.mix b{animation:none}.kpi{animation:fade 300ms ease both}}
+/* [SEE-THROUGH 2026-09-24] lighter glass on the sign-in card so the HQ building
+   behind it stays visible: less fill, much less blur. */
+.card{background:rgba(14,29,42,.34);-webkit-backdrop-filter:blur(3px) saturate(135%);backdrop-filter:blur(3px) saturate(135%)}
+/* [SEE-THROUGH 2026-09-24] the left-hand preview gets the card's glass: same 3px blur,
+   so the building reads through it the way it does through the card. */
+.pk{-webkit-backdrop-filter:blur(3px) saturate(135%);backdrop-filter:blur(3px) saturate(135%)}
+.mod{-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 28 28" aria-hidden="true">
+      <circle cx="14" cy="14" r="13" fill="#123243" stroke="#41B6E6" stroke-width="1.5"/>
+      <circle cx="14" cy="11.2" r="4.2" fill="#41B6E6"/>
+      <path d="M6.6 22.2a8.2 8.2 0 0 1 14.8 0" fill="#41B6E6"/>
+    </svg>
+    <b>My Profile</b><span>CorpIT</span>
+  </div>
+  <div class="status" id="svc-status" data-state="checking">
+    <span class="dot-ok" aria-hidden="true"></span>
+    <span class="mono" id="svc-status-text" role="status" aria-live="polite">Checking services</span>
+  </div>
+</header>
+
+<main class="split">
+  <div class="photo" aria-hidden="true"></div>
+  <div class="shade" aria-hidden="true"></div>
+  <div class="glint" aria-hidden="true"></div>
+
+  <section class="left">
+    <h1>Your AI usage, <em>at&nbsp;a&nbsp;glance.</em></h1>
+    <p class="lede">This month&rsquo;s AI spend against your limit, 90 days of daily spend,
+      the models and products you used, and what you did with them &mdash; alongside the AI tools
+      you hold a seat for. Managers also see their team.</p>
+
+    <figure class="peek" role="img" aria-label="Outline of the My Profile usage view: AI tools, spend against the limit, daily spend and product mix">
+      <div class="pk" aria-hidden="true">
+        <div class="mod wide">
+          <p class="ml"><span>YOUR AI TOOLS</span><span>THIS MONTH</span></p>
+          <div class="id">
+            <svg class="av" viewBox="0 0 44 44">
+              <circle class="face" cx="22" cy="22" r="19"/>
+              <circle class="head" cx="22" cy="18" r="6.5"/>
+              <path class="body" d="M10.5 34a12 12 0 0 1 23 0z"/>
+              <circle class="ring" cx="22" cy="22" r="21" transform="rotate(-90 22 22)"/>
+            </svg>
+            <div class="seats"><span class="seat"><i></i><span class="sk"></span></span><span class="seat"><i></i><span class="sk"></span></span></div>
+            <div class="kpis"><span class="kpi"><span class="sk hi"></span><span class="sk"></span></span><span class="kpi"><span class="sk hi"></span><span class="sk"></span></span><span class="kpi"><span class="sk hi"></span><span class="sk"></span></span></div>
+          </div>
+        </div>
+
+        <div class="mod">
+          <p class="ml"><span>SPEND VS LIMIT</span></p>
+          <div class="cap"><span class="sk hi"></span><span class="sk"></span></div>
+          <div class="meter"><b></b><u></u></div>
+          <div class="cap-ax"><span class="sk"></span><span class="sk"></span></div>
+        </div>
+
+        <div class="mod">
+          <p class="ml"><span>DAILY SPEND</span><span>90 DAYS</span></p>
+          <svg class="spark" viewBox="0 0 220 44" preserveAspectRatio="none">
+            <defs><linearGradient id="sparkfill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#41B6E6" stop-opacity=".32"/>
+              <stop offset="1" stop-color="#41B6E6" stop-opacity="0"/></linearGradient></defs>
+            <path class="area" d="M2 38 L26 33 L50 35 L74 24 L98 28 L122 18 L146 22 L170 12 L194 15 L218 6 L218 44 L2 44 Z"/>
+            <path class="line" d="M2 38 L26 33 L50 35 L74 24 L98 28 L122 18 L146 22 L170 12 L194 15 L218 6"/>
+            <circle class="now" r="3.6"/>
+          </svg>
+        </div>
+
+        <div class="mod wide">
+          <p class="ml"><span>PRODUCT MIX &amp; MODELS</span></p>
+          <div class="mix"><b></b><b></b><b></b><b></b></div>
+          <div class="legend"><span><i></i><span class="sk"></span></span><span><i></i><span class="sk"></span></span><span><i></i><span class="sk"></span></span><span><i></i><span class="sk"></span></span></div>
+        </div>
+      </div>
+    </figure>
+
+    <div class="rail mono">
+      <span>AI spend</span><span>Monthly limit</span><span>Models</span><span>Product mix</span><span>Team</span>
+    </div>
+  </section>
+
+  <section class="right">
+    <div class="card">
+      <div id="status-msg" class="flash" style="display:none" role="status" aria-live="polite"></div>
+
+      <div class="who" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6FC8ED" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8.5" r="3.8"/><path d="M4.8 20a7.4 7.4 0 0 1 14.4 0"/></svg>
+      </div>
+
+      <p class="eyebrow">YOUR WORKSPACE</p>
+      <h2>Welcome back</h2>
+
+      <div id="login-form">
+        <p class="sub">Sign in with your work account to see your AI usage and spend.</p>
+
+        <a class="ms" id="btn-sso" href="/api/auth/login">
+          <span class="msq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="lbl">Continue with Microsoft</span>
+          <span class="arw" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+          </span>
+        </a>
+
+        <ul class="inside" aria-label="What you will find inside">
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16"/><path d="M4 18V8"/><path d="M8 18v-5M12 18V9M16 18v-7"/></svg>Spend vs. your limit</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-9"/><path d="M15 7h5v5"/></svg>Daily spend, 90 days</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/></svg>Models &amp; product mix</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.8"/><path d="M16 14.2a5.5 5.5 0 0 1 5.5 5.8"/></svg>Team usage (managers)</li>
+        </ul>
+      </div>
+
+      <div id="redirect-msg" style="display:none">
+        <div class="redirect"><span class="spin" aria-hidden="true"></span><span>Signing you in&hellip;</span></div>
+      </div>
+
+      <div class="hr"></div>
+      <div class="foot-note">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3l7 3v5.5c0 4.3-2.9 8.2-7 9.5-4.1-1.3-7-5.2-7-9.5V6z"/><path d="M9.2 12.2l1.9 1.9 3.7-3.9"/></svg>
+        <span>Protected by Microsoft Entra ID</span>
+      </div>
+
+      <details class="help-d">
+        <summary class="help">Need help signing in?</summary>
+        <p class="help-body">If &ldquo;Continue with Microsoft&rdquo; brings you back here, your
+          account may not have access to My Profile yet &mdash; ask the IT service desk to add you.</p>
+      </details>
+
+      <details class="bg-toggle" id="local-details" hidden>
+        <summary aria-label="Local administrator sign-in" title="Local administrator sign-in"><span class="pl" aria-hidden="true">+</span></summary>
+        <form class="pwform" id="local-section" novalidate>
+          <div><label for="login-pass">Password</label>
+            <input id="login-pass" type="password" autocomplete="current-password"></div>
+          <div><label for="login-otp">Authenticator code</label>
+            <input id="login-otp" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"></div>
+          <p class="ferr" id="local-error" style="display:none" role="alert"></p>
+          <button class="btn-local" type="submit" id="btn-local">Sign in</button>
+        </form>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="bottom mono">
+  <span>CorpIT &middot; My Profile<span id="app-version" class="ver"></span></span>
+  <span>Authorized use only</span>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Cert Watchtower — PRTG Value Lookup for "Cert Status" channel
+  File: cert-status-lookup.ovl
+
+  How to install on the PRTG core:
+    1. Copy this file to:
+         C:\Program Files (x86)\PRTG Network Monitor\lookups\custom\
+    2. In the PRTG web UI:
+         Setup > System Administration > Administrative Tools
+         Click "Load Lookups and File Lists"
+    3. On any HTTP Push Data Advanced sensor that receives a "Cert Status"
+       channel, edit the channel:
+         - Channel Settings > Value Type > "Lookup"
+         - Lookup file > "oid.cert-watchtower.cert-status"
+         - Save
+    4. The channel will now display "Critical", "Warning", etc. instead of
+       raw integers, and PRTG will color-code the sensor accordingly.
+
+  Status values pushed by cert-watchtower-cron.js:
+    0 = ok
+    1 = info
+    2 = warning
+    3 = critical
+    4 = expired
+    5 = unreachable
+    6 = error / unknown
+-->
+<ValueLookup id="oid.cert-watchtower.cert-status"
+             desiredValue="0"
+             undefinedState="Warning"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:noNamespaceSchemaLocation="https://www.paessler.com/files/schema/lookups/1.1.1/SingleInt.xsd">
+  <Lookups>
+    <SingleInt state="Ok"      value="0">OK</SingleInt>
+    <SingleInt state="Warning" value="1">Info</SingleInt>
+    <SingleInt state="Warning" value="2">Warning</SingleInt>
+    <SingleInt state="Error"   value="3">Critical</SingleInt>
+    <SingleInt state="Error"   value="4">Expired</SingleInt>
+    <SingleInt state="Error"   value="5">Unreachable</SingleInt>
+    <SingleInt state="Warning" value="6">Error / Unknown</SingleInt>
+  </Lookups>
+</ValueLookup>

@@ -1,0 +1,2675 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/it-theme.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Operations Hub</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<script src="/rbac-client.js?v=20260904"></script>
+<!-- it-observe.js wraps window.fetch, so it must load BEFORE any page code
+     that issues a request, and after rbac-client.js so it wraps the wrapper
+     that attaches the bearer. -->
+<script src="/it-observe.js" data-app-key="landing"></script>
+<script src="/it-profile.js" defer></script>
+<style>
+/* ══ tokens ══════════════════════════════════════════════════════════ */
+:root{
+  --ease-out: cubic-bezier(0.23,1,0.32,1);
+  --ease-in-out: cubic-bezier(0.77,0,0.175,1);
+
+  --navy-1:#0D294C; --navy-2:#103463; --navy-ink:#182F54;
+  --page:#F6F9FC;
+  --surface:#FEFEFE;
+  --line:#EDF1F6; --line-2:#E3EBF2;
+  --ink:#0F172A; --muted:#64748B; --dim:#94A3B8;
+
+  /* it-theme.js writes --blue/--blue-h/--blue-t as INLINE styles on :root,
+     which outrank any stylesheet rule. The approved design pins this blue,
+     so the page carries its own token the theme engine cannot reach. */
+  --hub-blue:#1C77FA; --blue-dk:#1668E0; --blue-tint:#E4F2FD;
+  --green:#0F9D58; --green-tint:#E6F8F2;
+  --purple:#7C4DFF; --purple-tint:#F1EDFE;
+  --rose:#E11D48; --rose-tint:#FDECF0;
+  --amber:#D48806; --amber-tint:#FDF3E2;
+  --orange:#EA580C; --orange-tint:#FDEDE2;
+  /* teal, red and slate complete the console's tone list (landing.py TONES).
+     The ink is the console's own hex so the swatch an admin picks is the colour
+     they get here; the tints are mixed to this file's existing lightness. */
+  --teal:#0D9488; --teal-tint:#E1F5F2;
+  --red:#DC2626; --red-tint:#FDEAEA;
+  --slate:#475569; --slate-tint:#EDF0F4;
+
+  --bar-red:#F0426A; --bar-amber:#FABA0E; --bar-orange:#FD660D;
+
+  --shadow-strip: 0 12px 28px -14px rgba(15,42,80,.34), 0 1px 0 rgba(255,255,255,.85) inset;
+  --shadow-panel: 0 1px 2px rgba(15,42,80,.05), 0 8px 22px -16px rgba(15,42,80,.30);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* A class that sets `display` outranks the UA's [hidden] rule, so an
+   element toggled with el.hidden would stay on screen. Make the attribute
+   win everywhere rather than remembering it per component. */
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{
+  min-height:100%;
+  font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  background:var(--page);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input{font:inherit;color:inherit}
+svg{display:block}
+/* stacked spans inside block wrappers: without this their margin-top is inert */
+.stat-n,.stat-l,.pq-t,.pq-s,.pq-b,.sd-t,.recent-t,.recent-s,.cmd-t,.cmd-s,.env-n,.tile-t,.tile-s{display:block}
+:focus-visible{outline:2px solid var(--hub-blue);outline-offset:2px;border-radius:6px}
+.hdr :focus-visible{outline-color:#8FC0FF}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+
+.wrap{width:min(1462px, 100% - 48px);margin-inline:auto}
+
+/* ══ header ══════════════════════════════════════════════════════════ */
+.hdr{
+  position:relative;z-index:40;height:57px;
+  display:flex;align-items:center;gap:10px;
+  padding:0 34px 0 40px;
+  background:linear-gradient(96deg,var(--navy-1) 0%,var(--navy-2) 100%);
+  color:#fff;
+}
+.brand{display:flex;align-items:center;gap:16px;flex:0 0 auto;padding-right:10px;border-radius:10px}
+.brand-sq{
+  width:33px;height:33px;border-radius:8px;background:var(--hub-blue);
+  display:grid;place-items:center;color:#fff;flex:0 0 auto;
+  box-shadow:0 2px 8px -2px rgba(28,119,250,.55);
+}
+.brand-sq svg{width:19px;height:19px}
+.brand-tx{display:flex;flex-direction:column;gap:2px;line-height:1}
+.brand-tx b{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.brand-tx i{
+  font-style:normal;font-size:9.5px;font-weight:600;letter-spacing:.17em;
+  color:rgba(255,255,255,.52);
+}
+
+.nav{display:flex;align-items:center;gap:31px;margin-inline:auto;height:100%}
+.nav-i{
+  position:relative;display:inline-flex;align-items:center;height:100%;
+  padding:0 13px;font-size:14px;font-weight:500;color:rgba(255,255,255,.74);
+  transition:color 160ms var(--ease-out);
+}
+.nav-i::after{
+  content:'';position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px 3px 0 0;
+  background:#2479EF;transform:scaleX(0);transform-origin:50% 100%;
+  transition:transform 200ms var(--ease-out);
+}
+.nav-i.is-active{color:#fff;font-weight:600}
+.nav-i.is-active::after{transform:scaleX(1)}
+@media (hover:hover) and (pointer:fine){ .nav-i:hover{color:#fff} }
+
+.hdr-r{display:flex;align-items:center;gap:24px;flex:0 0 auto}
+.hdr-btn{
+  width:34px;height:34px;display:grid;place-items:center;border-radius:9px;
+  color:rgba(255,255,255,.88);
+  transition:background-color 160ms var(--ease-out),color 160ms var(--ease-out);
+}
+.hdr-btn svg{width:24px;height:24px}
+@media (hover:hover) and (pointer:fine){ .hdr-btn:hover{background:rgba(255,255,255,.12);color:#fff} }
+.hdr-btn:active{transform:scale(.94)}
+
+.statpill{
+  display:inline-flex;align-items:center;gap:10px;height:34px;padding:0 15px;
+  border-radius:999px;border:1px solid rgba(52,211,153,.45);
+  background:rgba(16,185,129,.14);
+  font-size:13.5px;font-weight:500;color:#DFF6EC;white-space:nowrap;
+  transition:border-color 160ms var(--ease-out),background-color 160ms var(--ease-out);
+}
+.statpill .sp-dot{width:11px;height:11px;border-radius:50%;background:#34D399;flex:0 0 auto}
+.statpill.is-warn{border-color:rgba(250,186,14,.45);background:rgba(250,186,14,.14);color:#FDF0CE}
+.statpill.is-warn .sp-dot{background:#FABA0E}
+.statpill.is-bad{border-color:rgba(240,66,106,.45);background:rgba(240,66,106,.15);color:#FFDCE4}
+.statpill.is-bad .sp-dot{background:#F0426A}
+.statpill.is-unk{border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.09);color:rgba(255,255,255,.78)}
+.statpill.is-unk .sp-dot{background:rgba(255,255,255,.55)}
+@media (hover:hover) and (pointer:fine){ .statpill:hover{background:rgba(16,185,129,.22)} }
+
+/* it-topbar.js owns the avatar; these overrides sit it into the navy bar. */
+.hdr-av{display:flex;align-items:center}
+.hdr .ittb{gap:0;margin:0}
+.hdr .ittb .ittb-av{
+  width:36px;height:36px;background:#548AE4;color:#fff;
+  border-color:rgba(255,255,255,.22);font-weight:600;font-size:13px;
+}
+.hdr .ittb .ittb-av:hover,.hdr .ittb .ittb-av[aria-expanded="true"]{border-color:#fff}
+
+/* ══ hero ════════════════════════════════════════════════════════════ */
+.hero{
+  position:relative;height:278px;overflow:hidden;
+  background-color:var(--navy-1);
+  background-image:url('/city-hero-6x1-b.jpg');
+  background-repeat:no-repeat;
+  /* framed against the comp by landmark: tower tops just under the header,
+     the footbridge low-right, water mostly behind the statistics strip. */
+  background-size:170% auto;
+  background-position:59% 2%;
+}
+.hero::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,
+    rgba(22,55,96,.95) 0%,  rgba(22,55,96,.90) 16%, rgba(22,55,96,.83) 25%,
+    rgba(22,55,96,.63) 32%, rgba(22,55,96,.45) 36%,  rgba(22,55,96,.30) 41%,
+    rgba(22,55,96,.10) 45%, rgba(22,55,96,0) 52%);
+}
+.hero-in{position:relative;z-index:1;height:100%;padding-top:24px;color:#fff}
+.hero-meta{
+  /* The comp parks this in the hero's top-right corner, aligned to the header's
+     right padding. It sits under the greeting instead (Jeramy, 2026-09-09) —
+     which is where the ITAM helpdesk landing had it, and the right shape for a
+     row that now carries two offices rather than one corner one-liner. The hero
+     was grown by this row's height so nothing above or below it moved. */
+  display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;
+  margin-top:9px;min-height:17px;
+  font-size:13.5px;font-weight:500;color:rgba(255,255,255,.92);
+  text-shadow:0 1px 3px rgba(10,25,50,.55);
+}
+.hero-meta svg{width:15px;height:15px;flex:0 0 auto}
+.wx-site{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+/* Two temperatures side by side jitter as they change width; pin the digits. */
+.wx-site .wx-t{font-variant-numeric:tabular-nums}
+.wx-sep{opacity:.38}
+.hero-h1{
+  margin-top:20px;font-size:42px;line-height:1.06;font-weight:700;letter-spacing:-.022em;
+  text-shadow:0 2px 10px rgba(10,25,50,.32);
+}
+.hero-sub{
+  margin-top:1px;font-size:30px;line-height:1.2;font-weight:400;color:rgba(255,255,255,.88);
+  text-shadow:0 1px 6px rgba(10,25,50,.3);
+}
+.hero-search{
+  display:flex;align-items:center;gap:12px;
+  width:650px;max-width:100%;height:44px;margin-top:15px;padding:0 10px 0 22px;
+  border-radius:11px;background:#fff;text-align:left;
+  transition:box-shadow 180ms var(--ease-out),transform 140ms var(--ease-out);
+}
+.hero-search svg{width:18px;height:18px;color:#94A3B8;flex:0 0 auto}
+.hs-ph{flex:1;font-size:15.5px;color:#94A3B8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hs-kbd{display:flex;gap:5px;flex:0 0 auto}
+.hs-kbd kbd{
+  display:grid;place-items:center;min-width:24px;height:24px;padding:0 5px;
+  border-radius:6px;background:#F1F5F9;border:1px solid #E2E8F0;
+  font:500 12px/1 'IBM Plex Sans',sans-serif;color:#64748B;
+}
+@media (hover:hover) and (pointer:fine){
+  .hero-search:hover{box-shadow:0 6px 20px -8px rgba(10,25,50,.4)}
+}
+.hero-search:active{transform:scale(.995)}
+
+/* ══ stats strip ═════════════════════════════════════════════════════ */
+.stats{
+  position:relative;z-index:5;margin-top:-41px;
+  display:grid;grid-template-columns:repeat(4,1fr);
+  height:82px;border-radius:14px;
+  background:linear-gradient(180deg,#EAF0F5 0%,#F5F8FC 100%);
+  box-shadow:var(--shadow-strip);
+}
+.stat{
+  display:flex;align-items:center;justify-content:flex-start;gap:30px;
+  padding:0 16px 0 42px;border-radius:14px;
+  transition:background-color 180ms var(--ease-out),transform 140ms var(--ease-out);
+}
+.stat:first-child{padding-left:22px}
+.stat+.stat{box-shadow:inset 1px 0 0 var(--line-2)}
+@media (hover:hover) and (pointer:fine){ .stat:hover{background:rgba(255,255,255,.6)} }
+.stat:active{transform:scale(.99)}
+.stat-ic{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;flex:0 0 auto}
+.stat-ic svg{width:22px;height:22px}
+.stat-tx{min-width:0}
+.stat-n{font-size:30px;font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums}
+.stat-l{margin-top:6px;font-size:14.5px;color:var(--muted);white-space:nowrap}
+.t-blue{background:var(--blue-tint);color:var(--hub-blue)}
+.t-green{background:var(--green-tint);color:var(--green)}
+.t-purple{background:var(--purple-tint);color:var(--purple)}
+.t-rose{background:var(--rose-tint);color:var(--rose)}
+.t-amber{background:var(--amber-tint);color:var(--amber)}
+.t-orange{background:var(--orange-tint);color:var(--orange)}
+.t-teal{background:var(--teal-tint);color:var(--teal)}
+.t-red{background:var(--red-tint);color:var(--red)}
+.t-slate{background:var(--slate-tint);color:var(--slate)}
+
+/* ══ workday ═════════════════════════════════════════════════════════ */
+.workday{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:24px;
+  margin-top:27px;
+}
+.workday h2{font-size:22px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.workday p{margin-top:7px;font-size:14px;color:var(--muted)}
+.wd-actions{display:flex;gap:12px;flex:0 0 auto;flex-wrap:wrap;justify-content:flex-end}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  height:42px;padding:0 13px;border-radius:10px;
+  background:#fff;border:1px solid #DDE5EE;color:var(--ink);
+  font-size:14.5px;font-weight:600;white-space:nowrap;
+  box-shadow:0 1px 2px rgba(15,42,80,.05);
+  transition:border-color 160ms var(--ease-out),background-color 160ms var(--ease-out),
+             box-shadow 160ms var(--ease-out),transform 120ms var(--ease-out);
+}
+.btn svg{width:17px;height:17px;color:var(--hub-blue)}
+@media (hover:hover) and (pointer:fine){
+  .btn:hover{border-color:#B9CEE6;box-shadow:0 3px 10px -4px rgba(15,42,80,.22)}
+}
+.btn:active{transform:scale(.97)}
+.btn[disabled]{opacity:.55;cursor:not-allowed;transform:none}
+.btn-pri{background:var(--hub-blue);border-color:var(--hub-blue);color:#fff;box-shadow:0 2px 8px -2px rgba(28,119,250,.5)}
+.btn-pri svg{color:#fff}
+@media (hover:hover) and (pointer:fine){
+  .btn-pri:hover{background:var(--blue-dk);border-color:var(--blue-dk);box-shadow:0 4px 14px -4px rgba(28,119,250,.6)}
+}
+
+/* ══ panels ══════════════════════════════════════════════════════════ */
+.panel{
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow-panel);
+}
+.p-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.p-head h3{font-size:19px;font-weight:700;letter-spacing:-.018em;line-height:1.2}
+.p-sub{font-size:13.5px;line-height:1.35;color:var(--muted)}
+.p-link{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:14px;font-weight:600;color:var(--hub-blue);white-space:nowrap;border-radius:6px;
+  transition:color 150ms var(--ease-out);
+}
+.p-link svg{width:15px;height:15px;transition:transform 200ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){
+  .p-link:hover{color:var(--blue-dk)}
+  .p-link:hover svg{transform:translateX(3px)}
+}
+.badge{
+  display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 11px;border-radius:999px;
+  background:var(--rose-tint);color:#D01A42;font-size:13px;font-weight:600;white-space:nowrap;
+}
+.badge.is-calm{background:#E7F6EE;color:#0B7A46}
+.badge.is-unk{background:#EEF2F7;color:#64748B}
+
+.cols{display:grid;grid-template-columns:802fr 644fr;gap:18px;margin-top:15px;align-items:stretch}
+.col-l{display:flex;flex-direction:column;gap:16px;min-width:0}
+.col-r{display:flex;min-width:0}
+
+/* ── priority queue ── */
+.pq{flex:1;display:flex;flex-direction:column;min-height:330px}
+.pq .p-head{padding:17px 20px 0;align-items:center}
+.pq-title{display:flex;align-items:center;gap:14px;min-width:0}
+.pq-list{flex:1;display:flex;flex-direction:column;gap:16px;padding:13px 13px 14px}
+.pq-row{
+  position:relative;flex:1;display:flex;align-items:center;gap:16px;
+  min-height:76px;padding:12px 18px 12px 22px;
+  border:1px solid #EEF2F7;border-radius:11px;
+  background:linear-gradient(180deg,#FFFFFF 0%,#F7F9FC 100%);
+  overflow:hidden;
+  transition:border-color 170ms var(--ease-out),box-shadow 170ms var(--ease-out),transform 130ms var(--ease-out);
+}
+.pq-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--bar,#CBD5E1)}
+@media (hover:hover) and (pointer:fine){
+  .pq-row:hover{border-color:#D8E4F2;box-shadow:0 6px 18px -10px rgba(15,42,80,.28)}
+}
+.pq-ic{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:0 0 auto}
+.pq-ic svg{width:21px;height:21px}
+.pq-tx{flex:1;min-width:0}
+.pq-t{font-size:15.5px;font-weight:700;letter-spacing:-.012em;line-height:1.25}
+.pq-s{margin-top:3px;font-size:14px;color:var(--muted)}
+.pq-b{margin-top:2px;font-size:13.5px;color:#7A8AA0}
+.pq-row .p-link{flex:0 0 auto;font-size:14.5px}
+
+/* ── service desk ── */
+.sd{display:flex;align-items:center;gap:16px;padding:13px 20px 13px 15px;min-height:72px}
+.sd{position:relative}
+/* the whole card opens the queue; the two counts stay separately linkable on top of it */
+.sd-go::after{content:'';position:absolute;inset:0;border-radius:inherit}
+.sd-m a{position:relative;z-index:1;padding:1px 4px;margin:-1px -4px;border-radius:6px;
+  transition:background-color 140ms var(--ease-out),color 140ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){ .sd-m a:hover{background:#EDF3FA;color:var(--blue-dk)} }
+.sd-ic{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:0 0 auto}
+.sd-ic svg{width:21px;height:21px}
+.sd-tx{flex:1;min-width:0}
+.sd-t{font-size:15.5px;font-weight:700;letter-spacing:-.012em;line-height:1.2}
+.sd-m{margin-top:3px;display:flex;align-items:center;gap:14px;font-size:14px;color:var(--muted);flex-wrap:wrap}
+.sd-m b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.sd-sep{width:1px;height:14px;background:#DDE5EE}
+
+/* ── quick launch ── */
+.ql{flex:1;display:flex;flex-direction:column;min-width:0}
+.ql .p-head{padding:17px 18px 0}
+.ql-grid{
+  flex:1;display:grid;grid-template-columns:repeat(2,1fr);grid-auto-rows:1fr;
+  gap:11px;padding:4px 11px 20px 10px;
+}
+.tile{
+  position:relative;display:flex;flex-direction:column;
+  min-height:159px;padding:15px 18px 16px;border-radius:10px;overflow:hidden;
+  background:#EEF4FB no-repeat center/100% 100%;
+  transition:box-shadow 200ms var(--ease-out),transform 140ms var(--ease-out);
+}
+@media (hover:hover) and (pointer:fine){
+  .tile:hover{box-shadow:0 10px 26px -12px rgba(15,42,80,.4)}
+  .tile:hover .tile-go svg{transform:translateX(3px)}
+}
+.tile:active{transform:scale(.988)}
+.tile-ic{
+  width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+}
+.tile-ic svg{width:19px;height:19px}
+/* sampled from the comp's tiles; the square sits on the illustration, so the
+   tint is a shade deeper than the flat --*-tint used in the statistics strip */
+.tile-ic.t-blue{background:#D7E8FD;color:#0F5FF5}
+.tile-ic.t-green{background:#E2F7F1;color:#077F4C}
+.tile-ic.t-purple{background:#E7E4FE;color:#663DD0}
+.tile-t{margin-top:16px;font-size:16px;font-weight:700;letter-spacing:-.015em;color:#12233F}
+.tile-s{margin-top:4px;font-size:13.5px;color:#5B6B82;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tile-go{
+  margin-top:auto;padding-top:12px;display:inline-flex;align-items:center;gap:7px;
+  font-size:13.5px;font-weight:600;color:var(--hub-blue);
+}
+.tile-go svg{width:14px;height:14px;transition:transform 200ms var(--ease-out)}
+.tile-ext{position:absolute;top:15px;right:16px;font-size:11px;color:#7A8AA0}
+/* A tool a super admin flags for Quick launch that has no extracted
+   illustration renders as a tinted card. It is deliberately not given
+   someone else's artwork. It does keep its own console icon, which may be a
+   full-colour brand logo rather than a stroke glyph - so size it by its box
+   instead of forcing 19x19 onto a viewBox that is not square. */
+.tile-ic .ic{display:grid;place-items:center;width:19px;height:19px}
+.tile-ic .ic svg,.tile-ic .ic img{width:auto;height:auto;max-width:19px;max-height:19px}
+.tile.plain{background-image:none}
+.tile.plain.t-blue{background-color:#E9F1FC}
+.tile.plain.t-green{background-color:#E6F5EE}
+.tile.plain.t-purple{background-color:#F0ECFC}
+.tile.plain.t-rose{background-color:#FCEAEF}
+.tile.plain.t-amber{background-color:#FBF1DF}
+.tile.plain.t-orange{background-color:#FBEBDF}
+.tile.plain.t-teal{background-color:#E4F3F0}
+.tile.plain.t-red{background-color:#FBE9E9}
+.tile.plain.t-slate{background-color:#EEF1F5}
+.tile.plain .tile-ic{background:rgba(255,255,255,.9)}
+
+/* ── quick launch: the super-admin edit affordance ── */
+/* WHICH tools sit here is the console's call - landing.py owns the rows and
+   publishes landing.json - so this is deliberately not a second editor. It is
+   the shortest path to the real one: a button only a verified super admin sees,
+   and one deep link per tile into the console's own link inspector, which
+   re-checks its session and the `landing.manage` permission on arrival. */
+.ql-acts{display:flex;align-items:center;gap:13px;flex:0 0 auto}
+.ql-edit{
+  display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;
+  border:1px solid var(--line-2);border-radius:8px;background:#fff;
+  font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;
+  transition:background-color 140ms var(--ease-out),color 140ms var(--ease-out),
+             border-color 140ms var(--ease-out),transform 140ms var(--ease-out);
+}
+.ql-edit svg{width:14px;height:14px}
+@media (hover:hover) and (pointer:fine){
+  .ql-edit:hover{background:#F4F8FD;color:var(--ink);border-color:#D8E3F0}
+}
+.ql-edit:active{transform:scale(.97)}
+.ql-edit[aria-expanded="true"]{background:var(--blue-tint);border-color:#BFDCFA;color:var(--blue-dk)}
+
+/* The pencil is a SIBLING of the tile, never a child: an anchor inside an
+   anchor is invalid and unreachable by keyboard. */
+.qcell{position:relative;display:flex;min-width:0}
+.qcell > .tile{flex:1;min-width:0}
+.tile-edit{
+  position:absolute;top:10px;right:10px;z-index:2;
+  display:none;align-items:center;justify-content:center;width:30px;height:30px;
+  border-radius:9px;background:rgba(255,255,255,.94);color:#33507A;
+  box-shadow:0 2px 8px -2px rgba(15,42,80,.35);
+  transition:background-color 140ms var(--ease-out),color 140ms var(--ease-out),
+             transform 140ms var(--ease-out);
+}
+.tile-edit svg{width:15px;height:15px}
+/* display:none, not opacity - a faded control is still Tab-focusable. */
+.ql.editing .tile-edit{display:inline-flex}
+.ql.editing .tile-ext{right:48px}
+@media (hover:hover) and (pointer:fine){
+  .tile-edit:hover{background:#fff;color:var(--hub-blue)}
+}
+.tile-edit:active{transform:scale(.94)}
+
+/* Edit mode adds a row, so the grid gives its bottom padding back: the panel
+   grows by ~12px instead of ~34px and the row below it barely moves. */
+.ql.editing .ql-grid{padding-bottom:4px}
+.ql-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  flex-wrap:wrap;padding:0 18px 14px}
+.ql-note{font-size:12.5px;line-height:1.45;color:var(--muted);min-width:0}
+.ql-note b{color:var(--ink);font-weight:600}
+.ql-foot-a{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.ql-manage{display:inline-flex;align-items:center;gap:7px;
+  font-size:13.5px;font-weight:600;color:var(--hub-blue)}
+.ql-manage svg{width:15px;height:15px}
+@media (hover:hover) and (pointer:fine){ .ql-manage:hover{color:var(--blue-dk)} }
+.ql-done{height:28px;padding:0 13px;border:1px solid var(--line-2);border-radius:8px;
+  background:#fff;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;
+  transition:background-color 140ms var(--ease-out),color 140ms var(--ease-out),
+             transform 140ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){ .ql-done:hover{background:#F4F8FD;color:var(--ink)} }
+.ql-done:active{transform:scale(.97)}
+
+/* ══ bottom row ══════════════════════════════════════════════════════ */
+.bottom{display:grid;grid-template-columns:1116fr 329fr;gap:18px;margin-top:19px;margin-bottom:35px;align-items:stretch}
+.env{display:flex;align-items:center;gap:0;padding:0 20px 0 15px;min-height:79px;min-width:0}
+.env-head{display:flex;align-items:center;gap:14px;padding-right:24px;flex:0 0 auto}
+.env-ic{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:0 0 auto}
+.env-ic svg{width:21px;height:21px}
+.env-t{font-size:16px;font-weight:700;letter-spacing:-.015em}
+.env-s{margin-top:2px;font-size:13.5px;color:var(--muted)}
+.env-list{flex:1;display:grid;grid-template-columns:repeat(5,1fr);min-width:0}
+.env-i{
+  display:block;padding:0 18px;border-left:1px solid var(--line);border-radius:8px;
+  transition:background-color 160ms var(--ease-out);
+}
+@media (hover:hover) and (pointer:fine){ .env-i:hover{background:#F5F9FD} }
+.env-n{font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.env-v{margin-top:5px;display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.env-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:#CBD5E1}
+.s-ok .env-dot{background:#0F9D58} .s-ok .env-v{color:#0F9D58}
+.s-warn .env-dot{background:#E0A106} .s-warn .env-v{color:#B47905}
+.s-bad .env-dot{background:#F04A0C} .s-bad .env-v{color:#DC4408}
+.s-unk .env-dot{background:#9AA9BC} .s-unk .env-v{color:#7A8AA0}
+.env-all{padding-left:22px;flex:0 0 auto}
+
+.recent{display:flex;align-items:center;gap:15px;padding:0 16px 0 15px;min-height:79px;min-width:0;
+  transition:box-shadow 180ms var(--ease-out),transform 140ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){ .recent:hover{box-shadow:0 8px 22px -12px rgba(15,42,80,.32)} }
+.recent:active{transform:scale(.995)}
+.recent-ic{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;flex:0 0 auto}
+.recent-ic svg{width:23px;height:23px}
+.recent-tx{flex:1;min-width:0}
+.recent-t{font-size:16px;font-weight:700;letter-spacing:-.015em}
+.recent-s{margin-top:3px;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-ch{color:#94A3B8;flex:0 0 auto}
+.recent-ch svg{width:18px;height:18px}
+
+/* ══ skeletons ═══════════════════════════════════════════════════════ */
+.sk{display:inline-block;border-radius:5px;background:#E6ECF3;color:transparent;
+  animation:sk 1.4s ease-in-out infinite}
+@keyframes sk{0%,100%{opacity:.55}50%{opacity:1}}
+
+/* ══ command palette (shared by the header icon and the hero field) ═══ */
+.scrim{
+  position:fixed;inset:0;z-index:100;background:rgba(12,26,48,.42);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  display:flex;align-items:flex-start;justify-content:center;padding:96px 20px 20px;
+  opacity:0;pointer-events:none;
+  transition:opacity 180ms var(--ease-out);
+}
+.scrim.on{opacity:1;pointer-events:auto}
+.cmd{
+  width:100%;max-width:640px;background:#fff;border-radius:14px;overflow:hidden;
+  box-shadow:0 28px 70px -18px rgba(10,25,50,.5),0 2px 6px rgba(10,25,50,.12);
+  transform:scale(.97) translateY(-6px);opacity:0;
+  transition:transform 200ms var(--ease-out),opacity 200ms var(--ease-out);
+  display:flex;flex-direction:column;max-height:min(560px,calc(100vh - 140px));
+}
+.scrim.on .cmd{transform:none;opacity:1}
+.cmd-top{display:flex;align-items:center;gap:12px;padding:0 14px;height:56px;border-bottom:1px solid var(--line)}
+.cmd-top svg{width:18px;height:18px;color:#94A3B8;flex:0 0 auto}
+.cmd-in{flex:1;height:100%;border:none;background:none;font-size:15.5px;outline:none}
+.cmd-in::placeholder{color:#9AA9BC}
+.cmd-esc{
+  display:grid;place-items:center;height:24px;padding:0 8px;border-radius:6px;
+  background:#F1F5F9;border:1px solid #E2E8F0;font-size:11.5px;font-weight:500;color:#64748B;
+}
+.cmd-body{flex:1;overflow-y:auto;padding:8px 0 10px}
+.cmd-grp{padding:10px 16px 4px;font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#94A3B8}
+.cmd-it{
+  display:flex;align-items:center;gap:12px;padding:9px 16px;cursor:pointer;
+  transition:background-color 120ms var(--ease-out);
+}
+.cmd-it[aria-selected="true"]{background:#EDF4FE}
+.cmd-ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto}
+.cmd-ic svg{width:16px;height:16px}
+/* A console icon may be a full-colour logo with a non-square viewBox, so it is
+   sized by its box rather than forced to 16x16 like the stroke glyphs. */
+.cmd-ic .ic{display:grid;place-items:center;width:16px;height:16px}
+.cmd-ic .ic svg,.cmd-ic .ic img{width:auto;height:auto;max-width:16px;max-height:16px}
+.cmd-tx{flex:1;min-width:0}
+.cmd-t{font-size:14.5px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmd-s{margin-top:2px;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmd-hint{font-size:12px;color:#9AA9BC;flex:0 0 auto}
+.cmd-note{padding:14px 16px;font-size:13.5px;color:var(--muted)}
+.cmd-note.err{color:#B4243F}
+.cmd-foot{
+  display:flex;align-items:center;gap:16px;padding:9px 16px;border-top:1px solid var(--line);
+  background:#FAFCFE;font-size:12px;color:#7A8AA0;
+}
+.cmd-foot kbd{
+  display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;margin-right:5px;
+  border-radius:5px;background:#fff;border:1px solid #E2E8F0;font:500 11px/1 inherit;color:#64748B;
+}
+
+/* ══ dialog (New ticket) ═════════════════════════════════════════════ */
+.dlg{
+  width:100%;max-width:560px;background:#fff;border-radius:14px;overflow:hidden;
+  box-shadow:0 28px 70px -18px rgba(10,25,50,.5),0 2px 6px rgba(10,25,50,.12);
+  transform:scale(.97) translateY(-6px);opacity:0;
+  transition:transform 200ms var(--ease-out),opacity 200ms var(--ease-out);
+  display:flex;flex-direction:column;max-height:calc(100vh - 140px);
+}
+.scrim.on .dlg{transform:none;opacity:1}
+.dlg-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px 14px}
+.dlg-top h2{font-size:18px;font-weight:700;letter-spacing:-.015em}
+.dlg-top p{margin-top:4px;font-size:13.5px;color:var(--muted)}
+.dlg-x{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:#7A8AA0;
+  transition:background-color 150ms var(--ease-out)}
+.dlg-x svg{width:17px;height:17px}
+@media (hover:hover) and (pointer:fine){ .dlg-x:hover{background:#F1F5F9;color:var(--ink)} }
+.dlg-body{padding:0 20px;overflow-y:auto}
+.fld{margin-bottom:14px}
+.fld label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.fld .req{color:#D01A42}
+.fld input,.fld textarea{
+  width:100%;padding:10px 12px;border-radius:9px;border:1px solid #DDE5EE;background:#fff;
+  font-size:14.5px;outline:none;transition:border-color 150ms var(--ease-out),box-shadow 150ms var(--ease-out);
+}
+.fld textarea{min-height:96px;resize:vertical}
+.fld input:focus,.fld textarea:focus{border-color:var(--hub-blue);box-shadow:0 0 0 3px rgba(28,119,250,.15)}
+.fld input[aria-invalid="true"],.fld textarea[aria-invalid="true"]{border-color:#E11D48}
+.fld-err{margin-top:5px;font-size:12.5px;color:#B4243F;min-height:0}
+.dlg-msg{margin:0 0 14px;padding:11px 13px;border-radius:9px;font-size:13.5px;line-height:1.45}
+.dlg-msg.ok{background:#E7F6EE;color:#0B6A3D}
+.dlg-msg.err{background:#FDECF0;color:#A81C3C}
+.dlg-foot{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px 18px}
+.spin{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
+  animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══ look-up-user modal (ported from the ITAM helpdesk landing) ══════ */
+/* Same machinery as helpdesk-landing.html's rp-modal — typeahead, user card,
+   four independently-resolving panels, mode-specific action forms — restyled
+   onto this page's light tokens and reusing its .scrim/.dlg chrome. */
+/* This modal scrolls the OVERLAY and lets the dialog grow, which is what it did
+   on the ITAM helpdesk landing it was ported from (.rp-ov overflow-y:auto, and
+   an .rp-modal with no height cap and no clipping). Porting it onto this page's
+   .dlg chrome quietly wrapped it in two clippers it never had - .dlg-body's
+   overflow-y:auto and .dlg's overflow:hidden - and the typeahead list is
+   absolutely positioned, so it was cut 62px short and .dlg-body grew a
+   scrollbar around a 44px box instead (Jeramy, 2026-09-09). Scoped to #rp-scrim
+   and .dlg.rp: the command palette keeps its own capped, internally-scrolling
+   body, which is right for a list that is meant to scroll.
+   All five modes share this dialog, so the long ticket and CAB forms now scroll
+   the overlay too, which keeps their footer buttons reachable on a short
+   window rather than stranding them below a cap. */
+#rp-scrim{overflow-y:auto;overscroll-behavior:contain}
+.dlg.rp{max-width:560px;max-height:none;overflow:visible}
+.dlg.rp .dlg-body{overflow:visible}
+.dlg.rp.wide{max-width:840px}
+.rp-srch-wrap{position:relative}
+.dlg.rp.nouser .rp-srch-wrap{display:none}
+.rp-srch-ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:17px;height:17px;
+  color:#94A3B8;pointer-events:none}
+.rp-srch{width:100%;height:44px;padding:0 13px 0 41px;border-radius:10px;border:1px solid #DDE5EE;
+  background:#fff;font-size:14.5px;outline:none;
+  transition:border-color 150ms var(--ease-out),box-shadow 150ms var(--ease-out)}
+.rp-srch::placeholder{color:#9AA9BC}
+.rp-srch:focus{border-color:var(--hub-blue);box-shadow:0 0 0 3px rgba(28,119,250,.15)}
+.rp-dd{position:absolute;left:0;right:0;top:50px;z-index:5;display:none;max-height:264px;overflow-y:auto;
+  background:#fff;border:1px solid var(--line-2);border-radius:11px;
+  box-shadow:0 18px 40px -18px rgba(10,25,50,.38),0 1px 3px rgba(10,25,50,.08)}
+.rp-dd.open{display:block}
+.rp-di{padding:9px 13px;cursor:pointer;border-bottom:1px solid var(--line);
+  transition:background-color 120ms var(--ease-out)}
+.rp-di:last-child{border-bottom:0}
+.rp-di.hi{background:#EDF4FE;box-shadow:inset 3px 0 0 var(--hub-blue)}
+@media (hover:hover) and (pointer:fine){
+  .rp-di:hover{background:#F4F8FD}
+  .rp-di.dead:hover{background:none}
+}
+.rp-di .n{display:block;font-size:14px;font-weight:600;line-height:1.3}
+.rp-di .s{display:block;margin-top:1px;font-size:12.5px;color:var(--muted)}
+.rp-di.dead{cursor:default;color:var(--dim);font-size:13px}
+.rp-card{display:none;margin-top:14px;padding:11px 14px;border:1px solid var(--line-2);
+  border-radius:11px;background:#F8FAFD}
+.rp-card.show{display:block}
+.rp-card .cn{display:block;font-size:14.5px;font-weight:600}
+.rp-card .cs{display:block;margin-top:2px;font-size:12.5px;color:var(--muted)}
+.rp-actions{display:none;flex-direction:column;gap:13px;margin-top:14px}
+.rp-actions.show{display:flex}
+.rp-lbl{margin-bottom:6px;font-size:11px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted)}
+.rp-in,.rp-ta{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #DDE5EE;background:#fff;
+  font-size:14.5px;outline:none;
+  transition:border-color 150ms var(--ease-out),box-shadow 150ms var(--ease-out)}
+.rp-ta{min-height:88px;resize:vertical}
+.rp-in:focus,.rp-ta:focus{border-color:var(--hub-blue);box-shadow:0 0 0 3px rgba(28,119,250,.15)}
+select.rp-in{height:42px;appearance:auto;-webkit-appearance:auto;cursor:pointer}
+.rp-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rp-pwd-row{display:flex;gap:9px}
+.rp-pwd-field{position:relative;flex:1;display:flex;min-width:0}
+.rp-pwd{flex:1;min-width:0;padding:10px 40px 10px 12px;border-radius:9px;border:1px solid #DDE5EE;
+  background:#fff;font:500 14.5px ui-monospace,SFMono-Regular,Menlo,monospace;outline:none;
+  transition:border-color 150ms var(--ease-out),box-shadow 150ms var(--ease-out)}
+.rp-pwd:focus{border-color:var(--hub-blue);box-shadow:0 0 0 3px rgba(28,119,250,.15)}
+.rp-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:4px 6px;border-radius:7px;
+  font-size:15px;line-height:1;color:var(--muted);transition:background-color 150ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){ .rp-eye:hover{background:#F1F5F9;color:var(--ink)} }
+.rp-gen{white-space:nowrap;padding:0 14px;border-radius:9px;border:1px solid #DDE5EE;background:#fff;
+  font-size:13.5px;font-weight:600;box-shadow:0 1px 2px rgba(15,42,80,.05);
+  transition:border-color 150ms var(--ease-out),transform 140ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){ .rp-gen:hover{border-color:#BBD3F0} }
+.rp-gen:active{transform:scale(.97)}
+.rp-hint{margin-top:6px;font-size:12.5px;line-height:1.45;color:var(--muted)}
+.rp-hint.warn{color:#9A6400}
+.rp-fcl{display:flex;align-items:flex-start;gap:9px;margin-top:12px;font-size:13.5px;line-height:1.45;
+  cursor:pointer}
+.rp-fcl input{width:15px;height:15px;margin-top:2px;flex:0 0 auto;cursor:pointer;accent-color:var(--hub-blue)}
+.rp-btn{width:100%;height:44px;border-radius:10px;color:#fff;font-size:14.5px;font-weight:600;
+  transition:background-color 160ms var(--ease-out),transform 140ms var(--ease-out)}
+.rp-btn:active{transform:scale(.985)}
+.rp-btn.reset{background:#B45309}
+.rp-btn.unlock{background:var(--hub-blue)}
+.rp-btn.ticket{background:#0D7A5F}
+.rp-btn.cab{background:#5B4ABF}
+@media (hover:hover) and (pointer:fine){
+  .rp-btn.reset:hover{background:#C2620B}
+  .rp-btn.unlock:hover{background:var(--blue-dk)}
+  .rp-btn.ticket:hover{background:#0F8F6F}
+  .rp-btn.cab:hover{background:#6A58D6}
+}
+.rp-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.rp-btn.done{background:#0D7A5F}
+.rp-btn.done:disabled{opacity:1;cursor:default}
+#rp-msg{margin:14px 0 0}
+
+/* ── the four panels of the user card ── */
+.uc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(236px,1fr));gap:11px;margin-top:14px}
+.uc-sec{min-width:0;padding:12px 14px;border:1px solid var(--line-2);border-radius:11px;background:#FBFDFF}
+.uc-sec.loading{min-height:188px}
+.uc-sec h4{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;
+  font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.uc-r{display:flex;align-items:baseline;justify-content:space-between;gap:10px;min-width:0;padding:3px 0;
+  font-size:13px}
+.uc-r .k{white-space:nowrap;color:var(--muted)}
+.uc-r .v{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font-weight:500}
+.uc-r .v.bad{color:#B4243F}
+.uc-r .v.warn{color:#9A6400}
+.uc-r .v.ok{color:#0B6A3D}
+.uc-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:10.5px;font-weight:600;
+  letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+.uc-pill.ok{background:var(--green-tint);color:#0B6A3D}
+.uc-pill.bad{background:var(--rose-tint);color:#B4243F}
+.uc-pill.warn{background:var(--amber-tint);color:#9A6400}
+.uc-pill.idle{background:#EEF2F7;color:var(--muted)}
+.uc-dev{display:flex;align-items:center;gap:9px;min-width:0;padding:6px 0;border-top:1px solid var(--line);
+  font-size:13px}
+.uc-dev.first{border-top:0}
+.uc-dev .dt{white-space:nowrap;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted)}
+.uc-dev .dn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uc-dev .dn a{text-decoration:underline;text-decoration-color:#C9D8EA}
+.uc-empty{padding:2px 0;font-size:13px;color:var(--dim)}
+.uc-skel{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
+.uc-skel i{display:block;height:9px;border-radius:3px;background:#E6ECF3;animation:sk 1.4s ease-in-out infinite}
+.uc-skel i:first-child{width:38%}
+.uc-skel i:last-child{width:26%}
+.uc-in{animation:uc-in 160ms var(--ease-out)}
+@keyframes uc-in{from{opacity:0}to{opacity:1}}
+.uc-foot{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+.uc-fb{flex:1;min-width:138px;height:42px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:10px;border:1px solid #DDE5EE;background:#fff;font-size:13.5px;font-weight:600;
+  box-shadow:0 1px 2px rgba(15,42,80,.05);
+  transition:border-color 150ms var(--ease-out),transform 140ms var(--ease-out)}
+.uc-fb:active{transform:scale(.98)}
+.uc-fb.pri{background:var(--hub-blue);border-color:var(--hub-blue);color:#fff;
+  box-shadow:0 1px 2px rgba(15,42,80,.10)}
+@media (hover:hover) and (pointer:fine){
+  .uc-fb:hover{border-color:#BBD3F0}
+  .uc-fb.pri:hover{background:var(--blue-dk);border-color:var(--blue-dk)}
+}
+
+/* ══ responsive ══════════════════════════════════════════════════════ */
+@media (max-width:1400px){
+  .nav{gap:16px}
+  .hdr-r{gap:16px}
+  .hdr{padding:0 20px}
+}
+@media (max-width:1240px){
+  .brand-tx i{display:none}
+  .statpill span:not(.sp-dot){display:none}
+  .statpill{padding:0 12px}
+  .cols{grid-template-columns:1fr;gap:16px}
+  .col-l{gap:16px}
+  .pq{min-height:0}
+  .bottom{grid-template-columns:1fr}
+  .env{flex-wrap:wrap;gap:14px;padding:14px 16px}
+  .env-head{padding-right:0;width:100%}
+  .env-list{width:100%;flex:1 1 100%}
+  .env-i:first-child{border-left:none;padding-left:0}
+  .env-all{padding-left:0}
+}
+@media (max-width:1020px){
+  .hero{background-size:auto 100%;background-position:52% 30%}
+}
+@media (max-width:960px){
+  .nav{
+    order:3;width:100%;margin:0;height:auto;gap:0;overflow-x:auto;
+    justify-content:flex-start;-webkit-overflow-scrolling:touch;
+  }
+  .hdr{height:auto;flex-wrap:wrap;padding:10px 16px 0;row-gap:8px}
+  .nav-i{height:42px;padding:0 12px;font-size:13.5px}
+  .brand{margin-right:auto}
+  .stats{grid-template-columns:repeat(2,1fr);height:auto}
+  .stat{padding:16px;justify-content:flex-start}
+  .stat:first-child{padding-left:16px}
+  .stat+.stat{box-shadow:none}
+  .stat:nth-child(2n){box-shadow:inset 1px 0 0 var(--line-2)}
+  .stat:nth-child(n+3){box-shadow:inset 0 1px 0 var(--line-2)}
+  .stat:nth-child(4){box-shadow:inset 1px 0 0 var(--line-2),inset 0 1px 0 var(--line-2)}
+  .workday{flex-direction:column;align-items:stretch}
+  .wd-actions{justify-content:flex-start}
+  .env-list{grid-template-columns:repeat(2,1fr);gap:12px 0}
+  .env-i{border-left:none;padding-left:0;padding-right:12px}
+  .hero-h1{font-size:32px}
+  .hero-sub{font-size:16px}
+  .hero{height:266px}
+}
+@media (max-width:720px){
+  .wrap{width:min(1462px, 100% - 32px)}
+  .ql-grid{grid-template-columns:1fr}
+  /* The panel heads put their supporting line beside the title. At this width
+     there is no room for both, and the two ran into each other. */
+  .p-head{flex-wrap:wrap;row-gap:6px;align-items:flex-start}
+  .p-head > .p-sub{flex-basis:100%}
+  .pq-row{flex-wrap:wrap;row-gap:10px}
+  .pq-row .p-link{width:100%;justify-content:flex-start;padding-left:60px}
+  .stats{grid-template-columns:1fr}
+  .stat{box-shadow:none!important}
+  .stat+.stat{box-shadow:inset 0 1px 0 var(--line-2)!important}
+  .env-list{grid-template-columns:1fr}
+  .hero-h1{font-size:27px}
+  .hero-search{height:42px}
+  .hs-kbd{display:none}
+  .scrim{padding:64px 12px 12px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <a class="brand" href="/landing.html" aria-label="Operations Hub — Overview">
+    <span class="brand-sq" aria-hidden="true"><span data-icon="building"></span></span>
+    <span class="brand-tx"><b>Operations Hub</b><i>IT COMMAND CENTER</i></span>
+  </a>
+
+  <nav class="nav" aria-label="Primary">
+    <a class="nav-i is-active" href="/landing.html" aria-current="page">Overview</a>
+    <a class="nav-i" href="/tools.html">Tools</a>
+    <a class="nav-i" href="/service-desk-portal.html">Service Desk</a>
+    <a class="nav-i" href="https://itam.nrpi.local/it-command-quickstart.html" target="_blank" rel="noopener noreferrer">Knowledge</a>
+  </nav>
+
+  <div class="hdr-r">
+    <button type="button" class="hdr-btn" id="hdr-search"
+            aria-label="Search tools, people and tickets" aria-keyshortcuts="Meta+K Control+K">
+      <span data-icon="search"></span>
+    </button>
+    <a class="statpill is-unk" id="statpill" href="/server-health.html"
+       title="Open the environment status overview">
+      <span class="sp-dot" id="sp-dot" aria-hidden="true"></span>
+      <span id="sp-text">Checking systems…</span>
+    </a>
+    <div class="hdr-av" id="it-topbar"></div>
+  </div>
+</header>
+
+<section class="hero" aria-label="Welcome">
+  <div class="hero-in wrap">
+    <h1 class="hero-h1" id="greet">Good morning.</h1>
+    <p class="hero-sub">What needs your attention today?</p>
+    <div class="hero-meta" id="hero-wx"><span class="sk" style="width:260px;height:14px">&nbsp;</span></div>
+    <button type="button" class="hero-search" id="hero-search"
+            aria-label="Search tools, people and tickets" aria-keyshortcuts="Meta+K Control+K">
+      <span data-icon="search" aria-hidden="true"></span>
+      <span class="hs-ph">Search tools, people, and tickets</span>
+      <span class="hs-kbd" aria-hidden="true"><kbd id="kbd-mod">⌘</kbd><kbd>K</kbd></span>
+    </button>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <section class="stats" aria-label="Key metrics">
+    <a class="stat" id="m-tools" href="/tools.html">
+      <span class="stat-ic t-blue" aria-hidden="true"><span data-icon="grid"></span></span>
+      <span class="stat-tx">
+        <span class="stat-n" id="m-tools-n">—</span>
+        <span class="stat-l">Tools &amp; systems</span>
+      </span>
+    </a>
+    <a class="stat" id="m-locked" href="/service-desk-portal.html#lockouts">
+      <span class="stat-ic t-green" aria-hidden="true"><span data-icon="user-cog"></span></span>
+      <span class="stat-tx">
+        <span class="stat-n" id="m-locked-n">—</span>
+        <span class="stat-l">Locked accounts</span>
+      </span>
+    </a>
+    <a class="stat" id="m-tickets" href="/service-desk-portal.html#requests">
+      <span class="stat-ic t-purple" aria-hidden="true"><span data-icon="ticket"></span></span>
+      <span class="stat-tx">
+        <span class="stat-n" id="m-tickets-n">—</span>
+        <span class="stat-l">Open tickets</span>
+      </span>
+    </a>
+    <a class="stat" id="m-inc" href="https://security.microsoft.com/incidents"
+       target="_blank" rel="noopener noreferrer">
+      <span class="stat-ic t-rose" aria-hidden="true"><span data-icon="shield-alert"></span></span>
+      <span class="stat-tx">
+        <span class="stat-n" id="m-inc-n">—</span>
+        <span class="stat-l">Incidents · 30 days</span>
+      </span>
+    </a>
+  </section>
+
+  <div class="workday">
+    <div>
+      <h2>Your workday</h2>
+      <p>Key items and tools to keep operations running smoothly.</p>
+    </div>
+    <div class="wd-actions">
+      <button type="button" class="btn" id="act-lookup">
+        <span data-icon="user-search" aria-hidden="true"></span>Look up user
+      </button>
+      <button type="button" class="btn btn-pri" id="act-ticket">
+        <span data-icon="plus" aria-hidden="true"></span>New ticket
+      </button>
+      <button type="button" class="btn" id="act-cab"
+              title="File a Service Desk Plus change request">
+        <span data-icon="plus" aria-hidden="true"></span>New CAB
+      </button>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div class="col-l">
+
+      <section class="panel pq" aria-labelledby="pq-h">
+        <div class="p-head">
+          <div class="pq-title">
+            <h3 id="pq-h">Priority queue</h3>
+            <span class="badge is-unk" id="pq-badge">checking…</span>
+          </div>
+          <p class="p-sub">Items that need your attention today.</p>
+        </div>
+        <div class="pq-list" id="pq-list">
+          <a class="pq-row" id="pq-risk" href="https://entra.microsoft.com/#view/Microsoft_AAD_IAM/IdentityProtectionMenuBlade/~/RiskyUsers"
+             target="_blank" rel="noopener noreferrer" style="--bar:var(--bar-red)">
+            <span class="pq-ic t-rose" aria-hidden="true"><span data-icon="shield-alert"></span></span>
+            <span class="pq-tx">
+              <span class="pq-t" id="pq-risk-t">Users at risk</span>
+              <span class="pq-s">Entra ID Protection</span>
+              <span class="pq-b" id="pq-risk-b"><span class="sk" style="width:260px;height:12px">&nbsp;</span></span>
+            </span>
+            <span class="p-link">Review risk<span data-icon="arrow-right"></span></span>
+          </a>
+          <a class="pq-row" id="pq-lock" href="/service-desk-portal.html#lockouts" style="--bar:var(--bar-amber)">
+            <span class="pq-ic t-amber" aria-hidden="true"><span data-icon="user"></span></span>
+            <span class="pq-tx">
+              <span class="pq-t" id="pq-lock-t">Locked accounts</span>
+              <span class="pq-s">Help people get back to work</span>
+              <span class="pq-b" id="pq-lock-b"><span class="sk" style="width:280px;height:12px">&nbsp;</span></span>
+            </span>
+            <span class="p-link">Review accounts<span data-icon="arrow-right"></span></span>
+          </a>
+          <a class="pq-row" id="pq-enc" href="/IT_Inventory_App.html" style="--bar:var(--bar-orange)">
+            <span class="pq-ic t-orange" aria-hidden="true"><span data-icon="hard-drive"></span></span>
+            <span class="pq-tx">
+              <span class="pq-t" id="pq-enc-t">Unencrypted devices</span>
+              <span class="pq-s">Encryption needs attention</span>
+              <span class="pq-b" id="pq-enc-b"><span class="sk" style="width:240px;height:12px">&nbsp;</span></span>
+            </span>
+            <span class="p-link">Open inventory<span data-icon="arrow-right"></span></span>
+          </a>
+        </div>
+      </section>
+
+      <section class="panel sd" id="sd-panel" aria-labelledby="sd-h">
+        <span class="sd-ic t-purple" aria-hidden="true"><span data-icon="ticket"></span></span>
+        <div class="sd-tx">
+          <h3 class="sd-t" id="sd-h">Service desk</h3>
+          <div class="sd-m" id="sd-meta"><span class="sk" style="width:210px;height:13px">&nbsp;</span></div>
+        </div>
+        <a class="p-link sd-go" id="sd-go" href="/service-desk-portal.html#requests">Open queue<span data-icon="arrow-right"></span></a>
+      </section>
+
+    </div>
+
+    <div class="col-r">
+      <section class="panel ql" aria-labelledby="ql-h">
+        <div class="p-head">
+          <div>
+            <h3 id="ql-h">Quick launch</h3>
+            <p class="p-sub" style="margin-top:6px">Your most used tools and systems.</p>
+          </div>
+          <div class="ql-acts">
+            <button type="button" class="ql-edit" id="ql-edit" hidden
+                    aria-expanded="false" aria-controls="ql-grid">
+              <span data-icon="pencil" aria-hidden="true"></span>Edit
+            </button>
+            <a class="p-link" id="ql-all" href="/tools.html">All tools<span data-icon="arrow-right"></span></a>
+          </div>
+        </div>
+        <div class="ql-grid" id="ql-grid"></div>
+        <div class="ql-foot" id="ql-foot" hidden>
+          <p class="ql-note">These tiles are published by the <b>console</b>. Changes made
+            there appear here as soon as you come back.</p>
+          <p class="ql-note" id="ql-art-note" hidden></p>
+          <div class="ql-foot-a">
+            <a class="ql-manage" id="ql-manage" href="https://subadmin.nrpi.local/console#landing"
+               target="_blank" rel="noopener noreferrer">
+              <span data-icon="sliders" aria-hidden="true"></span>Manage tiles</a>
+            <button type="button" class="ql-done" id="ql-done">Done</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <section class="panel env" aria-labelledby="env-h">
+      <div class="env-head">
+        <span class="env-ic t-green" aria-hidden="true"><span data-icon="activity"></span></span>
+        <div>
+          <div class="env-t" id="env-h">Environment status</div>
+          <div class="env-s">Core systems and services.</div>
+        </div>
+      </div>
+      <div class="env-list" id="env-list"></div>
+      <a class="p-link env-all" href="/server-health.html">View all<span data-icon="arrow-right"></span></a>
+    </section>
+
+    <a class="panel recent" id="recent" href="/my-profile.html#work">
+      <span class="recent-ic t-blue" aria-hidden="true"><span data-icon="clock"></span></span>
+      <span class="recent-tx">
+        <span class="recent-t">Recently opened</span>
+        <span class="recent-s" id="recent-s"><span class="sk" style="width:170px;height:13px">&nbsp;</span></span>
+      </span>
+      <span class="recent-ch" aria-hidden="true"><span data-icon="chevron-right"></span></span>
+    </a>
+  </div>
+
+</main>
+
+<div class="scrim" id="cmd-scrim" role="presentation">
+  <div class="cmd" role="dialog" aria-modal="true" aria-labelledby="cmd-label" id="cmd">
+    <h2 class="vh" id="cmd-label">Search tools, people and tickets</h2>
+    <div class="cmd-top">
+      <span data-icon="search" aria-hidden="true"></span>
+      <input class="cmd-in" id="cmd-in" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Search tools, people, and tickets"
+             role="combobox" aria-expanded="true" aria-controls="cmd-body" aria-autocomplete="list">
+      <span class="cmd-esc" aria-hidden="true">esc</span>
+    </div>
+    <div class="cmd-body" id="cmd-body" role="listbox" aria-label="Search results"></div>
+    <div class="cmd-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd>navigate</span>
+      <span><kbd>↵</kbd>open</span>
+      <span><kbd>esc</kbd>close</span>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="rp-scrim" role="presentation">
+  <div class="dlg rp" id="rp-dlg" role="dialog" aria-modal="true" aria-labelledby="rp-title">
+    <div class="dlg-top">
+      <div>
+        <h2 id="rp-title">Look up user</h2>
+        <p id="rp-sub">Active Directory, Okta, Zscaler, devices and open tickets in one card.</p>
+      </div>
+      <button type="button" class="dlg-x" id="rp-close" aria-label="Close">
+        <span data-icon="x" aria-hidden="true"></span>
+      </button>
+    </div>
+    <div class="dlg-body">
+      <div class="rp-srch-wrap">
+        <span class="rp-srch-ic" data-icon="search" aria-hidden="true"></span>
+        <input class="rp-srch" id="rp-srch" type="text" placeholder="Search by name or username"
+               autocomplete="off" spellcheck="false" role="combobox"
+               aria-expanded="false" aria-controls="rp-dd" aria-autocomplete="list">
+        <div class="rp-dd" id="rp-dd" role="listbox" aria-label="Directory matches"></div>
+      </div>
+      <div class="rp-card" id="rp-card">
+        <span class="cn" id="rp-card-n"></span><span class="cs" id="rp-card-s"></span>
+      </div>
+      <div id="rp-uc"></div>
+      <div class="rp-actions" id="rp-actions"></div>
+      <div class="dlg-msg" id="rp-msg" hidden></div>
+      <span class="vh" id="rp-live" role="status" aria-live="polite" aria-atomic="true"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   Operations Hub — Overview
+
+   Every number on this page is measured. Three outcomes are kept apart all the
+   way to the pixel: measured (render it), denied (say so), failed (say so).
+   Nothing shows a plausible-looking value it did not read from an API.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── icons ─────────────────────────────────────────────────────────────── */
+const ICONS = {
+  building:         '<path d="M3 21h18"/><path d="M5 21V8l4-2v15"/><path d="M13 21V4l5 2v15"/><path d="M9 21V11h4"/><path d="M15.5 9.5h.01M15.5 12.5h.01M15.5 15.5h.01"/>',
+  search:           '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>',
+  'user-search':    '<circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="17" r="3"/><path d="m21 21-1.9-1.9"/>',
+  ticket:           '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 17v2M13 11v2"/>',
+  user:             '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  'user-cog':       '<circle cx="9" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="18" cy="15" r="3"/><path d="M18 11.5v1M18 17.5v1M21 15h-1M16 15h-1M20.1 12.9l-.7.7M16.6 16.4l-.7.7M20.1 17.1l-.7-.7M16.6 13.6l-.7-.7"/>',
+  grid:             '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  'shield-alert':   '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+  'hard-drive':     '<line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/>',
+  monitor:          '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
+  server:           '<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
+  radio:            '<circle cx="12" cy="12" r="2"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M7.76 7.76a6 6 0 0 0 0 8.49"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  activity:         '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  clock:            '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  plus:             '<line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/>',
+  x:                '<line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>',
+  'arrow-right':    '<line x1="5" x2="19" y1="12" y2="12"/><polyline points="12 5 19 12 12 19"/>',
+  'chevron-right':  '<polyline points="9 18 15 12 9 6"/>',
+  'map-pin':        '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+  sun:              '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  moon:             '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
+  cloud:            '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  'cloud-sun':      '<path d="M12 2v2M4.9 4.9l1.4 1.4M2 12h2M19.1 4.9l-1.4 1.4M22 12h-2"/><path d="M9.6 8.5a4 4 0 1 1 5.9 4.5"/><path d="M16 19H8a4 4 0 1 1 .9-7.9"/><path d="M16 19a3 3 0 0 0 0-6h-.5"/>',
+  'cloud-rain':     '<path d="M17.5 15H9a5 5 0 1 1 4.8-6.4h1.2a3.5 3.5 0 1 1 0 7Z"/><path d="M8 19v2M12 18v3M16 19v2"/>',
+  'cloud-snow':     '<path d="M17.5 15H9a5 5 0 1 1 4.8-6.4h1.2a3.5 3.5 0 1 1 0 7Z"/><path d="M8 19h.01M8 22h.01M12 18h.01M12 21h.01M16 19h.01M16 22h.01"/>',
+  fog:              '<path d="M4 9h16M6 13h12M8 17h8"/>',
+  zap:              '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  globe:            '<circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  shield:           '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  headset:          '<path d="M3 11v3a1 1 0 0 0 1 1h3v-5H4a1 1 0 0 0-1 1Z"/><path d="M21 11v3a1 1 0 0 1-1 1h-3v-5h3a1 1 0 0 1 1 1Z"/><path d="M9 18v1a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1"/><path d="M4 14v1a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1"/><path d="M3 11a9 9 0 0 1 18 0"/>',
+  'external-link':  '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/>',
+  pencil:           '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  sliders:          '<line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>',
+};
+/* The weather route emits coarse condition keys, and three of them never matched
+   an entry above: rain, snow and storm rendered NO icon at all while a clear sky
+   looked fine, so the gap only showed up on the first wet day. Alias rather than
+   rename — those keys are the route's own vocabulary. */
+ICONS.rain  = ICONS['cloud-rain'];
+ICONS.snow  = ICONS['cloud-snow'];
+ICONS.storm = ICONS.zap;
+
+function icon(name) {
+  const d = ICONS[name];
+  if (!d) { console.warn('[icon] unknown:', name); return ''; }
+  return '<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" ' +
+         'stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+}
+function hydrate(root) {
+  (root || document).querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
+}
+
+/* ── shared helpers ────────────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const safeHref = u => {
+  if (!u) return '#';
+  if (u.startsWith('/') && !u.startsWith('//')) return u;
+  try { return new URL(u).protocol === 'https:' ? u : '#'; } catch (e) { return '#'; }
+};
+const hostOf = u => { try { return new URL(u).hostname; } catch (e) { return ''; } };
+const opensNewTab = (t, href) => t.newTab === undefined ? href.startsWith('https://') : !!t.newTab;
+const targetAttr = (t, href) => opensNewTab(t, href) ? ' target="_blank" rel="noopener noreferrer"' : '';
+const isLogo = t => t.iconKind === 'logo';
+const nf = n => Number(n).toLocaleString();
+
+/* The screenshot reads "41 min ago", so relative times are spelled out. */
+function relTime(ts) {
+  const t = new Date(ts).getTime();
+  if (!isFinite(t)) return '';
+  const s = (Date.now() - t) / 1000;
+  if (s < 90) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) { const h = Math.round(s / 3600); return h + (h === 1 ? ' hr ago' : ' hrs ago'); }
+  const d = Math.round(s / 86400); return d + (d === 1 ? ' day ago' : ' days ago');
+}
+function landingDegraded(widget, message, detail) {
+  try { if (window.ITObserve) ITObserve.degraded(widget, message, detail || null); }
+  catch (e) { /* never break the page for a report */ }
+}
+
+/* Three outcomes, never collapsed: {ok,data} | {denied} | {failed,detail}.
+   A 403 is not an outage and an outage is not "zero" — the UI says which. */
+function get(url) {
+  return fetch(url, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(12000) })
+    .then(r => {
+      if (r.status === 401 || r.status === 403) return { denied: true, status: r.status };
+      if (!r.ok) return { failed: true, detail: 'HTTP ' + r.status };
+      return r.json().then(j => ({ ok: true, data: j }), () => ({ failed: true, detail: 'unparseable response' }));
+    })
+    .catch(e => ({ failed: true, detail: (e && e.message) || String(e) }));
+}
+/* Requests fired once and consumed by several widgets, so a count shown twice
+   is the same read — the metric strip and the queue can never disagree. */
+const ONCE = {};
+const once = (key, url) => (ONCE[key] || (ONCE[key] = get(url)));
+
+/* ── tile catalog ──────────────────────────────────────────────────────── */
+/* Built-in list = fallback only. What the page really shows comes from
+   /landing/landing.json, published by the admin console. */
+const ITAM = 'https://itam.nrpi.local';
+const DEFAULT_CATS = [
+  {key:'dev', label:'Devices'}, {key:'iam', label:'Identity & Access'},
+  {key:'apps', label:'Applications & SSO'}, {key:'sec', label:'Security'},
+  {key:'data', label:'Data & Collaboration'}, {key:'net', label:'Network & Monitoring'},
+  {key:'desk', label:'Service Desk'}, {key:'res', label:'Resources'},
+];
+const DEFAULT_TILES = [
+  {id:'it-inventory',        name:'Asset Inventory',       cat:'dev',  icon:'monitor',       tone:'t-green',  href:'/IT_Inventory_App.html',       purpose:'Track hardware, warranties, Intune endpoints & patch health.', favorite:true, quick:true},
+  {id:'identity-diag',       name:'Identity Diagnostics',  cat:'iam',  icon:'search',        tone:'t-blue',   href:'/identity-diag.html',          purpose:'Diagnose AD lockouts, password issues & group access.', favorite:true, quick:true},
+  {id:'ad-management',       name:'AD Management',         cat:'iam',  icon:'user-cog',      tone:'t-blue',   href:'/ad-management.html',          purpose:'Clean up stale accounts, groups & computers; GPO audit for super-admins.'},
+  {id:'user-projects',       name:'User Projects',         cat:'iam',  icon:'user',          tone:'t-blue',   href:'/identity-diag.html#projects', purpose:'Grant time-bound AD group access for POCs.'},
+  {id:'access-portal',       name:'Access Portal',         cat:'iam',  icon:'ticket',        tone:'t-blue',   href:'https://accessportal.itam.nrpi.local/', purpose:'Submit access, AI-tool and security-exception requests.'},
+  {id:'app-migration',       name:'App Migration',         cat:'apps', icon:'grid',          tone:'t-purple', href:'/app-migration.html',          purpose:'Move SSO apps from Okta to Entra & confirm matches.'},
+  {id:'okta',                name:'Okta Dashboard',        cat:'apps', icon:'globe',         tone:'t-purple', href:'/okta-dashboard.html',         purpose:'SSO usage, account health & security events.'},
+  {id:'ai-usage-credits',    name:'AI Usage & Credits',    cat:'apps', icon:'activity',      tone:'t-purple', href:'https://reporting.nrpi.local/ai-usage-credits.html', purpose:'Track shared AI service usage, credit balances & per-user spend.'},
+  {id:'cert-watchtower',     name:'Cert Watchtower',       cat:'sec',  icon:'shield',        tone:'t-amber',  href:'/cert-watchtower.html',        purpose:'Monitor TLS & Windows cert expiry with alerts.'},
+  {id:'signin-watch',        name:'Sign-In Watch',         cat:'sec',  icon:'shield-alert',  tone:'t-rose',   href:'/signin-watch.html',           purpose:'Monitor sign-ins for watched accounts & alert on untrusted networks.'},
+  {id:'security-center',     name:'M365 Control Center',   cat:'sec',  icon:'activity',      tone:'t-rose',   href:'/tenant-sentinel.html',        purpose:'Security score, findings & fix tracking.'},
+  {id:'sharepoint-gov',      name:'SharePoint Governance', cat:'data', icon:'grid',          tone:'t-amber',  href:'/sharepoint-governance-dashboard.html', purpose:'Audit site lifecycle, external sharing & tenant storage.'},
+  {id:'network-diag',        name:'Network Health',        cat:'net',  icon:'radio',         tone:'t-green',  href:'/network-health.html',         purpose:'Switch, firewall and Wi-Fi health, plus ports and devices needing attention.'},
+  {id:'device-trace',        name:'Device Trace',          cat:'net',  icon:'search',        tone:'t-green',  href:'/device-trace.html',           purpose:'Look up any IP, MAC or user to see its switch port, Wi-Fi and firewall path.', favorite:true},
+  {id:'network-switches',    name:'Switches',              cat:'net',  icon:'server',        tone:'t-blue',   href:'/network-switches.html',       purpose:'Every switch: model, serial, IOS version, uptime and port utilization.'},
+  {id:'zscaler-diag',        name:'Zscaler Command Center',cat:'net',  icon:'cloud',         tone:'t-blue',   href:'/zscaler-command-center.html', purpose:'Live visibility into users, web activity, DLP & policy.'},
+  {id:'server-health',       name:'Server Health',         cat:'net',  icon:'server',        tone:'t-purple', href:'/server-health.html',          purpose:'Infrastructure stats, forecasts & maintenance.', favorite:true},
+  {id:'service-desk-portal', name:'Service Desk Portal',   cat:'desk', icon:'headset',       tone:'t-blue',   href:'/service-desk-portal.html',    purpose:'Submit and track IT service desk tickets.', favorite:true, quick:true},
+  {id:'report-bug',          name:'Report a Bug',          cat:'desk', icon:'x',             tone:'t-rose',   href:'/report-bug.html',             purpose:'Flag something broken; get emailed when it is fixed.'},
+  {id:'quickstart',          name:'IT Quick Start',        cat:'res',  icon:'grid',          tone:'t-amber',  href:ITAM + '/it-command-quickstart.html', purpose:'What each tool does & when to use it.', favorite:true},
+];
+let CATS = DEFAULT_CATS, TILES = DEFAULT_TILES, CATALOG_MEASURED = false;
+
+function applyConfig(cfg) {
+  const cats = [], tiles = [];
+  (cfg.sections || []).forEach(s => {
+    const key = 's' + s.id;
+    cats.push({ key, label: s.name });
+    (s.links || []).forEach(l => tiles.push({
+      id: 'l' + l.id, name: l.title, cat: key,
+      iconHtml: l.icon_html || '', iconKind: l.icon_kind || 'glyph', icon: 'grid',
+      tone: 't-' + (l.tone || 'blue'), href: l.url, purpose: l.description || '',
+      newTab: l.new_tab !== false, favorite: !!l.favorite, quick: !!l.quick,
+    }));
+  });
+  if (!tiles.length) return false;
+  CATS = cats; TILES = tiles;
+  return true;
+}
+function loadCatalog() {
+  return get('/landing/landing.json?v=' + Date.now()).then(r => {
+    if (r.ok && r.data && Array.isArray(r.data.sections) && applyConfig(r.data)) {
+      CATALOG_MEASURED = true;
+    } else if (r.failed) {
+      landingDegraded('tile-config',
+        'Showing the built-in tool list — the configured one could not be loaded',
+        'GET /landing/landing.json: ' + (r.detail || ''));
+    }
+    renderQuickLaunch();
+    renderToolsMetric();
+  });
+}
+
+/* ── quick launch (the four illustrated tiles) ─────────────────────────── */
+/* WHICH tools appear here is the console's call: it publishes a per-link
+   `quick` flag into /landing/landing.json, and the first four flagged links
+   win, in the console's own sort order. The comp's four are only the fallback
+   for a tenant with nothing flagged, or a config that could not be read.
+   The ILLUSTRATIONS are not console-managed — they are the approved comp's
+   artwork, extracted at 1x and keyed by tool path. A flagged tool with no
+   artwork gets the tinted variant instead of another tool's picture. */
+const TILE_ART = {
+  '/network-health.html':   { name:'Network Health',       sub:'Connectivity & availability', icon:'radio',       tone:'t-blue',   art:'/assets/hub/tile-network-health.png' },
+  '/identity-diag.html':    { name:'Identity Diagnostics', sub:'Access & sign-in issues',     icon:'user-search', tone:'t-green',  art:'/assets/hub/tile-identity-diagnostics.png' },
+  '/IT_Inventory_App.html': { name:'Asset Inventory',      sub:'Devices & encryption',        icon:'monitor',     tone:'t-purple', art:'/assets/hub/tile-asset-inventory.png' },
+  '/server-health.html':    { name:'Server Health',        sub:'Infrastructure overview',     icon:'server',      tone:'t-blue',   art:'/assets/hub/tile-server-health.png' },
+};
+const FEATURED = ['/network-health.html', '/identity-diag.html', '/IT_Inventory_App.html', '/server-health.html'];
+const pathOf = u => { try { return (u || '').startsWith('/') ? u.split(/[?#]/)[0] : new URL(u).pathname; } catch (e) { return ''; } };
+function catalogEntry(p) { return TILES.filter(t => pathOf(t.href) === p)[0] || null; }
+
+/* The comp's subtitles are one short phrase; a console description is a full
+   sentence, so only its first clause is used and CSS clamps the rest. */
+const tileSub = p => String(p || '').split(/(?<=[a-z0-9)])[;.](?:\s|$)/)[0].trim();
+
+/* The first version of this function treated the comp's four POSITIONS as fixed
+   as well, on the reasoning that their artwork was composed for those cells: it
+   added every FEATURED path unconditionally and then sorted those paths to the
+   front. The effect was that a flagged tool outside that list could never reach
+   a cell. Flagging SharePoint Governance and Zscaler Command Center wrote
+   quick=true into landing.json and changed nothing on this page (2026-09-09).
+   The console's selection wins now, in the console's own drag order - which is
+   what the console's own copy promises the admin ("the first 4 appear on the
+   home page", "drag tiles to move them"). FEATURED is reached only when the
+   console has flagged nothing at all, or the catalog could not be read; it is
+   deliberately NOT used to top up a short list, because padding would put a
+   tool on the home page that the admin did not choose. */
+function quickTiles() {
+  const out = [], seen = {};
+  const add = t => { const p = pathOf(t.href); if (p && !seen[p]) { seen[p] = 1; out.push(t); } };
+  if (CATALOG_MEASURED) TILES.filter(t => t.quick).forEach(add);
+  if (!out.length) FEATURED.forEach(p => add(catalogEntry(p) ||
+    { id: p.replace(/[^a-z0-9]+/gi, '-'), name: TILE_ART[p].name, href: p, purpose: '' }));
+  return out.slice(0, 4);
+}
+
+/* ── who may edit this section ── */
+/* The console lives on another vhost of this same host and carries its own
+   Flask session, so a deep link is an ordinary navigation it authenticates
+   itself. Nothing on this page can write a tile. */
+const CONSOLE_URL  = 'https://subadmin.nrpi.local/console';
+const CONSOLE_HOME = CONSOLE_URL + '#landing';
+/* applyConfig() ids console-published links as 'l<row id>'; any other id is a
+   built-in fallback tile the console has never seen, so there is no row to
+   open - those get the section link and say why. */
+const consoleId = t => (/^l\d+$/.test(t.id || '') ? String(t.id).slice(1) : null);
+let QL_CAN_EDIT = false;
+
+function editPencil(t, name) {
+  if (!QL_CAN_EDIT) return '';
+  const cid  = consoleId(t);
+  const href = cid ? CONSOLE_URL + '#landing/link/' + cid : CONSOLE_HOME;
+  const lab  = cid ? 'Edit ' + name + ' in the console'
+                   : name + ' is a built-in tile \u2014 open the console to add it';
+  return '<a class="tile-edit" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer"' +
+         ' title="' + esc(lab) + '" aria-label="' + esc(lab) + '">' +
+         '<span data-icon="pencil" aria-hidden="true"></span></a>';
+}
+
+/* The one place a console-published link becomes an icon.
+   The console publishes icon_html per link - a lucide glyph or a full-colour
+   brand logo - and that is the icon a super admin is looking at in the admin
+   panel, so it is the icon this page owes them. It WINS over the comp's glyph:
+   the first cut let the approved artwork's glyph override it on the four
+   illustrated tiles, so changing Identity Diagnostics to a logo in the console
+   changed the admin panel and nothing here (2026-09-09).
+   `glyph` is the fallback for a link the console never published - the built-in
+   tiles used when landing.json cannot be read - and for the people and ticket
+   rows in the palette, which carry no console icon at all. applyConfig floors
+   t.icon to 'grid' for every published link, so anything reading t.icon alone
+   draws twenty identical grey squares.
+   icon_html is console-authored and stored server-side: the same trust level as
+   the titles and URLs this file already inlines, and what tools.html does. */
+function linkIcon(t, glyph) {
+  if (t && t.iconHtml) return '<span class="ic">' + t.iconHtml + '</span>';
+  return '<span data-icon="' + esc(glyph || (t && t.icon) || 'grid') + '"></span>';
+}
+const tileIcon = (t, A) => linkIcon(t, (A && A.icon) || t.icon);
+
+function renderQuickLaunch() {
+  const out = $('ql-grid'), list = quickTiles();
+  out.innerHTML = list.map(t => {
+    const path = pathOf(t.href);
+    const A = TILE_ART[path] || null;
+    const href = safeHref(t.href || path);
+    const ext = href.startsWith('https://');
+    const name = t.name || (A && A.name) || path;
+    const sub = (A && A.sub) || tileSub(t.purpose);
+    const tone = (A && A.tone) || t.tone || 't-blue';
+    const tile = '<a class="tile' + (A ? '' : ' plain ' + esc(tone)) + '" href="' + esc(href) + '"' +
+      ' data-app="' + esc(t.id) + '" data-name="' + esc(name) + '"' + targetAttr(t, href) +
+      (A ? ' style="background-image:url(\'' + esc(A.art) + '\')"' : '') + '>' +
+      '<span class="tile-ic ' + esc(tone) + '" aria-hidden="true">' + tileIcon(t, A) + '</span>' +
+      '<span class="tile-t">' + esc(name) + '</span>' +
+      '<span class="tile-s">' + esc(sub) + '</span>' +
+      '<span class="tile-go">Open tool<span data-icon="arrow-right" aria-hidden="true"></span></span>' +
+      (ext ? '<span class="tile-ext">' + esc(hostOf(href)) + '</span>' : '') +
+      '</a>';
+    return '<div class="qcell">' + tile + editPencil(t, name) + '</div>';
+  }).join('');
+  hydrate(out);
+  artNote(list);
+}
+
+/* Only four tools have extracted comp artwork. Anything else the console flags
+   renders as a tinted card on purpose - it is not given another tool's picture.
+   That is a surprise worth naming rather than leaving the admin to wonder, so
+   edit mode says which ones and why. */
+function artNote(list) {
+  const el = $('ql-art-note');
+  if (!el) return;
+  const bare = list.filter(t => !TILE_ART[pathOf(t.href)]).map(t => t.name || pathOf(t.href));
+  if (!bare.length) { el.hidden = true; el.textContent = ''; return; }
+  el.hidden = false;
+  el.textContent = (bare.length === 1 ? bare[0] + ' has' : bare.join(', ') + ' have')
+    + ' no illustration, so ' + (bare.length === 1 ? 'it renders as a tinted card'
+                                                    : 'they render as tinted cards')
+    + '. Only the four tools in the approved design ship artwork.';
+}
+
+/* ── edit mode ── */
+/* Reveal is gated on a VERIFIED grant, never on the absence of a denial: while
+   /api/rbac/me is still in flight the button keeps the `hidden` it ships with,
+   which is the same state a non-admin ends on. View-As counts - an admin
+   looking through someone else's eyes should not see their own affordance. */
+const qlPanel = () => document.querySelector('.panel.ql');
+const qlOpen  = () => $('ql-edit').getAttribute('aria-expanded') === 'true';
+
+function setQuickEditing(on) {
+  qlPanel().classList.toggle('editing', on);
+  $('ql-edit').setAttribute('aria-expanded', String(on));
+  $('ql-foot').hidden = !on;
+}
+
+function applyQuickEdit() {
+  const btn = $('ql-edit'), r = window.itRbac;
+  const me  = (r && r.isVerified && r.isVerified() && r.me && r.me()) || null;
+  const can = !!(me && me.isSuperAdmin);
+  btn.hidden = !can;
+  if (can === QL_CAN_EDIT) return;
+  QL_CAN_EDIT = can;
+  if (!can) setQuickEditing(false);
+  renderQuickLaunch();
+}
+window.applyQuickEdit = applyQuickEdit;
+
+function initQuickEdit() {
+  $('ql-edit').addEventListener('click', () => setQuickEditing(!qlOpen()));
+  $('ql-done').addEventListener('click', () => { setQuickEditing(false); $('ql-edit').focus(); });
+  /* On WINDOW, in the CAPTURE phase — deliberately, and both parts matter.
+     The modals and the command palette are .scrim.on overlays, not <dialog>
+     (the first version tested dialog[open], which never matched anything).
+     Their own Escape handlers also live on document, they close the overlay
+     before they stop propagation, and stopPropagation does not stop a sibling
+     listener on the same node — so any handler here that ran after one of them
+     saw .scrim.on already gone and tore down edit mode behind the overlay the
+     user was actually dismissing. Window capture is the first stop on the
+     propagation path no matter what registers when, so this sees the overlay
+     while it is still open and defers to it. */
+  window.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !qlOpen()) return;
+    if (document.querySelector('.scrim.on')) return;      /* the overlay owns Escape */
+    setQuickEditing(false);
+    $('ql-edit').focus();
+  }, true);
+  /* Back from the console with edit mode still open: re-read the published
+     config so a tile changed over there is correct here without a reload. */
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && QL_CAN_EDIT && qlOpen()) {
+      boot('tile-config', loadCatalog);
+    }
+  });
+  if (window.itRbac && window.itRbac.ready) {
+    window.itRbac.ready().then(applyQuickEdit).catch(() => {});
+  }
+}
+
+/* ── metrics ───────────────────────────────────────────────────────────── */
+/* One renderer for all four so denied and failed can never be drawn as a
+   number. `—` always carries a title saying which of the two happened. */
+function setNum(el, res, pick, what) {
+  const host = el.closest('.stat') || el.parentElement;
+  if (res.denied) {
+    el.textContent = '—';
+    host.title = 'You do not have access to ' + what + '.';
+    return null;
+  }
+  if (res.failed || !res.ok) {
+    el.textContent = '—';
+    host.title = what.charAt(0).toUpperCase() + what.slice(1) + ' could not be loaded' +
+                 (res.detail ? ' (' + res.detail + ')' : '') + '.';
+    landingDegraded('metric', what + ' could not be loaded', res.detail || null);
+    return null;
+  }
+  const v = pick(res.data);
+  if (v == null || !isFinite(v)) {
+    el.textContent = '—';
+    host.title = what.charAt(0).toUpperCase() + what.slice(1) + ' was not reported by the API.';
+    return null;
+  }
+  el.textContent = nf(v);
+  host.removeAttribute('title');
+  return Number(v);
+}
+
+function renderToolsMetric() {
+  const el = $('m-tools-n'), host = $('m-tools');
+  el.textContent = nf(TILES.length);
+  host.title = CATALOG_MEASURED
+    ? TILES.length + ' tools published in the admin console'
+    : 'Built-in tool list — the console configuration could not be read';
+  $('ql-all').firstChild.textContent = 'All ' + TILES.length + ' tools';
+}
+
+/* Distinct accounts locked out since local midnight. /lockouts returns one row
+   per lockout EVENT and its `today` counts events, so a person locked out three
+   times would be counted three times; the strip and the queue row share this one
+   read, so the two numbers can never drift apart. */
+const lockoutsToday = res => {
+  if (!res.ok) return null;
+  const mid = new Date(); mid.setHours(0, 0, 0, 0);
+  const rows = (res.data && res.data.data) || [];
+  return new Set(rows.filter(r => r.createdAt && new Date(r.createdAt) >= mid)
+                     .map(r => String(r.upn || '').toLowerCase())).size;
+};
+
+/* ── Defender hand-off ─────────────────────────────────────────────────────
+   The Incidents number has nowhere to land on this platform. tenant-sentinel
+   .html is the M365 Control Center and never grew an incidents view -- the
+   word does not occur in it -- and landing.html is the only consumer of
+   /api/sentinel/incidents anywhere on the host, so the old href opened a page
+   where the number could not be found. Rather than keep a control that only
+   looks like it drills down, the tile hands off to the system of record:
+   Defender is where an incident is actually triaged and closed, and it runs
+   its own auth, so this link grants nothing our RBAC withholds.
+   Jeramy chose the hand-off over building the view here (2026-09-09).
+
+   Both URL forms were opened against the live tenant before shipping and both
+   render the incident queue. The tenant hint is lifted out of the webUrl that
+   Graph itself returned for a real incident rather than hardcoded, so a tenant
+   move cannot strand it; with no incident to lift from, the bare queue URL
+   stands and Defender resolves the tenant from the session. */
+const DEFENDER_INCIDENTS = 'https://security.microsoft.com/incidents';
+function defenderIncidentsUrl(d) {
+  const rows = (d && d.recent) || [];
+  for (let i = 0; i < rows.length; i++) {
+    const m = /^https:\/\/security\.microsoft\.com\/[^\s"']*[?&]tid=([0-9a-fA-F-]{36})/
+                .exec(rows[i].webUrl || '');
+    if (m) return DEFENDER_INCIDENTS + '?tid=' + m[1];
+  }
+  return DEFENDER_INCIDENTS;
+}
+
+/* Runs after setNum, which owns .stat's title and clears it on a good read.
+   The tile counts a window; Defender opens on the whole open queue. On
+   2026-09-08 that is 0 against 11 -- every one of the eleven last touched in
+   June or July -- so the tooltip states both numbers. Without it the 0 reads
+   as contradicted the moment the queue loads, which is exactly the confusion
+   the old dead link produced. */
+function wireIncidentsLink(res, shown) {
+  const a = $('m-inc');
+  if (shown === null) return;                 // no number: leave the plain queue link
+  const d = res.data || {};
+  const total = Number(d.openTotal || 0), days = Number(d.windowDays || 30);
+  a.href = defenderIncidentsUrl(d);
+  const both = shown === total
+    ? nf(total) + ' open'
+    : nf(shown) + ' updated in the last ' + days + ' days, ' + nf(total) + ' open in total';
+  a.title = 'Incidents: ' + both + '. Opens Microsoft Defender in a new tab.';
+  a.setAttribute('aria-label',
+    'Incidents, last ' + days + ' days: ' + nf(shown) + '. ' + nf(total) +
+    ' open in total. Opens Microsoft Defender in a new tab.');
+}
+
+function loadMetrics() {
+  const locks   = once('lockouts', '/api/sdops/lockouts?days=1');
+  const tickets = once('sdsummary', '/api/sdops/requests/summary');
+  const inc     = get('/api/sentinel/incidents?windowDays=30');
+
+  locks.then(r => setNum($('m-locked-n'), r, () => lockoutsToday(r), 'locked accounts'));
+  tickets.then(r => setNum($('m-tickets-n'), r, d => d.open, 'open tickets'));
+  /* The label says 30 days, so the number has to be the 30-day one.
+     openTotal counts every open incident regardless of age: on 2026-09-08 it
+     read 11 against a windowOpen of 0, all eleven last updated May–July. */
+  inc.then(r => wireIncidentsLink(r, setNum($('m-inc-n'), r, d => d.windowOpen, 'security incidents')));
+}
+
+/* ── priority queue ────────────────────────────────────────────────────── */
+const RISK_WINDOW_DAYS = 30;
+const riskyLast30 = d => {
+  const users = d.riskyUsers;
+  if (!Array.isArray(users)) return null;          // shape changed: say nothing rather than guess
+  const from = Date.now() - RISK_WINDOW_DAYS * 86400000;
+  return users.filter(u => u.lastUpdated && new Date(u.lastUpdated).getTime() >= from).length;
+};
+
+const PQ = { risk: null, lock: null, enc: null };
+function pqRow(key, res, pick, noun, sentence, denyText) {
+  const t = $('pq-' + key + '-t'), b = $('pq-' + key + '-b'), row = $('pq-' + key);
+  let n = null;
+  if (res.denied) {
+    t.textContent = noun.charAt(0).toUpperCase() + noun.slice(1);
+    b.textContent = denyText;
+    row.title = 'You do not have access to this data.';
+  } else if (!res.ok) {
+    t.textContent = noun.charAt(0).toUpperCase() + noun.slice(1);
+    b.textContent = 'This count could not be loaded right now.';
+    row.title = res.detail || 'Request failed';
+    landingDegraded('priority-queue', noun + ' could not be loaded', res.detail || null);
+  } else {
+    const v = pick(res.data);
+    if (v == null || !isFinite(v)) {
+      t.textContent = noun.charAt(0).toUpperCase() + noun.slice(1);
+      b.textContent = 'This count was not reported by the API.';
+    } else {
+      n = Number(v);
+      t.textContent = nf(n) + ' ' + noun;
+      b.textContent = sentence(n);
+      row.removeAttribute('title');
+    }
+  }
+  PQ[key] = n;
+  renderPqBadge();
+}
+/* Same hand-off as the Incidents tile, and for the same reason: this row's old
+   href opened tenant-sentinel.html, which renders no risky user anywhere and
+   never calls /api/sentinel/defender. ID Protection is where a risk is actually
+   dismissed or confirmed, and it runs its own auth.
+
+   The gap here is wider than the Incidents one and the tooltip has to carry it.
+   On 2026-09-09 the row reads 2 -- users whose risk was last updated inside 30
+   days -- while every one of the 338 rows the endpoint returns is riskState
+   'atRisk', so ID Protection opens on all 338. 300 of those have sat untouched
+   for over a year, the oldest for 2598 days. The window is this page's, not the
+   endpoint's: /api/sentinel/defender takes no window, riskyLast30 applies it
+   here. Jeramy took this over leaving the row unlinked (2026-09-09).
+
+   title only, no aria-label: the row already has a rich accessible name from
+   its own text, and title is announced after it as the description. Overriding
+   the name would trade three lines of real content for one. */
+function wireRiskLink(res) {
+  const a = $('pq-risk'), shown = PQ.risk;
+  if (shown === null || shown === undefined) return;   // no number: plain link stands
+  const total = Number((res.data && res.data.riskyTotal) || 0);
+  a.title = 'Users at risk: ' + nf(shown) + ' flagged in the last ' + RISK_WINDOW_DAYS +
+            ' days, ' + nf(total) + ' at risk in total. ' +
+            'Opens Microsoft Entra ID Protection in a new tab.';
+}
+
+function renderPqBadge() {
+  const el = $('pq-badge');
+  const vals = ['risk', 'lock', 'enc'].map(k => PQ[k]);
+  if (vals.some(v => v === undefined)) return;
+  if (vals.indexOf(null) !== -1) { el.className = 'badge is-unk'; el.textContent = 'partly unavailable'; return; }
+  const n = vals.filter(v => v > 0).length;
+  if (!n) { el.className = 'badge is-calm'; el.textContent = 'all clear'; return; }
+  el.className = 'badge';
+  el.textContent = n + (n === 1 ? ' needs review' : ' need review');
+}
+function loadPriorityQueue() {
+  PQ.risk = PQ.lock = PQ.enc = undefined;
+  /* riskyTotal is the whole standing backlog (338 of them, most last touched in
+     2024) -- not something a day's queue can act on. The window is applied here
+     because the endpoint has none: a risky-user row whose risk was last updated
+     inside 30 days is one Entra ID Protection has flagged recently. */
+  get('/api/sentinel/defender').then(r => { pqRow('risk', r, riskyLast30, 'users at risk',
+    n => n === 1 ? '1 user is flagged at risk in Entra ID Protection (last 30 days).'
+                 : nf(n) + ' users are flagged at risk in Entra ID Protection (last 30 days).',
+    'Entra ID Protection risk data needs Security Center access.'); wireRiskLink(r); });
+
+  once('lockouts', '/api/sdops/lockouts?days=1').then(r => pqRow('lock', r, () => lockoutsToday(r), 'locked accounts',
+    n => n === 1 ? '1 account locked out today and may need help signing in.'
+                 : nf(n) + ' accounts locked out today and may need help signing in.',
+    'Lockout data needs Service Desk access.'));
+
+  get('/api/device-posture/encryption').then(r => pqRow('enc', r, d => d.unencryptedTotal, 'unencrypted devices',
+    n => n === 1 ? '1 device reporting disk encryption off.'
+                 : nf(n) + ' devices reporting disk encryption off.',
+    'Device encryption posture needs Asset Inventory access.'));
+}
+
+/* ── service desk panel ────────────────────────────────────────────────── */
+function loadServiceDesk() {
+  once('sdsummary', '/api/sdops/requests/summary').then(r => {
+    const el = $('sd-meta');
+    if (r.denied) { el.textContent = 'Queue counts need Service Desk access.'; return; }
+    if (!r.ok) {
+      el.textContent = 'Queue counts could not be loaded right now.';
+      $('sd-panel').title = r.detail || 'Request failed';
+      landingDegraded('service-desk', 'Queue counts could not be loaded', r.detail || null);
+      return;
+    }
+    const open = Number(r.data.open || 0), un = Number(r.data.unassigned || 0);
+    /* both counts come from this one read, so the queue link and the unassigned
+       link can never disagree with the numbers printed beside them. */
+    el.innerHTML = '<a href="/service-desk-portal.html#requests"><b>' + nf(open) + '</b> open ' +
+                     (open === 1 ? 'ticket' : 'tickets') + '</a>' +
+                   '<span class="sd-sep" aria-hidden="true"></span> ' +
+                   '<a href="/service-desk-portal.html?technician=Unassigned#requests"><b>' + nf(un) +
+                     '</b> unassigned</a>';
+  });
+}
+
+/* ── environment status ────────────────────────────────────────────────── */
+/* Five probes, five honest states. `unknown` is its own state: a probe that
+   could not run is never drawn as operational, and never as broken either. */
+const ENV = [
+  { key:'entra', name:'Entra ID',    href:'/tenant-sentinel.html',
+    load:() => get('/api/tenant-health/entra'), read:d => ({state:d.state, text:d.text, detail:d.detail}) },
+  { key:'okta',  name:'Okta',        href:'/okta-dashboard.html',
+    load:() => get('/api/tenant-health/okta'),  read:d => ({state:d.state, text:d.text, detail:d.detail}) },
+  { key:'net',   name:'Network',     href:'/network-health.html',
+    load:() => get('/api/netswitch/overview'),  read:d => {
+      const c = (d.counts || d.summary || {});
+      const crit = Number(c.critical || 0), warn = Number(c.warn || 0);
+      const down = d.summary ? Number(d.summary.switches_down || 0) : 0;
+      if (crit || down) return {state:'bad',  text:'Needs attention',
+        detail:(down ? down + ' switch(es) unreachable. ' : '') + crit + ' critical issue(s).'};
+      if (warn)         return {state:'warn', text:'Needs review', detail:warn + ' warning(s) on the switch fleet.'};
+      return {state:'ok', text:'Operational', detail:'No critical or warning issues on the switch fleet.'};
+    } },
+  { key:'intune', name:'Endpoints',  href:'/IT_Inventory_App.html',
+    load:() => get('/api/tenant-health/intune'), read:d => ({state:d.state, text:d.text, detail:d.detail}) },
+  { key:'zpa',   name:'Zscaler ZPA', href:'/zscaler-command-center.html',
+    load:() => get('/api/zscaler/zpa/connector-health'), read:d => {
+      if (d.streaming === false) return {state:'unknown', text:'Not reporting', detail:d.reason || 'No connector telemetry in the window.'};
+      const c = d.connectors || [];
+      if (!c.length) return {state:'unknown', text:'Not reporting', detail:'Streaming is on but no connector records were returned.'};
+      const hot = c.filter(x => Number(x.cpuMax) >= 90 || Number(x.memMax) >= 90 || Number(x.diskMax) >= 90);
+      if (hot.length) return {state:'warn', text:'Needs review',
+        detail:hot.length + ' of ' + c.length + (c.length === 1 ? ' connector' : ' connectors') + ' peaked at 90%+ CPU, memory or disk.'};
+      return {state:'ok', text:'Operational', detail:c.length + (c.length === 1 ? ' connector' : ' connectors') + ' reporting, all under 90% utilisation.'};
+    } },
+];
+const ENV_STATE = {};
+function envClass(s) { return s === 'ok' ? 's-ok' : s === 'warn' ? 's-warn' : s === 'bad' ? 's-bad' : 's-unk'; }
+
+function renderEnv() {
+  const out = $('env-list');
+  out.innerHTML = ENV.map(e => {
+    const st = ENV_STATE[e.key] || { state: 'pending', text: '', detail: '' };
+    const body = st.state === 'pending'
+      ? '<span class="sk" style="width:74px;height:12px">&nbsp;</span>'
+      : '<span class="env-dot" aria-hidden="true"></span>' + esc(st.text);
+    return '<a class="env-i ' + envClass(st.state) + '" href="' + esc(e.href) + '"' +
+      (st.detail ? ' title="' + esc(st.detail) + '"' : '') + '>' +
+      '<span class="env-n">' + esc(e.name) + '</span>' +
+      '<span class="env-v">' + body + '</span></a>';
+  }).join('');
+}
+function renderStatusPill() {
+  const pill = $('statpill'), txt = $('sp-text');
+  const states = ENV.map(e => (ENV_STATE[e.key] || {}).state);
+  if (states.indexOf(undefined) !== -1) return;             /* still loading */
+  const n = s => states.filter(x => x === s).length;
+  const bad = n('bad'), warn = n('warn'), unk = n('unknown') + n('unconfigured');
+  let cls = 'statpill', text;
+  if (bad)       { cls += ' is-bad';  text = bad + (bad === 1 ? ' service degraded' : ' services degraded'); }
+  else if (warn) { cls += ' is-warn'; text = warn + (warn === 1 ? ' service needs review' : ' services need review'); }
+  else if (unk)  { cls += ' is-unk';  text = unk + (unk === 1 ? ' service unreported' : ' services unreported'); }
+  else           { text = 'All systems operational'; }
+  pill.className = cls;
+  txt.textContent = text;
+  pill.title = ENV.map(e => e.name + ': ' + ((ENV_STATE[e.key] || {}).text || 'unknown')).join(' · ');
+}
+function loadEnv() {
+  renderEnv();
+  ENV.forEach(e => e.load().then(r => {
+    if (r.denied) ENV_STATE[e.key] = { state:'unknown', text:'No access', detail:'You do not have permission to read this probe.' };
+    else if (!r.ok) {
+      ENV_STATE[e.key] = { state:'unknown', text:'Unavailable', detail:'The status probe failed: ' + (r.detail || 'request error') };
+      landingDegraded('environment-status', e.name + ' status could not be read', r.detail || null);
+    } else {
+      let v; try { v = e.read(r.data); } catch (err) { v = null; }
+      ENV_STATE[e.key] = v && v.state
+        ? { state:v.state, text:v.text || v.state, detail:v.detail || '' }
+        : { state:'unknown', text:'Unavailable', detail:'The probe returned no state.' };
+    }
+    renderEnv(); renderStatusPill();
+  }));
+}
+
+/* ── recently opened ───────────────────────────────────────────────────── */
+function loadRecent() {
+  return get('/api/profile/recent').then(r => {
+    const el = $('recent-s'), a = $('recent');
+    if (r.denied) { el.textContent = 'Sign-in required to show your history.'; return; }
+    if (!r.ok) {
+      el.textContent = 'Recent activity is unavailable right now.';
+      landingDegraded('recent-activity', 'Recent activity is unavailable', r.detail || null);
+      return;
+    }
+    const items = (r.data && r.data.items) || [];
+    const top = items.filter(x => x.label || x.object_id)[0];
+    if (!top) { el.textContent = 'Nothing yet — tools you open appear here.'; a.href = '/my-profile.html#work'; return; }
+    const label = top.label || (top.object_type + ' ' + top.object_id);
+    el.textContent = label + ' · ' + relTime(top.created_at);
+    const href = safeHref(top.url);
+    a.href = href === '#' ? '/my-profile.html#work' : href;
+    if (href.startsWith('https://')) { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+    else { a.removeAttribute('target'); a.removeAttribute('rel'); }
+  });
+}
+
+/* ── weather + location ────────────────────────────────────────────────── */
+function loadWeather() {
+  get('/api/weather').then(r => {
+    const el = $('hero-wx');
+    if (!r.ok || !r.data) { el.textContent = ''; return; }
+    const d = r.data;
+    /* The route grew a `sites` array on 2026-09-09 (Irvine and Plano in one
+       upstream call). It still mirrors the first site's fields at the top level,
+       so treating a response with no `sites` as a one-site list keeps this
+       working against a hub API that has not been restarted yet. */
+    const sites = (Array.isArray(d.sites) && d.sites.length ? d.sites : [d])
+                    .filter(s => s && s.label);
+    if (!sites.length) { el.textContent = ''; return; }
+    /* A site we could not read shows its name and says why in the tooltip. It is
+       never given the other office's reading, and never a made-up one. */
+    el.innerHTML = sites.map(s => {
+      const bad = s.ok === false || typeof s.tempF !== 'number';
+      const why = bad
+        ? 'Conditions unavailable: ' + (s.reason || d.reason || 'upstream error')
+        : [s.text, s.observedAt ? 'observed ' + s.observedAt : '', 'open-meteo']
+            .filter(Boolean).join(' \u00B7 ');
+      return '<span class="wx-site" title="' + esc(why) + '">' +
+        (bad ? '' : '<span data-icon="' + esc(s.icon || 'cloud') + '" aria-hidden="true"></span>') +
+        '<span>' + esc(s.label) + '</span>' +
+        (bad ? '' : '<span class="wx-t">' + esc(s.tempF + '\u00B0F') + '</span>') +
+        '</span>';
+    }).join('<span class="wx-sep" aria-hidden="true">\u00B7</span>');
+    el.removeAttribute('title');
+    hydrate(el);
+  });
+}
+
+/* ── greeting ──────────────────────────────────────────────────────────── */
+function greetWord() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+function applyGreeting(u) {
+  const el = $('greet');
+  const nm = u ? (u.displayName || u.display_name || u.name || u.email || '').trim() : '';
+  const first = nm.split(/[\s@.]+/).filter(Boolean)[0] || '';
+  el.textContent = first
+    ? greetWord() + ', ' + first[0].toUpperCase() + first.slice(1) + '.'
+    : greetWord() + '.';
+}
+window.applyGreeting = applyGreeting;
+function loadGreeting() {
+  applyGreeting(null);
+  if (!(window.itRbac && window.itRbac.ready)) return;
+  window.itRbac.ready().then(u => {
+    const eff = (window.itRbac.me && window.itRbac.me()) || u;
+    if (eff) applyGreeting(eff);
+  }).catch(() => {});
+}
+
+/* ── open beacons ──────────────────────────────────────────────────────── */
+/* One delegated listener, so re-rendered tiles never need re-binding. The
+   beacon is what "Recently opened" reads back, so it refreshes just after. */
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[data-app]');
+  if (!a || !window.itProfile) return;
+  try {
+    window.itProfile.open({
+      id: a.getAttribute('data-app'),
+      name: a.getAttribute('data-name') || a.textContent.trim(),
+      href: a.getAttribute('href'),
+    });
+  } catch (err) { /* opening the tool matters more than logging it */ }
+  setTimeout(loadRecent, 900);
+}, true);
+
+/* ── command palette ───────────────────────────────────────────────────── */
+/* One search experience behind the header icon, the hero field, ⌘K and
+   "Look up user". Tools are local; people and tickets are live reads. */
+const CMD = {
+  open: false, q: '', seq: 0, items: [], sel: -1,
+  groups: { tools: {state:'idle', rows:[]}, people: {state:'idle', rows:[]}, tickets: {state:'idle', rows:[]} },
+  lastFocus: null, timer: null,
+};
+const cmdScrim = $('cmd-scrim'), cmdBox = $('cmd'), cmdIn = $('cmd-in'), cmdBody = $('cmd-body');
+
+function cmdOpen() {
+  CMD.lastFocus = document.activeElement;
+  CMD.open = true;
+  cmdScrim.classList.add('on');
+  cmdIn.value = '';
+  CMD.q = '';
+  cmdSearch('');
+  cmdIn.focus();
+}
+function cmdClose() {
+  if (!CMD.open) return;
+  CMD.open = false;
+  cmdScrim.classList.remove('on');
+  if (CMD.lastFocus && CMD.lastFocus.focus) CMD.lastFocus.focus();
+}
+function cmdSearch(q) {
+  CMD.q = q;
+  const seq = ++CMD.seq;
+  const G = CMD.groups;
+
+  const needle = q.toLowerCase();
+  const hits = (needle
+    ? TILES.filter(t => (t.name + ' ' + (t.purpose || '')).toLowerCase().indexOf(needle) !== -1)
+    : TILES.filter(t => t.quick || t.favorite)).slice(0, 6);
+  G.tools = { state: 'done', rows: hits.map(t => {
+    const href = safeHref(t.href);
+    return { href, ext: href.startsWith('https://'), app: t.id, name: t.name,
+             iconHtml: t.iconHtml || '', icon: t.icon || 'grid',
+             tone: t.tone || 't-blue', title: t.name,
+             sub: t.purpose || '', hint: href.startsWith('https://') ? hostOf(href) : '' };
+  }) };
+
+  if (q.length < 2) {
+    G.people  = { state: 'idle', rows: [] };
+    G.tickets = { state: 'idle', rows: [] };
+    cmdRender();
+    return;
+  }
+  G.people  = { state: 'loading', rows: [] };
+  G.tickets = { state: 'loading', rows: [] };
+  cmdRender();
+
+  get('/api/identity/search?q=' + encodeURIComponent(q)).then(r => {
+    if (seq !== CMD.seq) return;
+    if (r.denied) G.people = { state: 'denied', rows: [] };
+    else if (!r.ok) G.people = { state: 'error', rows: [] };
+    else {
+      const list = Array.isArray(r.data) ? r.data : [];
+      G.people = { state: 'done', rows: list.slice(0, 6).map(p => ({
+        href: '/identity-diag.html?q=' + encodeURIComponent(p.email || p.sam || ''),
+        icon: 'user', tone: 't-blue', app: 'identity-diag', name: 'Identity Diagnostics',
+        title: p.displayName || p.sam, sub: p.email || p.sam, hint: 'Look up',
+      })) };
+    }
+    cmdRender();
+  });
+
+  get('/api/sdops/requests?pageSize=6&search=' + encodeURIComponent(q)).then(r => {
+    if (seq !== CMD.seq) return;
+    if (r.denied) G.tickets = { state: 'denied', rows: [] };
+    else if (!r.ok) G.tickets = { state: 'error', rows: [] };
+    else {
+      const list = (r.data && r.data.data) || [];
+      G.tickets = { state: 'done', rows: list.slice(0, 6).map(t => ({
+        href: safeHref(t.sdpUrl) !== '#' ? t.sdpUrl : '/service-desk-portal.html#requests',
+        ext: !!t.sdpUrl, icon: 'ticket', tone: 't-purple',
+        title: t.id + ' · ' + (t.subject || '(no subject)'),
+        sub: [t.requester, t.status].filter(Boolean).join(' · '),
+        hint: t.overdue ? 'overdue' : '',
+      })) };
+    }
+    cmdRender();
+  });
+}
+const CMD_NOTE = {
+  loading: 'Searching…', short: 'Type at least 2 characters.', idle: '',
+  denied:  'You do not have permission to search this.',
+  error:   'This search could not be run right now.',
+  empty:   'No matches.',
+};
+function cmdRender() {
+  const order = ['tools', 'people', 'tickets'];
+  const LBL = { tools: 'Tools', people: 'People', tickets: 'Tickets' };
+  CMD.items = [];
+  let html = '';
+  order.forEach(k => {
+    const g = CMD.groups[k];
+    if (g.state === 'idle' && !g.rows.length) return;
+    html += '<div class="cmd-grp">' + LBL[k] + '</div>';
+    if (g.rows.length) {
+      g.rows.forEach(row => {
+        const i = CMD.items.length;
+        CMD.items.push(row);
+        html += '<a class="cmd-it" role="option" aria-selected="false" id="cmd-o' + i + '" data-i="' + i + '" href="' + esc(row.href) + '"' +
+          (row.app ? ' data-app="' + esc(row.app) + '" data-name="' + esc(row.name || row.title) + '"' : '') +
+          (row.ext ? ' target="_blank" rel="noopener noreferrer"' : '') + '>' +
+          '<span class="cmd-ic ' + esc(row.tone) + '" aria-hidden="true">' + linkIcon(row, row.icon) + '</span>' +
+          '<span class="cmd-tx"><span class="cmd-t">' + esc(row.title) + '</span>' +
+          (row.sub ? '<span class="cmd-s">' + esc(row.sub) + '</span>' : '') + '</span>' +
+          (row.hint ? '<span class="cmd-hint">' + esc(row.hint) + '</span>' : '') + '</a>';
+      });
+    } else {
+      const note = g.state === 'done' ? CMD_NOTE.empty : CMD_NOTE[g.state];
+      if (note) html += '<div class="cmd-note' + (g.state === 'error' || g.state === 'denied' ? ' err' : '') + '">' + esc(note) + '</div>';
+    }
+  });
+  if (!html) html = '<div class="cmd-note">' + esc(CMD.q.length < 2 ? 'Type to search tools, people and tickets.' : CMD_NOTE.empty) + '</div>';
+  cmdBody.innerHTML = html;
+  hydrate(cmdBody);
+  CMD.sel = CMD.items.length ? 0 : -1;
+  cmdPaint();
+}
+function cmdPaint() {
+  cmdBody.querySelectorAll('.cmd-it').forEach(el => {
+    const on = Number(el.dataset.i) === CMD.sel;
+    el.setAttribute('aria-selected', on ? 'true' : 'false');
+    if (on) { cmdIn.setAttribute('aria-activedescendant', el.id);
+              if (el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }
+  });
+  if (CMD.sel < 0) cmdIn.removeAttribute('aria-activedescendant');
+}
+function cmdMove(d) {
+  if (!CMD.items.length) return;
+  CMD.sel = (CMD.sel + d + CMD.items.length) % CMD.items.length;
+  cmdPaint();
+}
+cmdIn.addEventListener('input', () => {
+  const v = cmdIn.value.trim();
+  clearTimeout(CMD.timer);
+  CMD.timer = setTimeout(() => cmdSearch(v), 180);
+});
+cmdIn.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); cmdMove(1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); cmdMove(-1); }
+  else if (e.key === 'Enter') {
+    const el = cmdBody.querySelector('.cmd-it[aria-selected="true"]');
+    if (el) { e.preventDefault(); el.click(); cmdClose(); }
+  } else if (e.key === 'Escape') { e.preventDefault(); cmdClose(); }
+});
+cmdBody.addEventListener('mousemove', e => {
+  const it = e.target.closest('.cmd-it');
+  if (it && Number(it.dataset.i) !== CMD.sel) { CMD.sel = Number(it.dataset.i); cmdPaint(); }
+});
+cmdBody.addEventListener('click', e => { if (e.target.closest('.cmd-it')) cmdClose(); });
+cmdScrim.addEventListener('mousedown', e => { if (e.target === cmdScrim) cmdClose(); });
+$('hdr-search').addEventListener('click', cmdOpen);
+$('hero-search').addEventListener('click', cmdOpen);
+
+/* ── look up user / new ticket / new CAB ────────────────────────────────── */
+/* Ported from the ITAM helpdesk landing's rp-modal: one dialog, five modes.
+   `lookup` shows the whole user card; `unlock`, `reset` and `ticket` reuse the
+   same typeahead and act on the user it selects; `cab` is not user-bound, so it
+   hides the typeahead and goes straight to the change form.
+   Endpoints: identity/search · identity/lookup · identity/devices ·
+              identity/unlock · identity/reset-password ·
+              sdp/tickets · sdp/tickets/create · sdp/changes/health · changes/create */
+const RP = (() => {
+  /* Server-side these actions are rbac.requirePage('identity-diag','admin'); the
+     same verdict is applied to the buttons so a denied user is told before they
+     type, not after they submit. rbac-client.js dims and makes them inert. */
+  const ADMIN_ATTR = ' data-rbac-page="identity-diag" data-rbac-level="admin" data-rbac-action="dim"';
+  const READ_ATTR  = ' data-rbac-page="identity-diag"';
+
+  const MODES = {
+    lookup: { title: 'Look up user',   sub: 'Active Directory, Okta, Zscaler, devices and open tickets in one card.' },
+    unlock: { title: 'Unlock account', sub: 'Find the person first — the unlock is applied to the account you select.' },
+    reset:  { title: 'Reset password', sub: 'Find the person first — the new password is set on the account you select.' },
+    ticket: { title: 'New ticket',     sub: 'Find the requester first — the ticket is filed against the account you select.' },
+    cab:    { title: 'New CAB',        sub: 'Files a change request in Service Desk Plus. You are recorded as the requester.' },
+  };
+
+  const scrim = $('rp-scrim'), box = $('rp-dlg');
+  let mode = 'lookup', sel = null, hi = -1, items = [], timer = null, lastFocus = null;
+
+  /* ── helpers ─────────────────────────────────────────────────────────── */
+  /* Distinct from get(): the panels want to branch on "no access" vs "could not
+     be read", so the rejection carries which one it was. */
+  function kget(url) {
+    return fetch(url, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(20000) })
+      .then(r => {
+        if (r.status === 401 || r.status === 403) throw Object.assign(new Error('noaccess'), { code: 'noaccess' });
+        if (!r.ok) throw new Error('unavailable');
+        return r.json();
+      });
+  }
+  const why = e => (e && e.code === 'noaccess') ? 'no access' : 'unavailable';
+
+  function jpost(url, body) {
+    return fetch(url, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(30000),
+    }).then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, status: r.status, d })));
+  }
+  /* One place decides "you are not allowed": status plus the RBAC codes, never
+     an empty error string. */
+  function denied(x) {
+    if (x.status === 401 || x.status === 403) return true;
+    const c = x.d && x.d.code;
+    return c === 'NO_ACCESS' || c === 'INSUFFICIENT_LEVEL' || c === 'AUTH_REQUIRED';
+  }
+  const failText = x => (x.d && (x.d.error || x.d.detail || x.d.message)) || ('HTTP ' + x.status);
+
+  const live = t => { $('rp-live').textContent = t || ''; };
+  function say(kind, html) {
+    const m = $('rp-msg');
+    m.className = 'dlg-msg ' + kind; m.innerHTML = html; m.hidden = false;
+    live(m.textContent);
+  }
+  /* text-only variant: everything a server sent goes through here, never say(). */
+  const sayText = (kind, text) => say(kind, esc(text));
+  function clearMsg() { const m = $('rp-msg'); m.hidden = true; m.className = 'dlg-msg'; m.innerHTML = ''; live(''); }
+
+  function genPwd() {
+    /* Math.random() is not a CSPRNG. Rejection-sample getRandomValues so the
+       alphabet stays unbiased (256 % len !== 0). */
+    const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+    const LEN = 16, max = 256 - (256 % c.length), buf = new Uint8Array(32);
+    let out = '';
+    while (out.length < LEN) {
+      crypto.getRandomValues(buf);
+      for (let i = 0; i < buf.length && out.length < LEN; i++) {
+        if (buf[i] < max) out += c.charAt(buf[i] % c.length);
+      }
+    }
+    return out;
+  }
+
+  function ago(v) {
+    if (!v) return null;
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return String(v);
+    const ms = Date.now() - d.getTime(), day = 86400000;
+    if (ms < 0) return d.toLocaleDateString();
+    if (ms < 3600000) return 'just now';
+    if (ms < day) return Math.floor(ms / 3600000) + 'h ago';
+    if (ms < 30 * day) return Math.floor(ms / day) + 'd ago';
+    return d.toLocaleDateString();
+  }
+
+  /* ── open / close ────────────────────────────────────────────────────── */
+  function open(m) {
+    lastFocus = document.activeElement;
+    mode = MODES[m] ? m : 'lookup';
+    sel = null; hi = -1; items = [];
+    $('rp-title').textContent = MODES[mode].title;
+    $('rp-sub').textContent   = MODES[mode].sub;
+    box.classList.toggle('wide',   mode === 'lookup');
+    box.classList.toggle('nouser', mode === 'cab');
+    $('rp-srch').value = '';
+    $('rp-dd').innerHTML = ''; $('rp-dd').classList.remove('open');
+    $('rp-srch').setAttribute('aria-expanded', 'false');
+    $('rp-card').classList.remove('show');
+    $('rp-actions').classList.remove('show'); $('rp-actions').innerHTML = '';
+    $('rp-uc').innerHTML = '';
+    clearMsg();
+    scrim.classList.add('on');
+    if (mode === 'cab') renderActions();
+    setTimeout(() => {
+      const f = (mode === 'cab' && $('rp-cab-title')) ? $('rp-cab-title') : $('rp-srch');
+      f.focus();
+    }, 70);
+  }
+  function close() {
+    if (!scrim.classList.contains('on')) return;
+    scrim.classList.remove('on');
+    if (lastFocus && document.contains(lastFocus) && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+    lastFocus = null;
+  }
+  const isOpen = () => scrim.classList.contains('on');
+
+  /* ── typeahead ───────────────────────────────────────────────────────── */
+  function moveHi(next) {
+    const dd = $('rp-dd');
+    hi = next;
+    Array.prototype.forEach.call(dd.children, (el, i) => el.classList.toggle('hi', i === hi));
+    if (hi >= 0 && dd.children[hi]) dd.children[hi].scrollIntoView({ block: 'nearest' });
+  }
+  function renderDD(note) {
+    const dd = $('rp-dd');
+    if (note) {
+      dd.innerHTML = '<div class="rp-di dead">' + esc(note) + '</div>';
+      dd.classList.add('open'); $('rp-srch').setAttribute('aria-expanded', 'true');
+      return;
+    }
+    if (!items.length) {
+      dd.classList.remove('open'); dd.innerHTML = '';
+      $('rp-srch').setAttribute('aria-expanded', 'false');
+      return;
+    }
+    /* the API returns `sam`; older callers used `samAccountName` — accept both */
+    dd.innerHTML = items.map((it, i) => {
+      const sam = it.sam || it.samAccountName || '';
+      return '<div class="rp-di' + (i === hi ? ' hi' : '') + '" role="option" ' +
+             'aria-selected="' + (i === hi) + '" data-i="' + i + '">' +
+             '<span class="n">' + esc(it.displayName || sam) + '</span>' +
+             '<span class="s">' + esc(sam) + (it.email ? ' · ' + esc(it.email) : '') + '</span></div>';
+    }).join('');
+    dd.classList.add('open');
+    $('rp-srch').setAttribute('aria-expanded', 'true');
+  }
+  function pick(i) {
+    const it = items[i];
+    if (!it) return;
+    const sam = it.sam || it.samAccountName || '';
+    sel = { sam, dn: it.displayName || sam, email: it.email || '' };
+    $('rp-srch').value = sel.dn + ' (' + sam + ')';
+    $('rp-dd').classList.remove('open');
+    $('rp-srch').setAttribute('aria-expanded', 'false');
+    showCard();
+    clearMsg();
+    renderActions();
+  }
+  function showCard() {
+    $('rp-card-n').textContent = sel.dn;
+    $('rp-card-s').textContent = sel.sam + (sel.email ? ' · ' + sel.email : '');
+    $('rp-card').classList.add('show');
+  }
+
+  /* ── the user card: four panels, each resolving on its own ───────────── */
+  const ucRow = (k, v, cls, why) =>
+    '<span class="uc-r"' + (why ? ' title="' + esc(why) + '"' : '') +
+    '><span class="k">' + esc(k) + '</span>' +
+    '<span class="v' + (cls ? ' ' + cls : '') + '">' + (v == null || v === '' ? '—' : v) + '</span></span>';
+  const pill = (t, c) => '<span class="uc-pill ' + c + '">' + esc(t) + '</span>';
+  /* okta.mfa is an array of {type,provider,label,status}; joining it printed
+     "[object Object]" once per enrolment (16 of them for a FastPass user).
+     Dedupe by label, and keep the three states identity-diag.html distinguishes:
+     factors enrolled, a measured zero, and "we could not ask Okta" — the last
+     must never render as a red none. */
+  const dedupMfa = l =>
+    typeof l === 'string' ? (l ? [l] : []) :
+    Array.isArray(l) ? l.map(f => (typeof f === 'string' ? f : (f && (f.label || f.type)) || 'Unknown'))
+                        .filter((v, i, a) => a.indexOf(v) === i)
+                     : [];
+  /* Anything that is neither a list nor a string is a shape we cannot read.
+     Reporting it as a red "none" would be a false "this user has no MFA". */
+  const mfaShaped = l => l == null || typeof l === 'string' || Array.isArray(l);
+  function mfaState(o) {
+    o = o || {};
+    const sig = String(o.mfaStatus || o.factorsStatus || '').toLowerCase();
+    const why = o.mfaError || o.factorsError || '';
+    if (!mfaShaped(o.mfa))
+      return { unknown:true, list:[], why:'Okta returned a factor list this page cannot read' };
+    if (sig) return (sig === 'ok' || sig === 'found')
+      ? { unknown:false, list:dedupMfa(o.mfa), why:'' }
+      : { unknown:true, list:[], why: why || ('Okta factor list ' + sig) };
+    const st = o.oktaStatus || o.status;
+    if (o.mfa != null && (st === 'found' || /^active$/i.test(String(st || ''))))
+      return { unknown:false, list:dedupMfa(o.mfa), why:'' };
+    if (st === 'not_found')    return { unknown:true, list:[], why:'no Okta profile for this account' };
+    if (st === 'unconfigured') return { unknown:true, list:[], why:'Okta connector not configured' };
+    return { unknown:true, list:[], why: why || o.error || 'Okta did not return a factor list' };
+  }
+  const ucNote = t => '<span class="uc-empty">' + esc(t) + '</span>';
+  const skel = (id, title) =>
+    '<div class="uc-sec loading" id="' + id + '" aria-busy="true"><h4>' + title + '</h4>' +
+    '<span class="uc-skel"><i></i><i></i></span>'.repeat(4) +
+    '<span class="vh">loading</span></div>';
+  /* EVERY resolve path drops .loading — including the error paths, or a failed
+     panel becomes a tall empty box with the words "no access" floating in it. */
+  function done(el, html) {
+    if (!el) return;
+    el.classList.remove('loading');
+    el.removeAttribute('aria-busy');
+    el.innerHTML = html;
+    el.classList.add('uc-in');
+  }
+
+  function loadCard() {
+    $('rp-uc').innerHTML =
+      '<div class="uc-grid">' +
+        skel('uc-ad', 'Active Directory') + skel('uc-okta', 'Okta &amp; Zscaler') +
+        skel('uc-dev', 'Devices') + skel('uc-tix', 'Open tickets') +
+      '</div><div class="uc-foot">' +
+        '<button type="button" class="uc-fb" data-sw="unlock"' + ADMIN_ATTR + '>Unlock account</button>' +
+        '<button type="button" class="uc-fb" data-sw="reset"' + ADMIN_ATTR + '>Reset password</button>' +
+        '<button type="button" class="uc-fb" data-sw="ticket"' + ADMIN_ATTR + '>New ticket</button>' +
+        '<a class="uc-fb pri" href="/identity-diag.html?q=' + encodeURIComponent(sel.sam) + '"' +
+          READ_ATTR + '>Open in Identity Diagnostics</a>' +
+      '</div>';
+
+    const who = sel.sam;
+    kget('/api/identity/lookup?q=' + encodeURIComponent(who))
+      .then(renderAD).catch(e => renderAD({ __err: why(e) }));
+    kget('/api/identity/devices?q=' + encodeURIComponent(who))
+      .then(renderDev).catch(e => renderDev({ __err: why(e) }));
+    if (sel.email) {
+      kget('/api/sdp/tickets?email=' + encodeURIComponent(sel.email))
+        .then(renderTix).catch(e => renderTix({ __err: why(e) }));
+    } else {
+      done($('uc-tix'), '<h4>Open tickets</h4>' + ucNote('No email on record'));
+    }
+  }
+
+  function renderAD(d) {
+    const ad = $('uc-ad'), oz = $('uc-okta');
+    if (!ad) return;
+    if (d.__err) {
+      done(ad, '<h4>Active Directory</h4>' + ucNote(d.__err));
+      if (oz) done(oz, '<h4>Okta &amp; Zscaler</h4>' + ucNote(d.__err));
+      return;
+    }
+    const as = d.accountStatus || {}, pw = d.password || {};
+    const st = as.lockedOut ? pill('locked', 'bad')
+             : (as.enabled === false ? pill('disabled', 'bad') : pill('active', 'ok'));
+    let pwv = null, pwc = null;
+    if (pw.neverExpires) pwv = 'never expires';
+    else if (pw.expired) { pwv = 'expired'; pwc = 'bad'; }
+    else if (pw.expiresInDays != null) { pwv = pw.expiresInDays + 'd left'; pwc = pw.expiresInDays <= 7 ? 'warn' : null; }
+    const pg = (d.privilegedGroups && d.privilegedGroups.length) || 0;
+    done(ad, '<h4><span>Active Directory</span>' + st + '</h4>' +
+      ucRow('Title', esc(d.title)) +
+      ucRow('Department', esc(d.department)) +
+      ucRow('Bad pwd count', as.badPwdCount != null ? as.badPwdCount : null, as.badPwdCount > 3 ? 'bad' : null) +
+      ucRow('Password', pwv, pwc) +
+      ucRow('Last logon', esc(ago(d.lastLogon))) +
+      ucRow('Risk score', d.riskScore != null ? d.riskScore : null,
+            d.riskScore >= 50 ? 'bad' : (d.riskScore >= 25 ? 'warn' : null)) +
+      (pg ? ucRow('Privileged', pg + ' group' + (pg > 1 ? 's' : ''), 'warn') : ''));
+
+    if (!oz) return;
+    const ok = d.okta || {}, zs = d.zscaler || {}, zia = zs.zia || {}, zpa = zs.zpa || {};
+    const ost = ok.oktaStatus || ok.status;
+    const oPill = !ost ? pill('n/a', 'idle') : (/^active$/i.test(ost) ? pill(ost, 'ok') : pill(ost, 'warn'));
+    const mfa = mfaState(ok);
+    done(oz, '<h4><span>Okta &amp; Zscaler</span>' + oPill + '</h4>' +
+      ucRow('MFA factors',
+            mfa.unknown ? esc('Unknown') : esc(mfa.list.length ? mfa.list.join(', ') : 'none'),
+            mfa.unknown ? 'warn' : (mfa.list.length ? null : 'bad'),
+            mfa.unknown ? 'MFA could not be read \u2014 ' + mfa.why : null) +
+      ucRow('Okta last login', esc(ago(ok.lastLogin))) +
+      ucRow('Apps assigned', ok.appCount != null ? ok.appCount : null) +
+      ucRow('ZIA', zia.status === 'found'
+        ? (zia.isEnabled === false ? pill('disabled', 'bad') : pill('enabled', 'ok'))
+        : esc(zia.status || null)) +
+      ucRow('ZPA', zpa.status === 'connected' ? pill('connected', 'ok') : esc(zpa.status || null)));
+  }
+
+  function renderDev(d) {
+    const el = $('uc-dev');
+    if (!el) return;
+    if (d.__err) { done(el, '<h4>Devices</h4>' + ucNote(d.__err)); return; }
+    const list = d.devices || [];
+    if (!list.length) { done(el, '<h4>Devices</h4>' + ucNote('No devices found')); return; }
+    done(el, '<h4><span>Devices</span>' + pill(String(list.length), 'idle') + '</h4>' +
+      list.slice(0, 8).map((x, i) => {
+        const c = x.compliance;
+        const cp = (c != null && c !== '')
+          ? (/^compliant$/i.test(c) ? pill('ok', 'ok') : pill(String(c), 'bad')) : '';
+        return '<span class="uc-dev' + (i === 0 ? ' first' : '') + '">' +
+               '<span class="dt">' + esc(x.type || x.source || '') + '</span>' +
+               '<span class="dn">' + esc(x.deviceName || x.model || '—') + '</span>' + cp + '</span>';
+      }).join('') +
+      (list.length > 8 ? ucNote('+' + (list.length - 8) + ' more') : ''));
+  }
+
+  function renderTix(d) {
+    const el = $('uc-tix');
+    if (!el) return;
+    if (d.__err) { done(el, '<h4>Open tickets</h4>' + ucNote(d.__err)); return; }
+    const t = d.tickets || [];
+    /* the endpoint has no status filter — it returns the 20 newest */
+    const op = t.filter(x => {
+      const s = String(x.status || '').toLowerCase();
+      return s && !/closed|resolved|cancel/.test(s);
+    });
+    if (!op.length) {
+      done(el, '<h4>Open tickets</h4>' + ucNote(t.length ? 'None open (' + t.length + ' total)' : 'No tickets'));
+      return;
+    }
+    done(el, '<h4><span>Open tickets</span>' + pill(String(op.length), 'warn') + '</h4>' +
+      op.slice(0, 6).map((x, i) => {
+        const lbl = esc(x.subject || '(no subject)');
+        const href = safeHref(x.url);
+        return '<span class="uc-dev' + (i === 0 ? ' first' : '') + '">' +
+               '<span class="dt">#' + esc(x.id) + '</span><span class="dn">' +
+               (href !== '#' ? '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + lbl + '</a>' : lbl) +
+               '</span></span>';
+      }).join('') +
+      (op.length > 6 ? ucNote('+' + (op.length - 6) + ' more') : ''));
+  }
+
+  /* ── mode-specific forms ─────────────────────────────────────────────── */
+  function renderActions() {
+    const a = $('rp-actions');
+
+    if (mode === 'lookup') { a.classList.remove('show'); a.innerHTML = ''; loadCard(); return; }
+
+    if (mode === 'reset') {
+      a.innerHTML =
+        '<div><div class="rp-lbl" id="rp-pwd-l">New password</div>' +
+        '<div class="rp-pwd-row"><div class="rp-pwd-field">' +
+        '<input class="rp-pwd" id="rp-pwd" type="password" placeholder="Temporary password" ' +
+        'autocomplete="new-password" spellcheck="false" aria-labelledby="rp-pwd-l">' +
+        '<button type="button" class="rp-eye" id="rp-eye" aria-label="Show password">&#128065;</button>' +
+        '</div><button type="button" class="rp-gen" id="rp-gen">Generate</button></div>' +
+        '<div class="rp-hint">Minimum 8 characters. Must meet AD complexity requirements.</div>' +
+        '<label class="rp-fcl"><input type="checkbox" id="rp-fc">' +
+        '<span>Require the user to change the password at next sign-in<br>' +
+        '<span class="rp-hint warn">Known to break Okta password sync — leave off unless the user is Okta-exempt.</span>' +
+        '</span></label></div>' +
+        '<button type="button" class="rp-btn reset" id="rp-go" disabled' + ADMIN_ATTR + '>Set password</button>';
+      a.classList.add('show');
+      $('rp-pwd').addEventListener('input', function () { $('rp-go').disabled = this.value.length < 8; });
+      $('rp-gen').addEventListener('click', () => {
+        $('rp-pwd').value = genPwd();
+        $('rp-go').disabled = false;
+      });
+      $('rp-eye').addEventListener('click', function () {
+        const p = $('rp-pwd'), show = p.type === 'password';
+        p.type = show ? 'text' : 'password';
+        this.innerHTML = show ? '&#128584;' : '&#128065;';
+        this.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        p.focus();
+      });
+      $('rp-go').addEventListener('click', doReset);
+      return;
+    }
+
+    if (mode === 'unlock') {
+      a.innerHTML = '<button type="button" class="rp-btn unlock" id="rp-go"' + ADMIN_ATTR + '>Unlock account</button>';
+      a.classList.add('show');
+      $('rp-go').addEventListener('click', doUnlock);
+      return;
+    }
+
+    if (mode === 'ticket') {
+      a.innerHTML =
+        '<div><div class="rp-lbl" id="rp-subj-l">Subject</div>' +
+        '<input class="rp-in" id="rp-subj" type="text" maxlength="250" autocomplete="off" ' +
+        'placeholder="Short summary of the issue" aria-labelledby="rp-subj-l"></div>' +
+        '<div><div class="rp-lbl" id="rp-desc-l">Description</div>' +
+        '<textarea class="rp-ta" id="rp-desc" aria-labelledby="rp-desc-l" ' +
+        'placeholder="What happened, what was tried, any error text"></textarea></div>' +
+        '<button type="button" class="rp-btn ticket" id="rp-go" disabled' + ADMIN_ATTR + '>Create ticket</button>';
+      a.classList.add('show');
+      $('rp-subj').addEventListener('input', function () { $('rp-go').disabled = this.value.trim().length < 5; });
+      $('rp-go').addEventListener('click', doCreateTicket);
+      setTimeout(() => $('rp-subj').focus(), 60);
+      return;
+    }
+
+    if (mode === 'cab') {
+      a.innerHTML =
+        '<div><div class="rp-lbl" id="rp-cabt-l">Title</div>' +
+        '<input class="rp-in" id="rp-cab-title" type="text" maxlength="250" autocomplete="off" ' +
+        'placeholder="What is changing" aria-labelledby="rp-cabt-l"></div>' +
+        '<div class="rp-row2">' +
+        '<div><div class="rp-lbl" id="rp-cabs-l">Scheduled start</div>' +
+        '<input class="rp-in" id="rp-cab-start" type="datetime-local" aria-labelledby="rp-cabs-l"></div>' +
+        '<div><div class="rp-lbl" id="rp-cabe-l">Scheduled end</div>' +
+        '<input class="rp-in" id="rp-cab-end" type="datetime-local" aria-labelledby="rp-cabe-l"></div>' +
+        '</div>' +
+        '<div><div class="rp-lbl" id="rp-cabty-l">Change type</div>' +
+        '<select class="rp-in" id="rp-cab-type" aria-labelledby="rp-cabty-l">' +
+        '<option value="">Portal default</option><option>Standard</option><option>Normal</option>' +
+        '<option>Minor</option><option>Major</option><option>Significant</option><option>Emergency</option>' +
+        '</select></div>' +
+        '<div><div class="rp-lbl" id="rp-cabd-l">Description</div>' +
+        '<textarea class="rp-ta" id="rp-cab-desc" aria-labelledby="rp-cabd-l" ' +
+        'placeholder="Scope, impacted systems, validation, rollback plan"></textarea></div>' +
+        '<button type="button" class="rp-btn cab" id="rp-go" disabled' + ADMIN_ATTR + '>Create CAB</button>';
+      a.classList.add('show');
+      $('rp-cab-title').addEventListener('input', function () { $('rp-go').disabled = this.value.trim().length < 5; });
+      $('rp-go').addEventListener('click', doCreateCab);
+      /* Probe the changes module up front so a missing OAuth scope is surfaced
+         before the tech fills the form, not on submit. */
+      fetch('/api/sdp/changes/health', { credentials: 'same-origin', cache: 'no-store' })
+        .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, status: r.status, d })))
+        .then(x => {
+          if (x.ok) return;
+          if (x.d && x.d.code === 'SDP_SCOPE') {
+            sayText('err', 'Change filing is not available: the Service Desk token is missing the changes scope.');
+          } else if (denied(x)) {
+            sayText('err', 'Filing a change needs admin access to Identity Diagnostics.');
+          } else {
+            sayText('err', 'Service Desk change module unreachable: ' + failText(x));
+          }
+        })
+        .catch(() => { /* a network fault surfaces on submit rather than pre-empting the form */ });
+    }
+  }
+
+  /* ── writes ──────────────────────────────────────────────────────────── */
+  function busy(btn, label) { btn.disabled = true; btn.textContent = label; clearMsg(); }
+  function fail(btn, label, x) {
+    if (denied(x)) sayText('err', 'Not permitted — this action needs admin access to Identity Diagnostics.');
+    else sayText('err', 'Failed: ' + failText(x));
+    btn.disabled = false; btn.textContent = label;
+  }
+  function netFail(btn, label, e) {
+    sayText('err', 'Request failed: ' + ((e && e.message) || 'network error'));
+    btn.disabled = false; btn.textContent = label;
+  }
+
+  function doReset() {
+    const pwd = $('rp-pwd').value;
+    if (!pwd || pwd.length < 8) { sayText('err', 'Password must be at least 8 characters.'); return; }
+    const fc = $('rp-fc') && $('rp-fc').checked ? 1 : 0;
+    const btn = $('rp-go');
+    busy(btn, 'Setting…');
+    jpost('/api/identity/reset-password', { identity: sel.sam, newPassword: pwd, forceChange: fc })
+      .then(x => {
+        if (x.ok && x.d.success) {
+          sayText('ok', 'Password reset for ' + sel.sam + (fc ? ' (change required at next sign-in).' : '.'));
+          btn.classList.add('done'); btn.textContent = 'Password set';
+        } else fail(btn, 'Set password', x);
+      })
+      .catch(e => netFail(btn, 'Set password', e));
+  }
+
+  function doUnlock() {
+    const btn = $('rp-go');
+    busy(btn, 'Unlocking…');
+    jpost('/api/identity/unlock', { identity: sel.sam })
+      .then(x => {
+        if (x.ok && x.d.success) {
+          sayText('ok', 'Account unlocked for ' + sel.sam + '.');
+          btn.classList.add('done'); btn.textContent = 'Account unlocked';
+        } else fail(btn, 'Unlock account', x);
+      })
+      .catch(e => netFail(btn, 'Unlock account', e));
+  }
+
+  function doCreateTicket() {
+    const subj = $('rp-subj').value.trim(), desc = $('rp-desc').value.trim();
+    if (subj.length < 5) { sayText('err', 'Subject must be at least 5 characters.'); return; }
+    if (!sel.email) { sayText('err', 'No email on record for ' + sel.sam + ' — the requester cannot be set.'); return; }
+    const btn = $('rp-go');
+    busy(btn, 'Creating…');
+    jpost('/api/sdp/tickets/create', { subject: subj, description: desc, requesterEmail: sel.email, requesterName: sel.dn })
+      .then(x => {
+        if (x.ok && x.d.success) {
+          const t = x.d.ticket || {};
+          const id = (t.display_id && typeof t.display_id === 'object' ? t.display_id.display_value : t.display_id) || t.id || '';
+          const href = safeHref(t.url);
+          say('ok', 'Ticket ' + (id ? esc(String(id)) + ' ' : '') + 'created for ' + esc(sel.dn) + '.' +
+            (href !== '#' ? ' <a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">Open ticket</a>' : ''));
+          btn.classList.add('done'); btn.textContent = 'Ticket created';
+          refreshQueueCounts();
+        } else if (denied(x)) {
+          say('err', 'Not permitted to create tickets from here. ' +
+              '<a href="/service-desk-portal.html">Open the Service Desk portal</a>');
+          btn.disabled = false; btn.textContent = 'Create ticket';
+        } else fail(btn, 'Create ticket', x);
+      })
+      .catch(e => netFail(btn, 'Create ticket', e));
+  }
+
+  function doCreateCab() {
+    const t = $('rp-cab-title').value.trim();
+    if (t.length < 5) { sayText('err', 'Title must be at least 5 characters.'); return; }
+    const sv = $('rp-cab-start').value, ev = $('rp-cab-end').value;
+    const sMs = sv ? new Date(sv).getTime() : null;
+    const eMs = ev ? new Date(ev).getTime() : null;
+    if (sMs && eMs && eMs <= sMs) { sayText('err', 'The scheduled end must be after the start.'); return; }
+    const btn = $('rp-go');
+    busy(btn, 'Creating…');
+    jpost('/api/sdp/changes/create', {
+      title: t,
+      description: $('rp-cab-desc').value.trim(),
+      changeType: $('rp-cab-type').value || null,
+      scheduledStart: sMs, scheduledEnd: eMs,
+    })
+      .then(x => {
+        if (x.ok && x.d.success) {
+          const c = x.d.change || {}, id = c.display_id || c.id || '';
+          const href = safeHref(c.url);
+          say('ok', 'Change ' + (id ? esc(String(id)) + ' ' : '') + 'created.' +
+            (href !== '#' ? ' <a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">Open change</a>' : ''));
+          btn.classList.add('done'); btn.textContent = 'CAB created';
+        } else if (x.d && x.d.code === 'SDP_SCOPE') {
+          sayText('err', 'The Service Desk token is missing the changes scope, so the change was not filed.');
+          btn.disabled = false; btn.textContent = 'Create CAB';
+        } else fail(btn, 'Create CAB', x);
+      })
+      .catch(e => netFail(btn, 'Create CAB', e));
+  }
+
+  /* A ticket filed here changes the very counts this page prints, so they are
+     re-read from the backend rather than incremented on screen. */
+  function refreshQueueCounts() {
+    delete ONCE.sdsummary;
+    once('sdsummary', '/api/sdops/requests/summary')
+      .then(r => setNum($('m-tickets-n'), r, d => d.open, 'open tickets'));
+    loadServiceDesk();
+  }
+
+  /* ── wiring ──────────────────────────────────────────────────────────── */
+  const si = $('rp-srch');
+  si.addEventListener('input', function () {
+    const q = this.value.trim();
+    sel = null;
+    $('rp-card').classList.remove('show');
+    $('rp-actions').classList.remove('show');
+    $('rp-uc').innerHTML = '';
+    clearMsg();
+    if (timer) clearTimeout(timer);
+    if (q.length < 2) { items = []; hi = -1; renderDD(); return; }
+    timer = setTimeout(() => {
+      kget('/api/identity/search?q=' + encodeURIComponent(q))
+        .then(arr => {
+          items = Array.isArray(arr) ? arr.slice(0, 12) : [];
+          hi = -1;
+          renderDD(items.length ? null : 'No match in nrpi.local');
+        })
+        .catch(e => {
+          items = []; hi = -1;
+          renderDD(e.code === 'noaccess' ? 'No access to directory search' : 'Directory search unavailable');
+        });
+    }, 220);
+  });
+  si.addEventListener('keydown', e => {
+    const dd = $('rp-dd');
+    if (!dd.classList.contains('open')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveHi(Math.min(hi + 1, items.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveHi(Math.max(hi - 1, -1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (hi >= 0) pick(hi); }
+    else if (e.key === 'Escape') {
+      e.stopPropagation();
+      dd.classList.remove('open');
+      si.setAttribute('aria-expanded', 'false');
+    }
+  });
+  $('rp-dd').addEventListener('click', e => {
+    const el = e.target.closest('.rp-di');
+    if (el && !el.classList.contains('dead')) pick(parseInt(el.dataset.i, 10));
+  });
+
+  /* the card footer switches mode without losing the selected user */
+  $('rp-uc').addEventListener('click', e => {
+    const b = e.target.closest('[data-sw]');
+    if (!b || !sel) return;
+    const keep = sel;
+    open(b.dataset.sw);
+    sel = keep;
+    $('rp-srch').value = keep.dn + ' (' + keep.sam + ')';
+    showCard();
+    renderActions();
+  });
+
+  $('rp-close').addEventListener('click', close);
+  scrim.addEventListener('mousedown', e => { if (e.target === scrim) close(); });
+
+  /* Capture phase, so Escape and ⌘K are handled here before the page's own
+     document keydown reaches the command palette. */
+  document.addEventListener('keydown', e => {
+    if (!isOpen()) return;
+    if (e.key === 'Escape') { e.stopPropagation(); close(); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.stopPropagation(); e.preventDefault(); return; }
+    if (e.key !== 'Tab') return;
+    const f = Array.prototype.filter.call(
+      box.querySelectorAll('a[href],button:not([disabled]),input,textarea,select,[tabindex]:not([tabindex="-1"])'),
+      el => !el.hasAttribute('inert') && el.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }, true);
+
+  return { open, close, isOpen };
+})();
+
+$('act-lookup').addEventListener('click', () => RP.open('lookup'));
+$('act-ticket').addEventListener('click', () => RP.open('ticket'));
+$('act-cab').addEventListener('click',    () => RP.open('cab'));
+
+/* ── global keys ───────────────────────────────────────────────────────── */
+const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+$('kbd-mod').textContent = IS_MAC ? '⌘' : 'Ctrl';
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    if (CMD.open) cmdClose(); else if (RP.isOpen()) return; else cmdOpen();
+    return;
+  }
+  if (e.key === 'Escape') { if (CMD.open) cmdClose(); }
+});
+
+/* ── boot ──────────────────────────────────────────────────────────────── */
+/* Each widget boots on its own: one loader throwing must never leave the rest
+   of the page in its skeleton state. */
+function boot(name, fn) {
+  try { fn(); }
+  catch (e) {
+    console.error('[landing] ' + name + ' failed to start', e);
+    landingDegraded(name, name + ' could not be started', (e && e.message) || String(e));
+  }
+}
+hydrate();
+boot('quick-launch',    renderQuickLaunch);
+boot('quick-launch-edit', initQuickEdit);
+boot('tools-metric',    renderToolsMetric);
+boot('tile-config',     loadCatalog);
+boot('greeting',        loadGreeting);
+boot('weather',         loadWeather);
+boot('metrics',         loadMetrics);
+boot('priority-queue',  loadPriorityQueue);
+boot('service-desk',    loadServiceDesk);
+boot('environment',     loadEnv);
+boot('recent-activity', loadRecent);
+</script>
+
+<script src="/it-topbar.js" defer></script>
+<script>
+/* Intercept it-topbar.js injections without touching the shared script. */
+(function () {
+  function patch() {
+    /* Remove only the hub pill itself — never its parent, which is the whole
+       ittb widget carrying the avatar and its menu. */
+    document.querySelectorAll('a.ittb-ctl, button.ittb-ctl').forEach(el => {
+      if (/operations hub|corpit hub/i.test(el.textContent)) el.remove();
+    });
+    document.querySelectorAll('a, button').forEach(el => {
+      if (el.textContent.trim().toLowerCase() === 'admin center') {
+        el.setAttribute('href', 'https://subadmin.nrpi.local');
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+        el.onclick = null;
+      }
+    });
+  }
+  /* View-as changes "who I am"; the greeting has to follow. */
+  function hookViewAs() {
+    if (!(window.itRbac && typeof window.itRbac.viewAs === 'function')) return false;
+    ['viewAs', 'exitViewAs'].forEach(fn => {
+      const orig = window.itRbac[fn];
+      window.itRbac[fn] = function () {
+        const r = orig.apply(window.itRbac, arguments);
+        setTimeout(() => {
+          window.itRbac.ready().then(u => {
+            const eff = (window.itRbac.me && window.itRbac.me()) || u;
+            if (eff && window.applyGreeting) window.applyGreeting(eff);
+            if (window.applyQuickEdit) window.applyQuickEdit();
+          }).catch(() => {});
+        }, 80);
+        return r;
+      };
+    });
+    return true;
+  }
+  const mo = new MutationObserver(patch);
+  mo.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('DOMContentLoaded', patch);
+  window.addEventListener('load', () => {
+    patch();
+    setTimeout(patch, 400);
+    if (!hookViewAs()) {
+      let tries = 0;
+      const iv = setInterval(() => { if (hookViewAs() || ++tries > 10) clearInterval(iv); }, 300);
+    }
+  });
+})();
+</script>
+<script src="/it-session-watch.js?v=20260904" defer></script>
+<script src="/it-version.js" data-app-key="corpit-platform" defer></script>
+</body>
+</html>

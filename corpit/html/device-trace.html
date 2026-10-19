@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en" data-version="3.0.0">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Device Trace — IT Command</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<link href="/it-unifi.css" rel="stylesheet">
+<link href="/it-command.css" rel="stylesheet">
+<link href="/it-noc.css" rel="stylesheet">
+<style>
+/* Search is the primary action here, so it gets a full-width card above the
+   results instead of being squeezed into a sidebar column. */
+.searchcard{padding:16px var(--n-pad)}
+.searchcard .sfield{margin:0;max-width:none}
+#out > .u-card:first-child,#out > section:first-child{margin-top:0}
+</style>
+<style>
+/* page-specific only — system lives in /it-unifi.css */
+.searchwrap{max-width:720px;margin-bottom:20px}
+.sfield{display:flex;align-items:center;gap:10px;background:var(--u-surface);border:1px solid var(--u-border-2);
+  border-radius:var(--u-r);padding:0 7px 0 13px;transition:border-color .14s,box-shadow .14s}
+.sfield:focus-within{border-color:var(--u-accent);box-shadow:0 0 0 3px var(--u-accent-wash)}
+.sfield>svg{width:17px;height:17px;color:var(--u-text-3);flex:none}
+.sfield input{flex:1;min-width:0;border:none;background:none;color:var(--u-text);font-family:var(--u-mono);
+  font-size:14.5px;padding:12px 0;outline:none}
+.sfield input::placeholder{color:var(--u-muted);font-family:var(--u-font)}
+/* recents live in the left queue now (.qshell/.qlist come from /it-command.css).
+   .qrow is a <button>, so the remove control is a sibling laid over the row's
+   right edge — a nested <button> gets parsed straight back out of it. */
+.qrowx{position:relative}
+.qrowx .nrow{padding-right:40px}
+.qx{position:absolute;top:8px;right:10px;width:22px;height:22px;padding:0;border:0;background:none;
+  border-radius:6px;color:var(--o-faint);cursor:pointer;display:grid;place-items:center}
+.qx svg{width:12px;height:12px}
+.qx:hover{background:var(--o-panel2);color:var(--o-fault)}
+.qex{font:inherit;font-family:var(--u-mono);font-size:11.5px;padding:2px 7px;border-radius:8px;
+  background:var(--o-panel2);border:1px solid var(--o-line);color:var(--o-ink);cursor:pointer}
+.qex:hover{border-color:var(--o-mint);color:var(--o-mint)}
+
+/* verdict */
+.verdict{display:flex;gap:15px;align-items:flex-start;background:var(--u-surface);border:1px solid var(--u-border);
+  border-radius:var(--u-r);padding:17px 19px;margin-bottom:14px}
+.verdict .vi{width:40px;height:40px;border-radius:var(--u-r-sm);display:grid;place-items:center;flex:none}
+.verdict .vi svg{width:21px;height:21px}
+.verdict.good .vi{background:var(--u-good-wash);color:var(--u-good)}
+.verdict.warn .vi{background:var(--u-warn-wash);color:var(--u-warn)}
+.verdict.bad .vi{background:var(--u-bad-wash);color:var(--u-bad)}
+.verdict.info .vi{background:var(--u-accent-wash);color:var(--u-accent)}
+.verdict .vm{flex:1;min-width:0}
+.verdict h2{margin:0 0 3px;font-size:19px;font-weight:650;letter-spacing:-.3px;line-height:1.25;text-wrap:balance}
+.verdict .d{font-size:13px;color:var(--u-text-2);line-height:1.5}
+.verdict .d b{color:var(--u-text);font-weight:600}
+.facts{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.fact{display:inline-flex;align-items:center;gap:7px;font-family:var(--u-mono);font-size:11.5px;padding:4px 9px;
+  border-radius:var(--u-r-sm);background:var(--u-surface-2);border:1px solid var(--u-border);color:var(--u-text-2)}
+.fact svg{width:13px;height:13px;color:var(--u-text-3)}
+.cp{border:none;background:none;cursor:pointer;color:var(--u-muted);padding:1px;border-radius:3px;display:inline-flex}
+.cp svg{width:12px;height:12px} .cp:hover{color:var(--u-accent)} .cp.ok{color:var(--u-good)}
+.live{margin-left:auto;display:flex;align-items:center;gap:7px;font-family:var(--u-mono);font-size:11px;
+  color:var(--u-text-3);white-space:nowrap;flex:none}
+
+/* path — observatory strip: role / value / detail per segment */
+.pathcard{padding:4px 6px 6px}
+.path{display:flex;align-items:stretch;overflow-x:auto}
+.pnode{flex:1;min-width:104px;padding:11px 14px 12px;position:relative;border-top:3px solid transparent}
+.pnode+.pnode{border-left:1px solid var(--u-hair)}
+.pnode+.pnode::after{content:'\203A';position:absolute;left:-4px;top:9px;color:var(--u-text-3);
+  opacity:.55;font-size:12px;background:var(--u-surface);padding:0 1px;line-height:1}
+.pnode .role{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--u-text-3);
+  margin-bottom:5px;white-space:nowrap}
+.pnode .val{font-size:13px;font-weight:650;line-height:1.3;word-break:break-word}
+.pnode .sub{font-family:var(--u-mono);font-size:11px;color:var(--u-text-3);margin-top:3px;
+  line-height:1.4;word-break:break-word}
+.pnode.warn{border-top-color:var(--u-warn)} .pnode.warn .val{color:var(--u-warn)}
+.pnode.bad{border-top-color:var(--u-bad)} .pnode.bad .val{color:var(--u-bad)}
+.pnode.dim{opacity:.45}
+@media(max-width:700px){
+  .path{flex-wrap:wrap}
+  .pnode{min-width:46%}
+  .pnode+.pnode::after{display:none}
+}
+/* visible pressed state for every map/view toggle */
+.u-btn[aria-pressed="true"]{background:var(--u-accent-wash);border-color:var(--u-accent);color:var(--u-accent)}
+.split{display:grid;grid-template-columns:1.45fr 1fr;gap:14px;align-items:start}
+@media(max-width:1080px){.split{grid-template-columns:1fr}}
+.stack{display:flex;flex-direction:column;gap:14px}
+/* signal */
+.sig{display:flex;align-items:center;gap:15px;padding:14px}
+.bars{display:flex;align-items:flex-end;gap:3px;height:32px}
+.bars i{width:6px;border-radius:2px;background:var(--u-surface-3)}
+.bars i.on{background:var(--u-good)} .bars i.on.w{background:var(--u-warn)} .bars i.on.b{background:var(--u-bad)}
+.sig .v{font-family:var(--u-mono);font-size:19px;font-weight:650}
+.sig .s{font-size:11px;color:var(--u-text-3);margin-top:2px}
+/* wifi timeline */
+.ev{display:flex;gap:11px;padding:9px 14px;border-top:1px solid var(--u-hair);align-items:flex-start}
+.ev:first-child{border-top:none}
+.ev .d{width:7px;height:7px;border-radius:50%;margin-top:5px;flex:none;background:var(--u-text-3)}
+.ev.dc .d{background:var(--u-warn)} .ev.bad .d{background:var(--u-bad)} .ev.cn .d{background:var(--u-good)}
+.ev .b{flex:1;min-width:0}
+.ev .b .r1{font-size:12px;font-weight:550;display:flex;gap:7px;align-items:baseline;flex-wrap:wrap}
+.ev .b .r2{font-size:11.5px;color:var(--u-text-2);margin-top:2px}
+.ev .b .r2.bad{color:var(--u-warn)}
+.ev .t{font-family:var(--u-mono);font-size:10px;color:var(--u-muted);white-space:nowrap}
+/* first run */
+.intro{display:grid;grid-template-columns:minmax(0,540px) minmax(300px,1fr);gap:34px;align-items:center;max-width:1180px;padding:8px 0 0}
+.ihero{min-width:0}.ihero img{display:block;width:100%;height:auto;filter:drop-shadow(0 20px 30px rgba(15,23,42,.20))}
+@media(max-width:940px){.intro{grid-template-columns:1fr;gap:20px}.ihero{order:2;max-width:460px}}
+.artbox{position:fixed;inset:0;z-index:400;margin:0;background:rgba(8,10,16,.82);display:flex;align-items:center;justify-content:center;padding:28px;cursor:zoom-out;backdrop-filter:blur(6px)}
+.artbox img{max-width:min(1200px,100%);max-height:calc(100% - 40px);border-radius:12px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.artbox figcaption{position:fixed;bottom:12px;left:0;right:0;text-align:center;font-size:11.5px;color:#cbd3e1}
+.intro h2{font-size:17px;font-weight:650;margin:0 0 6px;letter-spacing:-.2px}
+.intro p{color:var(--u-text-2);font-size:13px;margin:0 0 18px;line-height:1.6}
+.caps{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:18px}
+@media(max-width:700px){.caps{grid-template-columns:1fr}}
+.cap{background:var(--u-surface);border:1px solid var(--u-border);border-radius:var(--u-r);padding:13px}
+.cap>svg{width:18px;height:18px;color:var(--u-accent);margin-bottom:8px}
+.cap b{display:block;font-size:12.5px;margin-bottom:3px}
+.cap span{font-size:11.5px;color:var(--u-text-3);line-height:1.5}
+
+/* roaming / travel map */
+.rmap{--rtilt:0deg;position:relative;background:var(--u-surface-2);border:1px solid var(--u-hair);border-radius:var(--u-r-sm);
+  overflow:hidden;margin:0 auto 12px;aspect-ratio:4/3;max-width:min(694px,calc(100% - 28px))}
+.rmap #rFloorImg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:.62;filter:grayscale(.5)}
+:root[data-theme="dark"] .rmap #rFloorImg{filter:invert(1) hue-rotate(180deg) brightness(.9);opacity:.4}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .rmap #rFloorImg{filter:invert(1) hue-rotate(180deg) brightness(.9);opacity:.4}}
+.rmap svg{position:absolute;inset:0;width:100%;height:100%}
+.rmap .heatc{position:absolute;inset:0;width:100%;height:100%;filter:blur(3px) saturate(1.2);pointer-events:none}
+:root[data-theme="dark"] .rmap .heatc{opacity:.85;filter:blur(3px) saturate(1.05)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .rmap .heatc{opacity:.85;filter:blur(3px) saturate(1.05)}}
+.heatscale{flex:1;min-width:130px;max-width:220px;height:8px;border-radius:4px;align-self:center;
+  background:linear-gradient(90deg,rgba(59,130,246,.15),#3b82f6,#06b6d4,#22c55e,#facc15,#f97316,#ef4444)}
+.rmap .apdot{fill:var(--u-surface);stroke:var(--u-muted);stroke-width:.25;opacity:.8}
+.rmap .apdot.used{fill:var(--u-accent-wash);stroke:var(--u-accent);stroke-width:.35;opacity:1}
+.rmap .aplab{font-size:1.7px;fill:var(--u-muted);font-family:var(--u-mono);letter-spacing:.05px}
+.rmap .aplab.used{fill:var(--u-text-2);font-weight:600}
+.rmap .ghost{fill:none;stroke:var(--u-text-3);stroke-width:.35;stroke-dasharray:1 1.2;opacity:.5}
+.rmap .trail{fill:none;opacity:.85}
+.rmap .bead{fill:#fff;opacity:.85}
+.rmap .leg{stroke:var(--u-accent);stroke-width:.6;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.95}
+.rmap .stop{fill:var(--u-accent);opacity:.55}
+.rmap .stop.first{fill:var(--u-good);opacity:1} .rmap .stop.last{fill:var(--u-bad);opacity:1}
+.rmap .you{fill:var(--u-accent);stroke:#fff;stroke-width:.45}
+.rmap .pulse-r{fill:none;stroke:var(--u-accent);stroke-width:.35;opacity:.5}
+/* the traveller: a little person carrying a laptop */
+#rWalker{transition:transform var(--rstep,.62s) cubic-bezier(.45,.05,.55,.95)}
+#rWalker .body{stroke:var(--u-accent);stroke-width:.55;stroke-linecap:round;fill:none}
+#rWalker .head{fill:var(--u-accent)}
+#rWalker .lap{fill:var(--u-warn);stroke:var(--u-text);stroke-width:.12}
+#rWalker .shadow{fill:rgba(0,0,0,.18)}
+#rWalker.walking .legL{animation:stepL .5s ease-in-out infinite}
+#rWalker.walking .legR{animation:stepR .5s ease-in-out infinite}
+#rWalker.walking .torso{animation:bob .5s ease-in-out infinite}
+@keyframes stepL{0%,100%{transform:rotate(18deg)}50%{transform:rotate(-18deg)}}
+@keyframes stepR{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(18deg)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-.14px)}}
+.rmap .heat{mix-blend-mode:multiply;pointer-events:none}
+:root[data-theme="dark"] .rmap .heat{mix-blend-mode:screen;opacity:.55}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .rmap .heat{mix-blend-mode:screen;opacity:.55}}
+#rWalker .sprite{transform-origin:0px 0px}
+#rWalker.walking .sprite{animation:waddle var(--rwaddle,.45s) ease-in-out infinite}
+@keyframes waddle{0%,100%{transform:rotate(-4deg) translateY(0)}50%{transform:rotate(4deg) translateY(-.18px)}}
+@media(prefers-reduced-motion:reduce){#rWalker{transition:none}
+  #rWalker.walking .legL,#rWalker.walking .legR,#rWalker.walking .torso,#rWalker.walking .sprite{animation:none}}
+
+/* ── 3D diorama: tilt the whole registered stack, billboard what stands ── */
+.rmap.r3d{--rtilt:55deg;perspective:1100px;perspective-origin:50% 30%}
+.rstage{position:absolute;left:0;top:0;width:100%;height:100%;transform-style:preserve-3d}
+.rmap.r3d .rstage{transition:transform var(--rstep,.65s) cubic-bezier(.45,.05,.55,.95)}
+.rmap.r3d .rstage::after{content:'';position:absolute;inset:0;transform:translateZ(-12px);
+  background:var(--u-surface-3);border-radius:8px;box-shadow:0 30px 40px rgba(10,14,24,.28)}
+.rmap.r3d:not(.nospr) svg #rWalker{display:none}
+.rwalk3{position:absolute;width:9.5%;aspect-ratio:200/341;display:none;pointer-events:none;z-index:3;
+  transform-origin:50% 100%;transform:translate(-50%,-100%) rotateX(calc(-1*var(--rtilt,55deg)));
+  transition:left var(--rstep,.62s) cubic-bezier(.45,.05,.55,.95),top var(--rstep,.62s) cubic-bezier(.45,.05,.55,.95)}
+.rwalk3.flip{transform:translate(-50%,-100%) rotateX(calc(-1*var(--rtilt,55deg))) scaleX(-1)}
+.rmap.r3d:not(.nospr) .rwalk3{display:block}
+.rmap:not(.r3d) .rwalk3,.rmap.r3d.nospr .rwalk3{display:block;visibility:hidden}
+.rmap:not(.r3d) .rwalk3{transform:translate(-50%,-100%);width:2px;aspect-ratio:auto;height:2px}
+.rmap:not(.r3d) .rwalk3 img,.rmap.r3d.nospr .rwalk3 img{visibility:hidden}
+.rmap:not(.r3d) .rwalk3 .rcall.on,.rmap.r3d.nospr .rwalk3 .rcall.on{visibility:visible}
+.rwalk3 img{width:100%;height:100%;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.rwalk3.walking img{animation:waddle3 var(--rwaddle,.45s) ease-in-out infinite}
+@keyframes waddle3{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg) translateY(-2%)}}
+.rshad3{position:absolute;width:7.5%;aspect-ratio:3/1;display:none;pointer-events:none;z-index:2;
+  background:radial-gradient(ellipse,rgba(0,0,0,.30),rgba(0,0,0,0) 70%);
+  transform:translate(-50%,-50%);transition:left var(--rstep,.62s) cubic-bezier(.45,.05,.55,.95),top var(--rstep,.62s) cubic-bezier(.45,.05,.55,.95)}
+.rmap.r3d:not(.nospr) .rshad3{display:block}
+.rtag{position:absolute;display:none;pointer-events:none;z-index:1;transform-origin:50% 100%;
+  transform:translate(-50%,-130%) rotateX(calc(-1*var(--rtilt,55deg)));font-family:var(--u-mono);font-size:9.5px;
+  background:var(--u-surface);border:1px solid var(--u-border-2);color:var(--u-text-3);
+  padding:1px 5px;border-radius:4px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,.18)}
+.rtag::after{content:'';position:absolute;left:50%;top:100%;width:1px;height:6px;
+  background:var(--u-border-2);transform:translateX(-50%)}
+.rtag.used{color:var(--u-text);border-color:var(--u-accent);font-weight:600}
+.rmap.r3d .rtag{display:block}
+.rmap #rFloorImg.skin{opacity:.96;filter:none}
+:root[data-theme="dark"] .rmap #rFloorImg.skin{filter:brightness(.8) saturate(.9);opacity:.9}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .rmap #rFloorImg.skin{filter:brightness(.8) saturate(.9);opacity:.9}}
+.rmap.r3d .heatc{opacity:.6}
+.rmap.r3d .aplab{display:none}
+.rlegend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:0 14px 13px;
+  font-size:11px;color:var(--u-text-3)}
+.rlegend span{display:inline-flex;align-items:center;gap:5px}
+.rlegend i{width:9px;height:9px;border-radius:3px;display:inline-block;flex:none}
+.rtag.warn{border-color:var(--u-warn);color:var(--u-warn)}
+.rtag.alert{border-color:var(--u-bad);color:var(--u-bad);animation:tagpulse 1.1s ease-in-out infinite;z-index:4}
+@keyframes tagpulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.45)}50%{box-shadow:0 0 10px 4px rgba(239,68,68,.28)}}
+.rcall{position:absolute;display:none;z-index:5;pointer-events:none;
+  bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  width:max-content;min-width:150px;max-width:220px;background:var(--u-surface);
+  border:1px solid var(--u-bad);border-radius:8px;padding:8px 10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.35);font-size:11px}
+.rwalk3.flip .rcall{transform:translateX(-50%) scaleX(-1)}
+.rcall.on{display:block;animation:callin .25s ease-out}
+@keyframes callin{from{opacity:0}}
+.rcall b{display:flex;align-items:center;gap:5px;color:var(--u-bad);font-size:10px;
+  letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;font-weight:700}
+.rcall b svg{width:12px;height:12px;flex:none}
+.rcall .rw{display:flex;justify-content:space-between;gap:10px;color:var(--u-text-2)}
+.rcall .rw span:first-child{color:var(--u-text-3)}
+.rping{position:absolute;display:none;width:5.5%;aspect-ratio:1;pointer-events:none;z-index:1;
+  transform:translate(-50%,-50%)}
+.rping.on{display:block}
+.rping::before,.rping::after{content:'';position:absolute;inset:0;border-radius:50%;
+  border:2px solid rgba(239,68,68,.75);animation:ping3 1.6s cubic-bezier(.2,.6,.4,1) infinite}
+.rping::after{animation-delay:.8s}
+@keyframes ping3{0%{transform:scale(.25);opacity:.9}80%{transform:scale(1.6);opacity:0}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.rtag.alert{animation:none}.rcall.on{animation:none}
+  .rping::before,.rping::after{animation:none;opacity:.5}}
+@media(prefers-reduced-motion:reduce){.rmap.r3d .rstage,.rwalk3,.rshad3{transition:none}
+  .rwalk3.walking img{animation:none}}
+
+/* playback controls (restored — the map rewrite dropped these) */
+.rplay{display:flex;align-items:center;gap:11px;padding:0 14px 12px;flex-wrap:wrap}
+.rplay .pb{width:30px;height:30px;border-radius:50%;border:1px solid var(--u-border-2);background:var(--u-surface);
+  color:var(--u-text-2);cursor:pointer;display:grid;place-items:center;flex:none}
+.rplay .pb:hover{border-color:var(--u-accent);color:var(--u-accent)}
+.rspd{display:inline-flex;gap:3px;margin-left:2px}
+.rspd button{border:1px solid var(--u-border-2);background:var(--u-surface);color:var(--u-text-3);
+  font-size:10.5px;font-family:var(--u-mono);padding:3px 8px;border-radius:999px;cursor:pointer}
+.rspd button:hover{border-color:var(--u-accent);color:var(--u-accent)}
+.rspd button[aria-pressed="true"]{background:var(--u-accent-wash);border-color:var(--u-accent);
+  color:var(--u-accent);font-weight:700}
+.rplay .pb svg{width:13px;height:13px}
+.rplay input[type=range]{flex:1;min-width:120px;accent-color:var(--u-accent)}
+.rplay .now{font-family:var(--u-mono);font-size:11.5px;color:var(--u-text-2);white-space:nowrap;min-width:52px}
+.rnow{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:9px;padding:0 14px 13px}
+.rnow div{background:var(--u-surface-2);border:1px solid var(--u-border);border-radius:var(--u-r-sm);padding:8px 10px}
+.rnow .l{font-size:10px;color:var(--u-text-3);text-transform:uppercase;letter-spacing:.05em}
+.rnow .v{font-size:13px;font-weight:600;margin-top:3px}
+</style>
+</head>
+<body class="u cmd noc" data-page="trace">
+<div id="nocContent">
+  <div class="ngrid">
+    <section class="ncard c12">
+      <div class="searchcard">
+        <div class="sfield">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="q" type="text" autocomplete="off" spellcheck="false" autofocus placeholder="IP, MAC, username, email, device name or serial\u2026" aria-label="Trace a device">
+          <span class="u-tag accent" id="tchip" hidden></span>
+          <button class="u-btn pri" id="go">Trace</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="ngrid" style="margin-top:10px">
+    <div class="c9" id="out"></div>
+    <div class="c3" style="display:grid;gap:10px;align-content:start">
+      <section class="ncard">
+        <div class="nch"><h2>Recent</h2><div class="tools"><span class="sev" id="recN">&mdash;</span></div></div>
+        <div class="ncb flush"><div class="nlist" id="qList" aria-label="Recent traces"></div></div>
+      </section>
+      <section class="ncard">
+        <div class="nch"><h2>What this reads</h2></div>
+        <div class="ncb" style="font-size:12px;color:var(--o-dim);line-height:1.55">
+          One lookup joins the <b>firewall</b> path out, the <b>switch port</b> it plugs into,
+          its <b>Wi-Fi</b> access point and the <b>identity</b> that owns it &mdash; so you can
+          tell in seconds whether a device is on, where it connects, and what is wrong.
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="/it-netnav.js"></script>
+<script src="/it-noc.js"></script>
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="device-trace"></script>
+<script>
+/* shared IT Command chrome: header, workspace switcher, nav drawer */
+NOC.mount({page:'trace', title:'Device trace', sub:'firewall \u00b7 switch \u00b7 Wi-Fi \u00b7 identity'});
+var P={
+ dev:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+ port:'<path d="M6 9V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3"/><path d="M4 9h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M9 13h.01M12 13h.01M15 13h.01"/>',
+ sw:'<rect x="2" y="7" width="20" height="10" rx="2"/><path d="M6 11h.01M6 13.5h.01"/><path d="M18 12h-5"/>',
+ router:'<rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 16.5h.01M11 16.5h.01"/><path d="M12 13V8m0 0-2.5 2M12 8l2.5 2"/><path d="M16 8a4 4 0 0 0-8 0"/>',
+ shield:'<path d="M12 3 5 6v5c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z"/>',
+ globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18"/>',
+ wifi:'<path d="M2 8.5a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0"/><path d="M12 19h.01"/>',
+ user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+ heart:'<path d="M3 12h4l2 5 4-10 2 5h6"/>',
+ ping:'<circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M16.2 7.8a6 6 0 0 1 0 8.4M19.1 4.9a10 10 0 0 1 0 14.2"/>',
+ check:'<path d="m5 12 5 5L20 6"/>', alert:'<path d="M12 3 2 20h20z"/><path d="M12 9v5M12 17.5h.01"/>',
+ x:'<path d="M6 6l12 12M18 6 6 18"/>', copy:'<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+ ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>',
+ search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>'
+};
+function ic(k,c){return '<svg class="'+(c||'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(P[k]||'')+'</svg>';}
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+var enc=encodeURIComponent;
+var IPRE=/^\d{1,3}(\.\d{1,3}){3}$/;
+function macHex(q){return q.replace(/[^0-9a-fA-F]/g,'');}
+function classify(q){q=q.trim();if(IPRE.test(q))return'ip';if(macHex(q).length===12&&/^[0-9a-fA-F.:-]+$/.test(q))return'mac';return'id';}
+var TL={ip:'IP address',mac:'MAC address',id:'user / device'};
+async function jget(u){var r=await fetch(u,{credentials:'include'});
+  if(r.status===401)throw Object.assign(new Error('sign-in required'),{code:401});
+  var j=await r.json().catch(function(){return null;});
+  if(j==null)return{ok:false,detail:r.ok?'bad response':('HTTP '+r.status)};
+  if(!r.ok&&j.ok==null)j.ok=false;
+  return j;}
+function fwSite(n){if(!n)return null;
+  if(n.indexOf('SNA01')===0)return{site:'SNA01 · Irvine',fw:'Irvine FortiGate',host:'10.20.6.4'};
+  if(n.indexOf('DFW02')===0)return{site:'DFW02 · Plano TX',fw:'Plano FortiGate',host:'10.19.6.4'};return null;}
+function dur(s){if(s==null)return'—';var d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
+  return d?d+'d '+h+'h':(h?h+'h '+m+'m':m+'m');}
+function tAgo(ts){if(!ts)return'';var d=new Date(ts),f=Math.round((Date.now()-d)/60000);
+  if(f<1)return'now';if(f<60)return f+'m ago';if(f<1440)return Math.round(f/60)+'h ago';return d.toLocaleDateString();}
+
+var out=document.getElementById('out'), qin=document.getElementById('q'),
+    tchip=document.getElementById('tchip'), qList=document.getElementById('qList');
+
+var RK='dtrace.recent';
+function recents(){try{return JSON.parse(localStorage.getItem(RK)||'[]');}catch(e){return[];}}
+function saveR(r){try{localStorage.setItem(RK,JSON.stringify(r));}catch(e){}}
+function pushR(q){var r=recents().filter(function(x){return x!==q;});r.unshift(q);saveR(r.slice(0,6));}
+function delR(q){saveR(recents().filter(function(x){return x!==q;}));drawHint();}
+/* the left queue owns recents now — same store, same delR(); drawHint()
+   just paints into #qList instead of the old strip under the search box. */
+var QI={ip:'globe',mac:'port',id:'user'};
+var EXAMPLES=['10.20.21.51','14:50:51:69:43:6a'];
+var CURQ=null;                 // the term showing in the pane, marked in the list
+function drawHint(){
+  var t=qin.value.trim();
+  if(t){tchip.hidden=false;tchip.textContent=TL[classify(t)];}else tchip.hidden=true;
+  if(!qList)return;
+  var a=document.activeElement,                       // keep the keyboard's place
+      fq=(a&&qList.contains(a)&&a.dataset)?(a.dataset.q||null):null;
+  var r=recents();
+  var rn=document.getElementById('recN');
+  if(rn){rn.textContent=r.length||'none';rn.className='sev'+(r.length?' info':'');}
+  var h = r.length
+    ? r.map(function(x){
+        return '<div class="qrowx"><button class="nrow" data-q="'+esc(x)+'" aria-current="'+(CURQ===x)+'">'+
+          '<span class="ic">'+ic(QI[classify(x)])+'</span><span class="bd">'+
+          '<span class="t">'+esc(x)+'</span><span class="s">'+esc(TL[classify(x)])+'</span></span></button>'+
+          '<button class="qx" data-del="'+esc(x)+'" title="Remove from recent" aria-label="Remove '+
+          esc(x)+' from recent">'+ic('x')+'</button></div>';}).join('')
+    : '<div class="nempty">'+ic('search')+'<b>Nothing traced yet</b>Try '+
+      EXAMPLES.map(function(x){return '<button class="qex" data-q="'+esc(x)+
+        '" aria-label="Trace '+esc(x)+'">'+esc(x)+'</button>';}).join(' or ')+'.</div>';
+  qList.innerHTML=h;
+  if(fq)[].slice.call(qList.querySelectorAll('[data-q]')).forEach(function(b){
+    if(b.dataset.q===fq)b.focus();});
+}
+qList.addEventListener('click',function(e){
+  var d=e.target.closest('[data-del]'); if(d){e.stopPropagation();delR(d.dataset.del);return;}
+  var r=e.target.closest('[data-q]'); if(r){qin.value=r.dataset.q;drawHint();run();}});
+/* arrow keys walk the list, same as network-health */
+qList.addEventListener('keydown',function(e){
+  if(e.key!=='ArrowDown'&&e.key!=='ArrowUp')return;
+  var rows=[].slice.call(qList.querySelectorAll('.nrow'));
+  var at=rows.indexOf(document.activeElement); if(at<0)return;
+  e.preventDefault();
+  var nxt=rows[at+(e.key==='ArrowDown'?1:-1)]; if(nxt){nxt.focus();nxt.click();}});
+qin.addEventListener('input',drawHint);
+qin.addEventListener('keydown',function(e){if(e.key==='Enter')run();});
+document.getElementById('go').addEventListener('click',run);
+document.addEventListener('keydown',function(e){
+  if(e.key==='/'&&document.activeElement!==qin){e.preventDefault();qin.focus();qin.select();}});
+out.addEventListener('keydown',function(e){
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  var t=e.target.closest('[role="button"]'); if(!t)return;
+  e.preventDefault(); t.click();});
+out.addEventListener('click',async function(e){
+  var b=e.target.closest('[data-copy]'); if(!b)return;
+  try{await navigator.clipboard.writeText(b.dataset.copy);b.classList.add('ok');b.innerHTML=ic('check');
+    setTimeout(function(){b.classList.remove('ok');b.innerHTML=ic('copy');},1100);}catch(_){}});
+
+function card(t,i,tg,body,foot){return '<section class="u-card u-fade"><header>'+ic(i,'ci')+'<h2>'+t+'</h2>'+
+  (tg?'<span class="tag">'+tg+'</span>':'')+'</header>'+body+(foot||'')+'</section>';}
+function tag(c,t){return '<span class="u-tag '+c+'">'+t+'</span>';}
+function kv(k,v){return (v||v===0)?'<div class="u-kv"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>':'';}
+function cp(v){return '<button class="cp" data-copy="'+esc(v)+'" title="Copy">'+ic('copy')+'</button>';}
+function n(v,badAt){if(v==null)return'—';var c=(badAt&&v>=badAt)?'txt-bad':(v>0?'txt-warn':'txt-good');
+  return '<span class="'+c+'">'+Number(v).toLocaleString()+'</span>';}
+
+var RUNSEQ=0;
+// The shared sidebar footer ships a literal “connecting…” that only
+// NOC.stamp() clears. This page traces on demand instead of polling, so
+// without these calls it claims a pending connection on every load, forever.
+function traceStamp(q,err){
+  if(err)NOC.stamp('trace failed \u00b7 '+q,true);
+  else NOC.stamp('traced '+q,false);
+}
+function run(){
+  var q=qin.value.trim(); if(!q)return;
+  var seq=++RUNSEQ; rStop();
+  CURQ=q; pushR(q); drawHint();
+  try{history.replaceState(null,'','?q='+enc(q));}catch(e){}
+  var kind=classify(q);
+  out.innerHTML='<section class="u-card"><div class="u-skel" style="margin:16px;width:55%;height:20px"></div>'+
+    '<div class="u-skel" style="margin:0 16px 16px;width:75%"></div></section>';
+  NOC.stamp('tracing '+q+'\u2026',false);
+  (kind==='id'?runId(q,seq):runNet(q,kind,{seq:seq})).then(function(){
+    if(seq===RUNSEQ)traceStamp(q,null);
+  }).catch(function(e){
+    if(seq!==RUNSEQ)return;
+    traceStamp(q,e);
+    var m=(e.code===401)?'Your session expired. <a href="/login.html">Sign in</a> to keep tracing.':esc(e.message);
+    out.innerHTML='<div class="u-note bad">'+ic('alert')+'<div><b>Couldn’t complete the trace.</b><br>'+m+'</div></div>';});
+}
+
+function verdict(loc,mer){
+  var r=loc.reachability,e=loc.edge,h=e&&e.health,wl=mer&&mer.found;
+  var nm=(loc.hostname&&loc.hostname.split('.')[0])||loc.ip||loc.mac||'Device';
+  if(r&&r.device&&r.device.present===false&&!wl)return{l:'bad',t:nm+' is not responding',
+    d:'Nothing answers for <b>'+esc(loc.ip||'')+'</b> — no ping, no TCP, and nothing seen on the network recently.'};
+  if(h&&h.oper&&h.oper!=='up')return wl
+    ?{l:'bad',t:'The uplink behind '+nm+'’s access point is down',
+      d:'<b>'+esc(mer.recentDeviceName||'Its access point')+'</b> hangs off port <b>'+esc(e.port)+'</b> on '+esc(e.switch)+', which reports <b>'+esc(h.oper)+'</b> (admin '+esc(h.admin)+'). The laptop is fine — the AP’s cable run is the problem.'}
+    :{l:'bad',t:nm+'’s switch port is down',
+      d:'Port <b>'+esc(e.port)+'</b> on '+esc(e.switch)+' reports <b>'+esc(h.oper)+'</b> (admin '+esc(h.admin)+').'};
+  var pIss=[],oIss=[];
+  if(h){if(h.in_err>0)pIss.push(h.in_err.toLocaleString()+' input errors');
+        if(h.out_err>0)pIss.push(h.out_err.toLocaleString()+' output errors');
+        if(h.crc>0)pIss.push(h.crc.toLocaleString()+' CRC errors');
+        if(h.duplex==='half')pIss.push('a half-duplex mismatch');}
+  if(r&&r.gateway&&!r.gateway.alive)oIss.push('an unreachable gateway');
+  var rssi=wl&&mer.signalQuality&&mer.signalQuality.rssi;
+  if(rssi!=null&&rssi<-72)oIss.push('a weak Wi-Fi signal ('+rssi+' dBm)');
+  if(pIss.length||oIss.length){
+    function j(a){return a.length>1?a.slice(0,-1).join(', ')+' and '+a.slice(-1):a[0];}
+    var src=wl?'its access point’s uplink ('+esc((e&&e.switch)||'')+' '+esc((e&&e.port)||'')+') is showing '
+              :'its switch port is showing ';
+    var d=pIss.length?('Reachable, but '+src+j(pIss)+(oIss.length?' — plus '+j(oIss):'')+'.')
+                     :('Reachable, but showing '+j(oIss)+'.');
+    return{l:'warn',t:nm+' is online, with issues',d:d};}
+  if(wl)return{l:'good',t:nm+' is online over Wi-Fi',
+    d:'Connected to <b>'+esc(mer.ssid)+'</b> on '+esc(mer.recentDeviceName||'an access point')+(rssi!=null?' at <b>'+rssi+' dBm</b>':'')+'.'};
+  if(e&&h)return{l:'good',t:nm+' is online',
+    d:'Wired to <b>'+esc(e.switch)+' '+esc(e.port)+'</b>'+(e.vlan!=null?' on VLAN '+e.vlan:'')+
+      ' — link up'+(h.speed_mbps?' at '+h.speed_mbps+' Mbps':'')+
+      (h.duplex?', '+esc(h.duplex)+' duplex':'')+', no errors.'};
+  // u = unmeasured. Amber headline (worth attention), but nothing about this
+  // device's experience was actually sampled -- see the path node below.
+  if(loc.error)return{l:'warn',u:true,t:nm+' could not be traced',d:esc(loc.error)+'.'};
+  return{l:'info',t:nm+' located',d:'Resolved, but not currently in a switch CAM table or on Wi-Fi.'};
+}
+
+/* shared-fault alert: is this one device, or is something common broken? */
+function corrAlert(c){
+  if(!c||!c.verdict)return '';
+  var v=c.verdict, imp=(c.switch_issues||[]).filter(function(x){return (x.devices||[]).length;});
+  var peers=imp.slice(0,6).map(function(x){
+    var who=(x.devices||[]).map(function(d){return d.ip||d.mac;}).filter(Boolean).slice(0,3).join(', ');
+    return '<div class="u-row"><span class="u-dot '+(x.severity==='critical'?'bad':'warn')+'"></span>'+
+      '<div class="main"><div class="t u-mono">'+esc(x.port)+' <span style="font-family:var(--u-font)">'+esc(x.descr||'')+'</span></div>'+
+      '<div class="s">'+esc((x.diag&&x.diag.title)||x.kind||'')+(who?' · '+esc(who):'')+'</div></div></div>';}).join('');
+  var sp=(c.same_port||[]).length;
+  return '<div class="u-note '+(v.severity==='critical'?'bad':'warn')+'" style="margin-bottom:14px;display:block">'+
+    '<div style="display:flex;gap:11px;align-items:flex-start">'+ic('alert')+
+    '<div><b>'+esc(v.title)+'</b><br><span class="txt-2">'+esc(v.detail)+'</span>'+
+    (sp?'<br><span class="txt-2">'+sp+' other device'+(sp>1?'s share':' shares')+' this exact port.</span>':'')+
+    '</div></div>'+
+    (peers?'<div style="margin-top:11px;border-top:1px solid var(--u-hair)">'+peers+'</div>':'')+
+    '</div>';
+}
+
+function pathHtml(loc,mer,fwi,xp){
+  var e=loc.edge,h=e&&e.health,r=loc.reachability,wl=mer&&mer.found;
+  var dev=r&&r.device,gw=r&&r.gateway,N=[];
+  N.push({role:'Device',val:(loc.hostname&&loc.hostname.split('.')[0])||loc.ip||loc.mac||'Device',
+    sub:dev?(dev.icmp?dev.rtt_ms+' ms':(dev.present!==false?(dev.evidence||'seen on network'):'no response')):'',
+    st:dev?(dev.present!==false?'':'bad'):''});
+  if(wl){
+    var rs=mer.signalQuality&&mer.signalQuality.rssi;
+    N.push({role:'Wireless',val:mer.recentDeviceName||'Access point',
+      sub:(rs!=null?rs+' dBm \u00b7 ':'')+(mer.ssid||''),st:(rs!=null&&rs<-72)?'warn':''});
+  }
+  if(e){
+    var iss=[]; if(h){if(h.crc>0)iss.push(h.crc.toLocaleString()+' CRC');
+      if(h.in_err>0)iss.push(h.in_err.toLocaleString()+' in-err');
+      if(h.out_err>0)iss.push(h.out_err.toLocaleString()+' out-err');}
+    N.push({role:wl?'AP uplink':'Access port',val:e.port,
+      sub:e.switch+(iss.length?' \u00b7 '+iss.join(' \u00b7 '):''),
+      st:h?(h.oper!=='up'?'bad':(iss.length?'warn':'')):''});
+  } else if(!wl){
+    N.push({role:'Access port',val:'not in CAM',sub:'',st:'dim'});
+  }
+  var up=(loc.locations||[]).filter(function(x){return x.role==='uplink';})[0];
+  N.push({role:'Core',val:up?up.switch:'distribution',sub:up?(up.port+' \u00b7 trunk'):'',st:''});
+  N.push({role:'Gateway',val:gw?gw.ip:(e?'VLAN '+e.vlan:'\u2014'),
+    sub:gw?(gw.alive?gw.rtt_ms+' ms':'no reply'):'',st:gw?(gw.alive?'':'bad'):''});
+  N.push({role:'Firewall',val:fwi?fwi.fw.split(' ')[0]:'Firewall',sub:fwi?fwi.host:'',st:''});
+  if(xp) N.push({role:'Experience',val:xp.label||'This device',sub:xp.sub||'',
+    st:xp.level==='bad'?'bad':(xp.level==='warn'?'warn':'')});
+  return '<section class="u-card u-fade"><header>'+ic('ping','ci')+'<h2>Connectivity path</h2></header>'+
+    '<div class="pathcard"><div class="path">'+
+    N.map(function(x){return '<div class="pnode '+(x.st||'')+'">'+
+      '<div class="role">'+esc(x.role)+'</div><div class="val">'+esc(x.val)+'</div>'+
+      (x.sub?'<div class="sub">'+esc(x.sub)+'</div>':'')+'</div>';}).join('')+
+    '</div></div></section>';
+}
+
+/* ── signal field renderer: the pretty heat map ─────────────────────────
+   A continuous RF-style field instead of blobs: every pixel takes the
+   strongest AP's gaussian falloff, colored on the classic survey ramp
+   (blue weak → cyan → green → yellow → orange → red strong).            */
+var HEAT_STOPS=[            // t, r,g,b, alpha
+  [0.00,  59,130,246, 0.00],
+  [0.10,  59,130,246, 0.16],
+  [0.26,   6,182,212, 0.26],
+  [0.44,  34,197, 94, 0.34],
+  [0.62, 250,204, 21, 0.42],
+  [0.80, 249,115, 22, 0.46],
+  [0.93, 239, 68, 68, 0.52],
+  [1.00, 254,202,202, 0.58]];
+function heatColor(t){
+  for(var k=1;k<HEAT_STOPS.length;k++){
+    if(t<=HEAT_STOPS[k][0]){
+      var a=HEAT_STOPS[k-1],c=HEAT_STOPS[k],f=(t-a[0])/(c[0]-a[0]||1);
+      return [a[1]+(c[1]-a[1])*f, a[2]+(c[2]-a[2])*f, a[3]+(c[3]-a[3])*f, a[4]+(c[4]-a[4])*f];
+    }}
+  var e=HEAT_STOPS[HEAT_STOPS.length-1]; return [e[1],e[2],e[3],e[4]];
+}
+function renderHeatCanvas(el, aps, used){
+  var cv=el.querySelector('.heatc'); if(!cv||!aps||!aps.length) return;
+  var W=300,H=225; cv.width=W; cv.height=H;
+  var ctx=cv.getContext('2d'), img=ctx.createImageData(W,H), px=img.data;
+  var pts=aps.map(function(a){return {x:a.x,y:a.y,s:used[a.name]?0.14:0.10,boost:used[a.name]?1.0:0.8};});
+  for(var y=0;y<H;y++){
+    var ny=(y+0.5)/H;
+    for(var x=0;x<W;x++){
+      var nx=(x+0.5)/W, best=0, second=0;
+      for(var i=0;i<pts.length;i++){
+        var p=pts[i], dx=nx-p.x, dy=ny-p.y;
+        var v=p.boost*Math.exp(-(dx*dx+dy*dy)/(2*p.s*p.s));
+        if(v>best){second=best;best=v;} else if(v>second){second=v;}
+      }
+      var t=Math.min(1, best+second*0.28);
+      if(t<0.045) continue;
+      var c=heatColor(t), o=(y*W+x)*4;
+      px[o]=c[0]; px[o+1]=c[1]; px[o+2]=c[2]; px[o+3]=Math.round(c[3]*255);
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+
+/* ── playback: walk the path and show what the client saw at each hop ── */
+var RPLAY={timer:null, i:0, loop:true, stops:[], el:null};
+/* custom sprite: drop /walker.png in the web root and the traveller uses it.
+   Cookie-gated static file — plain <image> loads fine (unlike the /api images). */
+var rSpriteOk=null;
+(function(){var t=new Image();
+  t.onload=function(){rSpriteOk=(t.naturalWidth>0);};
+  t.onerror=function(){rSpriteOk=false;};
+  t.src='/walker.png?v=1';})();
+function rStop(){ if(RPLAY.timer){clearInterval(RPLAY.timer);RPLAY.timer=null;}
+  if(RPLAY.hold){clearTimeout(RPLAY.hold);RPLAY.hold=null;} }
+function rIcon(playing){
+  var b=RPLAY.el&&RPLAY.el.querySelector('#rPlayBtn');
+  if(b){b.setAttribute('aria-pressed',String(!!playing));
+    b.setAttribute('aria-label',playing?'Pause replay':'Play replay');}
+  return playing
+    ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+}
+function rBindPlayback(stops, el){
+  RPLAY.stops=stops; RPLAY.el=el; RPLAY.i=0; RPLAY.speed=speedGet();
+  var btn=el.querySelector('#rPlayBtn'), scrub=el.querySelector('#rScrub'),
+      loopBtn=el.querySelector('#rLoopBtn');
+  if(!btn||!scrub) return;
+  loopBtn.style.opacity = RPLAY.loop ? '1' : '.45';
+  var spd=el.querySelector('#rSpd');
+  function applySpeed(){
+    var m=el.querySelector('.rmap');
+    if(m){m.style.setProperty('--rstep',(0.62/RPLAY.speed).toFixed(2)+'s');
+      m.style.setProperty('--rwaddle',(0.45/Math.max(RPLAY.speed,.35)).toFixed(2)+'s');}
+    if(spd) spd.querySelectorAll('button').forEach(function(b){
+      b.setAttribute('aria-pressed', String(+b.dataset.spd===RPLAY.speed));});
+  }
+  if(spd){
+    spd.innerHTML=[[0.25,'\u00bc\u00d7'],[0.5,'\u00bd\u00d7'],[1,'1\u00d7'],[2,'2\u00d7']].map(function(v){
+      return '<button data-spd="'+v[0]+'" title="Playback speed '+v[1]+'">'+v[1]+'</button>';}).join('');
+    spd.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click',function(){
+        RPLAY.speed=+b.dataset.spd; speedSet(RPLAY.speed); applySpeed();
+        if(RPLAY.timer){rStop(); playStart();}
+      });});
+  }
+  applySpeed();
+  function step(i){
+    RPLAY.i=i; scrub.value=i;
+    var p=stops[i]; if(!p) return;
+    // move the walker — a little person with a laptop, striding AP to AP
+    var svg=el.querySelector('.rmap svg'); if(!svg) return;
+    var w=svg.querySelector('#rWalker');
+    if(!w){
+      w=document.createElementNS('http://www.w3.org/2000/svg','g');
+      w.setAttribute('id','rWalker');
+      if(rSpriteOk){
+        // custom art: ~5.5 units tall, feet on the AP point, flip container handles direction
+        w.innerHTML='<ellipse class="shadow" cx="0" cy="1.9" rx="1.4" ry="0.32"/>'+
+          '<g class="sprite"><image href="/walker.png?v=1" x="-2.3" y="-4.3" width="4.6" height="6.2" preserveAspectRatio="xMidYMax meet"/></g>';
+        svg.appendChild(w);
+      } else
+      w.innerHTML=
+        '<ellipse class="shadow" cx="0" cy="1.9" rx="1.15" ry="0.3"/>'+
+        '<g class="torso" style="transform-origin:0px 0px">'+
+          '<g class="legL" style="transform-origin:0px .55px"><path class="body" d="M0,.55 L-.45,1.85"/></g>'+
+          '<g class="legR" style="transform-origin:0px .55px"><path class="body" d="M0,.55 L.45,1.85"/></g>'+
+          '<path class="body" d="M0,.6 L0,-1.1"/>'+                       /* spine */
+          '<path class="body" d="M0,-.75 L-.85,-.15"/>'+                  /* back arm */
+          '<path class="body" d="M0,-.75 L.8,-.35"/>'+                    /* laptop arm */
+          '<rect class="lap" x=".45" y="-.75" width="1.1" height=".62" rx=".1" transform="rotate(-14 .95 -.45)"/>'+
+          '<circle class="head" cx="0" cy="-1.65" r=".55"/>'+
+        '</g>';
+      svg.appendChild(w);
+    }
+    var prev=stops[Math.max(0,i-1)];
+    var flip=(prev&&p.x<prev.x)?-1:1;
+    w.style.transform='translate('+(p.x*100).toFixed(2)+'px,'+(p.y*100-1.2).toFixed(2)+'px)';
+    var t=w.querySelector('.torso')||w.querySelector('.sprite');
+    if(t){var keep=t.getAttribute('class')==='sprite'?'':'';
+      t.setAttribute('transform','scale('+flip+',1)');}
+    w.classList.add('walking');
+    clearTimeout(w._wt); w._wt=setTimeout(function(){w.classList.remove('walking');},Math.round(650/(RPLAY.speed||1)));
+    // 3D diorama: the standing sprite + its floor shadow + the camera
+    var w3=el.querySelector('.rwalk3'), s3=el.querySelector('.rshad3');
+    if(w3){
+      w3.style.left=(p.x*100).toFixed(2)+'%'; w3.style.top=(p.y*100).toFixed(2)+'%';
+      w3.classList.toggle('flip', flip<0);
+      w3.classList.add('walking');
+      clearTimeout(w3._wt); w3._wt=setTimeout(function(){w3.classList.remove('walking');},Math.round(650/(RPLAY.speed||1)));
+      if(s3){s3.style.left=(p.x*100).toFixed(2)+'%'; s3.style.top=(p.y*100).toFixed(2)+'%';}
+      var sg=el.querySelector('.rmap.r3d .rstage');
+      if(sg) sg.style.transform=(followOn()&&(RPLAY.timer||i>0))?stageFollow(p.x,p.y):stageBase();
+    }
+    // dwell time at this AP
+    var dwell='';
+    if(p.at&&p.until&&p.until!==p.at){
+      var secs=Math.max(0,Math.round((new Date(p.until)-new Date(p.at))/1000));
+      dwell = secs>3600? Math.round(secs/3600)+'h' : (secs>60? Math.round(secs/60)+'m' : secs+'s');
+    }
+    el.querySelector('#rNowT').textContent=String(p.at).slice(11,16);
+    var bad=/poor|low ack|fail|deauth|timeout/i.test(p.reason||'');
+    el.querySelector('#rNow').innerHTML=
+      '<div><div class="l">Access point</div><div class="v">'+esc(p.ap)+'</div></div>'+
+      '<div><div class="l">Band</div><div class="v">'+(p.band?esc(p.band)+' GHz':'—')+'</div></div>'+
+      '<div><div class="l">Dwell</div><div class="v">'+(dwell||'—')+'</div></div>'+
+      '<div><div class="l">Associations</div><div class="v">'+(p.events||1)+'</div></div>'+
+      (p.reason?'<div style="grid-column:1/-1"><div class="l">Last event</div><div class="v '+(bad?'txt-warn':'')+'" style="font-size:12px;font-weight:500">'+esc(p.reason)+'</div></div>':'');
+    // incident spotlight: pause the walker over a problem hop, glow that AP,
+    // surface the stats where it happened, then let the loop carry on
+    var call=el.querySelector('.rcall');
+    if(bad){
+      var tg3=el.querySelector('.rtag[data-ap="'+p.ap+'"]');
+      if(tg3){tg3.classList.add('alert');}
+      var wasPlaying=!!RPLAY.timer;
+      if(call){
+        call.innerHTML='<b>'+ic('alert')+'Signal issue</b>'+
+          '<div class="rw"><span>AP</span><span>'+esc(String(p.ap).replace(/^[A-Z]{3}\d+-/,''))+'</span></div>'+
+          '<div class="rw"><span>Event</span><span>'+esc(p.reason||'')+'</span></div>'+
+          (p.band?'<div class="rw"><span>Band</span><span>'+esc(p.band)+' GHz</span></div>':'')+
+          (dwell?'<div class="rw"><span>Dwell</span><span>'+dwell+'</span></div>':'')+
+          '<div class="rw"><span>Associations</span><span>'+(p.events||1)+'</span></div>'+
+          (wasPlaying?'<div class="rw"><span></span><span class="txt-3">resuming…</span></div>':'');
+        call.classList.add('on');
+      }
+      var png=el.querySelector('.rping');
+      if(png){png.style.left=(p.x*100).toFixed(2)+'%';png.style.top=(p.y*100).toFixed(2)+'%';
+        png.classList.add('on');}
+      if(wasPlaying){
+        rStop(); btn.innerHTML=rIcon(true);
+        RPLAY.hold=setTimeout(function(){RPLAY.hold=null;
+          if(call) call.classList.remove('on');
+          var pg=el.querySelector('.rping'); if(pg) pg.classList.remove('on');
+          if(RPLAY.resume) RPLAY.resume();},3400);
+      }
+    } else {
+      if(call) call.classList.remove('on');
+      var png2=el.querySelector('.rping'); if(png2) png2.classList.remove('on');
+    }
+    // highlight the leg travelled so far
+    var poly=el.querySelector('.rmap .leg');
+    if(poly) poly.setAttribute('points', stops.slice(0,Math.max(i+1,2>stops.length?1:2)).slice(0,i+1).map(function(q){
+      return (q.x*100).toFixed(2)+','+(q.y*100).toFixed(2);}).join(' '));
+  }
+  scrub.addEventListener('input',function(){ rStop(); btn.innerHTML=rIcon(false); step(+scrub.value); });
+  loopBtn.addEventListener('click',function(){ RPLAY.loop=!RPLAY.loop;
+    loopBtn.style.opacity=RPLAY.loop?'1':'.45';
+    loopBtn.setAttribute('aria-pressed',String(RPLAY.loop)); });
+  function playStart(){
+    if(RPLAY.timer) return;
+    btn.innerHTML=rIcon(true);
+    if(RPLAY.i>=stops.length-1) RPLAY.i=0;
+    RPLAY.timer=setInterval(function(){
+      if(RPLAY.i>=stops.length-1){
+        if(RPLAY.loop){ RPLAY.i=-1; }
+        else { rStop(); btn.innerHTML=rIcon(false); return; }
+      }
+      step(RPLAY.i+1);
+    }, Math.round(700/(RPLAY.speed||1)));
+  }
+  RPLAY.resume=playStart;
+  btn.addEventListener('click',function(){
+    if(RPLAY.timer||RPLAY.hold){ rStop(); btn.innerHTML=rIcon(false); return; }
+    playStart();
+  });
+  step(0);
+}
+
+/* ── Wi-Fi travel map: where this client went, AP to AP ───────────────── */
+var ROAM={hours:24, floor:null, data:null, heat:true};
+/* per-floor rotation, quarter-turns counter-clockwise; the diagonal HQ floors
+   read far better turned 90° left, so they default to 1 */
+var SKINS={g_591097451092378945:'/floorskin-g_591097451092378945.webp'};
+function skinOn(){try{return localStorage.getItem('dtrace.mapskin')!=='0';}catch(e){return true;}}
+function skinSet(v){try{localStorage.setItem('dtrace.mapskin',v?'1':'0');}catch(e){}}
+function map3dOn(){try{return localStorage.getItem('dtrace.map3d')!=='0';}catch(e){return true;}}
+function map3dSet(v){try{localStorage.setItem('dtrace.map3d',v?'1':'0');}catch(e){}}
+function followOn(){try{return localStorage.getItem('dtrace.mapfollow')!=='0';}catch(e){return true;}}
+function followSet(v){try{localStorage.setItem('dtrace.mapfollow',v?'1':'0');}catch(e){}}
+var R3D_TILT=55, R3D_ZOOM=1.75, R3D_SCALE=1.12;
+function speedGet(){try{var v=parseFloat(localStorage.getItem('dtrace.mapspeed'));
+  return (v>0&&v<=4)?v:1;}catch(e){return 1;}}
+function speedSet(v){try{localStorage.setItem('dtrace.mapspeed',String(v));}catch(e){}}
+function stageBase(){return 'translateY(-50%) rotateX('+R3D_TILT+'deg) scale('+R3D_SCALE+')';}
+function stageFollow(px,py){return 'translateY(-50%) rotateX('+R3D_TILT+'deg) scale('+R3D_ZOOM+
+  ') translate('+((0.5-px)*100).toFixed(2)+'%,'+((0.65-py)*100).toFixed(2)+'%)';}
+function openPoster(){
+  var dark=true;
+  try{var t=document.documentElement.getAttribute('data-theme');
+    dark=t?(t==='dark'):window.matchMedia('(prefers-color-scheme: dark)').matches;}catch(e){}
+  var b=document.createElement('figure'); b.className='artbox';
+  b.innerHTML='<img src="'+(dark?'/wifi-poster-dark.webp':'/wifi-poster-light.webp')+'" alt="Illustrated Wi-Fi heat map of the HQ first floor">'+
+    '<figcaption>HQ 1st floor, as art — the live map above is the truth. Click anywhere to close.</figcaption>';
+  function close_(){b.remove();document.removeEventListener('keydown',onKey);}
+  function onKey(e){if(e.key==='Escape')close_();}
+  b.addEventListener('click',close_); document.addEventListener('keydown',onKey);
+  document.body.appendChild(b);
+}
+var ROT_DEFAULT={g_591097451092378945:1, g_591097451092378946:1};
+function rotGet(fid){
+  try{var o=JSON.parse(localStorage.getItem('dtrace.maprot')||'{}');
+      return (fid in o)?o[fid]:(ROT_DEFAULT[fid]||0);}catch(e){return ROT_DEFAULT[fid]||0;}
+}
+function rotSet(fid,n){
+  try{var o=JSON.parse(localStorage.getItem('dtrace.maprot')||'{}');o[fid]=((n%4)+4)%4;
+      localStorage.setItem('dtrace.maprot',JSON.stringify(o));}catch(e){}
+}
+function rotPt(x,y,n){ for(var i=0;i<n;i++){var t=x; x=y; y=1-t;} return {x:x,y:y}; }
+async function roamMap(mac, mountId){
+  var el=document.getElementById(mountId); if(!el) return;
+  el.innerHTML='<section class="u-card"><header>'+ic('wifi','ci')+'<h2>Travel map</h2></header>'+
+    '<div class="u-skel" style="margin:16px;height:180px"></div></section>';
+  try{
+    var d=await jget('/api/netswitch/roam?mac='+enc(mac)+'&hours='+ROAM.hours);
+    ROAM.data=d;
+    if(!d.ok||!d.path||!d.path.length){
+      el.innerHTML='<section class="u-card"><header>'+ic('wifi','ci')+'<h2>Travel map</h2></header>'+
+        '<div class="u-empty">No access-point history for this client in the last '+ROAM.hours+'h.'+
+        (d.unplaced&&d.unplaced.length?'<br><span class="txt-3">APs not placed on a floor plan: '+esc(d.unplaced.join(', '))+'</span>':'')+
+        '</div></section>'; return;}
+    // group the path by floor; default to the floor with the most stops
+    var byFloor={};
+    d.path.forEach(function(p){ (byFloor[p.floorPlanId]=byFloor[p.floorPlanId]||[]).push(p); });
+    var floors=Object.keys(byFloor).sort(function(a,b){return byFloor[b].length-byFloor[a].length;});
+    if(!ROAM.floor||!byFloor[ROAM.floor]) ROAM.floor=floors[0];
+    var fp0=(d.floorplans||[]).filter(function(f){return f.floorPlanId===ROAM.floor;})[0]||{aps:[]};
+    var rotN=rotGet(ROAM.floor);
+    var fp={aps:(fp0.aps||[]).map(function(a){var r=rotPt(a.x,a.y,rotN);
+      return {name:a.name,serial:a.serial,x:r.x,y:r.y};})};
+    var stops=(byFloor[ROAM.floor]||[]).map(function(p){var r=rotPt(p.x,p.y,rotN);
+      var q={}; for(var k in p) q[k]=p[k]; q.x=r.x; q.y=r.y; return q;});
+    var used={}; stops.forEach(function(p){used[p.ap]=1;});
+
+    // full route drawn faint; playback lights it up progressively. No time labels
+    // on the plan itself — dozens of them were unreadable; time lives in the scrubber.
+    var pts=stops.map(function(p){return (p.x*100).toFixed(2)+','+(p.y*100).toFixed(2);}).join(' ');
+    var svg='<svg viewBox="0 0 100 100" preserveAspectRatio="none">'+
+      '<defs>'+
+        '<radialGradient id="rgUsed"><stop offset="0%" stop-color="#f5c84c" stop-opacity=".55"/>'+
+          '<stop offset="45%" stop-color="#7ed957" stop-opacity=".35"/>'+
+          '<stop offset="100%" stop-color="#2bb3a3" stop-opacity="0"/></radialGradient>'+
+        '<radialGradient id="rgIdle"><stop offset="0%" stop-color="#7ed957" stop-opacity=".30"/>'+
+          '<stop offset="55%" stop-color="#2bb3a3" stop-opacity=".18"/>'+
+          '<stop offset="100%" stop-color="#2bb3a3" stop-opacity="0"/></radialGradient>'+
+      '</defs>'+
+      '';
+    (fp.aps||[]).forEach(function(a){
+      var u=!!used[a.name], short=a.name.replace(/^SNA01-|^DFW02-/,'');
+      svg+='<circle class="apdot'+(u?' used':'')+'" cx="'+(a.x*100).toFixed(2)+'" cy="'+(a.y*100).toFixed(2)+'" r="'+(u?1.1:0.8)+'"/>';
+      svg+='<text class="aplab'+(u?' used':'')+'" text-anchor="middle" x="'+(a.x*100).toFixed(2)+'" y="'+(a.y*100+2.6).toFixed(2)+'">'+esc(short)+'</text>';
+    });
+    for(var si=1;si<stops.length;si++){
+      var A=stops[si-1],B=stops[si];
+      var bd=/deauth|fail|timeout/i.test(B.reason||''), sl=/poor|low ack/i.test(B.reason||'');
+      var tc=bd?'var(--u-sig-fault)':(sl?'var(--u-sig-slow)':'var(--u-sig-clean)');
+      var tw=(0.45+Math.min(B.events||1,4)*0.22).toFixed(2);
+      svg+='<line class="trail" x1="'+(A.x*100).toFixed(2)+'" y1="'+(A.y*100).toFixed(2)+
+        '" x2="'+(B.x*100).toFixed(2)+'" y2="'+(B.y*100).toFixed(2)+'" stroke="'+tc+
+        '" stroke-width="'+tw+'" stroke-dasharray="1.7 1.5" stroke-linecap="round"/>'+
+        '<circle class="bead" cx="'+((A.x+B.x)*50).toFixed(2)+'" cy="'+((A.y+B.y)*50).toFixed(2)+'" r="0.5"/>';
+    }
+    svg+='<polyline class="leg" points=""/>';
+    // one marker per distinct AP visit (not per event) — sized by dwell count
+    var seen={};
+    stops.forEach(function(p,i){
+      var k=p.ap, first=(i===0), last=(i===stops.length-1);
+      if(seen[k]&&!first&&!last) return; seen[k]=1;
+      var cls=first?'first':(last?'last':'');
+      svg+='<circle class="stop '+cls+'" cx="'+(p.x*100).toFixed(2)+'" cy="'+(p.y*100).toFixed(2)+'" r="'+(first||last?1.5:1.0)+'"/>';
+    });
+    svg+='</svg>';
+
+    var trouble={}; stops.forEach(function(p){
+      if(/poor|low ack|fail|deauth|timeout/i.test(p.reason||'')) trouble[p.ap]=1;});
+    var tags3=fp.aps.map(function(a){
+      return '<div class="rtag'+(used[a.name]?' used':'')+(trouble[a.name]?' warn':'')+
+        '" data-ap="'+esc(a.name)+'" style="left:'+(a.x*100).toFixed(2)+
+        '%;top:'+(a.y*100).toFixed(2)+'%">'+(trouble[a.name]?'&#9888; ':'')+
+        esc(String(a.name).replace(/^[A-Z]{3}\d+-/,''))+'</div>';}).join('');
+    var floorBtns=floors.map(function(f){
+      var nm=((d.floorplans||[]).filter(function(x){return x.floorPlanId===f;})[0]||{}).name||f;
+      return '<button data-floor="'+esc(f)+'" aria-pressed="'+(f===ROAM.floor)+'">'+esc(nm)+' <span class="txt-3">'+byFloor[f].length+'</span></button>';}).join('');
+    var hourBtns=[[24,'1d'],[48,'2d'],[72,'3d'],[168,'7d']].map(function(x){
+      return '<button data-rh="'+x[0]+'" aria-pressed="'+(ROAM.hours===x[0])+'">'+x[1]+'</button>';}).join('');
+
+    el.innerHTML='<section class="u-card u-fade"><header>'+ic('wifi','ci')+'<h2>Travel map</h2>'+
+      '<span class="tag">'+tag('', d.hops+' hops · '+d.event_count+' events')+'</span></header>'+
+      '<div class="rbar"><div class="u-seg">'+floorBtns+'</div><div class="u-seg">'+hourBtns+'</div>'+
+      '<button class="u-btn" id="rHeat" aria-pressed="'+(ROAM.heat!==false)+'">Coverage</button>'+
+      '<button class="u-btn" id="rRot" title="Rotate the plan 90° left">⟲ Rotate</button>'+
+      (SKINS[ROAM.floor]?'<button class="u-btn" id="rSkin" aria-pressed="'+skinOn()+'" title="Illustrated floor instead of the CAD plan">Styled floor</button>':'')+
+      '<button class="u-btn" id="r3d" aria-pressed="'+map3dOn()+'" title="Tilted diorama view">3D</button>'+
+      '<button class="u-btn" id="rFollow" aria-pressed="'+followOn()+'" title="Camera follows the walker during playback"'+(map3dOn()?'':' style="display:none"')+'>Follow</button>'+
+      '<button class="u-btn" id="rArt" title="The office as art — just for fun">✨ Poster</button></div>'+
+      '<div class="rmap'+(map3dOn()?' r3d':'')+(map3dOn()&&!rSpriteOk?' nospr':'')+'"><div class="rstage"><img id="rFloorImg" alt="" ><canvas class="heatc"'+(ROAM.heat===false?' style="display:none"':'')+'></canvas>'+svg+
+      '<div class="rshad3"></div><div class="rwalk3"><img src="/walker.png?v=1" alt=""><div class="rcall"></div></div>'+tags3+'<div class="rping"></div></div></div>'+
+      '<div class="rplay">'+
+        '<button class="pb" id="rPlayBtn" aria-label="Play replay" aria-pressed="false">'+
+          '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>'+
+        '<input type="range" id="rScrub" min="0" max="'+Math.max(0,stops.length-1)+'" value="0" step="1" aria-label="Travel replay position">'+
+        '<span class="now" id="rNowT"></span>'+
+        '<button class="pb" id="rLoopBtn" aria-label="Loop playback" aria-pressed="'+(RPLAY.loop?'true':'false')+'" title="Loop playback">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>'+
+      '<span class="rspd" id="rSpd" role="group" aria-label="Playback speed"></span>'+
+      '</div><div class="rnow" id="rNow"></div>'+
+      '<div class="rlegend"><span class="heatscale" title="signal: weak to strong"></span>'+
+      '<span><i style="background:var(--u-sig-clean)"></i>clean handoff</span>'+
+      '<span><i style="background:var(--u-sig-slow)"></i>slow roam</span>'+
+      '<span><i style="background:var(--u-sig-fault)"></i>drop / deauth</span>'+
+      '<span class="txt-3">trail width = movement volume</span></div>'+
+      '</section>';
+    // the plan image needs the auth token, which only fetch() carries — load it as a blob
+    (async function(){
+      try{
+        var useSkin=SKINS[ROAM.floor]&&skinOn();
+        var ir=await fetch(useSkin?SKINS[ROAM.floor]:('/api/netswitch/floorplan-image?id='+enc(ROAM.floor)),{credentials:'include'});
+        if(!ir.ok) return;
+        var bl=await ir.blob();
+        var bmp=await createImageBitmap(bl);
+        var w=bmp.width,h=bmp.height,cw=w,ch=h;
+        if(rotN%2===1){cw=h;ch=w;}
+        var oc=document.createElement('canvas'); oc.width=cw; oc.height=ch;
+        var octx=oc.getContext('2d');
+        octx.translate(cw/2,ch/2); octx.rotate(-Math.PI/2*rotN);  // CCW
+        octx.drawImage(bmp,-w/2,-h/2);
+        var im=el.querySelector('#rFloorImg'), box=el.querySelector('.rmap'),
+            stg=el.querySelector('.rstage'), is3=box&&box.classList.contains('r3d');
+        if(im){im.src=oc.toDataURL('image/png'); if(useSkin) im.classList.add('skin');}
+        if(box){box.style.aspectRatio=cw+' / '+(is3?Math.round(ch*0.62):ch);
+          box.style.maxWidth='min('+Math.round((is3?680:560)*cw/ch)+'px, calc(100% - 28px))';}
+        if(stg&&is3){
+          stg.style.top='50%'; stg.style.height='auto'; stg.style.aspectRatio=cw+' / '+ch;
+          if(!stg.style.transform) stg.style.transform=stageBase();}
+      }catch(e){}
+    })();
+    renderHeatCanvas(el, fp.aps||[], used);
+    var rb=el.querySelector('#rRot');
+    if(rb) rb.addEventListener('click',function(){rotSet(ROAM.floor,rotGet(ROAM.floor)+1);rStop();roamMap(mac,mountId);});
+    var hb=el.querySelector('#rHeat');
+    if(hb) hb.addEventListener('click',function(){
+      ROAM.heat=(ROAM.heat===false); hb.setAttribute('aria-pressed',ROAM.heat!==false);
+      var g=el.querySelector('.rmap .heatc'); if(g) g.style.display=(ROAM.heat===false)?'none':'';});
+    var sb=el.querySelector('#rSkin');
+    if(sb) sb.addEventListener('click',function(){skinSet(!skinOn());rStop();roamMap(mac,mountId);});
+    var ab=el.querySelector('#rArt');
+    if(ab) ab.addEventListener('click',openPoster);
+    var db=el.querySelector('#r3d');
+    if(db) db.addEventListener('click',function(){map3dSet(!map3dOn());rStop();roamMap(mac,mountId);});
+    var fb=el.querySelector('#rFollow');
+    if(fb) fb.addEventListener('click',function(){followSet(!followOn());
+      fb.setAttribute('aria-pressed',followOn());
+      var sg=el.querySelector('.rmap.r3d .rstage');
+      if(sg) sg.style.transform=followOn()&&RPLAY.stops[RPLAY.i]
+        ?stageFollow(RPLAY.stops[RPLAY.i].x,RPLAY.stops[RPLAY.i].y):stageBase();});
+    el.querySelectorAll('[data-floor]').forEach(function(btn){
+      btn.addEventListener('click',function(){ROAM.floor=btn.dataset.floor;rStop();roamMap(mac,mountId);});});
+    el.querySelectorAll('[data-rh]').forEach(function(btn){
+      btn.addEventListener('click',function(){ROAM.hours=+btn.dataset.rh;ROAM.floor=null;rStop();roamMap(mac,mountId);});});
+    rBindPlayback(stops, el);
+  }catch(e){
+    el.innerHTML='<section class="u-card"><div class="u-note bad" style="margin:14px">'+ic('alert')+
+      '<div>Travel map unavailable: '+esc(e.message)+'</div></div></section>';
+  }
+}
+
+async function runNet(q,kind,ctx){
+  ctx=ctx||{};
+  var loc=await jget('/api/netswitch/locate?q='+enc(q));
+  var ip=loc.ip||(kind==='ip'?q:null), mac=loc.mac||(kind==='mac'?q:null), host=loc.hostname||null;
+  var pr=await Promise.all([
+    ip?jget('/api/netdiag/resolve?by=ip&q='+enc(ip)).catch(function(){return{ok:false};}):Promise.resolve(null),
+    mac?jget('/api/meraki/client?mac='+enc(mac)).catch(function(){return null;}):Promise.resolve(null),
+    (mac||ip)?jget('/api/netswitch/correlate?'+(mac?'mac='+enc(mac):'ip='+enc(ip))).catch(function(){return null;}):Promise.resolve(null)]);
+  var resolve=pr[0], mer=pr[1], corr=pr[2], wifi=null;
+  if(mer&&mer.found&&mac){try{wifi=await jget('/api/meraki/wifi-events?mac='+enc(mac)+'&hours=24');}catch(e){}}
+  var person=resolve&&resolve.user360&&(resolve.user360.identity||null);
+  if(!person&&host){try{var u=await jget('/api/user360/'+enc(host.split('.')[0]));
+    if(u&&u.ok!==false)person=u.identity||null;}catch(e){}}
+
+  var e=loc.edge,h=e&&e.health,fwS=resolve&&resolve.network,dhcp=resolve&&resolve.dhcp;
+  var wl=mer&&mer.found, ipD=ip||(wl&&mer.ip)||mac;
+  var site=(e&&e.switch)||(wl&&mer.recentDeviceName)||'', fwi=fwSite(site);
+  var v=verdict(loc,mer), r=loc.reachability&&loc.reachability.device;
+  var vic={good:'check',warn:'alert',bad:'x',info:'search'}[v.l];
+
+  // pin target: MAC is the stable key, fall back to IP
+  var wref = mac || ip;
+  var wlabel = (ctx.asset&&ctx.asset.device_name) || ctx.searched ||
+               (host&&!/^ip-\d/.test(host)?host.split('.')[0]:'') || wref;
+  if(ctx.asset&&ctx.asset.user_name&&ctx.asset.user_name!=='--') wlabel += ' · '+ctx.asset.user_name;
+  var facts=[];
+  if(ipD)facts.push('<span class="fact">'+ic('dev')+esc(ipD)+cp(ipD)+'</span>');
+  if(mac)facts.push('<span class="fact">'+ic('port')+esc(mac)+cp(mac)+'</span>');
+  if(host)facts.push('<span class="fact">'+ic('globe')+esc(host)+cp(host)+'</span>');
+
+  var resolvedNote='';
+  if(ctx.searched&&ctx.asset){
+    resolvedNote='<div class="d" style="margin-top:6px;color:var(--u-text-3)">Resolved <b>'+esc(ctx.searched)+
+      '</b> via '+esc(ctx.asset.src||'inventory')+(ctx.asset.user_name&&ctx.asset.user_name!=='--'?' · '+esc(ctx.asset.user_name):'')+'</div>';
+  }
+  var html='<div class="verdict '+v.l+' u-fade"><div class="vi">'+ic(vic)+'</div><div class="vm">'+
+    '<h2>'+esc(v.t)+'</h2><div class="d">'+v.d+'</div>'+resolvedNote+
+    (facts.length?'<div class="facts">'+facts.join('')+'</div>':'')+
+    (wref?'<div style="margin-top:12px"><button class="u-btn" id="watchBtn" data-ref="'+esc(wref)+'" data-label="'+esc(wlabel)+'">'+
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+
+      '<path d="M12 17v5"/><path d="M9 10.8V4h6v6.8l2 3.2H7z"/></svg>Watch this device</button>'+
+      '<span class="txt-3" style="font-size:11.5px;margin-left:9px">samples every 5 min · kept 120 days</span></div>':'')+
+    '</div>'+
+    (r?'<div class="live"><span class="u-dot '+(r.present!==false?'':'bad')+'"></span>'+
+       (r.icmp?'live · '+r.rtt_ms+' ms':(r.present!==false?esc(r.evidence||'on the network'):'no response'))+'</div>':'')+
+    '</div>'+corrAlert(corr)+pathHtml(loc,mer,fwi,{label:(person&&(person.displayName||person.name))||(host?host.split('.')[0]:null)||ipD,sub:(v.u?'not measured':({good:'healthy',warn:'issues found',bad:'impacted',info:'no live data'}[v.l]||'—')),level:(v.u?'info':v.l)})+'<div class="split" style="margin-top:14px"><div class="stack">';
+
+  /* main column */
+  if(wl){
+    var rssi=mer.signalQuality&&mer.signalQuality.rssi, snr=mer.signalQuality&&mer.signalQuality.snr;
+    var q5=rssi==null?0:rssi>=-60?5:rssi>=-67?4:rssi>=-72?3:rssi>=-80?2:1;
+    var sc=q5>=4?'':(q5===3?'w':'b');
+    var bars=[10,16,22,27,32].map(function(hh,i){return '<i class="'+(i<q5?'on '+sc:'')+'" style="height:'+hh+'px"></i>';}).join('');
+    html+=card('Wireless','wifi',tag(mer.status==='Online'?'good':'',esc(mer.status||'—')),
+      '<div class="sig"><div class="bars">'+bars+'</div><div><div class="v '+(sc==='b'?'txt-bad':(sc==='w'?'txt-warn':'txt-good'))+'">'+
+        (rssi!=null?rssi+' dBm':'—')+'</div><div class="s">signal'+(snr!=null?' · SNR '+snr:'')+' · '+
+        (['','very weak','weak','fair','good','excellent'][q5]||'')+'</div></div></div>'+
+      kv('SSID',esc(mer.ssid))+kv('Access point',esc(mer.recentDeviceName))+kv('Site',esc(mer.site||site))+
+      kv('Manufacturer',esc(mer.manufacturer))+kv('Meraki IP',mer.ip?esc(mer.ip)+cp(mer.ip):''));
+    if(wifi&&wifi.found&&wifi.events&&wifi.events.length){
+      var bad=wifi.events.filter(function(x){return /poor|low ack|fail/i.test(x.reason||'');}).length;
+      html+=card('Wi-Fi connection history','ping',tag(bad?'warn':'',(wifi.eventCount||wifi.events.length)+' · 24h'),
+        '<div>'+wifi.events.slice(0,7).map(function(x){
+          var dc=x.type==='disconnect', b=/poor|low ack|fail|deauth|timeout|roam/i.test(x.reason||'');
+          return '<div class="ev '+(dc?(b?'bad':'dc'):'cn')+'"><span class="d"></span><div class="b">'+
+            '<div class="r1"><span class="u-tag '+(dc?'warn':'good')+'">'+esc(x.type)+'</span>'+esc(x.ap||'')+
+            (x.band?' · '+esc(x.band)+' GHz':'')+'</div>'+
+            (x.reason||x.details?'<div class="r2 '+(b?'bad':'')+'">'+esc(x.reason||x.details)+'</div>':'')+
+            '</div><span class="t">'+esc(tAgo(x.timestamp))+'</span></div>';}).join('')+'</div>');
+    }
+  }
+  if(e&&h){
+    var util=h.util_pct!=null?h.util_pct:0;
+    var st=h.oper!=='up'?tag('bad','link '+esc(h.oper)):((h.in_err>0||h.out_err>0||h.crc>0)?tag('warn','errors'):tag('good','Healthy'));
+    html+=card(wl?'AP uplink port':'Switch port health','heart',st,
+      kv('Link','<span class="'+(h.oper==='up'?'txt-good':'txt-bad')+'">'+esc(h.oper)+'</span> · admin '+esc(h.admin))+
+      kv('Speed / duplex',(h.speed_mbps?h.speed_mbps+' Mbps':'—')+' · <span class="'+(h.duplex==='half'?'txt-warn':'')+'">'+esc(h.duplex||'—')+'</span>')+
+      kv('Throughput',h.in_mbps!=null?'<span class="u-mono">&darr; '+h.in_mbps+' &nbsp; &uarr; '+h.out_mbps+'</span> <span class="txt-3">Mbps</span>':'')+
+      (h.util_pct!=null?'<div class="u-kv"><span class="k">Utilization</span><span class="v" style="display:flex;align-items:center;gap:9px">'+
+        '<span class="u-meter" style="flex:1;max-width:150px"><i style="width:'+Math.min(util,100)+'%"></i></span><span class="u-mono">'+util+'%</span></span></div>':'')+
+      kv('Input errors','<span class="u-mono">'+n(h.in_err,100)+'</span>')+
+      kv('Output errors','<span class="u-mono">'+n(h.out_err,100)+'</span>')+
+      kv('CRC / FCS','<span class="u-mono">'+n(h.crc,1)+'</span>')+
+      kv('Discards in / out','<span class="u-mono">'+Number(h.in_disc||0).toLocaleString()+' / <span class="'+(h.out_disc>100000?'txt-warn':'')+'">'+Number(h.out_disc||0).toLocaleString()+'</span></span>')+
+      (h.poe_status?kv('PoE',esc(h.poe_status)+(h.poe_watts?' · '+h.poe_watts+' W':'')):'')+
+      kv('Link up for',dur(h.last_change_sec)));
+  }
+  if(e){
+    var others=(loc.locations||[]).filter(function(x){return x!==e;});
+    html+=card('Switch attachment','sw',tag('',esc(e.switch)),
+      kv('Edge switch',esc(e.switch))+
+      kv('Port','<span class="u-mono">'+esc(e.port)+'</span> '+tag('good','Edge'))+
+      kv('Description',esc(e.port_desc||'—'))+kv('VLAN','<span class="u-mono">'+esc(e.vlan)+'</span>')+
+      kv('Switch IP','<span class="u-mono">'+esc(e.switch_ip)+'</span>'+cp(e.switch_ip))+
+      (wl?kv('','<span class="txt-3">This port is the AP uplink — the device connects over Wi-Fi.</span>'):'')+
+      (others.length?'<div class="u-kv"><span class="k">Uplink path</span><span class="v" style="padding:0"><div class="u-tw"><table class="u-table"><tbody>'+
+        others.map(function(x){return '<tr><td>'+esc(x.switch)+'</td><td class="u-mono">'+esc(x.port)+'</td><td>VLAN '+x.vlan+'</td><td>'+tag('info',x.role)+'</td></tr>';}).join('')+
+        '</tbody></table></div></span></div>':''));
+  }else if(!wl){
+    html+=card('Switch attachment','sw',tag('','—'),
+      '<div class="u-empty">'+(loc.error?esc(loc.error):'Not found in any switch CAM table — the device may be offline.')+'</div>');
+  }
+
+  html+='</div><div class="stack">';
+  /* rail */
+  if(loc.reachability){var d=loc.reachability.device,g=loc.reachability.gateway;
+    html+=card('Reachability','ping',
+      tag(d&&d.present!==false?(d.alive?'good':'warn'):'bad',
+          d&&d.present!==false?(d.alive?'live':'quiet'):'no response'),
+      kv('Device',d?('<span class="'+(d.present!==false?'txt-good':'txt-bad')+'">'+
+        (d.present!==false?'on the network':'not responding')+'</span>'+
+        (d.evidence?' · '+esc(d.evidence):'')):'—')+
+      kv('Ping',d?(d.icmp?'<span class="txt-good">replies</span>'+(d.rtt_ms!=null?' · '+d.rtt_ms+' ms':''):
+        '<span class="txt-3">no reply — most endpoints block ICMP, so this alone is not a fault</span>'):'')+
+      (g?kv('Gateway','<span class="u-mono">'+esc(g.ip)+'</span> — <span class="'+(g.alive?'txt-good':'txt-bad')+'">'+(g.alive?'reachable':'no reply')+'</span>'+(g.rtt_ms!=null?' · '+g.rtt_ms+' ms':'')):''));}
+  var fwB,fwT;
+  if(fwS){fwT=tag('good','live session');
+    fwB=kv('Action','<span class="u-mono">'+esc(fwS.action||'')+'</span>')+kv('Policy',esc(fwS.policyName||fwS.policyid||''))+
+        kv('Destination','<span class="u-mono">'+esc(fwS.daddr||'')+'</span>')+kv('Service','<span class="u-mono">'+esc(fwS.service||fwS.proto||'')+'</span>')+
+        kv('Firewall',esc(fwS.fw||(fwi&&fwi.fw)||''));}
+  else if(fwi){fwT=tag('','by site');
+    fwB=kv('Serving firewall',esc(fwi.fw))+kv('Management','<span class="u-mono">'+esc(fwi.host)+'</span>'+cp(fwi.host))+kv('Site',esc(fwi.site))+
+        '<div class="u-kv"><span class="v"><a href="/network-health.html#fw">Firewall vitals '+ic('ext')+'</a></span></div>';}
+  else{fwT=null;fwB='<div class="u-empty">No firewall context.</div>';}
+  html+=card('Firewall path','shield',fwT,fwB);
+  var idB,idT;
+  if(person){idT=tag('good','matched');
+    idB=kv('Name',esc(person.displayName||person.name||''))+
+        kv('Email',(person.email||person.upn)?'<span class="u-mono">'+esc(person.email||person.upn)+'</span>'+cp(person.email||person.upn):'')+
+        kv('Department',esc(person.department||''))+kv('Title',esc(person.jobTitle||person.title||''));}
+  else{idT=host?tag('','host only'):null;
+    idB=(host?kv('Hostname','<span class="u-mono">'+esc(host)+'</span>'+cp(host))+kv('Resolved by','reverse DNS (PTR)'):'')+
+        (dhcp&&dhcp.hostname?kv('DHCP host','<span class="u-mono">'+esc(dhcp.hostname)+'</span>'):'')+
+        '<div class="u-empty">'+(host?'No person is linked to this host in identity.':'No identity resolved.')+'</div>';}
+  html+=card('Identity','user',idT,idB);
+  html+='</div></div>';
+  if(mac) html+='<div id="roamMount" style="margin-top:14px"></div>';
+  if(ctx.seq&&ctx.seq!==RUNSEQ)return;
+  out.innerHTML=html;
+  if(mac) roamMap(mac,'roamMount');
+  var wb=document.getElementById('watchBtn');
+  if(wb) wb.addEventListener('click',async function(){
+    if(wb.dataset.done){location.href='/network-health.html#watch';return;}
+    wb.disabled=true;
+    try{
+      var r=await fetch('/api/netswitch/watch',{method:'POST',credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({kind:'device',ref:wb.dataset.ref,label:wb.dataset.label,
+                             meta:{hostname:host||null,ip:ip||null,site:site||null}})});
+      var j=await r.json().catch(function(){return{ok:false};});
+      if(!j.ok) throw new Error(j.detail||'could not pin');
+      wb.classList.add('pri');
+      wb.innerHTML='Watching — see the Watch list';
+      wb.disabled=false;
+      wb.dataset.done='1';
+    }catch(e){ wb.disabled=false; wb.innerHTML='Could not watch: '+esc(e.message); }
+  });
+}
+
+async function runId(q,seq){
+  var u=null;
+  try{ u=await jget('/api/user360/'+enc(q)); }catch(e){ u=null; }
+  // user360 can answer ok:true with an EMPTY identity for serials/device names —
+  // only treat it as a person when there is actually a person in it
+  var _p=(u&&u.identity)||{};
+  var _real=!!(_p.email||_p.upn||_p.displayName||_p.name);
+  var _devs=(u&&u.devices&&(u.devices.devices||u.devices.items||u.devices))||[];
+  if(!u||u.ok===false||(!_real&&(!Array.isArray(_devs)||!_devs.length))){
+    // not a person — it may still be a device name or serial we hold in inventory
+    try{
+      var a=await jget('/api/netswitch/resolve-asset?q='+enc(q));
+      if(a&&a.best) return resolveAndTrace(q,seq);
+    }catch(e){}
+    out.innerHTML='<div class="u-note">'+ic('search')+'<div><b>No match for “'+esc(q)+'”.</b><br>'+
+      '<span class="txt-2">Checked identity, Kandji, Intune and DNS — nothing matches. Try an IP, MAC, username, email, device name or serial.</span></div></div>';return;}
+  var p=u.identity||{}, dv=(u.devices&&(u.devices.devices||u.devices.items||u.devices))||[];
+  var list=Array.isArray(dv)?dv:[];
+  var nm=p.displayName||p.name||q;
+  var html='<div class="verdict info u-fade"><div class="vi">'+ic('user')+'</div><div class="vm"><h2>'+esc(nm)+'</h2>'+
+    '<div class="d">'+(list.length?'Found <b>'+list.length+'</b> managed device'+(list.length>1?'s':'')+'. Search a device’s <b>IP</b> or <b>MAC</b> to trace its live path.':'No managed devices on record.')+'</div>'+
+    ((p.email||p.upn)?'<div class="facts"><span class="fact">'+ic('user')+esc(p.email||p.upn)+cp(p.email||p.upn)+'</span></div>':'')+
+    '</div></div><div class="split"><div class="stack">';
+  html+=card('Devices','dev',tag('',String(list.length)),
+    list.length?'<div class="u-list">'+list.map(function(d){
+      var nm=d.deviceName||d.name||'';
+      return '<div class="u-row'+(nm?' click':'')+'"'+(nm?' data-dev="'+esc(nm)+'" role="button" tabindex="0" aria-label="Trace '+esc(nm)+'"':'')+'>'+
+        '<span class="ico">'+ic('dev')+'</span>'+
+        '<div class="main"><div class="t">'+esc(nm||'device')+
+        ' <span class="txt-3">'+esc(d.os||'')+' '+esc(d.osVersion||'')+'</span></div>'+
+        '<div class="s">'+esc(d.model||'')+(d.serial?' · <span class="u-mono">'+esc(d.serial)+'</span>':'')+'</div></div>'+
+        (nm?'<div class="side txt-3">trace</div>'+ic('chev','chev'):'')+'</div>';}).join('')+'</div>'
+      :'<div class="u-empty">No managed devices found.</div>');
+  html+='</div><div class="stack">'+card('Identity','user',tag('good','matched'),
+    kv('Name',esc(p.displayName||p.name||''))+kv('Email',(p.email||p.upn)?'<span class="u-mono">'+esc(p.email||p.upn)+'</span>':'')+
+    kv('Department',esc(p.department||''))+kv('Title',esc(p.jobTitle||p.title||''))+kv('Manager',esc(p.manager||'')))+
+    '</div></div>';
+  if(seq&&seq!==RUNSEQ)return;
+  out.innerHTML=html;
+  out.querySelectorAll('[data-dev]').forEach(function(el){
+    el.addEventListener('click',function(){traceDevice(el.dataset.dev);});});
+}
+
+
+/* Resolve anything that is not obviously an IP/MAC into something traceable.
+   Order matters: asset inventory knows Macs (which have no DNS record), DNS
+   knows domain-joined Windows, and only then do we give up. */
+async function resolveAndTrace(name,seq){
+  var asset=null;
+  try{ asset=await jget('/api/netswitch/resolve-asset?q='+enc(name)); }catch(e){}
+  var best=asset&&asset.best;
+  if(best&&best.mac_address) return runNet(best.mac_address,'mac',{asset:best,searched:name,seq:seq});
+  if(best&&best.ip_address)  return runNet(best.ip_address,'ip',{asset:best,searched:name,seq:seq});
+  // no inventory record with a network identity — try DNS by name
+  return runNet(name,'host',{asset:best,searched:name,seq:seq});
+}
+/* trace a device by its inventory name */
+function traceDevice(name){
+  var seq=++RUNSEQ; rStop();
+  qin.value=name; CURQ=name; pushR(name); drawHint();
+  try{history.replaceState(null,'','?q='+enc(name)+'&as=device');}catch(e){}
+  out.innerHTML='<section class="u-card"><div class="u-skel" style="margin:16px;width:55%;height:20px"></div>'+
+    '<div class="u-skel" style="margin:0 16px 16px;width:75%"></div></section>';
+  NOC.stamp('tracing '+name+'\u2026',false);
+  resolveAndTrace(name,seq).then(function(){
+    if(seq===RUNSEQ)traceStamp(name,null);
+  }).catch(function(e){
+    if(seq!==RUNSEQ)return;
+    traceStamp(name,e);
+    var m=(e.code===401)?'Your session expired. <a href="/login.html">Sign in</a>.':esc(e.message);
+    out.innerHTML='<div class="u-note bad">'+ic('alert')+'<div><b>Couldn’t trace '+esc(name)+'.</b><br>'+m+'</div></div>';});
+}
+
+function intro(){
+  out.innerHTML='<div class="intro u-fade"><div><h2>Find any device, see its whole path</h2>'+
+    '<p>One lookup ties together the firewall, the switch it plugs into, its Wi-Fi and who owns it — so you can tell in seconds whether a device is on, where it connects, and what’s wrong.</p>'+
+    '<div class="caps">'+
+      '<div class="cap">'+ic('port')+'<b>Where it plugs in</b><span>The exact switch, port and VLAN — or the Wi-Fi access point and SSID.</span></div>'+
+      '<div class="cap">'+ic('heart')+'<b>Live health</b><span>Link speed, errors, PoE, signal, and a live ping to the device and its gateway.</span></div>'+
+      '<div class="cap">'+ic('user')+'<b>Who and how it exits</b><span>The owner from identity, and the firewall path out to the internet.</span></div>'+
+    '</div></div>'+
+    '<figure class="ihero" aria-hidden="true"><img src="/office-hero.webp" alt="" width="1100" height="614" loading="lazy"></figure></div>';
+}
+/* deep link: /device-trace.html?q=10.20.21.51 (used by Network Health drill-downs) */
+(function(){
+  var qp=null;
+  try{qp=new URLSearchParams(location.search).get('q');}catch(e){}
+  drawHint();
+  var as=null; try{as=new URLSearchParams(location.search).get('as');}catch(e){}
+  NOC.stamp('on demand \u00b7 nothing traced yet',false);
+  if(qp&&as==='device'){qin.value=qp;drawHint();traceDevice(qp);}
+  else if(qp){qin.value=qp;drawHint();run();}
+  else intro();
+})();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/it-version.js" data-app-key="device-trace" defer></script>
+</body>
+</html>

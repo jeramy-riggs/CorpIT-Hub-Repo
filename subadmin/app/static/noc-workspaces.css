@@ -1,0 +1,4 @@
+/* Styles shared by health diagnostics inside the same-origin workspace frame. */
+.noc-draft-indicator{font:11px var(--mono);color:var(--warn);margin-left:auto}
+.noc-rail .noc-workspace-link[data-unavailable]{color:var(--shell-ink-3)}
+[data-console-settings] [data-settings-panel] .f:has(input[data-noc-dirty]),[data-console-settings] [data-settings-panel] .f:has(textarea[data-noc-dirty]){border-left:2px solid var(--accent);padding-left:12px}

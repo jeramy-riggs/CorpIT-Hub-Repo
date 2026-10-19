@@ -1,0 +1,69 @@
+/* System > Updates. Uses the console's own tokens; nothing here sets a colour of its own. */
+.upd-lede p{margin:0;max-width:72ch;color:var(--ink-2)}
+.upd-msg{margin-top:10px!important;font-size:13px;min-height:1.2em}
+.upd-msg.is-err{color:var(--crit)}
+.upd-msg.is-ok{color:var(--good)}
+
+.upd-nodes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;padding:0 18px 18px}
+.upd-node{border:1px solid var(--border);border-radius:var(--r-sm,8px);background:var(--surface);padding:14px 14px 12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.upd-node header{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.upd-node header b{font-size:15px}
+.upd-node header .role{font-size:12px;color:var(--ink-3)}
+.upd-node header .pill{margin-left:auto}
+.upd-node.is-overdue{border-color:var(--warn-line,var(--warn))}
+.upd-node.is-down{border-color:var(--crit-line,var(--crit))}
+.upd-node dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:12.5px}
+.upd-node dt{color:var(--ink-3)}
+.upd-node dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.upd-node .upd-next{color:var(--ink-3)}
+.upd-node details{font-size:12.5px}
+.upd-node details summary{cursor:pointer;color:var(--ink-2)}
+.upd-node details ul{margin:6px 0 0;padding-left:18px;max-height:180px;overflow:auto}
+
+.upd-skel{display:block;height:10px;border-radius:5px;background:var(--surface-2);width:100%}
+.upd-skel.w40{width:40%}.upd-skel.w60{width:60%}.upd-skel.w80{width:80%}
+.upd-node header .upd-skel{width:64px;margin-left:auto}
+@media (prefers-reduced-motion:no-preference){
+  .upd-node.is-loading .upd-skel{animation:upd-pulse 1.2s ease-in-out infinite}
+  .upd-node:not(.is-loading){animation:upd-in 180ms cubic-bezier(.23,1,.32,1)}
+  .upd-steps li.is-running::before{animation:upd-pulse 1s ease-in-out infinite}
+}
+@keyframes upd-pulse{50%{opacity:.45}}
+@keyframes upd-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.upd-act{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0;border-top:1px solid var(--border)}
+.upd-act:first-child{border-top:0;padding-top:0}
+.upd-act>div{min-width:0}
+.upd-act b{display:block}
+.upd-act small{display:block;color:var(--ink-3);font-size:12.5px;max-width:60ch}
+.upd-act .btn{flex:none}
+.upd-who{margin:-6px 0 18px}
+
+.upd-steps{list-style:none;margin:0;padding:6px 18px 16px;display:flex;flex-direction:column;gap:2px}
+.upd-steps li{position:relative;padding:8px 0 8px 22px;border-top:1px solid var(--border)}
+.upd-steps li:first-child{border-top:0}
+.upd-steps li::before{content:"";position:absolute;left:2px;top:14px;width:9px;height:9px;border-radius:50%;background:var(--ink-3)}
+.upd-steps li.is-done::before{background:var(--good)}
+.upd-steps li.is-running::before{background:var(--accent)}
+.upd-steps li.is-failed::before{background:var(--crit)}
+.upd-steps li b{font-weight:600}
+.upd-steps li .t{color:var(--ink-3);font-size:12px;margin-left:6px}
+.upd-steps li .d{display:block;font-size:12.5px;color:var(--ink-2);overflow-wrap:anywhere}
+.upd-steps li .n{display:block;font-size:12px;color:var(--ink-3);font-family:var(--mono,ui-monospace,monospace);overflow-wrap:anywhere}
+.upd-steps .upd-err{color:var(--crit)}
+
+.upd-dialog{border:1px solid var(--border);border-radius:var(--r,12px);background:var(--raise,var(--surface));color:var(--ink);padding:22px;width:min(560px,calc(100vw - 32px));box-shadow:var(--shadow-2,0 20px 40px rgba(0,0,0,.25))}
+.upd-dialog::backdrop{background:rgba(0,0,0,.35)}
+@media (prefers-reduced-motion:no-preference){.upd-dialog[open]{animation:upd-in 200ms cubic-bezier(.23,1,.32,1)}}
+.upd-dialog h3{margin:0 0 10px}
+.upd-plan{margin:0 0 14px;padding-left:20px;font-size:13px;color:var(--ink-2)}
+.upd-plan li{margin:3px 0}
+.upd-back{margin:0 0 12px}
+.upd-dlg-err{color:var(--crit);font-size:13px;min-height:1.2em;margin:6px 0 0}
+.upd-dialog .form-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.upd-dialog textarea,.upd-dialog input[type=text]{width:100%}
+
+@media (max-width:640px){
+  .upd-act{flex-direction:column;align-items:stretch}
+  .upd-nodes{padding:0 12px 12px}
+}

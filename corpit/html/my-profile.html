@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Profile · CorpIT</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%274%27 fill=%27%230E7C86%27/%3E%3Cpath d=%27M10.6 5.7a3 3 0 1 0 0 4.6%27 fill=%27none%27 stroke=%27%23fff%27 stroke-width=%271.7%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+<script>
+/* Jeramy 09-23: "hide these two, and drop the > at the bottom". With both nav
+   links and the collapse control gone there is nothing to expand INTO and no
+   control to expand with, so the rail is permanently compact -- set here, before
+   first paint, rather than read from it_nav_collapsed. That key is shared with
+   landing.html and other pages; a stale "0" left there by one of them would
+   render a 192px rail holding a single avatar, with no way back. This page no
+   longer reads it and no longer writes it, so the other pages keep their own. */
+document.documentElement.classList.add("nav-collapsed");
+</script>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<script src="/rbac-client.js?v=20260904"></script>
+<!-- it-observe.js wraps window.fetch, so it must load BEFORE any page code
+     that issues a request, and after rbac-client.js so it wraps the wrapper
+     that attaches the bearer. It used to sit at the bottom of <body>, below
+     it-profile.js and my-profile.js, so this page's own boot traffic and any
+     throw during it were invisible -- while the SAME it-profile.js was fully
+     observed on landing.html, which loads the tag here. -->
+<script src="/it-observe.js" data-app-key="my-profile"></script>
+<!-- This page is served on every vhost now (the avatar menu points at
+     /my-profile.html on whatever host you are on), but the Hub it links back to
+     lives only on corpit. it-hub-link.js does that host math and the per-vhost
+     access check; it must load before my-profile.js, which calls it at boot. -->
+<script src="/it-hub-link.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   My Profile — corpit.nrpi.local (2026-09-05)
+   Composition follows the approved reference: 192px navy sidebar, white main
+   panel, 340px light-gray rail. Flat colours, 1px borders, 8–12px radii,
+   one blue accent. Desktop-first at 1600×1000; narrower widths stack the
+   rail and collapse the sidebar without changing the desktop composition.
+   ═══════════════════════════════════════════════════════════════════════ */
+/* ITAM palette (2026-09-05): dark navy is the default, [data-theme="light"] is the twin,
+   exactly as itam.nrpi.local pages do. The accent family (ocean/reef/abyss/ember) is written
+   inline on :root by it-theme.js, so every accent reads --accent; the values below are the
+   ocean defaults for first paint. Shapes, spacing and layout are untouched. */
+:root {
+  /* ═══ auction.com brand reskin (2026-09-21) ══════════════════════════════
+     Recoloured to match reporting.nrpi.local/ai-usage-credits.html: cool
+     blue-grey neutrals sampled from www.auction.com, logo cyan/brand-blue
+     accents, brand greens. --accent/-hover/-tint are page DEFAULTS only —
+     it-theme.js overwrites them inline on :root from the user's chosen accent
+     family (ocean's teal ≈ the reference accent), so the platform theme engine
+     still drives the accent. Only the neutrals, semantics, font and radii are
+     hard-set here. Shapes, spacing and layout are unchanged. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --accent: #41B6E6; --accent-hover: #6FC8ED; --accent-tint: #123243; --on-accent: #04121C;
+  --page: #071520; --panel: #0E1D2A; --rail: #071520; --card: #142533; --gray-lt: #20313F; --input-bg: #0E1D2A;
+  --line: #2E3F4C; --line-2: #1E2F3B; --line-strong: #45596A;
+  --ink: #EBF1F6; --text: #B4BFC9; --muted: #86939D; --dim: #647480;
+  --pblue: var(--accent); --pblue-h: var(--accent-hover); --pblue-lt: var(--accent-tint); --pblue-tx: var(--accent);
+  --green: #78BE20; --green-lt: #17300E; --green-tx: #93CE4A;
+  --red: #F76F64; --red-lt: #38181A; --red-tx: #F98B82; --amber: #E58B2B; --amber-lt: #32240F; --amber-tx: #EC9E52;
+  --purple: #B9A9FD; --purple-lt: #221C3B; --purple-tx: #C6B8FF; --teal: #46D3D5; --teal-lt: #0C2E2E; --teal-tx: #5FDBDD;
+  --live: #FC9B6F;   /* live-data starburst, dark -- same value as ai-usage-credits.html */
+  --nav: #06121C; --nav-fg: #9AA7B2; --nav-dim: #647480; --nav-line: #1E2F3B; --nav-hover: rgba(255,255,255,.05);
+  --toast-bg: #EBF1F6; --toast-fg: #071520; --knob: #EBF1F6;
+  --font: 'Nunito', 'Helvetica Neue', Helvetica, Arial, sans-serif; --mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --shadow: 0 1px 0 rgba(255,255,255,.02), 0 10px 30px -12px rgba(0,0,0,.7); --shadow-menu: 0 12px 32px rgba(0,0,0,.6), 0 1px 2px rgba(0,0,0,.5);
+  --r-card: 14px; --r-panel: 16px; --r-ctl: 10px;
+  --pad: 10px;
+}
+html[data-theme="light"] {
+  --accent: #147299; --accent-hover: #0E5E7F; --accent-tint: #DCEDF3; --on-accent: #FFFFFF;
+  --page: #F0F2F4; --panel: #FFFFFF; --rail: #F0F2F4; --card: #FFFFFF; --gray-lt: #F4F6F8; --input-bg: #F8F9FA;
+  --line: #DAE0E3; --line-2: #E7EBEE; --line-strong: #C3CCD1;
+  --ink: #263238; --text: #5C676E; --muted: #6D767C; --dim: #8A939A;
+  --green: #4B7614; --green-lt: #E4F0D6; --green-tx: #4B7614;
+  --red: #C8443C; --red-lt: #FBE3E1; --red-tx: #B02F27; --amber: #A96000; --amber-lt: #F6E9D3; --amber-tx: #8A4E00;
+  --purple: #6F59B5; --purple-lt: #E9E2FB; --purple-tx: #57399F; --teal: #0E7C86; --teal-lt: #D6F1F5; --teal-tx: #0B6570;
+  --live: #B95115;   /* live-data starburst, light -- same value as ai-usage-credits.html */
+  --nav: #ECEFF3; --nav-fg: #5C676E; --nav-dim: #8A939A; --nav-line: #E4E9ED; --nav-hover: rgba(38,50,56,.055);
+  --toast-bg: #263238; --toast-fg: #FFFFFF; --knob: #FFFFFF;
+  --shadow: 0 1px 0 rgba(38,50,56,.02), 0 6px 18px -10px rgba(38,50,56,.22); --shadow-menu: 0 12px 32px rgba(38,50,56,.18), 0 1px 2px rgba(38,50,56,.08);
+}
+html[data-density="compact"] { --pad: 6px; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: var(--font); font-size: 13px; line-height: 1.45; color: var(--ink); background: var(--page); -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+input, select, textarea { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+.mono { font-family: var(--mono); } .muted { color: var(--muted); } .dim { color: var(--dim); }
+.ic { display: inline-flex; flex: 0 0 auto; width: 1em; height: 1em; vertical-align: -0.15em; } .ic svg { display: block; width: 100%; height: 100%; }
+:focus-visible { outline: 2px solid var(--pblue); outline-offset: 2px; border-radius: 6px; }
+::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; } ::-webkit-scrollbar-track { background: transparent; }
+
+/* ── shell ─────────────────────────────────────────────────────── */
+.shell { display: grid; grid-template-columns: 192px minmax(0, 1fr); min-height: 100vh; }
+/* The rail shares the page's accent→green wash (very low chroma) so both flanks
+   of the white content card sit on one continuous surface, and the seam is a
+   half-strength hairline rather than a hard rule — the sidebar reads as part of
+   the page, not bolted onto it. */
+/* z-index 50 is load-bearing, not decoration. `position: sticky` makes .side a
+   stacking context of its own, and at z-index auto that context sits at 0 in
+   .shell -- underneath the topbar (40) and even the greeting's .gc (1), both of
+   which are in the same context because .main-wrap is static. The account menu
+   now lives in here and overhangs the rail, so without this it opens correctly,
+   measures correctly, and is painted over by the hero heading. Its own z-index
+   cannot fix that: 60 only orders it INSIDE this context. */
+.side { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, var(--nav)) 0%, var(--nav) 34%, color-mix(in srgb, var(--green) 4%, var(--nav)) 100%); color: var(--nav-fg); display: flex; flex-direction: column; padding: 22px 12px 18px; position: sticky; top: 0; z-index: 50; height: 100vh; border-right: 1px solid color-mix(in srgb, var(--nav-line) 60%, transparent); }
+#theme-slot { display: inline-flex; }
+#theme-slot #itThemeBtn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--card); color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+#theme-slot #itThemeBtn:hover { color: var(--accent); border-color: var(--accent); }
+.page-hd .back { margin-left: 0; }
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; color: var(--nav-fg); font-size: 15px; font-weight: 500; text-align: left; width: 100%; transition: background-color 140ms ease, color 140ms ease; }
+.nav-item .ic { width: 20px; height: 20px; color: var(--nav-fg); }
+.nav-item:hover { background: var(--nav-hover); color: var(--ink); }
+/* .nav-item.active went with the links. showView() still calls
+   classList.toggle('active') over .nav-item, but the only one left is the
+   alert switch, which carries no data-nav and so never matches NAV_FOR. */
+.nav-item .ext { margin-left: auto; width: 12px; height: 12px; color: var(--nav-dim); }
+.nav-switch { border: 0; background: transparent; font: inherit; cursor: pointer; }
+.nav-switch .lbl { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; min-width: 0; white-space: nowrap; }
+.nav-switch .toggle { width: 28px; height: 16px; }
+.nav-switch .toggle::after { width: 12px; height: 12px; }
+.nav-switch .lbl { overflow: hidden; font-size: 13px; }
+.nav-switch { gap: 8px; }
+.nav-switch .lbl small { font-size: 11.5px; font-weight: 400; color: var(--nav-dim); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.nav-switch .toggle { margin-left: auto; }
+.nav-switch[aria-checked="true"] .toggle { background: var(--pblue); }
+.nav-switch[aria-checked="true"] .toggle::after { transform: translateX(12px); }
+.nav-switch[disabled] { cursor: default; opacity: .7; }
+.nav-switch[disabled]:hover { background: transparent; color: var(--nav-fg); }
+.nav-switch[aria-checked="true"] .ic { color: var(--pblue); }
+.hubtile.launch { color: inherit; cursor: pointer; transition: border-color 120ms ease, transform 150ms var(--ease-out); }
+.hubtile.launch:hover { border-color: var(--pblue); }
+.hubtile.launch:active { transform: scale(.985); }
+.hubtile .lv, .hubtile .tail { flex-shrink: 0; margin-left: auto; }
+.hubtile .tail { width: 14px; height: 14px; color: var(--dim); }
+.site-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 9px; }
+/* The icon rail. Was the <=1000px layout plus a user toggle at desktop widths;
+   now the only layout, applied unconditionally by the head script. */
+html.nav-collapsed .shell { grid-template-columns: 64px minmax(0, 1fr); }
+html.nav-collapsed .side { padding: 14px 8px; }
+html.nav-collapsed .nav-item { justify-content: center; padding: 12px 0; }
+html.nav-collapsed .nav-item span:not(.ic) { display: none; }
+/* That rule hides every span without .ic -- including .nav-switch's toggle pill,
+   which is the only thing showing whether the alert is on. While the rail could
+   be expanded that was recoverable; now it is not, so a bell with no readable
+   state would be a control that cannot do its job. Stack the pill under the icon
+   instead. The text label stays off and lives in title/aria-checked. */
+html.nav-collapsed .nav-item.nav-switch { flex-direction: column; gap: 5px; padding: 10px 0; }
+/* .nav-item.nav-switch span.toggle is (0,4,2); the hiding rule above is (0,3,2)
+   because :not(.ic) counts as a class. A plainer selector loses and the pill
+   stays display:none -- measured, not assumed. */
+html.nav-collapsed .nav-item.nav-switch span.toggle { display: block; margin: 0; }
+.back-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line-strong); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; margin: 0 0 22px 6px; }
+.back-btn .ic { width: 16px; height: 16px; }
+.back-btn:hover { background: var(--nav-hover); border-color: var(--accent); color: var(--accent); }
+.user-card { display: flex; align-items: center; gap: 10px; padding: 16px 6px 0; border-top: 1px solid color-mix(in srgb, var(--nav-line) 55%, transparent); width: 100%; text-align: left; position: relative; border-radius: 8px; cursor: pointer; }
+.user-card .av { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-tint); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; overflow: hidden; flex-shrink: 0; }
+.user-card .av img { width: 100%; height: 100%; object-fit: cover; }
+.user-card b { display: block; color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-card span { display: block; color: var(--nav-dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-card .txt { min-width: 0; }
+.acct-menu { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-menu); padding: 6px; z-index: 30; opacity: 0; transform: translateY(4px) scale(.98); transform-origin: bottom left; pointer-events: none; transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out); }
+.acct-menu.on { opacity: 1; transform: none; pointer-events: auto; }
+.acct-menu .id { padding: 8px 10px 10px; border-bottom: 1px solid var(--line-2); margin-bottom: 4px; }
+.acct-menu .id b { display: block; font-size: 13px; font-weight: 600; color: var(--ink); }
+.acct-menu .id span { display: block; font-size: 11.5px; color: var(--muted); word-break: break-all; }
+.acct-menu a, .acct-menu button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border-radius: 7px; font-size: 13px; font-weight: 500; text-align: left; color: var(--ink); }
+.acct-menu a:hover, .acct-menu button:hover { background: var(--line-2); }
+.acct-menu .ic { width: 15px; height: 15px; color: var(--muted); }
+.acct-menu .sep { height: 1px; background: var(--line-2); margin: 4px 2px; }
+/* ── top-right cluster (account menu + hub, mirrors reporting ai-usage) ── */
+.topbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 12px; position: relative; z-index: 40; }
+.topbar #theme-slot #itThemeBtn { height: 32px; padding: 0 11px; }
+/* Leadership-only link back to the AI reporting site. Hidden until
+   /api/profile/me says canReturnToReporting for the signed-in viewer. */
+.rr-link { display: inline-flex; align-items: center; gap: 6px; height: 32px;
+  padding: 0 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card); color: var(--text); font-size: 13px; font-weight: 600;
+  line-height: 1; text-decoration: none; white-space: nowrap; }
+.rr-link:hover { background: var(--line-2); }
+.rr-link[hidden] { display: none; }
+.rr-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rr-link .rr-ic { font-size: 15px; line-height: 0; }
+/* The account card as the rail's masthead. Same specificity as .user-card, so
+   these MUST stay below it to win: the base rules are written for the footer
+   position (rule above, padding on top) and this flips both. */
+.side-id { padding: 0 6px 16px; border-top: 0; border-bottom: 1px solid color-mix(in srgb, var(--nav-line) 55%, transparent); margin-bottom: 18px; }
+.side-id .av { border: 1px solid var(--line-strong); transition: border-color 140ms ease, box-shadow 140ms ease; }
+.side-id:hover .av, .side-id[aria-expanded="true"] .av { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.side-id:focus-visible { outline: none; }
+.side-id:focus-visible .av { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Opens DOWNWARD and deliberately overhangs the rail. Anchored inside the rail
+   it wraps at the 64px collapsed width -- the exact bug that sent this card to
+   the topbar on 09-22 -- so it gets its own width instead of left:0;right:0.
+   z-index clears the topbar's 40, which it now passes underneath. */
+.side-id .acct-menu { left: 0; right: auto; bottom: auto; top: calc(100% - 4px); width: 252px; transform-origin: top left; transform: translateY(-4px) scale(.98); z-index: 60; }
+.side-id .acct-menu.on { transform: none; }
+html.nav-collapsed .side-id { justify-content: center; padding: 0 0 14px; margin-bottom: 14px; }
+html.nav-collapsed .side-id .txt { display: none; }
+
+.main-wrap { padding: 12px 20px; min-width: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 9%, transparent) 0%, color-mix(in srgb, var(--green) 5%, transparent) 55%, color-mix(in srgb, var(--accent) 8%, transparent) 100%); }
+/* ── auction greeting banner (matches reporting hero) ───────────────
+   Sunset HQ image with a dark scrim, one accent stripe and a time-of-day
+   greeting. The image carries its own contrast so the white heading reads in
+   both themes; only the bottom wash follows --accent. */
+.greet-hero { position: relative; height: 168px; border-radius: var(--r-panel); overflow: hidden; margin-bottom: 12px; background: #0b1b28 url('/auction-hq-banner.png') center/cover no-repeat; background: #0b1b28 image-set(url('/auction-hq-banner.webp?v=20261001') type('image/webp'), url('/auction-hq-banner.png') type('image/png')) center/cover no-repeat; display: flex; align-items: center; box-shadow: var(--shadow); }
+.greet-hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, rgba(8,12,20,.62) 0%, rgba(8,12,20,.30) 42%, rgba(8,12,20,.05) 74%), linear-gradient(to bottom, transparent 34%, color-mix(in srgb, var(--accent) 52%, transparent) 100%); }
+.greet-hero .accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); z-index: 1; }
+.greet-hero .gc { position: relative; z-index: 1; padding: 0 26px; }
+.greet-hero .gc h2 { font-size: 23px; font-weight: 800; letter-spacing: -.01em; color: #fff; margin: 0 0 5px; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+.greet-hero .gc p { font-size: 13px; color: rgba(255,255,255,.78); margin: 0; text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+/* Office conditions under the greeting. Same shape as landing.html's .wx-site so
+   the two heroes read alike; the colours differ because this one sits on a photo
+   rather than on the page background, and the tokens are not legible there. */
+.greet-hero .gwx { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-top: 7px; min-height: 17px; font-size: 12.5px; color: rgba(255,255,255,.88); text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+.greet-hero .gwx:empty { display: none; }
+.greet-hero .wx-site { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.greet-hero .wx-site .ic { width: 14px; height: 14px; opacity: .92; }
+.greet-hero .wx-t { font-variant-numeric: tabular-nums; font-weight: 600; }
+.greet-hero .wx-sep { opacity: .4; }
+.greet-hero .wx-site.bad { opacity: .72; }
+@media (max-width: 760px) { .greet-hero { height: 132px; } .greet-hero .gc h2 { font-size: 19px; } .greet-hero .gwx { font-size: 11.5px; gap: 7px; } }
+.main { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-panel); padding: 22px 24px 26px; min-height: calc(100vh - 24px); }
+.page-hd { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.page-hd h1 { font-size: 26px; font-weight: 600; letter-spacing: -.01em; }
+.page-hd .crumb { font-size: 15px; color: var(--muted); }
+.page-hd .crumb::before { content: "/"; margin: 0 8px; color: var(--dim); }
+.page-hd .back { margin-left: auto; font-size: 13px; font-weight: 500; color: var(--pblue); display: inline-flex; align-items: center; gap: 6px; }
+.page-hd .back:hover { text-decoration: underline; }
+.rail { background: var(--rail); padding: 24px 16px 24px 8px; display: flex; flex-direction: column; gap: 16px; }
+.view { display: none; } .view.on { display: block; }
+
+/* ── primitives ────────────────────────────────────────────────── */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow); min-width: 0; }
+.card-hd { display: flex; align-items: center; gap: 10px; padding: 16px 18px 0; }
+.card-hd .ic { width: 20px; height: 20px; color: var(--pblue); }
+.card-hd .ic.orange { color: var(--amber); }
+.card-hd h2 { font-size: 15px; font-weight: 600; letter-spacing: -.005em; }
+.card-hd .link { margin-left: auto; font-size: 13px; font-weight: 500; color: var(--pblue); }
+.card-hd .link:hover { text-decoration: underline; }
+.card-bd { padding: 12px 18px 18px; }
+.lbl { font-size: 13px; font-weight: 500; color: var(--text); }
+.sec-lbl { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.kpi { background: var(--gray-lt); border-radius: 8px; padding: 12px 14px; }
+.kpi .v { font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.kpi .l { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.kpi .d { font-size: 12px; margin-top: 4px; font-weight: 500; }
+/* '?' help affordances on the AI/Claude surface.
+   A <button>, not a <span>: the affordance has to be reachable by Tab, and the
+   aria-label carries the whole explanation so a screen reader never depends on
+   the popover opening.
+
+   The glyph is --text, not --muted, because this control sits on THREE
+   different surfaces and the weakest one governs: --card, the --gray-lt of a
+   KPI tile, and the --accent-tint of the drill-down header. Measured in the
+   browser, --muted is 4.62 / 4.20 / 3.84 in light -- two of the three under
+   AA, and the tint is the same trap .drillhd-sub fell into. --text clears all
+   six combinations (5.72 / 5.20 / 4.76 light, 8.37 / 7.12 / 7.17 dark). The
+   ring is --muted rather than --line-strong for the same reason: a control
+   boundary needs 3:1, and --line-strong is 1.44 on the tint.
+
+   The panel reuses the account menu's surface (--card + --line +
+   --shadow-menu) because in dark mode that is the page's only lifted-surface
+   idiom -- a tint would be indistinguishable from the card.
+   `right` is rewritten by placeTip() to keep the panel on screen -- see the
+   note there for why the nudge is a layout property and not the transform. */
+.help { width: 17px; height: 17px; padding: 0; border-radius: 50%; border: 1px solid var(--muted); background: transparent; color: var(--text); font-family: var(--mono); font-size: 10.5px; font-weight: 600; line-height: 1; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; position: relative; user-select: none; transition: color .15s ease, border-color .15s ease; }
+.help:hover, .help.open, .help:focus-visible { color: var(--accent); border-color: var(--accent); }
+.help:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.help .htip { position: absolute; top: 25px; right: -4px; width: 292px; max-width: calc(100vw - 32px); background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; font-family: var(--font); font-size: 12px; font-weight: 400; line-height: 1.55; color: var(--text); text-align: left; text-transform: none; letter-spacing: normal; box-shadow: var(--shadow-menu); z-index: 60; opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .15s, transform .15s, visibility .15s; }
+.help:hover .htip, .help.open .htip, .help:focus-visible .htip { opacity: 1; visibility: visible; transform: translateY(0); }
+/* Escape has to dismiss the panel even while the control keeps focus: the panel
+   overlays the content beneath it, and a keyboard user tabbing through has no
+   other way to get it out of the way without giving up their place. Same
+   specificity as the show rule above (0,2,0), so this MUST stay after it --
+   ordering is what makes it win, not weight. Cleared on blur and on the next
+   pointer entry so the helper is never permanently muted. */
+.help.hush .htip { opacity: 0; visibility: hidden; transform: translateY(-4px); }
+/* Only tiles that carry a helper reserve room for it -- a bare .kpi elsewhere
+   on the page keeps its original padding. */
+.kpi { position: relative; }
+.kpi.hashelp > .help { position: absolute; top: 9px; right: 9px; }
+.kpi.hashelp .v { padding-right: 22px; }
+.up { color: var(--green); } .down { color: var(--red); } .flat { color: var(--dim); }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 500; background: var(--gray-lt); color: var(--text); white-space: nowrap; }
+.chip.blue { background: var(--pblue-lt); color: var(--pblue-tx); } .chip.green { background: var(--green-lt); color: var(--green-tx); } .chip.red { background: var(--red-lt); color: var(--red-tx); }
+.chip.amber { background: var(--amber-lt); color: var(--amber-tx); } .chip.purple { background: var(--purple-lt); color: var(--purple-tx); } .chip.teal { background: var(--teal-lt); color: var(--teal-tx); }
+.btn { font-family: var(--font); display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px; border-radius: var(--r-ctl); font-size: 14px; font-weight: 500; border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); transition: transform 160ms var(--ease-out), background 120ms ease, border-color 120ms ease; }
+.btn .ic { width: 15px; height: 15px; }
+.btn:hover { border-color: var(--pblue); color: var(--pblue); }
+.btn:active { transform: scale(0.97); }
+.btn.outline { border-color: var(--pblue); color: var(--pblue); }
+.btn.outline:hover { background: var(--accent-tint); }
+.btn.primary { background: var(--pblue); border-color: var(--pblue); color: var(--on-accent); }
+.btn.primary:hover { background: var(--pblue-h); border-color: var(--pblue-h); color: var(--on-accent); }
+.btn.danger:hover { border-color: var(--red); color: var(--red); }
+.btn.sm { padding: 6px 11px; font-size: 13px; }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn[disabled] { opacity: .55; cursor: default; transform: none; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); overflow: hidden; background: var(--card); }
+.seg button { padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: var(--muted); border-right: 1px solid var(--line); }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--pblue); color: var(--on-accent); }
+.seg button:active { transform: scale(0.97); }
+.toggle { position: relative; width: 38px; height: 22px; border-radius: 11px; background: var(--line-strong); flex-shrink: 0; transition: background 140ms ease; }
+.toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--knob); box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform 160ms var(--ease-out); }
+.toggle[aria-checked="true"] { background: var(--pblue); }
+.toggle[aria-checked="true"]::after { transform: translateX(16px); }
+select.sel, input.inp, textarea.inp { background: var(--input-bg); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); padding: 8px 10px; font-size: 13px; outline: none; color: var(--ink); }
+select.sel:focus, input.inp:focus, textarea.inp:focus { border-color: var(--pblue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+textarea.inp { width: 100%; min-height: 96px; resize: vertical; line-height: 1.5; }
+.row { display: flex; align-items: center; gap: 16px; padding: calc(var(--pad) + 3px) 0; border-bottom: 1px solid var(--line-2); }
+.row:last-child { border-bottom: 0; }
+.row .l { flex: 1; min-width: 0; } .row .l .t { font-size: 14px; font-weight: 500; } .row .l .d { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+.row .c { flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+.empty { color: var(--muted); font-size: 13px; padding: 14px 0; text-align: center; }
+.empty b { display: block; color: var(--ink); font-weight: 600; margin-bottom: 3px; }
+.note { font-size: 12px; color: var(--muted); }
+/* How current the Anthropic figures are. Every colour here is an existing theme
+   token, so light/dark needs no second rule -- the tokens live on body.light. */
+.fresh-note { display: flex; align-items: flex-start; gap: 6px; margin-top: 10px; line-height: 1.5; }
+.fresh-note .ic { width: 13px; height: 13px; margin-top: 2.5px; opacity: .7; }
+.fresh-note b { color: var(--ink); font-weight: 600; }
+/* Late is neither "fine" nor "failed" -- amber text, not a red banner. */
+.fr-late { color: var(--amber-tx); }
+.fr-btn { font: inherit; color: var(--accent); background: none; border: 0; padding: 0 0 0 2px; cursor: pointer; white-space: nowrap; }
+.fr-btn:hover { text-decoration: underline; }
+.fr-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.fr-chev { display: inline-flex; width: 11px; height: 11px; vertical-align: -1px; margin-left: 1px; transition: transform 140ms var(--ease-out); }
+.fr-chev svg { display: block; width: 100%; height: 100%; }
+.fr-btn[aria-expanded="true"] .fr-chev { transform: rotate(90deg); }
+.fr-list { margin-top: 7px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--gray-lt); font-size: 11.5px; color: var(--muted); }
+.fr-row { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 4px 10px; padding: 3px 0; }
+.fr-row + .fr-row { border-top: 1px solid var(--line); margin-top: 3px; padding-top: 6px; }
+.fr-k { color: var(--ink); font-weight: 600; }
+.fr-v b { font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .fr-chev { transition: none; } }
+@media (max-width: 620px) { .fr-row { grid-template-columns: minmax(0, 1fr); } .fr-row + .fr-row { padding-top: 7px; } }
+.src { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 5px; background: var(--gray-lt); color: var(--muted); }
+.src.entra { background: var(--pblue-lt); color: var(--pblue-tx); } .src.hr { background: var(--amber-lt); color: var(--amber-tx); } .src.ad { background: var(--purple-lt); color: var(--purple-tx); } .src.corpit { background: var(--green-lt); color: var(--green-tx); } .src.session { background: var(--teal-lt); color: var(--teal-tx); } .src.sdp { background: var(--red-lt); color: var(--red-tx); } .src.claude { background: var(--amber-lt); color: var(--amber-tx); }
+.edit { font-size: 10.5px; font-weight: 500; padding: 2px 7px; border-radius: 5px; border: 1px dashed var(--line-strong); color: var(--muted); }
+.edit.you { border-style: solid; border-color: var(--green); color: var(--green-tx); } .edit.admin { border-color: var(--amber); color: var(--amber-tx); }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.tbl th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.tbl td { padding: calc(var(--pad) - 2px) 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+table.tbl tr:last-child td { border-bottom: 0; }
+table.tbl td.num, table.tbl th.num { text-align: right; font-family: var(--mono); font-size: 12px; }
+table.tbl td.mono { white-space: nowrap; }
+.tblwrap { overflow-x: auto; }
+.tag-host { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 6px; }
+.tag-host.corpit { background: var(--green-lt); color: var(--green-tx); } .tag-host.itam { background: var(--amber-lt); color: var(--amber-tx); } .tag-host.reporting { background: var(--purple-lt); color: var(--purple-tx); } .tag-host.accessportal { background: var(--teal-lt); color: var(--teal-tx); } .tag-host.external, .tag-host.unknown, .tag-host.subadmin { background: var(--gray-lt); color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.tabs button { padding: 8px 12px; font-size: 13px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button.on { color: var(--pblue); border-bottom-color: var(--pblue); }
+.tabs button .n { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-left: 5px; }
+.tabs .aside { margin-left: auto; display: flex; gap: 8px; align-items: center; padding-bottom: 6px; }
+@media (max-width: 700px) { .tabs { flex-wrap: wrap; } .tabs .aside { margin-left: 0; width: 100%; padding: 6px 0 8px; } }
+.link-center { display: block; text-align: center; padding: 14px 0 2px; font-size: 15px; font-weight: 600; color: var(--pblue); }
+.link-center:hover { text-decoration: underline; }
+.callout { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 8px; background: var(--amber-lt); color: var(--ink); font-size: 13px; }
+.callout .ic { width: 16px; height: 16px; color: var(--amber); flex-shrink: 0; margin-top: 1px; }
+.callout.info { background: var(--accent-tint); } .callout.info .ic { color: var(--pblue); }
+.callout code { font-family: var(--mono); font-size: 11.5px; background: var(--gray-lt); padding: 1px 5px; border-radius: 4px; }
+
+/* ── overview ──────────────────────────────────────────────────── */
+.hero { display: flex; align-items: center; gap: 22px; padding: 4px 0 20px; }
+.hero .photo { width: 128px; height: 128px; border-radius: 50%; background: var(--pblue-lt); display: flex; align-items: center; justify-content: center; font-size: 38px; font-weight: 700; color: var(--pblue-tx); overflow: hidden; flex-shrink: 0; }
+.hero .photo img { width: 100%; height: 100%; object-fit: cover; }
+.hero .who { min-width: 0; }
+.hero .name { font-size: 26px; font-weight: 700; letter-spacing: -.015em; line-height: 1.15; }
+.hero .title { font-size: 16px; color: var(--muted); margin-top: 4px; }
+.hero .badge { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; padding: 3px 9px; border-radius: 999px; background: var(--green-lt); color: var(--green-tx); font-size: 11.5px; font-weight: 600; }
+.hero .badge .ic { width: 12px; height: 12px; color: var(--green); }
+.hero .badge.warn { background: var(--amber-lt); color: var(--amber-tx); } .hero .badge.warn .ic { color: var(--amber); }
+.hero .facts { display: flex; flex-direction: column; gap: 10px; margin-left: 40px; font-size: 13px; color: var(--text); min-width: 0; }
+.hero .facts div { display: flex; align-items: center; gap: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero .facts .ic { width: 15px; height: 15px; color: var(--muted); }
+.hero .cta { margin-left: auto; align-self: flex-start; }
+.cards3 { display: grid; grid-template-columns: 1fr 1.1fr .9fr; gap: 16px; }
+.mywork .n { font-size: 32px; font-weight: 700; letter-spacing: -.02em; line-height: 1; margin-top: 6px; }
+.mywork .stat { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 4px 0; color: var(--text); }
+.mywork .stat b { color: var(--ink); font-weight: 600; }
+.mywork .stat i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+.bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--pblue); border-radius: 4px; transition: width 400ms var(--ease-out); }
+.fav-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fav-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px 12px; border-radius: 8px; border: 1px solid var(--line); text-align: center; background: var(--gray-lt); transition: transform 150ms var(--ease-out), border-color 120ms ease; }
+@media (hover: hover) and (pointer: fine) { .fav-tile:hover { border-color: var(--pblue); } }
+.fav-tile:active { transform: scale(0.97); }
+.fav-tile .sq { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--pblue); }
+.fav-tile .sq .ic { width: 22px; height: 22px; }
+.fav-tile .sq.logo img { width: 26px; height: 26px; object-fit: contain; }
+.fav-tile b { font-size: 13px; font-weight: 600; line-height: 1.25; }
+.fav-tile span { font-size: 12px; color: var(--muted); }
+.stats-band { display: grid; grid-template-columns: 1.05fr .9fr 1.15fr; }
+.stats-band > div { padding: 2px 18px 2px 0; }
+.stats-band > div + div { padding-left: 18px; border-left: 1px solid var(--line-2); }
+.donut-wrap { display: flex; align-items: center; gap: 14px; }
+.legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; flex: 1; min-width: 0; color: var(--text); }
+.legend div { display: flex; align-items: center; gap: 8px; }
+.legend i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.legend .n { margin-left: auto; white-space: nowrap; font-weight: 600; color: var(--ink); }
+.legend .n small { font-weight: 400; color: var(--muted); margin-left: 4px; font-size: 12px; }
+.list { display: flex; flex-direction: column; }
+.list .li { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; color: var(--text); }
+.list .li .ic { width: 16px; height: 16px; color: var(--pblue); }
+.list .li .nm { font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list .li .when { margin-left: auto; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.prod { display: flex; flex-direction: column; gap: 12px; }
+.prod .p { display: flex; align-items: center; gap: 12px; }
+.prod .p .ico { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.prod .p .ico .ic { width: 18px; height: 18px; }
+.prod .p .txt { min-width: 0; }
+.prod .p .l { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prod .p .v { font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.prod .p .delta { font-size: 12.5px; font-weight: 500; white-space: nowrap; margin-left: 4px; }
+.prod .p .delta small { display: block; font-weight: 400; color: var(--muted); }
+.prod .p svg.spark { margin-left: auto; flex-shrink: 0; }
+.act-row { display: grid; grid-template-columns: 28px minmax(0, 1.1fr) minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line-2); font-size: 14px; }
+.act-row:last-child { border-bottom: 0; }
+.act-row .ic { width: 18px; height: 18px; color: var(--pblue); }
+.act-row .t { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-row .t a { color: var(--pblue); font-weight: 500; }
+.act-row .s { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-row .w { color: var(--text); font-size: 13px; white-space: nowrap; }
+.act-row .w span { margin-left: 12px; }
+.card.anim { opacity: 0; transform: translateY(6px); animation: fade-up 240ms var(--ease-out) forwards; }
+.card.anim:nth-child(2) { animation-delay: 40ms; } .card.anim:nth-child(3) { animation-delay: 80ms; }
+@keyframes fade-up { to { opacity: 1; transform: translateY(0); } }
+
+/* ── rail ──────────────────────────────────────────────────────── */
+.rail .card { border-radius: var(--r-panel); }
+.rail .card-hd { padding: 16px 18px 6px; }
+.rail .card-hd .ic { width: 22px; height: 22px; }
+.rail .card-hd h2 { font-size: 16px; }
+.rail-item { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line-2); color: inherit; }
+.rail-item:last-of-type { border-bottom: 0; }
+.rail-item .ico { width: 48px; height: 48px; border-radius: 8px; background: var(--pblue-lt); color: var(--pblue); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rail-item .ico .ic { width: 22px; height: 22px; }
+.rail-item .txt { min-width: 0; flex: 1; }
+.rail-item b { display: block; font-size: 14px; font-weight: 600; line-height: 1.3; }
+.rail-item span { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; }
+.rail-item .go { color: var(--dim); flex-shrink: 0; } .rail-item .go .ic { width: 16px; height: 16px; }
+.rail-item .st { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rail-item .st.ok { background: var(--green); color: var(--on-accent); } .rail-item .st.ok .ic { width: 18px; height: 18px; }
+.rail-item .st.wip { color: var(--pblue); } .rail-item .st.pend { border: 2px solid var(--dim); color: var(--muted); } .rail-item .st.pend .ic { width: 18px; height: 18px; }
+.rail-item .status { font-size: 13px; font-weight: 500; margin-top: 2px; }
+.rail-item .status.ok { color: var(--green); } .rail-item .status.wip { color: var(--pblue); } .rail-item .status.pend { color: var(--muted); }
+.rail .link-center { font-size: 14px; padding: 12px 0 14px; }
+
+/* ── profile & settings ────────────────────────────────────────── */
+.settings { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 18px; align-items: start; }
+.settings .subnav { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 2px; }
+.settings .subnav a { padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--muted); }
+.settings .subnav a.on, .settings .subnav a:hover { background: var(--gray-lt); color: var(--pblue); }
+.settings-body { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.field { display: grid; grid-template-columns: 190px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: calc(var(--pad) + 2px) 0; border-bottom: 1px solid var(--line-2); }
+.field:last-child { border-bottom: 0; }
+.field .k { font-size: 13px; color: var(--muted); font-weight: 500; }
+.field .v { font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+.field .v .how { display: block; font-size: 12px; color: var(--dim); margin-top: 2px; }
+.field .v a { color: var(--pblue); }
+.field .m { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.swatches { display: flex; gap: 10px; }
+.sw { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; position: relative; transition: transform 140ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { .sw:hover { transform: scale(1.08); } }
+.sw:active { transform: scale(0.94); }
+.sw.on { border-color: var(--ink); }
+.sw.on::after { content: "\2713"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--on-accent); font-weight: 700; font-size: 12px; }
+.sw[data-t=ocean] { background: #22D3EE; } .sw[data-t=reef] { background: #34D399; } .sw[data-t=abyss] { background: #A78BFA; } .sw[data-t=ember] { background: #FBBF24; }
+html[data-theme="light"] .sw[data-t=ocean] { background: #0E7C86; } html[data-theme="light"] .sw[data-t=reef] { background: #0F7A54; } html[data-theme="light"] .sw[data-t=abyss] { background: #6D4AC7; } html[data-theme="light"] .sw[data-t=ember] { background: #A16207; }
+.photo-lg { width: 72px; height: 72px; border-radius: 50%; background: var(--pblue-lt); overflow: hidden; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px; color: var(--pblue-tx); flex-shrink: 0; }
+.photo-lg img { width: 100%; height: 100%; object-fit: cover; }
+.sess { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.sess .k { font-size: 11px; color: var(--dim); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.sess .v { font-size: 13.5px; margin-top: 2px; }
+.groups { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.pa { max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+.pa .pr { display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid var(--line-2); font-size: 13px; }
+.pa .pr:last-child { border-bottom: 0; }
+.lv { font-family: var(--mono); font-size: 10.5px; font-weight: 600; padding: 1px 8px; border-radius: 6px; }
+.lv.admin { background: var(--green-lt); color: var(--green-tx); } .lv.read { background: var(--pblue-lt); color: var(--pblue-tx); }
+.lv.open { background: var(--gray-lt); color: var(--muted); border: 1px solid var(--line); }
+
+/* ── my work ───────────────────────────────────────────────────── */
+.tk { display: grid; grid-template-columns: 14px 90px minmax(0, 1fr) 170px 110px 90px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-2); font-size: 13px; }
+.tk:last-child { border-bottom: 0; }
+.tk .sev { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+.tk .sev.high { background: var(--red); } .tk .sev.medium { background: var(--amber); } .tk .sev.baseline { background: var(--green); }
+.tk .id { font-family: var(--mono); font-size: 12px; color: var(--pblue); font-weight: 600; }
+.tk .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.tk .req, .tk .st { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk .age { text-align: right; font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+.tk .age.over { color: var(--red); font-weight: 600; }
+.dv { display: grid; grid-template-columns: 96px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, .9fr) 120px 110px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-2); font-size: 13px; color: inherit; }
+.dv:last-child { border-bottom: 0; }
+.dv .src { justify-self: start; }
+.dv .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv .nm small { display: block; font-weight: 400; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.dv .md, .dv .us { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv .md small { display: block; font-size: 11.5px; color: var(--dim); }
+.dv .st { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv .ls { text-align: right; font-family: var(--mono); font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+.dv:hover .nm { color: var(--pblue); }
+@media (max-width: 1000px) { .dv { grid-template-columns: 90px minmax(0, 1fr) 100px; } .dv .md, .dv .us, .dv .st { display: none; } }
+.searchbar { display: flex; gap: 8px; align-items: center; }
+.searchbar input { flex: 1; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip.click { cursor: pointer; } .chip.click:hover { color: var(--pblue-tx); background: var(--pblue-lt); }
+.chip .x { margin-left: 2px; opacity: .6; } .chip .x:hover { opacity: 1; color: var(--red); }
+.cab { display: grid; grid-template-columns: 80px minmax(0, 1fr) 140px 130px 120px; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line-2); font-size: 13px; }
+.cab:last-child { border-bottom: 0; }
+.cab .id { font-family: var(--mono); font-size: 12px; color: var(--pblue); font-weight: 600; }
+.cab .t { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cab .s, .cab .d { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
+
+/* ── claude ────────────────────────────────────────────────────── */
+.chart { width: 100%; height: 190px; }
+.chart svg { width: 100%; height: 100%; overflow: visible; }
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.bars .b { display: grid; grid-template-columns: 130px minmax(0, 1fr) 100px; gap: 10px; align-items: center; font-size: 13px; }
+.bars .b .track { height: 9px; border-radius: 5px; background: var(--line); overflow: hidden; }
+.bars .b .track > span { display: block; height: 100%; border-radius: 5px; background: var(--pblue); transition: width 420ms var(--ease-out); }
+.bars .b .n { text-align: right; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+/* ── product mix (one person, not the org) ──────────────── */
+.pmix-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 10px; margin-bottom: 14px; border-bottom: 1px solid var(--line-2); font-size: 12.5px; color: var(--muted); }
+.pmix-tot b { font-family: var(--mono); color: var(--ink); }
+.pmix-row + .pmix-row { margin-top: 16px; }
+.pmix-top { display: grid; grid-template-columns: minmax(0, 1fr) 96px 56px 84px; gap: 10px; align-items: baseline; margin-bottom: 6px; }
+.pmix-name { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; min-width: 0; }
+.pmix-v { text-align: right; font-family: var(--mono); font-size: 13px; font-weight: 700; }
+.pmix-p, .pmix-r { text-align: right; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.pmix-track { height: 8px; border-radius: 5px; background: var(--line); overflow: hidden; }
+/* Only width animates, and only on the way in; ease-out so the bar reads as
+   arriving rather than easing off. */
+.pmix-track > span { display: block; width: 0; height: 100%; border-radius: 5px; background: var(--pblue); transition: width 280ms var(--ease-out); }
+.pmix-sub { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+.pmix-tok { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line-2); font-size: 11.5px; color: var(--muted); }
+.pmix-tok-l { font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.pmix-tok b { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+.pdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; background: var(--muted); }
+.pd-claude-code { background: var(--purple); } .pd-chat { background: var(--pblue); } .pd-cowork { background: var(--teal); }
+.pd-claude-design { background: var(--red); } .pd-research { background: var(--green); } .pd-voice-mode { background: var(--amber); }
+.pd-claude-in-chrome { background: var(--accent); }
+button.pmix-top { width: 100%; font: inherit; color: inherit; text-align: left; background: none; border: 0; padding: 4px 6px; margin: -4px -6px 2px; border-radius: 6px; cursor: pointer; transition: background 120ms ease; }
+button.pmix-top:hover { background: var(--gray-lt); }
+button.pmix-top:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pmix-chev { display: inline-flex; width: 13px; height: 13px; color: var(--dim); transition: transform 200ms var(--ease-out); }
+.pmix-chev svg { width: 100%; height: 100%; }
+button.pmix-top[aria-expanded="true"] .pmix-chev { transform: rotate(90deg); color: var(--muted); }
+/* 0fr -> 1fr opens to the panel's own height without measuring it in JS. */
+.pmix-more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 200ms var(--ease-out); }
+.pmix-more[data-open] { grid-template-rows: 1fr; }
+.pmix-more-in { overflow: hidden; }
+/* The ? tips on the expanded stats hang below the row, and overflow:hidden (needed for
+ * the 0fr->1fr open animation) would clip them. Release it once the open has finished;
+ * removing data-open drops the animation, so closing clips again at once. */
+.pmix-more[data-open] .pmix-more-in { animation: pmx-unclip 0s 220ms forwards; }
+@keyframes pmx-unclip { to { overflow: visible; } }
+.pmix-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; padding: 12px 0 2px; }
+.pmix-stats .s { background: var(--gray-lt); border-radius: 7px; padding: 8px 10px; }
+.pmix-stats .v { font-family: var(--mono); font-size: 14px; font-weight: 700; line-height: 1.15; }
+.pmix-stats .l { font-size: 11px; color: var(--muted); margin-top: 2px; }
+/* per-model product split, revealed by the same disclosure as the product rows */
+.mm-tbl { padding: 10px 0 2px; }
+.mm-r { display: grid; grid-template-columns: minmax(0, 1fr) 92px 80px 78px; gap: 10px; align-items: baseline; padding: 6px 0; font-size: 12px; color: var(--muted); }
+.mm-r + .mm-r { border-top: 1px solid var(--line); }
+.mm-p { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); font-weight: 500; min-width: 0; }
+.mm-r b { text-align: right; font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+.mm-r span:not(.mm-p) { text-align: right; font-family: var(--mono); }
+.md-opus { background: var(--purple); } .md-sonnet { background: var(--pblue); }
+.md-haiku { background: var(--teal); } .md-fable { background: var(--amber); } .md-other { background: var(--muted); }
+@media (max-width: 620px) { .mm-r { grid-template-columns: minmax(0, 1fr) 82px 70px; } .mm-r span:last-child { display: none; } }
+.capchart { margin: 14px 0 4px; }
+#claude-cap-note { font-size: 11.5px; }
+@media (max-width: 620px) { .pmix-top { grid-template-columns: minmax(0, 1fr) 84px 48px; } .pmix-r { display: none; } }
+@media (prefers-reduced-motion: reduce) { .pmix-track > span, .pmix-chev, .pmix-more { transition: none; } }
+/* AI tools & usage — entitlement tiles read as statements of fact, so they are
+   flat panels rather than KPI numbers: an access state is not a metric. */
+.aigrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.aitile { border: 1px solid var(--line); border-radius: 8px; padding: 13px 14px; }
+.aitile .hd { display: flex; align-items: center; gap: 8px; }
+.aitile .hd .ic { width: 16px; height: 16px; color: var(--muted); }
+.aitile .hd b { font-size: 14px; font-weight: 600; }
+.aitile .hd .chip { margin-left: auto; }
+.aitile .ln { font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.aitile .ln b { color: var(--ink); font-weight: 600; }
+.aitile.off { background: var(--gray-lt); }
+.aitile .req { display: inline-flex; align-items: center; gap: 6px; margin-top: 9px; font-size: 13px; font-weight: 500; color: var(--pblue); }
+.aitile .req:hover { text-decoration: underline; }
+.aitile .req .ic { width: 13px; height: 13px; color: currentColor; }
+/* A team row is a link to that person's usage, so the whole row takes the hover. */
+table.tbl tr.pick { cursor: pointer; }
+table.tbl tr.pick:hover td { background: var(--gray-lt); }
+table.tbl td .who { display: flex; flex-direction: column; gap: 1px; }
+table.tbl td .who small { color: var(--muted); font-size: 11.5px; }
+/* Reporting line: one level of the org at a time. Clicking a leader REPLACES
+   the table with their reports and pushes a breadcrumb -- the same drill the org
+   roll-up on ai-usage-credits.html uses. An in-place fold was tried first and
+   does not fit this org: one manager has 88 directs. */
+.tr-crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 0 var(--pad) 10px; }
+.tr-c { font-size: 12.5px; }
+.tr-c.sep { color: var(--dim); margin: 0 6px; }
+.tr-c.cur { color: var(--ink); font-weight: 600; }
+.tr-c.cur:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+button.tr-c.lnk { background: none; border: 0; padding: 0; font: inherit; font-size: 12.5px; color: var(--accent); cursor: pointer; border-radius: 4px; }
+button.tr-c.lnk:hover { text-decoration: underline; }
+button.tr-c.lnk:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* There is no step-in BUTTON any more. A row that meant two things -- navigate
+   to the person, or open their team from a control inside the same row -- is the
+   defect this rewrite removes, so the whole row is the one target and the
+   chevron only says so. It brightens with the row rather than inviting a
+   separate click, which is what a nested button was doing wrong. */
+.tr-go { margin-left: 6px; color: var(--muted); font-size: 14px; line-height: 1; }
+tr.pick:hover .tr-go, tr.pick:focus-visible .tr-go { color: var(--accent); }
+
+/* Row avatars. The box is drawn and sized by CSS and filled with INITIALS by the
+   markup, so it is never empty and never a broken image; my-profile.js swaps in
+   an <img> only after /api/photo has actually loaded one. Departments get the
+   same box with a glyph, otherwise the names on a mixed rung (the subject, then
+   their departments) would start at two different left edges. */
+.tr-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.tr-who .who { min-width: 0; }
+.tr-av { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-tint); color: var(--accent-hover);  /* --accent is 4.48:1 on the tint in light mode,
+     0.02 under AA for 10.5px text. --accent-hover is 5.96 light / 7.14 dark and still tracks the theme engine. */
+  display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 10.5px;
+  letter-spacing: .02em; overflow: hidden; flex-shrink: 0; }
+.tr-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tr-av-dept { background: var(--gray-lt); color: var(--muted); }
+.tr-av-dept svg { width: 15px; height: 15px; }
+.tr-sub { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+/* In a right-aligned numeric column a stacked sub-line wraps mid-phrase
+   ("2" / "direct"), which reads as two separate figures. */
+table.tbl td.num .tr-sub { white-space: nowrap; }
+.tr-sub.warn { color: var(--amber-tx); }
+/* "at least" marks a team figure that is a floor, because some people below it
+   are missing from this view or had no usage collected. It must never read as
+   a complete total. */
+.tr-floor { color: var(--amber-tx); font-weight: 500; }
+/* ===== LIVE-DATA STARBURST — BEGIN =====================================
+   Marks a figure sourced live from the Claude Enterprise Analytics API. Ported
+   from reporting.nrpi.local/ai-usage-credits.html so the two pages use one
+   glyph for one meaning. NOT the same marker as the 8-ray "Claude can run
+   this" burst on dhcp-consolidation/okta-entra-migration — that one is an
+   action affordance, this one is provenance.
+   TO REMOVE ENTIRELY: set SHOW_LIVE_STAR=false in my-profile.js. ========== */
+.live-star { display: inline-block; width: 11px; height: 11px; vertical-align: -1px; margin-right: 5px; color: var(--live); flex: none; }
+.live-star svg { display: block; width: 100%; height: 100%; animation: liveStarPulse 3.2s ease-in-out infinite; transform-origin: 50% 50%; }
+.live-star.lg { width: 14px; height: 14px; vertical-align: -2px; }
+@keyframes liveStarPulse { 0%, 100% { opacity: .75; transform: rotate(0deg); } 50% { opacity: 1; transform: rotate(22deg); } }
+@media (prefers-reduced-motion: reduce) { .live-star svg { animation: none; } }
+/* ===== LIVE-DATA STARBURST — END ======================================= */
+/* The foot carries the level total, and stepped in, the two lines that
+   reconcile it to the leader's row one level up. It is the answer to "these
+   numbers do not add up", so it has to look like part of the table, not a note
+   under it. */
+table.tbl tfoot tr.tr-tot td { border-top: 1px solid var(--line-strong); padding: 8px; font-size: 12.5px; background: var(--gray-lt); }
+table.tbl tfoot tr.tr-tot.grand td { border-top: 1px solid var(--line-strong); background: var(--accent-tint); }
+/* The same person block outside a table. Without this the name and job title are
+   two inline elements with no separator, and "Zachary Norman" + "Sr. Buyer
+   Experience Specialist" renders as one word. */
+#ai-limit-alert .who { display: flex; flex-direction: column; gap: 1px; }
+#ai-limit-alert .who small { color: var(--muted); font-size: 11.5px; }
+/* The drilled-in subject header — replaces the old one-line .drillbar.
+   Mirrors the reporting site's member sheet (ai-usage-credits.html
+   openReviewDrawer, line 1944): status badge, the person's NAME as the heading,
+   then who they are. That sheet opens over a scrim so the page behind it
+   recedes; this page drills IN PLACE, leaving the profile header above still
+   showing the VIEWER's face and name — so this version is deliberately louder
+   than its reference: a face, an accent rule down the left edge, and a closing
+   line that names whose figures follow. */
+.drillhd { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 13px 16px; border: 1px solid var(--accent);
+  border-left: 4px solid var(--accent); border-radius: 10px; background: var(--accent-tint); font-size: 13px; }
+.drillhd .btn { padding: 6px 11px; font-size: 13px; }
+.drillhd-back { flex: 0 0 auto; }
+.drillhd-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* --pblue-lt resolves to the SAME value as --accent-tint, so a disc filled with
+   it was invisible against this header. --card differs from the tint by only
+   1.2:1 either way, which is a surface distinction and not an edge, so the ring
+   is what actually makes it read as a face-sized disc. --accent-hover on --card
+   is 7.18 light / 8.32 dark; --pblue-tx was 4.48 light, under AA at 15px. */
+.drillhd-av { width: 44px; height: 44px; border-radius: 50%; background: var(--card); color: var(--accent-hover);
+  box-shadow: 0 0 0 1px var(--accent);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; overflow: hidden; flex-shrink: 0; }
+.drillhd-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.drillhd-txt { min-width: 0; }
+.drillhd-sev { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; padding: 2px 7px; }
+/* The badge ladder is the one thing on this header that is computed rather
+   than copied, so it is the one thing that earns a helper. */
+.drillhd-sev + .help { margin-left: 6px; vertical-align: middle; }
+.drillhd h2 { margin: 2px 0 1px; font-size: 20px; line-height: 1.15; font-weight: 650; color: var(--ink); }
+/* --muted on this tint is 3.85 light / 4.27 dark -- under AA at 12px. --text
+   clears it at 4.82 / 7.19 and is the token the footer line already uses. */
+.drillhd-sub { font-size: 12px; color: var(--text); }
+.drillhd-foot { flex-basis: 100%; font-size: 11.5px; color: var(--text); border-top: 1px solid var(--line); padding-top: 8px; }
+.drillhd .drill-lim { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.drillhd .drill-lim b { font-family: var(--mono); }
+.drillhd .drill-lim [data-drill-msg]:empty { display: none; }
+.drillhd .drill-lim [data-drill-msg] { flex-basis: 100%; text-align: right; }
+@media (max-width: 760px) { .drillhd .drill-lim { margin-left: 0; width: 100%; justify-content: flex-start; } .drillhd .drill-lim [data-drill-msg] { text-align: left; } }
+.aifilters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+@media (max-width: 760px) { .aigrid { grid-template-columns: 1fr; } }
+.actgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.actgrid .a { padding: 10px 12px; border-radius: 8px; background: var(--gray-lt); }
+.actgrid .a .v { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+.actgrid .a .l { font-size: 11.5px; color: var(--muted); }
+.models { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── favorites ─────────────────────────────────────────────────── */
+.pinbar { display: flex; flex-wrap: wrap; gap: 10px; min-height: 96px; padding: 4px 0; }
+.pin { position: relative; width: 132px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px 10px; border-radius: 8px; background: var(--gray-lt); border: 1px solid var(--line); text-align: center; user-select: none; touch-action: none; cursor: grab; transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out); }
+.pin.drag { cursor: grabbing; z-index: 5; box-shadow: var(--shadow-menu); transition: none; }
+.pin .sq { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.pin .sq .ic { width: 18px; height: 18px; }
+.pin b { font-size: 12.5px; font-weight: 600; line-height: 1.25; }
+.pin .host { font-size: 10.5px; color: var(--dim); font-family: var(--mono); }
+.pin .tools { position: absolute; top: 4px; right: 4px; display: flex; gap: 1px; opacity: 0; transition: opacity 120ms ease; }
+.pin:hover .tools, .pin:focus-within .tools { opacity: 1; }
+.pin .tools button { width: 22px; height: 22px; border-radius: 6px; color: var(--dim); display: inline-flex; align-items: center; justify-content: center; }
+.pin .tools button:hover { background: var(--gray-lt); color: var(--ink); }
+.pin .tools button .ic { width: 12px; height: 12px; }
+.pin .ord { position: absolute; top: 6px; left: 8px; font-family: var(--mono); font-size: 10px; color: var(--dim); }
+.hubgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 9px; }
+.hubtile { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--gray-lt); }
+.hubtile .sq { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.hubtile .sq .ic { width: 14px; height: 14px; }
+.hubtile b { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hubtile span { display: block; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hubtile .txt { min-width: 0; flex: 1; }
+.star { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: var(--dim); flex-shrink: 0; transition: transform 160ms var(--ease-out), color 120ms ease; }
+.star .ic { width: 16px; height: 16px; }
+.star:active { transform: scale(0.9); }
+.star[aria-pressed="true"] { color: var(--amber); }
+.star[aria-pressed="true"] svg { fill: currentColor; }
+.t-blue { background: var(--pblue-lt); color: var(--pblue); } .t-teal { background: var(--teal-lt); color: var(--teal); }
+.t-purple { background: var(--purple-lt); color: var(--purple); } .t-amber { background: var(--amber-lt); color: var(--amber); }
+.t-red { background: var(--red-lt); color: var(--red); } .t-green { background: var(--green-lt); color: var(--green); }
+.sq.logo { background: #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.sq.logo img { width: 70%; height: 70%; object-fit: contain; display: block; }
+
+/* ── activity ──────────────────────────────────────────────────── */
+.trail .day { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 14px 0 6px; }
+.trail .ev { display: grid; grid-template-columns: 62px 22px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 7px 0; border-bottom: 1px solid var(--line-2); font-size: 13px; }
+.trail .ev:last-child { border-bottom: 0; }
+.trail .ev .tm { font-family: var(--mono); font-size: 11.5px; color: var(--dim); padding-top: 1px; }
+.trail .ev .ic { width: 15px; height: 15px; color: var(--muted); margin-top: 1px; }
+.trail .ev.security .ic { color: var(--purple); } .trail .ev.signin .ic { color: var(--teal); } .trail .ev.signin.fail .ic { color: var(--red); }
+.trail .ev .tx a { color: var(--pblue); }
+.trail .ev .meta { font-size: 11px; color: var(--dim); white-space: nowrap; }
+.rank { display: flex; flex-direction: column; gap: 7px; }
+.rank .r { display: grid; grid-template-columns: 170px minmax(0, 1fr) 40px; gap: 10px; align-items: center; font-size: 13px; }
+.rank .r .track { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.rank .r .track span { display: block; height: 100%; background: var(--pblue); border-radius: 4px; }
+.rank .r .n { text-align: right; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+
+/* ── suggestions (feature ideas) ───────────────────────────────── */
+.sugg { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+.sg { padding: 12px 0; border-bottom: 1px solid var(--line-2); display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; }
+.sg:last-child { border-bottom: 0; }
+.vote { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 8px; border: 1px solid var(--line); background: var(--gray-lt); font-size: 12.5px; font-weight: 600; transition: transform 160ms var(--ease-out), border-color 120ms ease, color 120ms ease; }
+.vote .ic { width: 14px; height: 14px; }
+.vote:hover { border-color: var(--pblue); color: var(--pblue); }
+.vote:active { transform: scale(0.94); }
+.vote[aria-pressed="true"] { background: var(--pblue-lt); border-color: var(--pblue); color: var(--pblue-tx); }
+.sg .h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sg .h b { font-size: 14px; font-weight: 600; }
+.sg .p { font-size: 13px; color: var(--text); margin-top: 4px; white-space: pre-wrap; }
+.sg .f { display: flex; gap: 10px; align-items: center; margin-top: 6px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.sg .adm { margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.st-new { background: var(--gray-lt); color: var(--muted); } .st-reviewing { background: var(--pblue-lt); color: var(--pblue-tx); } .st-planned { background: var(--purple-lt); color: var(--purple-tx); } .st-building { background: var(--amber-lt); color: var(--amber-tx); } .st-shipped { background: var(--green-lt); color: var(--green-tx); } .st-declined { background: var(--red-lt); color: var(--red-tx); }
+.form { display: flex; flex-direction: column; gap: 10px; }
+.form label { font-size: 12px; font-weight: 500; color: var(--muted); display: block; margin-bottom: 4px; }
+.form .actions { display: flex; align-items: center; gap: 10px; }
+.form .draft { font-size: 12px; color: var(--dim); margin-left: auto; }
+
+/* ── changes ───────────────────────────────────────────────────── */
+.hosts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.hosts .h { padding: 12px 14px; border-radius: 8px; background: var(--gray-lt); }
+.hosts .h .v { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.hosts .h .l { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.notes .nt { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line-2); }
+.notes .nt:last-child { border-bottom: 0; }
+.notes .nt .k { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.notes .nt .when { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.notes .nt b { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+.notes .nt b .new { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
+.notes .nt b a { color: var(--pblue); display: inline-flex; }
+.notes .nt p { font-size: 13px; color: var(--text); margin-top: 4px; line-height: 1.5; overflow-wrap: anywhere; }
+.notes .nt .was { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 8px; font-size: 12px; }
+.notes .nt .was div { padding: 6px 9px; border-radius: 6px; background: var(--gray-lt); overflow-wrap: anywhere; }
+.notes .nt .was div em { display: block; font-style: normal; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-bottom: 2px; }
+.k-new { background: var(--green-lt); color: var(--green-tx); } .k-changed { background: var(--pblue-lt); color: var(--pblue-tx); } .k-removed { background: var(--red-lt); color: var(--red-tx); } .k-moved { background: var(--purple-lt); color: var(--purple-tx); } .k-note { background: var(--amber-lt); color: var(--amber-tx); }
+
+/* ── toast ─────────────────────────────────────────────────────── */
+#toast { position: fixed; bottom: 22px; left: 50%; transform: translate(-50%, 8px); opacity: 0; pointer-events: none; z-index: 10100; background: var(--toast-bg); color: var(--toast-fg); font-size: 13px; font-weight: 500; padding: 9px 16px; border-radius: 8px; box-shadow: var(--shadow-menu); transition: opacity 120ms ease, transform 120ms var(--ease-out); }
+#toast.on { opacity: 1; transform: translate(-50%, 0); transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out); }
+#toast.err { background: var(--red); color: #fff; }
+
+/* ── responsive (desktop composition unchanged ≥1280) ─────────── */
+@media (max-width: 1279px) { .shell { grid-template-columns: 192px minmax(0, 1fr); } .rail { grid-column: 2; padding: 0 8px 16px 20px; } .rail .card { border-radius: var(--r-card); } .stats-band { grid-template-columns: 1fr 1fr; } .stats-band > div:last-child { grid-column: 1 / -1; border-left: 0; padding-left: 0; border-top: 1px solid var(--line-2); padding-top: 12px; margin-top: 10px; } .sugg { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .shell { grid-template-columns: 64px minmax(0, 1fr); } .side { padding: 14px 8px; } .nav-item span:not(.ic), .user-card .txt { display: none; } .nav-item { justify-content: center; padding: 12px 0; } .back-btn { margin-left: 8px; } .cards3 { grid-template-columns: 1fr 1fr; } .settings { grid-template-columns: 1fr; } .settings .subnav { position: static; flex-direction: row; flex-wrap: wrap; } .tk { grid-template-columns: 14px 80px minmax(0, 1fr) 90px; } .tk .req, .tk .st { display: none; } .cab { grid-template-columns: 70px minmax(0, 1fr) 120px; } .cab .d { display: none; } .grid3 { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .page-hd { flex-wrap: wrap; } .cards3, .grid2 { grid-template-columns: 1fr; } .card-hd { flex-wrap: wrap; } .card-hd > div { flex-wrap: wrap; } .seg { flex-wrap: wrap; } .hero { flex-wrap: wrap; } .hero .facts { margin-left: 0; } .hero .cta { margin-left: 0; } .field { grid-template-columns: 1fr; gap: 4px; } .field .m { justify-content: flex-start; } .main { padding: 16px 14px 24px; } .main-wrap { padding: 8px; } .stats-band { grid-template-columns: 1fr; } .stats-band > div + div { border-left: 0; padding-left: 0; } .act-row { grid-template-columns: 24px minmax(0, 1fr) auto; } .act-row .s { display: none; } }
+/* Only managers get a fourth card in the Overview row. Four narrow cards need a wide
+   screen, so below that the row is 2x2 — which keeps My team beside My work in the
+   first row and moves AI usage down to the second, where it belongs. */
+.cards3.with-team { grid-template-columns: 1fr 1fr; }
+@media (min-width: 1560px) { .cards3.with-team { grid-template-columns: 1fr .95fr 1.05fr .9fr; } }
+@media (max-width: 760px) { .cards3.with-team { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .card.anim { animation: none; opacity: 1; transform: none; } .pin, .btn, .fav-tile, .sw, .toggle::after, .bar > span, .bars .b .track > span, .acct-menu { transition: none !important; } }
+html[data-reduce-motion="on"] .card.anim { animation: none; opacity: 1; transform: none; }
+html[data-reduce-motion="on"] *, html[data-reduce-motion="on"] *::after { transition: none !important; animation: none !important; }
+</style>
+</head>
+<body data-profile-source="my-profile">
+<div class="shell">
+  <nav class="side" aria-label="Main navigation">
+    <!-- Jeramy 09-23: "for the icon where it has the avatar and initials, lets
+         move that over to where we put the new logo thingy, just replace that,
+         and then put the Theme on the far right". So the account card IS the
+         rail's masthead now and the topbar holds only the theme button.
+         Moved verbatim -- every id is preserved, so the accountMenu IIFE,
+         #acct-refresh, the #side-name/#side-av paint and the #acct-admin
+         unhide all keep working untouched. Only the MENU needed new
+         positioning: see .side-id .acct-menu. -->
+    <div class="user-card side-id" id="user-card" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-controls="acct-menu">
+      <span class="av" id="side-av">…</span>
+      <span class="txt"><b id="side-name">Loading…</b><span id="side-title"></span></span>
+      <div class="acct-menu" id="acct-menu" role="menu">
+        <div class="id"><b id="acct-name"></b><span id="acct-email"></span></div>
+        <a role="menuitem" href="#profile"><span class="ic" data-icon="settings"></span>Settings</a>
+        <button role="menuitem" type="button" id="acct-refresh"><span class="ic" data-icon="refresh"></span>Refresh my access</button>
+        <button role="menuitem" type="button" id="acct-viewas" hidden><span class="ic" data-icon="users"></span>View as another user</button>
+        <a role="menuitem" id="acct-admin" href="https://subadmin.nrpi.local/" target="_blank" rel="noopener noreferrer" hidden><span class="ic" data-icon="shield"></span>Admin center</a>
+        <div class="sep"></div>
+        <a role="menuitem" href="/api/gate/federated-logout"><span class="ic" data-icon="logout"></span>Sign out</a>
+      </div>
+    </div>
+    <!-- My Profile and My Access were removed 09-23: this page IS the profile,
+         and #access is still routable by hash for anyone holding a link. What is
+         left is the manager's spend-alert switch, which is hidden until
+         /ai-team/alert-email says they manage somebody. -->
+    <div class="nav" id="nav">
+      <!-- The manager's own on/off for the Claude spend-alert email lives here, where
+           Settings used to be. Hidden until /ai-team/alert-email says they manage
+           someone; locked (not hidden) in a borrowed view so the layout can be seen. -->
+      <button class="nav-item nav-switch" type="button" id="nav-alert-email" role="switch" aria-checked="false" hidden title="Email me when a report crosses my Claude spend threshold"><span class="ic" data-icon="bell"></span><span class="lbl">Email alerts<small id="nav-alert-email-sub">Off</small></span><span class="toggle" aria-hidden="true"></span></button>
+    </div>
+  </nav>
+
+  <div class="main-wrap">
+    <div class="topbar">
+      <a id="reporting-return" class="rr-link" href="https://reporting.nrpi.local/" hidden><span class="rr-ic" aria-hidden="true">←</span>Back to AI Reporting</a>
+      <span id="theme-slot"></span>
+    </div>
+    <!-- Was aria-hidden. It no longer can be: the office conditions under the
+         greeting are real information that appears nowhere else on the page, and
+         aria-hidden on the container would take them away from a screen reader
+         entirely. Only the decorative accent bar keeps it. -->
+    <div class="greet-hero">
+      <span class="accent" aria-hidden="true"></span>
+      <div class="gc"><h2 id="greetHi">Welcome back!</h2><p>Your AI usage at a glance.</p>
+        <div class="gwx" id="greet-wx"></div></div>
+    </div>
+    <script>
+    /* Time-of-day greeting; mirrors the first name once my-profile.js fills the
+       hero. No dependency on that script's internals beyond the #hero-name node. */
+    (function(){
+      var el=document.getElementById('greetHi'); if(!el) return;
+      var h=new Date().getHours();
+      var g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+      function firstName(){
+        var s=document.getElementById('hero-name')||document.getElementById('side-name');
+        var t=s?(s.textContent||'').replace(/ /g,' ').trim():'';
+        if(!t||/^loading/i.test(t)) return '';
+        return t.split(/\s+/)[0];
+      }
+      function set(){var n=firstName(); el.textContent=g+(n?(', '+n):'')+'!';}
+      /* This script is inline and #hero-name is further down the same document,
+         so at parse time getElementById('hero-name') returns null -- the
+         observer was attached to nothing and the greeting stayed a bare
+         "Good morning!" however long the name took to arrive. Wire it once the
+         document is parsed, and watch BOTH name nodes: whichever fills first
+         wins, and #side-name is the one it-profile.js fills on some vhosts. */
+      function wire(){
+        set();
+        if(!window.MutationObserver) return;
+        var mo=new MutationObserver(set), opts={childList:true,characterData:true,subtree:true};
+        ['hero-name','side-name'].forEach(function(id){
+          var n=document.getElementById(id); if(n) mo.observe(n,opts);
+        });
+      }
+      set();
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',wire); else wire();
+    })();
+    </script>
+    <main class="main">
+      <div class="page-hd"><h1>My Profile</h1><span class="crumb" id="crumb" hidden></span><a class="back" id="back-ov" href="#overview" hidden><span class="ic" data-icon="arrow-left"></span>Overview</a></div>
+
+      <!-- ═══ OVERVIEW ═══ -->
+      <section class="view on" id="v-overview">
+        <div class="hero" id="hero">
+          <div class="photo" id="hero-photo">…</div>
+          <div class="who">
+            <div class="name" id="hero-name">&nbsp;</div>
+            <div class="title" id="hero-title">&nbsp;</div>
+            <div id="hero-badge"></div>
+          </div>
+          <div class="facts" id="hero-facts"></div>
+          <a class="btn outline cta" href="#profile" id="btn-edit"><span class="ic" data-icon="edit"></span>Edit profile</a>
+        </div>
+        <div class="stack">
+          <!-- Tabs lead the section so a manager's team data is the first thing under
+               the page title. The reporting period rides in the same strip because it
+               is shared state: both panes and the drilldown answer for the same month. -->
+          <div class="tabs" id="ai-tabs">
+            <button type="button" data-tab="me" class="on">My usage</button>
+            <button type="button" data-tab="team" hidden>Team usage</button>
+            <div class="aside"><span id="ai-period-label" class="note"></span><select class="sel" id="claude-month"></select></div>
+          </div>
+
+          <div id="ai-drillbar" hidden></div>
+
+          <div class="card" id="claude-approvals-card" hidden>
+            <div class="card-hd"><span class="ic" data-icon="check-circle"></span><h2>Claude limit approvals</h2><button type="button" class="help" data-h="sec-approvals">?</button>
+              <span class="note" id="claude-approvals-note" style="margin-left:auto"></span></div>
+            <div class="card-bd" id="claude-approvals"></div>
+          </div>
+
+          <div id="ai-pane-me">
+            <div class="card" id="ai-mytools" style="margin-bottom:14px">
+              <div class="card-hd"><span class="ic orange" data-icon="sparkle"></span><h2>Your AI tools</h2><button type="button" class="help" data-h="sec-mytools">?</button>
+                <span class="src claude" style="margin-left:8px">Claude Admin API</span><span class="src entra">Microsoft 365</span></div>
+              <div class="card-bd" id="ai-access"><div class="empty">Loading…</div></div>
+            </div>
+            <div class="card" id="claude-limit-card" hidden style="margin-bottom:14px">
+              <div class="card-hd"><span class="ic orange" data-icon="shield"></span><h2>Claude limit</h2><button type="button" class="help" data-h="sec-limit">?</button>
+                <span class="src claude" style="margin-left:8px">Claude Admin API</span></div>
+              <div class="card-bd" id="claude-limit"><div class="empty">Loading…</div></div>
+            </div>
+            <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="ic orange" data-icon="sparkle"></span><h2>Claude usage</h2><button type="button" class="help" data-h="sec-usage">?</button><span class="src claude" style="margin-left:8px">Claude Admin API</span>
+              <div style="margin-left:auto;display:flex;gap:8px;align-items:center"><span id="claude-subject" class="note"></span></div></div>
+            <div class="card-bd" id="claude-kpis"><div class="empty">Loading…</div></div>
+          </div>
+          <div class="card"><div class="card-hd"><span class="ic" data-icon="bar-chart"></span><h2>Daily spend, last 90 days</h2><button type="button" class="help" data-h="sec-daily">?</button></div><div class="card-bd"><div class="chart" id="claude-chart"></div></div></div>
+          <div class="card"><div class="card-hd"><span class="ic" data-icon="activity"></span><h2 id="claude-activity-hd">What you did with it</h2><button type="button" class="help" data-h="sec-activity">?</button></div><div class="card-bd" id="claude-activity"></div></div>
+          <div class="card"><div class="card-hd"><span class="ic" data-icon="grid"></span><h2>Product mix</h2><button type="button" class="help" data-h="sec-mix">?</button><span class="src claude" style="margin-left:8px">Claude Admin API</span></div><div class="card-bd" id="claude-mix"></div></div>
+          <div class="card" id="claude-models-card" hidden><div class="card-hd"><span class="ic" data-icon="cpu"></span><h2>Models used</h2><button type="button" class="help" data-h="sec-models">?</button><span class="src claude" style="margin-left:8px">Claude Admin API</span></div><div class="card-bd" id="claude-models"></div></div>
+          <div class="card" id="claude-cap-card" hidden><div class="card-hd"><span class="ic" data-icon="dollar"></span><h2>Spend against the limit</h2><button type="button" class="help" data-h="sec-cap">?</button><span class="src claude" style="margin-left:8px">Claude Admin API</span></div><div class="card-bd"><div id="claude-cap-stats"></div><div class="chart capchart" id="claude-cap"></div><div class="note" id="claude-cap-note"></div></div></div>
+          <div class="card"><div class="card-hd"><span class="ic" data-icon="clock"></span><h2>Last 14 days</h2><button type="button" class="help" data-h="sec-recent">?</button></div><div class="card-bd tblwrap" id="claude-recent"></div></div>
+          <div class="card" id="claude-admin" hidden><div class="card-hd"><span class="ic" data-icon="eye"></span><h2>View another member (super-admin)</h2></div>
+            <div class="card-bd"><div class="searchbar"><input class="inp" id="claude-email" placeholder="member@auction.com" autocomplete="off"><button class="btn" id="claude-view">View</button><button class="btn ghost" id="claude-self">Back to me</button></div><p class="note" style="margin-top:6px">Every lookup of another member's usage is written to the security audit log.</p></div></div>
+            </div>
+          </div>
+
+          <!-- Team usage. Rendered only for a reporting scope the API confirms; the
+               tab button stays hidden otherwise, and the API refuses the data anyway. -->
+          <div id="ai-pane-team" hidden>
+            <div class="stack">
+              <div class="card">
+                <div class="card-hd"><span class="ic" data-icon="users"></span><h2>Team usage</h2><button type="button" class="help" data-h="sec-team">?</button><span class="note" id="ai-team-scope" style="margin-left:8px"></span>
+                  <span class="note" id="ai-team-period" style="margin-left:auto"></span></div>
+                <div class="card-bd" id="ai-team-kpis"><div class="empty">Loading…</div></div>
+              </div>
+              <div class="card" id="ai-limit-alert-card" hidden>
+                <div class="card-hd"><span class="ic" data-icon="alert"></span><h2 id="ai-limit-alert-title">Approaching their Claude limit</h2><button type="button" class="help" data-h="sec-alert">?</button><span class="note" id="ai-limit-alert-note" style="margin-left:auto"></span></div>
+                <div class="card-bd" id="ai-limit-alert"></div>
+              </div>
+              <!-- The organisation roll-up. One card where there were three (Direct
+                   reports / By department / People), and one destination per row.
+                   Crumbs, an invariant column set and a Total at the foot mirror the
+                   roll-up on reporting/ai-usage-credits.html; the title and the first
+                   column header both name the rung, so "which employee am I looking
+                   at" is answered twice on screen rather than inferred.
+                   Everything in here is painted by paintOrg() in my-profile.js. -->
+              <div class="card" id="ai-org-card" hidden>
+                <div class="card-hd"><span class="ic" data-icon="users"></span><h2 id="ai-org-title">Your organisation</h2><button type="button" class="help" data-h="sec-org">?</button><span class="note" id="ai-org-note" style="margin-left:8px"></span>
+                  <input class="inp" id="ai-org-q" placeholder="Find a person…" autocomplete="off" aria-label="Find a person anywhere under you" style="margin-left:auto;width:190px"></div>
+                <div class="tr-crumbs" id="ai-org-crumbs" hidden></div>
+                <div class="card-bd tblwrap" id="ai-org"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ PROFILE & SETTINGS ═══ -->
+      <section class="view" id="v-profile">
+        <div class="settings">
+          <nav class="subnav" id="subnav">
+            <a href="#profile/identity" class="on">Identity</a><a href="#profile/org">Organization</a><a href="#profile/access">Access &amp; roles</a>
+            <a href="#profile/appearance">Appearance</a><a href="#profile/workspace">Workspace</a><a href="#profile/notifications">Notifications</a><a href="#profile/security">Security</a>
+          </nav>
+          <div class="settings-body">
+            <div class="callout info"><span class="ic" data-icon="info"></span><div id="pf-own-note">Organization identity is owned by <b>Microsoft Entra ID</b> and <b>HR</b> and is read-only here. Your <b>roles</b> come from Active Directory groups. Everything under Appearance, Workspace and Notifications is yours to change and follows you to any machine.</div></div>
+            <div class="card" id="s-identity"><div class="card-hd"><span class="ic" data-icon="user"></span><h2>Identity</h2></div><div class="card-bd" id="f-identity"></div></div>
+            <div class="card" id="s-org"><div class="card-hd"><span class="ic" data-icon="users"></span><h2>Organization</h2></div><div class="card-bd" id="f-org"></div></div>
+            <div class="card" id="s-access"><div class="card-hd"><span class="ic" data-icon="shield"></span><h2>Access &amp; roles</h2></div><div class="card-bd" id="f-access"></div></div>
+            <div class="card" id="s-appearance"><div class="card-hd"><span class="ic" data-icon="palette"></span><h2>Appearance</h2></div><div class="card-bd" id="f-appearance"></div></div>
+            <div class="card" id="s-workspace"><div class="card-hd"><span class="ic" data-icon="grid"></span><h2>Workspace</h2></div><div class="card-bd" id="f-workspace"></div></div>
+            <div class="card" id="s-notifications"><div class="card-hd"><span class="ic" data-icon="bell"></span><h2>Notifications</h2></div><div class="card-bd" id="f-notifications"></div></div>
+            <div class="card" id="s-security"><div class="card-hd"><span class="ic" data-icon="lock"></span><h2>Security</h2></div><div class="card-bd" id="f-security"><div class="empty">Loading…</div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ MY ACCESS ═══ -->
+      <section class="view" id="v-access">
+        <div class="stack">
+          <div class="card" id="acc-sites-card">
+            <div class="card-hd"><span class="ic" data-icon="globe"></span><h2>Sites you can sign in to</h2><span class="note" id="acc-sites-note" style="margin-left:auto"></span></div>
+            <div class="card-bd" id="acc-sites"><div class="empty">Loading…</div></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="ic" data-icon="grid"></span><h2>Pages you can open</h2><span class="note" id="acc-count" style="margin-left:8px"></span><input class="inp" id="acc-filter" placeholder="Filter pages…" style="margin-left:auto;width:220px"></div>
+            <div class="card-bd" id="acc-pages"><div class="empty">Loading…</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ MY WORK ═══ -->
+      <section class="view" id="v-work">
+        <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="ic" data-icon="clipboard"></span><h2>Assigned tickets</h2><span class="src sdp" style="margin-left:8px">ServiceDesk Plus · live</span><button class="btn sm ghost" id="work-refresh" style="margin-left:auto;color:var(--pblue)"><span class="ic" data-icon="refresh"></span>Refresh</button></div>
+            <div class="card-bd" id="work-tickets"><div class="empty">Loading your queue…</div></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="ic" data-icon="search"></span><h2>Find in tickets</h2></div>
+            <div class="card-bd">
+              <div class="searchbar">
+                <input class="inp" id="tsearch-q" placeholder="Search ticket subjects… (e.g. VPN, laptop, MFA)" maxlength="120" autocomplete="off">
+                <div class="seg" id="tsearch-scope"><button data-v="mine" class="on">Mine</button><button data-v="all">All</button></div>
+                <div class="seg" id="tsearch-status"><button data-v="any" class="on">Any status</button><button data-v="active">Active</button></div>
+                <button class="btn primary" id="tsearch-go"><span class="ic" data-icon="search"></span>Search</button>
+              </div>
+              <div id="tsearch-saved" class="chips" style="margin-top:10px"></div>
+              <div id="tsearch-out" style="margin-top:10px"></div>
+            </div>
+          </div>
+          <div class="card" id="cab-card">
+            <div class="card-hd"><span class="ic" data-icon="shield"></span><h2>Change controls (CAB)</h2><span class="src sdp" style="margin-left:8px">ServiceDesk Plus · live</span><div class="seg" id="cab-seg" style="margin-left:auto"><button data-v="open" class="on">Open</button><button data-v="closed">Closed</button></div></div>
+            <div class="card-bd" id="work-cabs"><div class="empty">Loading…</div></div>
+          </div>
+          <div class="grid2">
+            <div class="card"><div class="card-hd"><span class="ic" data-icon="clock"></span><h2>Recently viewed</h2></div><div class="card-bd" id="work-recent"><div class="empty">Loading…</div></div></div>
+            <div class="card"><div class="card-hd"><span class="ic" data-icon="edit"></span><h2>Drafts &amp; work in progress</h2></div><div class="card-bd" id="work-drafts"><div class="empty">Loading…</div></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ FAVORITES ═══ -->
+      <section class="view" id="v-favorites">
+        <div class="stack">
+          <div class="card">
+            <div class="card-hd"><span class="ic" data-icon="star"></span><h2>Your favorites bar</h2><span class="note" style="margin-left:8px">Drag to reorder · shown on the Hub and here</span><span class="note" id="fav-count" style="margin-left:auto"></span></div>
+            <div class="card-bd"><div class="pinbar" id="pinbar"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="ic" data-icon="grid"></span><h2>Add from the Hub</h2><input class="inp" id="hub-filter" placeholder="Filter tools…" style="margin-left:auto;width:220px"></div>
+            <div class="card-bd" id="hubgrid"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ ACTIVITY & STATS ═══ -->
+      <section class="view" id="v-activity">
+        <div class="stack">
+          <div class="card"><div class="card-bd" style="padding-top:16px"><div class="kpi-row" id="st-kpis"></div></div></div>
+          <div class="grid3">
+            <div class="card"><div class="card-hd"><span class="ic" data-icon="bar-chart"></span><h2>What I do most</h2><span class="note" style="margin-left:auto">30 days</span></div><div class="card-bd" id="st-actions"></div></div>
+            <div class="card"><div class="card-hd"><span class="ic" data-icon="grid"></span><h2>Tools I use most</h2><span class="note" style="margin-left:auto">30 days</span></div><div class="card-bd" id="st-tools"></div></div>
+            <div class="card"><div class="card-hd"><span class="ic" data-icon="activity"></span><h2>Weekly activity</h2><span class="note" style="margin-left:auto">12 weeks</span></div><div class="card-bd" id="st-weekly"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="ic" data-icon="clock"></span><h2>Your activity trail</h2>
+              <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                <div class="seg" id="act-kind"><button data-v="" class="on">All</button><button data-v="product">Actions</button><button data-v="security">Access</button><button data-v="signin">Sign-ins</button></div>
+                <select class="sel" id="act-days"><option value="30">30 days</option><option value="90" selected>90 days</option><option value="365">1 year</option></select>
+              </div></div>
+            <div class="card-bd trail" id="act-trail"><div class="empty">Loading…</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ SUGGESTIONS (feature ideas) ═══ -->
+      <section class="view" id="v-suggestions">
+        <div class="sugg">
+          <div class="card">
+            <div class="card-hd"><span class="ic" data-icon="bulb"></span><h2>Ideas</h2>
+              <div class="tabs" id="sg-tabs" style="margin:0 0 0 auto;border:0"><button data-v="mine" class="on">Mine <span class="n" id="sg-n-mine"></span></button><button data-v="all">Everyone <span class="n" id="sg-n-all"></span></button></div></div>
+            <div class="card-bd" id="sg-list"><div class="empty">Loading…</div></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="ic" data-icon="edit"></span><h2>Suggest a feature</h2></div>
+            <div class="card-bd">
+              <form class="form" id="sg-form" autocomplete="off">
+                <div><label for="sg-title">Title</label><input class="inp" id="sg-title" maxlength="160" placeholder="What would help you most?" style="width:100%"></div>
+                <div><label for="sg-area">Area</label><select class="sel" id="sg-area" style="width:100%"><option value="CorpIT platform">CorpIT platform</option></select></div>
+                <div><label for="sg-details">Details</label><textarea class="inp" id="sg-details" maxlength="4000" placeholder="What happens today, what you would like instead, and why it matters."></textarea></div>
+                <div class="actions"><button class="btn primary" type="submit" id="sg-submit"><span class="ic" data-icon="send"></span>Submit idea</button><button class="btn ghost" type="button" id="sg-clear">Clear</button><span class="draft" id="sg-draft"></span></div>
+              </form>
+              <p class="note" id="sg-mailnote" style="margin-top:10px">Status is set by a CorpIT super-admin.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ CHANGES ═══ -->
+      <section class="view" id="v-changes">
+        <div class="stack">
+          <div class="card"><div class="card-hd"><span class="ic" data-icon="arrow-left-right"></span><h2>Where things live today</h2><span class="note" id="ch-version" style="margin-left:auto"></span></div>
+            <div class="card-bd"><div class="hosts" id="ch-hosts"></div><div class="tblwrap" style="margin-top:14px" id="ch-tiles"></div></div></div>
+          <div class="card"><div class="card-hd"><span class="ic" data-icon="info"></span><h2>What changed</h2>
+              <div style="margin-left:auto;display:flex;gap:8px;align-items:center"><div class="seg" id="ch-kind"><button data-v="" class="on">All</button><button data-v="new">New</button><button data-v="changed">Changed</button><button data-v="removed">Removed</button><button data-v="moved">Moved</button><button data-v="note">Notes</button></div><button class="btn sm" id="ch-seen">Mark all as seen</button></div></div>
+            <div class="card-bd notes" id="ch-notes"><div class="empty">Loading…</div></div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/it-profile.js"></script>
+<script src="/my-profile.js"></script>
+<script src="/it-session-watch.js?v=20260904" defer></script>
+<script src="/it-version.js" data-app-key="corpit-platform" data-label="My Profile" data-version="3.0.0" defer></script>
+</body>
+</html>

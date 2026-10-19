@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+{% block title %}Directory Sync{% endblock %}
+{% block content %}
+
+{% if running %}<meta http-equiv="refresh" content="8">{% endif %}
+
+<style>
+  /* Committed Microsoft SaaS-admin look, independent of the console theme */
+  .msx{
+    --canvas:#f5f5f5; --surface:#ffffff; --line:#e0e0e0; --line-soft:#f0f0f0;
+    --ink:#242424; --mut:#616161; --faint:#8a8886;
+    --blue:#0078d4; --blue-h:#106ebe; --blue-t:#0a6cbd;
+    --green:#107c10; --amber:#9a6700; --amber-f:#eaa300; --red:#d13438;
+    --green-bg:#e6f2e6; --amber-bg:#fdf3d7; --red-bg:#fbe9e9; --chipbg:#f3f2f1;
+    --shadow:0 1px 2px rgba(0,0,0,.06),0 0 2px rgba(0,0,0,.04);
+    margin:-26px calc(50% - 50vw) -26px; background:var(--canvas); color:var(--ink);
+    font-family:"Segoe UI","Segoe UI Variable Text",-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+    font-size:14px; line-height:1.45; min-height:80vh;
+  }
+  .msx *{box-sizing:border-box}
+  .msx .in{max-width:1240px;margin:0 auto;padding:22px 28px 40px}
+  .msx a{color:var(--blue-t)}
+
+  .msx .phead{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .msx h1{font-size:22px;font-weight:600;margin:0 0 3px;color:var(--ink)}
+  .msx .desc{color:var(--mut);font-size:13px;margin:0;max-width:620px}
+  .msx .phead .sp{flex:1}
+  .msx .actions{display:flex;gap:8px;align-items:center}
+
+  .msx .mbtn{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;
+    border-radius:4px;border:1px solid #d1d1d1;background:var(--surface);color:var(--ink);
+    font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-decoration:none;
+    transition:background 100ms ease,transform 120ms ease-out}
+  .msx .mbtn:hover{background:#f5f5f5}
+  .msx .mbtn:active{transform:scale(.98)}
+  .msx .mbtn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+  .msx .mbtn.pri:hover{background:var(--blue-h);border-color:var(--blue-h)}
+  .msx .mbtn[disabled]{opacity:.55;cursor:default}
+  .msx .mbtn svg{width:14px;height:14px}
+
+  .msx .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:16px}
+  .msx .kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    box-shadow:var(--shadow);padding:14px 16px}
+  .msx .kpi .lab{color:var(--mut);font-size:12px;font-weight:600;margin-bottom:4px}
+  .msx .kpi .val{font-size:26px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums}
+  .msx .kpi .val small{font-size:14px;color:var(--mut);font-weight:400}
+  .msx .kpi .sub{color:var(--faint);font-size:11.5px;margin-top:3px}
+  .msx .kpi.attn .val{color:var(--red)} .msx .kpi.good .val{color:var(--green)}
+
+  .msx .bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:#edebe9;margin-top:9px}
+  .msx .bar i{display:block;height:100%}
+  .msx .bar .s{background:var(--green)} .msx .bar .p{background:var(--amber-f)} .msx .bar .e{background:var(--red)}
+
+  .msx .card{background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+  .msx .chead{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line-soft)}
+  .msx .chead h2{font-size:14.5px;font-weight:600;margin:0}
+  .msx .chead .n{color:var(--mut);font-weight:400}
+  .msx .chead .sp{flex:1}
+
+  .msx table{width:100%;border-collapse:collapse}
+  .msx th{font-size:11.5px;color:var(--mut);font-weight:600;text-align:left;
+    padding:8px 16px;border-bottom:1px solid var(--line);text-transform:none;letter-spacing:0}
+  .msx td{padding:10px 16px;border-bottom:1px solid var(--line-soft);font-size:13.5px;
+    vertical-align:middle;font-variant-numeric:tabular-nums}
+  .msx tr:last-child td{border-bottom:0}
+  .msx tbody tr:hover td{background:#f8f8f8}
+  .msx tr.rowlink{cursor:pointer}
+  .msx .mono{font-family:ui-monospace,Consolas,Menlo,monospace;font-size:12.5px;color:var(--mut)}
+  .msx .empty{padding:30px 16px;text-align:center;color:var(--mut);font-size:13px}
+
+  .msx .st{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12.5px;
+    padding:2px 9px;border-radius:10px;white-space:nowrap}
+  .msx .st::before{content:"";width:7px;height:7px;border-radius:50%}
+  .msx .st.ok{background:var(--green-bg);color:var(--green)} .msx .st.ok::before{background:var(--green)}
+  .msx .st.pn{background:var(--amber-bg);color:var(--amber)} .msx .st.pn::before{background:var(--amber-f)}
+  .msx .st.er{background:var(--red-bg);color:var(--red)} .msx .st.er::before{background:var(--red)}
+  .msx .st.off{background:var(--chipbg);color:var(--mut)} .msx .st.off::before{background:var(--faint)}
+
+  .msx .lc{display:inline-block;background:var(--chipbg);border-radius:3px;padding:1px 7px;
+    font-size:11.5px;font-weight:600;color:#3b3a39;margin:1px 4px 1px 0}
+
+  .msx .toolbar{display:flex;gap:10px;align-items:center;padding:10px 16px;
+    border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+  .msx .search{display:flex;align-items:center;gap:7px;background:var(--surface);
+    border:1px solid #d1d1d1;border-radius:4px;height:32px;padding:0 10px;min-width:230px;flex:1;max-width:340px}
+  .msx .search:focus-within{border-color:var(--blue);outline:1px solid var(--blue)}
+  .msx .search svg{width:14px;height:14px;color:var(--mut);flex:none}
+  .msx .search input{border:0;outline:0;font:inherit;font-size:13.5px;width:100%;background:none;color:var(--ink)}
+  .msx .fchips{display:flex;gap:4px}
+  .msx .fchip{height:28px;padding:0 12px;border-radius:14px;border:1px solid #d1d1d1;
+    background:var(--surface);font:inherit;font-size:12.5px;font-weight:600;color:var(--mut);
+    cursor:pointer;transition:background 100ms ease}
+  .msx .fchip:hover{background:#f5f5f5}
+  .msx .fchip.on{background:#deecf9;border-color:var(--blue);color:var(--blue-t)}
+  .msx select.fsel{height:32px;border:1px solid #d1d1d1;border-radius:4px;background:var(--surface);
+    color:var(--ink);font:inherit;font-size:13px;padding:0 8px}
+  .msx .rowact2{height:28px;padding:0 11px;border-radius:4px;border:1px solid #d1d1d1;
+    background:var(--surface);font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
+  .msx .rowact2:hover{background:#f5f5f5}
+  .msx .rowact2.danger{color:var(--red)}
+  .msx .rowact2.view{color:var(--blue-t)}
+
+  .msx details.runout{border-top:1px solid var(--line-soft)}
+  .msx details.runout summary{padding:11px 16px;cursor:pointer;font-size:13px;font-weight:600;color:var(--mut)}
+  .msx pre.log{background:#faf9f8;border-top:1px solid var(--line-soft);padding:14px 16px;margin:0;
+    overflow:auto;font-size:12px;line-height:1.5;max-height:340px;color:#3b3a39}
+
+  /* flyouts */
+  .msx-bk{position:fixed;inset:0;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;
+    transition:opacity 140ms ease;z-index:40}
+  .msx-bk.open{opacity:1;pointer-events:auto}
+  .msx-fly{position:fixed;top:0;right:0;bottom:0;width:min(460px,94vw);background:#fff;color:var(--ink);
+    font-family:"Segoe UI",-apple-system,sans-serif;font-size:14px;
+    box-shadow:-16px 0 40px rgba(0,0,0,.18);z-index:50;transform:translateX(100%);
+    transition:transform 200ms cubic-bezier(.23,1,.32,1);display:flex;flex-direction:column}
+  .msx-fly.open{transform:none}
+  .msx-fly header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #f0f0f0}
+  .msx-fly header b{font-size:16px;font-weight:600}
+  .msx-fly .x{border:0;background:none;font-size:18px;color:#616161;cursor:pointer;padding:2px 8px;border-radius:4px}
+  .msx-fly .x:hover{background:#f5f5f5}
+  .msx-fly .body{padding:16px 20px;overflow-y:auto;flex:1}
+  .msx-fly footer{padding:13px 20px;border-top:1px solid #f0f0f0;display:flex;gap:8px}
+  .msx-fly label{display:block;font-size:12.5px;font-weight:600;margin:0 0 5px;color:#242424}
+  .msx-fly .hint2{color:#8a8886;font-size:12px;font-weight:400}
+  .msx-fly input[type=text],.msx-fly textarea,.msx-fly select{width:100%;border:1px solid #d1d1d1;
+    border-radius:4px;background:#fff;color:#242424;font:inherit;font-size:13.5px;padding:7px 10px}
+  .msx-fly textarea{min-height:92px;resize:vertical}
+  .msx-fly input:focus,.msx-fly textarea:focus,.msx-fly select:focus{border-color:var(--blue);outline:1px solid var(--blue)}
+  .msx-fly .opt{font-weight:400;font-size:13.5px;display:block;margin:6px 0}
+  .msx-fly .kv{display:grid;grid-template-columns:130px 1fr;gap:7px 14px;font-size:13px}
+  .msx-fly .kv dt{color:#616161} .msx-fly .kv dd{margin:0;font-variant-numeric:tabular-nums;word-break:break-word}
+  .msx-fly pre.err{background:#fbe9e9;border:1px solid #f1c4c4;color:#a4262c;border-radius:4px;
+    padding:10px 12px;font-size:11.5px;white-space:pre-wrap;word-break:break-all;margin:6px 0 0}
+
+  .msx .note{display:flex;gap:9px;border:1px solid var(--line);border-left:4px solid var(--amber-f);
+    background:var(--surface);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+  .msx .note.err{border-left-color:var(--red)}
+
+  @media (prefers-reduced-motion:reduce){
+    .msx-fly{transition:opacity 140ms ease;transform:none;opacity:0;pointer-events:none}
+    .msx-fly.open{opacity:1;pointer-events:auto}
+    .msx .mbtn:active{transform:none}
+  }
+  @media (max-width:760px){ .msx .in{padding:16px 14px 32px} .msx th.hd,.msx td.hd{display:none} }
+</style>
+
+<div class="msx"><div class="in">
+
+  {% if not status.ok %}
+    <div class="note err"><div><b>Status unavailable.</b> {{ status.error }}</div></div>
+  {% else %}
+
+  {% set synced = status.members | selectattr("status","equalto","synced") | list %}
+  {% set pending = status.members | selectattr("status","equalto","pending") | list %}
+  {% set errored = status.members | selectattr("status","equalto","error") | list %}
+  {% set total = status.members | length %}
+  {% set healthy_lists = status.lists | selectattr("enabled") | rejectattr("error") | list | length %}
+  {% set enabled_lists = status.lists | selectattr("enabled") | list | length %}
+
+  <div class="phead">
+    <div>
+      <h1>Directory Sync</h1>
+      <p class="desc">Company address lists delivered into Exchange mailboxes. Monitor delivery per person and per list; nightly refresh at 04:50 UTC.</p>
+    </div>
+    <div class="sp"></div>
+    <div class="actions">
+      <button class="mbtn" type="button" data-fly="fl-list">New list</button>
+      <button class="mbtn" type="button" data-fly="fl-add">Add recipients</button>
+      <form method="post" action="{{ url_for('gal_sync') }}" style="margin:0">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button class="mbtn pri" type="submit" {% if running %}disabled{% endif %}>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.5v3h-3"/></svg>
+          {% if running %}Syncing&hellip;{% else %}Sync now{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {% if errored %}
+  <div class="note"><div><b>{{ errored|length }} mailbox{{ "es" if errored|length != 1 }} need attention.</b>
+    Most are Exchange's access-policy cache after membership changes &mdash; it clears on its own and retries are automatic. Click a person for full detail.</div></div>
+  {% endif %}
+  {% if not add_ready %}
+  <div class="note"><div><b>Fence adds are not configured.</b> Recipients added here are recorded and synced, but also need
+    <span class="mono">Add-DistributionGroupMember</span> until the one-time certificate setup is finished.</div></div>
+  {% endif %}
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="lab">Delivery</div>
+      <div class="val">{{ synced|length }}<small> / {{ total }} synced</small></div>
+      <div class="bar">
+        {% if total %}
+        <i class="s" style="width:{{ (synced|length / total * 100) | round(1) }}%"></i>
+        <i class="p" style="width:{{ (pending|length / total * 100) | round(1) }}%"></i>
+        <i class="e" style="width:{{ (errored|length / total * 100) | round(1) }}%"></i>
+        {% endif %}
+      </div>
+    </div>
+    <div class="kpi {{ 'attn' if errored else 'good' }}">
+      <div class="lab">Needs attention</div>
+      <div class="val">{{ errored|length }}</div>
+      <div class="sub">{{ pending|length }} pending first sync</div>
+    </div>
+    <div class="kpi">
+      <div class="lab">Address lists</div>
+      <div class="val">{{ healthy_lists }}<small> / {{ enabled_lists }} healthy</small></div>
+      <div class="sub">{{ status.lists|length - enabled_lists }} disabled</div>
+    </div>
+    <div class="kpi">
+      <div class="lab">GAL roster</div>
+      <div class="val">{{ status.lastRun.rosterCount if status.lastRun else "—" }}</div>
+      <div class="sub">publishable people</div>
+    </div>
+    <div class="kpi">
+      <div class="lab">Last run</div>
+      <div class="val" style="font-size:16px;padding-top:4px">
+        {% if status.lastRun %}{{ status.lastRun.finishedAt.replace("T"," ")[5:16] }}Z{% else %}never{% endif %}
+      </div>
+      <div class="sub">{% if status.lastRun %}{{ status.lastRun.mode }} &middot; {{ status.lastRun.opsOk }} ops
+        {% if status.lastRun.opsFailed %}&middot; {{ status.lastRun.opsFailed }} failed{% endif %}{% endif %}
+        &middot; next 04:50Z</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="chead"><h2>Address lists</h2><span class="n">{{ status.lists|length }}</span><div class="sp"></div></div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr>
+        <th>List</th><th>Who appears</th><th class="hd">Category</th>
+        <th>Recipients</th><th style="min-width:170px">Delivery health</th><th>State</th><th style="text-align:right">Actions</th>
+      </tr></thead>
+      <tbody>
+      {% for l in status.lists %}
+        {% set lt = l.health.synced + l.health.pending + l.health.error %}
+        <tr>
+          <td><b>{{ l.name }}</b><div class="mono">{{ l.id }}</div></td>
+          <td>{% if l.sourceType == "all" %}Everyone{% if l.rosterCount is not none %} ({{ l.rosterCount }}){% endif %}
+              {% elif l.sourceType == "upns" %}{{ l.sourceDetail }}
+              {% else %}Group{% if l.rosterCount is not none %} ({{ l.rosterCount }}){% endif %}{% endif %}</td>
+          <td class="hd">{{ l.category }}</td>
+          <td>{{ l.recipients }}</td>
+          <td>
+            {% if lt %}
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="bar" style="flex:1;margin:0">
+                <i class="s" style="width:{{ (l.health.synced / lt * 100)|round(1) }}%"></i>
+                <i class="p" style="width:{{ (l.health.pending / lt * 100)|round(1) }}%"></i>
+                <i class="e" style="width:{{ (l.health.error / lt * 100)|round(1) }}%"></i>
+              </div>
+              <span style="font-size:12px;color:var(--mut);white-space:nowrap">{{ l.health.synced }}/{{ lt }}</span>
+            </div>
+            {% else %}<span class="mono">no recipients</span>{% endif %}
+          </td>
+          <td>
+            {% if not l.enabled %}<span class="st off">Disabled</span>
+            {% elif l.error %}<span class="st er" title="{{ l.error }}">Error</span>
+            {% elif l.health.error %}<span class="st pn">Degraded</span>
+            {% else %}<span class="st ok">Healthy</span>{% endif %}
+          </td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="rowact2 view" type="button" data-viewlist="{{ l.id }}">View people</button>
+            <form method="post" action="{{ url_for('gal_list_toggle', lid=l.id) }}" style="display:inline">
+              <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+              <button class="rowact2" type="submit">{{ "Disable" if l.enabled else "Enable" }}</button>
+            </form>
+            <form method="post" action="{{ url_for('gal_list_delete', lid=l.id) }}" style="display:inline"
+                  data-confirm="Delete list {{ l.id }}? Its contacts are removed from all recipients on the next sync.">
+              <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+              <button class="rowact2 danger" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="empty">No lists yet &mdash; create one to start publishing.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <div class="chead"><h2>People</h2><span class="n" id="pcount">{{ total }}</span><div class="sp"></div></div>
+    <div class="toolbar">
+      <div class="search">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg>
+        <input id="q" type="text" placeholder="Search name or account">
+      </div>
+      <div class="fchips">
+        <button class="fchip on" data-f="all">All</button>
+        <button class="fchip" data-f="synced">Synced</button>
+        <button class="fchip" data-f="pending">Pending</button>
+        <button class="fchip" data-f="error">Attention</button>
+      </div>
+      <select class="fsel" id="lsel">
+        <option value="all">All lists</option>
+        {% for l in status.lists %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}
+        <option value="__none__">No list (cleanup only)</option>
+      </select>
+    </div>
+    <div style="overflow-x:auto"><table id="ptable">
+      <thead><tr>
+        <th>Name</th><th>Account</th><th>Lists</th><th>Status</th>
+        <th class="hd">Contacts</th><th class="hd">Last run &Delta;</th><th class="hd">Detail</th>
+      </tr></thead>
+      <tbody>
+      {% for m in (status.members | selectattr("status","equalto","error") | list)
+               + (status.members | selectattr("status","equalto","pending") | list)
+               + (status.members | selectattr("status","equalto","synced") | list) %}
+        <tr class="rowlink" data-upn="{{ m.upn|lower }}" data-name="{{ m.name|lower }}"
+            data-status="{{ m.status }}" data-lists="{{ m.lists|join(',') }}">
+          <td><b>{{ m.name }}</b></td>
+          <td class="mono">{{ m.upn }}</td>
+          <td>{% for lid in m.lists %}<span class="lc">{{ lid }}</span>{% else %}<span class="mono">cleanup</span>{% endfor %}</td>
+          <td>{% if m.status == "synced" %}<span class="st ok">Synced</span>
+              {% elif m.status == "pending" %}<span class="st pn">Pending</span>
+              {% else %}<span class="st er">Attention</span>{% endif %}</td>
+          <td class="hd">{{ m.owned if m.owned is not none else "—" }}</td>
+          <td class="hd">{% if m.inLastRun and (m.creates or m.updates or m.deletes) %}+{{ m.creates }} ~{{ m.updates }} &minus;{{ m.deletes }}{% else %}&mdash;{% endif %}</td>
+          <td class="hd" style="color:var(--mut);font-size:12.5px;max-width:260px">{{ m.detail }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="empty">Nobody receives anything yet &mdash; add recipients above.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="card">
+    <div class="chead"><h2>Sync history</h2><span class="n">{{ status.history|length }} run{{ "s" if status.history|length != 1 }}</span></div>
+    {% if status.history %}
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>Finished</th><th>Mode</th><th>Mailboxes</th><th>Created</th><th>Updated</th><th>Deleted</th><th>Failed ops</th><th>Errors</th></tr></thead>
+      <tbody>
+      {% for h in status.history %}
+        <tr>
+          <td>{{ h.finishedAt.replace("T"," ")[:16] }}Z</td>
+          <td>{{ h.mode }}</td>
+          <td>{{ h.mailboxes }}</td>
+          <td>{{ h.creates }}</td><td>{{ h.updates }}</td><td>{{ h.deletes }}</td>
+          <td>{% if h.opsFailed %}<span class="st er">{{ h.opsFailed }}</span>{% else %}0{% endif %}</td>
+          <td>{% if h.errors %}<span class="st pn">{{ h.errors }}</span>{% else %}0{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}<div class="empty">Runs appear here from the next sync onward.</div>{% endif %}
+    {% if log_tail %}
+    <details class="runout"><summary>Last manual run output</summary><pre class="log">{{ log_tail }}</pre></details>
+    {% endif %}
+  </div>
+
+  {% endif %}
+</div></div>
+
+{% if status.ok %}
+<script type="application/json" id="galdata">{{ status.members | tojson }}</script>
+
+<div class="msx-bk" id="bk" data-flyclose></div>
+
+<div class="msx-fly" id="fl-person" role="dialog" aria-label="Person detail">
+  <header><b id="pd-name">Person</b><button class="x" type="button" data-flyclose>&times;</button></header>
+  <div class="body">
+    <dl class="kv">
+      <dt>Account</dt><dd class="mono" id="pd-upn"></dd>
+      <dt>Mail</dt><dd class="mono" id="pd-mail"></dd>
+      <dt>Status</dt><dd id="pd-status"></dd>
+      <dt>In fence group</dt><dd id="pd-fence"></dd>
+      <dt>Contacts held</dt><dd id="pd-owned"></dd>
+      <dt>Last run</dt><dd id="pd-delta"></dd>
+      <dt>Lists</dt><dd id="pd-lists"></dd>
+    </dl>
+    <div id="pd-errwrap" style="display:none">
+      <p style="margin:14px 0 4px;font-weight:600;font-size:12.5px">Raw error from Graph</p>
+      <pre class="err" id="pd-err"></pre>
+    </div>
+    <p class="hint2" style="margin-top:14px" id="pd-note"></p>
+  </div>
+  <footer>
+    <form method="post" action="{{ url_for('gal_recipients_remove') }}" id="pd-rm" style="display:contents"
+          data-confirm="Remove {upn} from list {list}?">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="upn" id="pd-rm-upn">
+      <select name="list" id="pd-rm-list" style="width:auto;flex:1"></select>
+      <button class="mbtn" type="submit" style="border-color:#d13438;color:#d13438">Remove from list</button>
+    </form>
+  </footer>
+</div>
+
+<div class="msx-fly" id="fl-add" role="dialog" aria-label="Add recipients">
+  <form method="post" action="{{ url_for('gal_recipients_add') }}" enctype="multipart/form-data" style="display:contents">
+    <header><b>Add recipients</b><button class="x" type="button" data-flyclose>&times;</button></header>
+    <div class="body">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label>To list</label>
+      <select name="list">
+        {% for l in status.lists if l.enabled %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}
+      </select>
+      <p style="margin:14px 0 5px"><label>Email addresses</label>
+      <span class="hint2">Any format &mdash; one per line, commas, semicolons, pasted &ldquo;Name &lt;email&gt;&rdquo; blocks. Up to 300 per batch.</span></p>
+      <textarea name="emails" placeholder="jane.doe@auction.com&#10;Art Steinhaus <asteinhaus@auction.com>; spark@auction.com"></textarea>
+      <p style="margin:12px 0 5px"><label>Or a CSV / text file</label></p>
+      <input type="file" name="csv" accept=".csv,.txt">
+      <p class="hint2" style="margin-top:14px">{% if add_ready %}Also added to the Exchange fence automatically; a sync starts on its own. New mailboxes can show <i>Attention</i> for up to an hour while Exchange catches up.{% else %}Fence adds not configured &mdash; recorded and synced, but the fence needs PowerShell until setup is done.{% endif %}</p>
+    </div>
+    <footer>
+      <button class="mbtn pri" type="submit">Add &amp; sync</button>
+      <button class="mbtn" type="button" data-flyclose>Cancel</button>
+    </footer>
+  </form>
+</div>
+
+<div class="msx-fly" id="fl-list" role="dialog" aria-label="New list">
+  <form method="post" action="{{ url_for('gal_list_create') }}" enctype="multipart/form-data" style="display:contents">
+    <header><b>New address list</b><button class="x" type="button" data-flyclose>&times;</button></header>
+    <div class="body">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label>Name</label>
+      <input type="text" name="name" placeholder="Auction Ops Directory">
+      <p style="margin:12px 0 5px"><label>Contacts category</label>
+      <span class="hint2">Shown on the cards in Contacts and Outlook. Defaults to the name.</span></p>
+      <input type="text" name="category" placeholder="Auction Ops">
+      <p style="margin:14px 0 4px"><label>Who appears in it</label></p>
+      <label class="opt"><input type="radio" name="source_type" value="all" checked> Everyone in the GAL</label>
+      <label class="opt"><input type="radio" name="source_type" value="group" id="src-group-radio"> Members of a group</label>
+      <div style="position:relative">
+        <input type="text" name="source_group" id="inp-group" autocomplete="off"
+               placeholder="Type to search Exchange groups&hellip;">
+        <input type="hidden" name="source_group_id" id="inp-group-id">
+        <div id="ta-group" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:60;
+             background:#fff;border:1px solid #d1d1d1;border-radius:4px;max-height:240px;overflow-y:auto;
+             box-shadow:0 6px 20px rgba(0,0,0,.15)"></div>
+        <div class="hint2" id="ta-note" style="margin-top:4px"></div>
+      </div>
+      <label class="opt" style="margin-top:8px"><input type="radio" name="source_type" value="upns"> Hand-picked people</label>
+      <textarea name="source_upns" placeholder="paste addresses - any format"></textarea>
+      <p style="margin:14px 0 5px"><label>Initial recipients</label>
+      <span class="hint2">Optional &mdash; who receives this list.</span></p>
+      <textarea name="emails" placeholder="paste addresses - any format"></textarea>
+    </div>
+    <footer>
+      <button class="mbtn pri" type="submit">Create list</button>
+      <button class="mbtn" type="button" data-flyclose>Cancel</button>
+    </footer>
+  </form>
+</div>
+
+<script src="{{ url_for('static', filename='gal.js') }}" defer></script>
+{% endif %}
+
+{% endblock %}

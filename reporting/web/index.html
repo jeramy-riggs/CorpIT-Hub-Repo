@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reporting</title>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<style>
+
+:root{
+  /* ===== auction.com brand palette =======================================
+     Sampled from www.auction.com (Sep 2026): brand blue #036EB5, logo cyan
+     #57C1E9, logo greens #79BC43 / #4E9D2D, success #297708, section navy
+     #27455C, and a blue-grey neutral ramp (#263238 → #DAE0E3 → #F0F2F4)
+     that sits at OKLCH hue ~235-248 rather than at true grey. That cool
+     neutral is the brand's quietest and most consistent signal, so both
+     themes are built on it.
+
+     --accent and --pass are LITERAL auction hexes in both modes — but not the
+     SAME literal, because no single one clears 4.5:1 on white AND on navy.
+     Light takes brand blue #036EB5 (5.38:1) and success green #297708
+     (5.62:1); dark takes the logo's own cyan #57C1E9 (7.61:1) and leaf green
+     #79BC43 (6.77:1). Both halves of the logo mark, each used where it reads.
+
+     crit / high / med / low have no brand equivalent, so they are derived:
+     conventional hues pulled to auction's chroma (~0.15 OKLCH, not neon) and
+     solved for >=4.5:1 against the panel of their own mode.
+
+     The warm arc (hue 20-100) is RESERVED for severity. Every categorical
+     data colour lives on the cool arc, which is why Copilot is no longer
+     orange — it used to sit 6 degrees from --high on the same chart.
+     ==================================================================== */
+  --bg:#071520; --bg-2:#0E1D2A; --panel:#142533; --panel-2:#20313F;
+  --line:#314352; --line-2:#495E6E;
+  --ink:#EBF1F6; --ink-2:#B4BFC9; --ink-3:#86939D;
+  --accent:#57C1E9; --accent-dim:#256C86;
+  --crit:#F76F64; --high:#E58B2B; --med:#CBAC24; --low:#779DC7; --pass:#79BC43;
+  --grid:#2C3D4A;
+  /* Data series. One tonal band per mode (the lightness and chroma of the
+     logo cyan on dark, of the brand blue on light) with hue stepped across
+     the cool arc, so a chart reads as one family and no two adjacent slices
+     collide. Token stages are sequential on the accent hue, not categorical:
+     they are four parts of one quantity. */
+  --v-claude:#B9A9FD; --v-copilot:#46D3D5;
+  --pc-chat:#8DC3FF; --pc-cowork:#3ECBC0; --pc-code:#BBA1F3;
+  --pc-design:#F29DCF; --pc-research:#A5CD7A; --pc-other:#88949E;
+  --tk-1:#83D8FA; --tk-2:#68BCDE; --tk-3:#4CA1C2; --tk-4:#2E87A7;
+  --live:#FC9B6F; --logo:#036EB5;
+  --shadow:0 1px 0 rgba(255,255,255,.02), 0 10px 30px -12px rgba(0,0,0,.7);
+  --radius:14px;
+  --ease-out:cubic-bezier(.23,1,.32,1); --ease-drawer:cubic-bezier(.32,.72,0,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(87,193,233,.07), transparent 60%),
+    radial-gradient(900px 500px at -5% 110%, rgba(121,188,67,.05), transparent 55%),
+    var(--bg);
+  color:var(--ink);
+  /* Nunito is auction.com's typeface, in auction.com's own fallback order.
+     Self-hosted from /fonts (the page previously asked for IBM Plex Sans
+     without ever loading it, so it had been rendering in system-ui). */
+  font-family:"Nunito","Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+/* ===== LIVE-DATA STARBURST — BEGIN =====================================
+   Marks any figure sourced live from the Claude Enterprise Analytics API.
+   TO REMOVE ENTIRELY: set SHOW_LIVE_STAR=false in the JS block of the same
+   name (badges vanish everywhere), then optionally delete these rules. ==== */
+.live-star{display:inline-block;width:11px;height:11px;vertical-align:-1px;margin-right:5px;color:var(--live);flex:none}
+.live-star svg{display:block;width:100%;height:100%}
+.live-star.lg{width:14px;height:14px;vertical-align:-2px}
+@keyframes liveStarPulse{0%,100%{opacity:.75;transform:rotate(0deg)}50%{opacity:1;transform:rotate(22deg)}}
+.live-star svg{animation:liveStarPulse 3.2s ease-in-out infinite;transform-origin:50% 50%}
+@media (prefers-reduced-motion:reduce){.live-star svg{animation:none}}
+/* ===== LIVE-DATA STARBURST — END ======================================= */
+/* Auction.com has no monospace in its system. IBM Plex Mono stays as the
+   figure face for aligned money columns — now actually loaded. */
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+a{color:inherit;text-decoration:none}
+.topbar{
+  display:flex;align-items:center;gap:14px;padding:14px 26px;border-bottom:1px solid var(--line);
+  position:fixed;top:0;left:0;right:0;background:color-mix(in srgb,var(--bg) 96%, transparent);backdrop-filter:blur(8px);z-index:5;
+}
+.brand{display:flex;gap:10px;align-items:center}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--logo);display:grid;place-items:center;font-weight:700;color:#fff;font-size:12px;letter-spacing:.5px}
+.brand b{font-size:13px;letter-spacing:.3px;line-height:1.1}
+.theme-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 13px;border-radius:20px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink-2);font-size:12px;cursor:pointer;font-weight:600;transition:border-color 150ms ease,background-color 150ms ease,color 150ms ease}
+.theme-btn:hover{border-color:var(--line-2)}
+.hero-banner{background:url('irvine-bg.jpg') center/cover no-repeat;position:fixed;top:49px;left:0;right:0;height:110px;display:flex;align-items:center;border-bottom:1px solid var(--line);z-index:4}
+.hero-banner::before{content:'';position:absolute;inset:0;background:rgba(10,14,20,.45)}
+.hero-accent{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.hero-content{position:relative;z-index:1;padding:0 26px}
+.hero-content h2{font-size:20px;font-weight:800;letter-spacing:-.01em;color:#fff;margin:0 0 5px}
+.hero-content p{font-size:12.5px;color:rgba(255,255,255,.72);margin:0}
+/* Light mode is auction.com's own surface set, verbatim: #FFFFFF panels on a
+   #F0F2F4 page, #DAE0E3 rules, #263238 ink. The one departure is --ink-3:
+   auction's muted grey #97A0A6 is 2.6:1 on white, which fails AA for the
+   11px labels this page uses it for, so it is darkened along the same hue to
+   #6D767C (4.63:1). Same colour, readable size. */
+body.light{
+  --bg:#F0F2F4; --bg-2:#E7EBEE; --panel:#FFFFFF; --panel-2:#F8F9FA;
+  --line:#DAE0E3; --line-2:#BFC7CC;
+  --ink:#263238; --ink-2:#5C676E; --ink-3:#6D767C;
+  --accent:#036EB5; --accent-dim:#76AADA;
+  --crit:#C8443C; --high:#A96000; --med:#877000; --low:#486B93; --pass:#297708;
+  --grid:#E4E9EC;
+  --v-claude:#6F59B5; --v-copilot:#007778;
+  --pc-chat:#1667B2; --pc-cowork:#00827A; --pc-code:#7C5BB7;
+  --pc-design:#9C417B; --pc-research:#4B7400; --pc-other:#707A83;
+  --tk-1:#498DC9; --tk-2:#3277B2; --tk-3:#18629B; --tk-4:#004D82;
+  --live:#B95115;
+  /* The dark shadow is a 70%-black bloom; on white it reads as dirt. Auction's
+     own cards sit on a barely-there lift in the brand's ink colour. */
+  --shadow:0 1px 0 rgba(38,50,56,.02), 0 6px 18px -10px rgba(38,50,56,.22);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+     font:14px/1.5 "IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 64px}
+h1{font-size:23px;margin:0 0 4px}
+h2{font-size:15px;margin:0 0 8px}
+.sub{color:var(--ink-3);margin:0 0 4px;font-size:13px}
+.bad{color:var(--crit)}
+.dim{color:var(--ink-3);font-size:12.5px}
+.pad{padding:16px 0;text-align:center}
+.warnbar{display:inline-block;padding:3px 11px;border-radius:999px;font-size:12.5px;
+  background:color-mix(in srgb,var(--high) 16%,var(--panel-2));border:1px solid var(--high);color:var(--high)}
+.warnbar a{color:inherit;margin-left:8px;text-decoration:underline}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+      padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
+#tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:18px 0}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+      padding:15px 17px;box-shadow:var(--shadow)}
+.tile .k{font-size:25px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.tile .l{color:var(--ink-3);font-size:12px;margin-top:3px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--ink-3);font-weight:600;font-size:11.5px;text-transform:uppercase;
+   letter-spacing:.04em;padding:7px 9px;border-bottom:1px solid var(--line)}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+td{padding:10px 9px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+tr.drill{cursor:pointer}
+tr.drill:hover td{background:var(--panel-2)}
+.chev{color:var(--ink-3);margin-left:7px}
+#crumb{font-size:12.5px;margin-bottom:10px;color:var(--ink-3)}
+#crumb a{color:var(--accent);text-decoration:none}
+#crumb .sep{opacity:.5;margin:0 2px}
+.btn{display:inline-block;background:var(--panel-2);border:1px solid var(--line-2);border-radius:8px;
+     padding:8px 14px;color:var(--ink);font-size:13px;text-decoration:none;margin-right:8px}
+.btn:hover{border-color:var(--accent-dim);color:var(--accent)}
+#links{margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reporting</h1>
+  <p class="sub" id="scopeLine">Working out what you can see&hellip;</p>
+
+  <div id="body-main">
+    <div id="tiles"></div>
+    <section class="card">
+      <div id="crumb"></div>
+      <h2>AI spend</h2>
+      <p class="dim" id="levelNote"></p>
+      <table>
+        <thead><tr><th id="tblHead">Group</th><th class="num">People</th>
+                   <th class="num">This month</th><th class="num">6 months</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="4" class="dim pad">Loading&hellip;</td></tr></tbody>
+      </table>
+    </section>
+    <div id="links"></div>
+  </div>
+</div>
+<script src="/index.js"></script>
+<script src="/it-session-watch.js?v=20260904" defer></script>
+</body>
+</html>

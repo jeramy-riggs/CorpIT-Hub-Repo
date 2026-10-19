@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<!-- bug-reports-admin.html v2.0.0 - Bug Report Admin - CorpIT Hub
+     Ported from ITAM 2026-09-07. ITAM defects corrected here, not there:
+       * page_url is reporter-controlled and went straight into an href through
+         esc(), which escapes HTML but does not restrict a URL scheme. A report
+         filed with page_url="javascript:..." put a live script URL in front of
+         the only role that can read this page. The scheme is now checked
+         against http/https and anything else renders as inert text.
+       * target="_blank" with no rel="noopener".
+       * The subtitle and the confirm dialog both promised closing a ticket
+         "notifies the reporter by email". SMTP is not configured on this host,
+         so it never did. Both now read the real capability, and the save result
+         reports what actually happened rather than a bare "Saved."
+       * The row count was the server's 200-row cap presented as a total. The
+         route now returns matched vs returned and the page says which.
+       * loadApps swallowed its error, leaving an App filter that silently
+         filtered nothing.
+       * e.message went into innerHTML on both error paths.
+       * Rows were clickable <tr> with no keyboard path and no selected state
+         for assistive tech.
+       * The detail pane read d.screenshot_path, which the admin detail route no
+         longer returns (it leaked the on-disk path); it reads has_screenshot.
+       * it-hub-link.js / it-version-chip.js do not exist on corpit.
+     Corpit conventions added: theme toggle, fonts.css, light palette,
+     it-observe beacon, it-depth, it-topbar, it-version, data-rbac-* on the
+     write controls. -->
+<html lang="en" data-theme="dark">
+<head>
+<script src="/it-theme.js"></script>
+<script src="/it-theme-toggle.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bug Report Admin · CorpIT Hub</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<style>
+:root{
+  --accent:#63BBF3;--accent-line:rgba(99,187,243,.28);--accent-soft:rgba(99,187,243,.14);
+  --bg:#0C1627;--layer1:#121F33;--layer2:#182A44;--layer3:#1E304C;
+  --stroke:#223753;--stroke2:#2C4568;
+  --text:#EFF4FA;--text2:#93A3BC;--text3:#5D6F88;
+  --ok:#55B685;--warn:#E9A23B;--bad:#DD524C;--info:#63BBF3;
+  --pill-new:rgba(99,187,243,.16);--pill-new-t:#9FD4F8;
+  --pill-prog:rgba(233,162,59,.16);--pill-prog-t:#F0BE73;
+  --pill-res:rgba(85,182,133,.16);--pill-res-t:#84CFAA;
+  --pill-closed:rgba(147,163,188,.18);--pill-closed-t:#B0BECF;
+  --pill-wont:rgba(221,82,76,.16);--pill-wont-t:#EE8C88;
+  --pill-dup:rgba(168,120,234,.16);--pill-dup-t:#C4A2F2;
+  --font:"IBM Plex Sans",-apple-system,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --on-accent:#0C1627;--radius:10px;
+}
+[data-theme="light"]{
+  --accent-line:rgba(14,124,134,.32);--accent-soft:rgba(14,124,134,.10);
+  --bg:#F4F6F9;--layer1:#FFFFFF;--layer2:#EDF1F6;--layer3:#E2E8F0;
+  --stroke:#D3DBE5;--stroke2:#BAC6D4;
+  --text:#16212F;--text2:#4A5A70;--text3:#6B7C93;
+  --ok:#0F7A54;--warn:#9A6608;--bad:#B3312C;--info:#0E6A8E;
+  --pill-new:rgba(14,106,142,.12);--pill-new-t:#0B5771;
+  --pill-prog:rgba(154,102,8,.13);--pill-prog-t:#7A5206;
+  --pill-res:rgba(15,122,84,.12);--pill-res-t:#0C6244;
+  --pill-closed:rgba(74,90,112,.13);--pill-closed-t:#41506A;
+  --pill-wont:rgba(179,49,44,.11);--pill-wont-t:#8E2723;
+  --pill-dup:rgba(112,62,180,.12);--pill-dup-t:#5B3196;
+  --on-accent:#FFFFFF;
+}
+*{box-sizing:border-box;}
+/* [hidden] is a UA rule, so any author `display` on the same element beats it.
+   This page hides the form with form.hidden while also setting form{display:grid},
+   which left the submitted form on screen under the success card and let the
+   same report be filed twice. */
+[hidden]{display:none!important;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;line-height:1.5;}
+.wrap{max-width:1400px;margin:0 auto;padding:28px 24px 80px;}
+h1{margin:0 0 4px;font-size:24px;font-weight:650;letter-spacing:-.3px;display:flex;align-items:center;gap:12px;}
+h1::before{content:'';width:10px;height:10px;border-radius:50%;background:var(--accent);flex:0 0 auto;}
+.sub{color:var(--text2);font-size:13px;margin:0 0 18px;max-width:78ch;}
+
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+.filters select{background:var(--layer1);color:var(--text);border:1px solid var(--stroke);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;}
+button{background:var(--accent);color:var(--on-accent);border:0;padding:8px 14px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;letter-spacing:.3px;font-family:inherit;}
+button.secondary{background:var(--layer2);color:var(--text2);border:1px solid var(--stroke2);font-weight:600;}
+button:hover{filter:brightness(1.08);}
+button:disabled{opacity:.45;cursor:not-allowed;filter:none;}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+/* A stated failure beats an empty control. */
+.banner{border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;
+  border:1px solid rgba(233,162,59,.32);background:rgba(233,162,59,.12);color:var(--warn);}
+.banner.bad{border-color:rgba(221,82,76,.32);background:rgba(221,82,76,.12);color:var(--bad);}
+.count{font-size:12px;color:var(--text3);margin:0 0 10px;}
+.count.capped{color:var(--warn);}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start;}
+.table-wrap{overflow-x:auto;border:1px solid var(--stroke);border-radius:var(--radius);background:var(--layer1);}
+table{width:100%;border-collapse:collapse;min-width:720px;}
+th,td{padding:9px 11px;text-align:left;font-size:12.5px;}
+th{background:var(--layer2);color:var(--text3);font-size:10.5px;letter-spacing:1px;text-transform:uppercase;font-weight:650;}
+tbody tr{border-top:1px solid var(--stroke);cursor:pointer;}
+tbody tr:hover{background:var(--layer2);}
+tbody tr[aria-selected="true"]{background:var(--accent-soft);}
+tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+td.tkt{font-family:var(--mono);font-size:11.5px;color:var(--accent);white-space:nowrap;}
+td.when{white-space:nowrap;color:var(--text2);}
+
+.status-pill{font-size:10px;padding:2px 8px;border-radius:999px;letter-spacing:.6px;text-transform:uppercase;font-weight:700;white-space:nowrap;}
+.s-new{background:var(--pill-new);color:var(--pill-new-t);}
+.s-in_progress{background:var(--pill-prog);color:var(--pill-prog-t);}
+.s-resolved{background:var(--pill-res);color:var(--pill-res-t);}
+.s-closed{background:var(--pill-closed);color:var(--pill-closed-t);}
+.s-wont_fix{background:var(--pill-wont);color:var(--pill-wont-t);}
+.s-duplicate{background:var(--pill-dup);color:var(--pill-dup-t);}
+.sev-critical{color:var(--bad);font-weight:700;}
+.sev-high{color:var(--warn);font-weight:700;}
+.sev-medium{color:var(--info);}
+.sev-low{color:var(--text2);}
+
+.detail{background:var(--layer1);border:1px solid var(--stroke);border-radius:var(--radius);padding:18px;position:sticky;top:16px;}
+.detail h3{margin:0 0 4px;font-size:15px;font-weight:650;}
+.detail .tkt{font-family:var(--mono);color:var(--accent);font-size:12px;}
+.kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 10px;margin:12px 0;font-size:12.5px;}
+.kv dt{color:var(--text3);}
+.kv dd{margin:0;color:var(--text2);word-break:break-word;overflow-wrap:anywhere;}
+.kv dd a{color:var(--accent);}
+.detail img{max-width:100%;border-radius:8px;border:1px solid var(--stroke);margin:8px 0;display:block;}
+.field{margin:10px 0;}
+.field label{display:block;font-size:11px;color:var(--text3);letter-spacing:.6px;text-transform:uppercase;margin-bottom:4px;}
+.field textarea,.field select{width:100%;background:var(--layer2);color:var(--text);border:1px solid var(--stroke);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;}
+.field textarea{min-height:70px;resize:vertical;}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.empty{color:var(--text3);font-size:13px;padding:20px;text-align:center;}
+.boxed{background:var(--layer2);border:1px solid var(--stroke);border-radius:8px;padding:10px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;}
+.note{font-size:11.5px;color:var(--text3);margin-top:4px;}
+.msg{margin-top:10px;font-size:12px;color:var(--text2);}
+.msg.err{color:var(--bad);}
+.msg.ok{color:var(--ok);}
+
+@media (max-width:1000px){.grid{grid-template-columns:minmax(0,1fr);}.detail{position:static;}}
+@media (max-width:560px){.wrap{padding:52px 14px 64px;}}
+</style>
+<link rel="stylesheet" href="/it-depth.css">
+<script src="/rbac-client.js"></script>
+<script src="/it-observe.js" data-app-key="report-bug"></script>
+</head>
+<body data-dp="bug-reports-admin">
+  <div class="wrap">
+    <h1>Bug Report Admin</h1>
+    <p class="sub" id="brSub">Review, triage and resolve user-submitted bugs.</p>
+
+    <div id="brBanner" class="banner" hidden></div>
+
+    <div class="filters">
+      <label class="sr-only" for="fStatus"></label>
+      <select id="fStatus" aria-label="Filter by status">
+        <option value="">All statuses</option>
+        <option value="new">New</option>
+        <option value="in_progress">In Progress</option>
+        <option value="resolved">Resolved</option>
+        <option value="closed">Closed</option>
+        <option value="wont_fix">Won't Fix</option>
+        <option value="duplicate">Duplicate</option>
+      </select>
+      <select id="fApp" aria-label="Filter by app"><option value="">All apps</option></select>
+      <button class="secondary" id="refresh">Refresh</button>
+    </div>
+
+    <p class="count" id="brCount"></p>
+
+    <div class="grid">
+      <div class="table-wrap">
+        <table id="list">
+          <caption class="sr-only">Submitted bug reports</caption>
+          <thead>
+            <tr>
+              <th scope="col">Ticket</th><th scope="col">App</th><th scope="col">Title</th>
+              <th scope="col">Reporter</th><th scope="col">Sev</th><th scope="col">Status</th><th scope="col">Created</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <aside class="detail" id="detail" aria-live="polite">
+        <div class="empty">Select a report to view details</div>
+      </aside>
+    </div>
+  </div>
+
+<style>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}</style>
+<script>
+(function () {
+  'use strict';
+  var tbody   = document.querySelector('#list tbody');
+  var detail  = document.getElementById('detail');
+  var fStatus = document.getElementById('fStatus');
+  var fApp    = document.getElementById('fApp');
+  var banner  = document.getElementById('brBanner');
+  var countEl = document.getElementById('brCount');
+  var subEl   = document.getElementById('brSub');
+
+  var currentReports = [];
+  var selectedId = null;
+  var caps = null;
+  var CLOSING = ['resolved', 'closed', 'wont_fix', 'duplicate'];
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+  // esc() makes a string safe as TEXT. It does not make it safe as a URL: it
+  // leaves "javascript:alert(1)" and "data:text/html,..." intact, and page_url
+  // is typed by the reporter. Only http/https reach an href; anything else is
+  // shown as text so the admin can still see what was submitted.
+  function safeUrl(u) {
+    if (!u) return null;
+    try {
+      var p = new URL(String(u), location.origin);
+      return (p.protocol === 'http:' || p.protocol === 'https:') ? p.href : null;
+    } catch (e) { return null; }
+  }
+  function fmtDate(d) {
+    if (!d) return '—';
+    var t = new Date(d);
+    return isNaN(t) ? '—' : t.toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+  }
+  function showBanner(text, bad) {
+    banner.textContent = text;
+    banner.className = 'banner' + (bad ? ' bad' : '');
+    banner.hidden = false;
+  }
+  function jsonFetch(url, opts) {
+    return fetch(url, Object.assign({ credentials: 'same-origin' }, opts || {})).then(function (r) {
+      return r.json().catch(function () { throw new Error('HTTP ' + r.status); })
+        .then(function (d) { if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status)); return d; });
+    });
+  }
+
+  // What closing a ticket actually does on THIS host, asked once.
+  jsonFetch('/api/bugs/capabilities')
+    .then(function (c) {
+      caps = c;
+      subEl.textContent = 'Review, triage and resolve user-submitted bugs. Closing a report deletes its screenshot from the server' +
+        (c.notify_reporter === 'email' ? ' and emails the reporter.' : '. Email notification is not configured on this server, so the reporter is not told — the report just changes state here.');
+    })
+    .catch(function () {
+      subEl.textContent = 'Review, triage and resolve user-submitted bugs. Closing a report deletes its screenshot from the server; whether the reporter is notified could not be determined.';
+    });
+
+  function loadApps() {
+    return jsonFetch('/api/bugs/changelog')
+      .then(function (data) {
+        (data.apps || []).forEach(function (a) {
+          var opt = document.createElement('option');
+          opt.value = a.app_name; opt.textContent = a.app_name;
+          fApp.appendChild(opt);
+        });
+      })
+      .catch(function (e) {
+        // Swallowing this left a filter that looked usable and filtered nothing.
+        fApp.disabled = true;
+        showBanner('The app list could not be loaded (' + e.message + '), so the App filter is unavailable. The report list below is unaffected.');
+      });
+  }
+
+  function loadList() {
+    var params = new URLSearchParams();
+    if (fStatus.value) params.set('status', fStatus.value);
+    if (fApp.value)    params.set('app_name', fApp.value);
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+    countEl.textContent = '';
+    return jsonFetch('/api/bugs/admin/list?' + params.toString())
+      .then(function (data) {
+        currentReports = data.reports || [];
+        renderCount(data);
+        renderList();
+      })
+      .catch(function (e) {
+        currentReports = [];
+        tbody.innerHTML = '';
+        var tr = document.createElement('tr'), td = document.createElement('td');
+        td.colSpan = 7; td.className = 'empty';
+        td.textContent = 'Could not load reports: ' + e.message;   // textContent, not innerHTML
+        tr.appendChild(td); tbody.appendChild(tr);
+      });
+  }
+
+  // The old page printed rows.length as the total while the route capped the
+  // result set, so a capped page read as a complete one.
+  function renderCount(data) {
+    var returned = typeof data.returned === 'number' ? data.returned : currentReports.length;
+    var matched  = typeof data.matched  === 'number' ? data.matched  : null;
+    if (matched !== null && matched > returned) {
+      countEl.className = 'count capped';
+      countEl.textContent = 'Showing the first ' + returned + ' of ' + matched + ' matching reports — narrow the filters to see the rest.';
+    } else {
+      countEl.className = 'count';
+      countEl.textContent = matched === null
+        ? returned + (returned === 1 ? ' report' : ' reports')
+        : matched + (matched === 1 ? ' report' : ' reports');
+    }
+  }
+
+  function cell(text, cls) {
+    var td = document.createElement('td');
+    if (cls) td.className = cls;
+    td.textContent = text;
+    return td;
+  }
+
+  function renderList() {
+    tbody.innerHTML = '';
+    if (!currentReports.length) {
+      var tr0 = document.createElement('tr'), td0 = document.createElement('td');
+      td0.colSpan = 7; td0.className = 'empty';
+      td0.textContent = 'No reports match these filters.';
+      tr0.appendChild(td0); tbody.appendChild(tr0);
+      return;
+    }
+    currentReports.forEach(function (r) {
+      var tr = document.createElement('tr');
+      tr.dataset.id = r.id;
+      // A clickable <tr> with only a mouse handler is unreachable by keyboard.
+      tr.tabIndex = 0;
+      tr.setAttribute('role', 'button');
+      tr.setAttribute('aria-selected', r.id === selectedId ? 'true' : 'false');
+      tr.appendChild(cell(r.ticket_number, 'tkt'));
+      tr.appendChild(cell(r.app_name));
+      tr.appendChild(cell(r.title));
+      tr.appendChild(cell(r.reporter_display_name || r.reporter_username || '—'));
+      tr.appendChild(cell(String(r.severity || '').toUpperCase(), 'sev-' + r.severity));
+      var tdS = document.createElement('td');
+      var pill = document.createElement('span');
+      pill.className = 'status-pill s-' + r.status;
+      pill.textContent = String(r.status || '').replace('_', ' ');
+      tdS.appendChild(pill); tr.appendChild(tdS);
+      tr.appendChild(cell(fmtDate(r.created_at), 'when'));
+      tr.addEventListener('click', function () { selectReport(r.id); });
+      tr.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); selectReport(r.id); }
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  // save() reloads the list and re-renders the detail, which wiped its own 'Saved.'
+  // message before anyone could read it. Carry it across the re-render once.
+  var lastSaveMsg = '';
+  function selectReport(id) {
+    selectedId = id;
+    Array.prototype.forEach.call(document.querySelectorAll('#list tbody tr'), function (tr) {
+      tr.setAttribute('aria-selected', Number(tr.dataset.id) === id ? 'true' : 'false');
+    });
+    detail.innerHTML = '<div class="empty">Loading…</div>';
+    return jsonFetch('/api/bugs/admin/' + id)
+      .then(renderDetail)
+      .catch(function (e) {
+        detail.innerHTML = '';
+        var d = document.createElement('div');
+        d.className = 'empty';
+        d.textContent = 'Could not load this report: ' + e.message;
+        detail.appendChild(d);
+      });
+  }
+
+  function renderDetail(d) {
+    // has_screenshot, not screenshot_path — the detail route no longer returns
+    // the on-disk path.
+    var shotHtml = d.has_screenshot
+      ? '<img src="/api/bugs/admin/' + encodeURIComponent(d.id) + '/screenshot" alt="Screenshot submitted with ' + esc(d.ticket_number) + '">'
+      : (d.screenshot_deleted_at
+          ? '<div class="note"><em>Screenshot purged when the report was closed.</em></div>'
+          : '');
+
+    var href = safeUrl(d.page_url);
+    var pageCell = d.page_url
+      ? (href
+          ? '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(d.page_url) + '</a>'
+          : '<span title="Not an http(s) URL — shown as text, not linked">' + esc(d.page_url) + '</span>')
+      : '—';
+
+    var closeLabel = caps && caps.notify_reporter === 'email'
+      ? 'Resolution notes (emailed to the reporter on close)'
+      : 'Resolution notes (stored on the report; not emailed — no mailer is configured)';
+
+    detail.innerHTML =
+      '<div class="tkt">' + esc(d.ticket_number) + '</div>' +
+      '<h3>' + esc(d.title) + '</h3>' +
+      '<dl class="kv">' +
+        '<dt>App</dt><dd>' + esc(d.app_name) + (d.app_version ? ' · v' + esc(d.app_version) : '') + '</dd>' +
+        '<dt>Reporter</dt><dd>' + esc(d.reporter_display_name || d.reporter_username || '—') +
+          '<br><span class="note">' + esc(d.reporter_email || 'no address on file') + '</span></dd>' +
+        '<dt>Severity</dt><dd class="sev-' + esc(d.severity) + '">' + esc(String(d.severity || '').toUpperCase()) + '</dd>' +
+        '<dt>Status</dt><dd><span class="status-pill s-' + esc(d.status) + '">' + esc(String(d.status || '').replace('_', ' ')) + '</span></dd>' +
+        '<dt>Page</dt><dd>' + pageCell + '</dd>' +
+        '<dt>Browser</dt><dd class="note">' + esc(d.browser_info || '—') + '</dd>' +
+        '<dt>Created</dt><dd>' + esc(fmtDate(d.created_at)) + '</dd>' +
+        (d.resolved_at ? '<dt>Resolved</dt><dd>' + esc(fmtDate(d.resolved_at)) + ' by ' + esc(d.resolved_by || '—') + '</dd>' : '') +
+        (d.user_notified_at ? '<dt>Notified</dt><dd>' + esc(fmtDate(d.user_notified_at)) + '</dd>' : '') +
+      '</dl>' +
+      '<div class="field"><label>Description</label><div class="boxed">' + esc(d.description) + '</div></div>' +
+      (d.steps_to_reproduce ? '<div class="field"><label>Steps to reproduce</label><div class="boxed">' + esc(d.steps_to_reproduce) + '</div></div>' : '') +
+      shotHtml +
+      '<div class="field"><label for="adminNotes">Admin notes (internal)</label><textarea id="adminNotes">' + esc(d.admin_notes) + '</textarea></div>' +
+      '<div class="field"><label for="resolutionNotes">' + closeLabel + '</label><textarea id="resolutionNotes">' + esc(d.resolution_notes) + '</textarea></div>' +
+      '<div class="field"><label for="newStatus">Update status</label><select id="newStatus">' +
+        ['new','in_progress','resolved','closed','wont_fix','duplicate'].map(function (s) {
+          return '<option value="' + s + '"' + (d.status === s ? ' selected' : '') + '>' + s.replace('_', ' ') + '</option>';
+        }).join('') +
+      '</select></div>' +
+      '<div class="btn-row">' +
+        '<button id="saveBtn" data-rbac-page="bug-reports-admin" data-rbac-level="admin">Save changes</button>' +
+        '<button class="secondary" id="saveNotesOnly" data-rbac-page="bug-reports-admin" data-rbac-level="admin">Save notes only</button>' +
+      '</div>' +
+      '<div class="msg" id="msg" role="status" aria-live="polite"></div>';
+
+    document.getElementById('saveBtn').addEventListener('click', function () { save(d, true); });
+    document.getElementById('saveNotesOnly').addEventListener('click', function () { save(d, false); });
+    if (lastSaveMsg) { var m0 = document.getElementById('msg'); if (m0) { m0.className = 'msg ok'; m0.textContent = lastSaveMsg; } lastSaveMsg = ''; }
+    // No explicit re-apply call here: rbac-client.js exports nothing on window,
+    // and a guarded call to an API that does not exist is dead code dressed as a
+    // control. It runs a MutationObserver over document.body's subtree, so the
+    // buttons injected above are guarded automatically -- and until it verdicts
+    // them, its fail-closed rule keeps them hidden rather than clickable.
+  }
+
+  function save(d, includeStatus) {
+    var body = {
+      admin_notes:      document.getElementById('adminNotes').value,
+      resolution_notes: document.getElementById('resolutionNotes').value,
+    };
+    if (includeStatus) body.status = document.getElementById('newStatus').value;
+
+    var closing = includeStatus && CLOSING.indexOf(body.status) !== -1;
+    if (closing && !d.resolved_at) {
+      // The old dialog promised an email that never went and a deletion it did
+      // not always perform. Say what this host will actually do.
+      var willEmail = caps && caps.notify_reporter === 'email';
+      var who = d.reporter_email || 'the reporter';
+      var msgText = 'Closing ' + d.ticket_number + ' permanently deletes its screenshot from the server.\n\n' +
+        (willEmail ? who + ' will be emailed the resolution notes.'
+                   : who + ' will NOT be notified — no mailer is configured on this server.') +
+        '\n\nContinue?';
+      if (!confirm(msgText)) return;
+    }
+
+    var msg = document.getElementById('msg');
+    var btns = detail.querySelectorAll('#saveBtn,#saveNotesOnly');
+    msg.className = 'msg'; msg.textContent = 'Saving…';
+    Array.prototype.forEach.call(btns, function (b) { b.disabled = true; });
+
+    jsonFetch('/api/bugs/admin/' + d.id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) {
+        // The route now names the notification outcome instead of answering
+        // {success:true} regardless.
+        var tail = {
+          sent:            ' The reporter was emailed.',
+          failed:          ' The notification email FAILED to send — check the API log.',
+          'not-configured':' The reporter was not notified: no mailer is configured on this server.',
+          'no-address':    ' The reporter was not notified: no email address on the report.',
+          skipped:         '',
+        }[r.notified] || '';
+        msg.className = 'msg ok';
+        msg.textContent = 'Saved.' + tail;
+        lastSaveMsg = msg.textContent;
+        return loadList().then(function () { return selectReport(d.id); });
+      })
+      .catch(function (e) {
+        msg.className = 'msg err';
+        msg.textContent = 'Error: ' + e.message;
+        Array.prototype.forEach.call(btns, function (b) { b.disabled = false; });
+      });
+  }
+
+  document.getElementById('refresh').addEventListener('click', loadList);
+  fStatus.addEventListener('change', loadList);
+  fApp.addEventListener('change', loadList);
+
+  loadApps().then(loadList);
+})();
+</script>
+<script src="/it-topbar.js" defer></script>
+<script src="/it-version.js" data-app-key="report-bug" data-label="Bug Report Admin" defer></script>
+</body>
+</html>
