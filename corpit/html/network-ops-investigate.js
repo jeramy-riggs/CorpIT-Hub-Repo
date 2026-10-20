@@ -28,6 +28,15 @@ function macHex(q){return q.replace(/[^0-9a-fA-F]/g,'');}
 function classify(q){q=q.trim();if(IPRE.test(q))return'ip';if(macHex(q).length===12&&/^[0-9a-fA-F.:-]+$/.test(q))return'mac';return'id';}
 var TL={ip:'IP address',mac:'MAC address',id:'user / device'};
 async function jget(u){return ctx.json(u);}
+function apn(m){return (m&&(m.apName||m.recentDeviceName))||'';}
+// user360 nests identity per source (ad / entra / okta); flatten it for the cards
+function personOf(i){if(!i)return null;var a=i.ad||{},en=i.entra||{},ok=i.okta||{};
+  var p={displayName:i.displayName||a.displayName||en.display_name||ok.displayName||'',
+    email:i.email||a.email||en.mail||ok.email||'',upn:i.upn||a.upn||en.user_principal_name||ok.login||'',
+    department:i.department||a.department||en.department||'',jobTitle:i.jobTitle||i.title||a.title||en.job_title||'',
+    manager:i.manager||a.manager||''};
+  return (p.displayName||p.email||p.upn)?p:null;}
+function seen(t){var d=t?new Date(t):null;return d&&!isNaN(d)?d.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';}
 function fwSite(n){if(!n)return null;
   if(n.indexOf('SNA01')===0)return{site:'SNA01 · Irvine',fw:'Irvine FortiGate',host:'10.20.6.4'};
   if(n.indexOf('DFW02')===0)return{site:'DFW02 · Plano TX',fw:'Plano FortiGate',host:'10.19.6.4'};return null;}
@@ -140,9 +149,15 @@ function verdict(loc,mer){
     d:'Nothing answers for <b>'+esc(loc.ip||'')+'</b> — no ping, no TCP, and nothing seen on the network recently.'};
   if(h&&h.oper&&h.oper!=='up')return wl
     ?{l:'bad',t:'The uplink behind '+nm+'’s access point is down',
-      d:'<b>'+esc(mer.recentDeviceName||'Its access point')+'</b> hangs off port <b>'+esc(e.port)+'</b> on '+esc(e.switch)+', which reports <b>'+esc(h.oper)+'</b> (admin '+esc(h.admin)+'). The laptop is fine — the AP’s cable run is the problem.'}
+      d:'<b>'+esc(apn(mer)||'Its access point')+'</b> hangs off port <b>'+esc(e.port)+'</b> on '+esc(e.switch)+', which reports <b>'+esc(h.oper)+'</b> (admin '+esc(h.admin)+'). The laptop is fine — the AP’s cable run is the problem.'}
     :{l:'bad',t:nm+'’s switch port is down',
       d:'Port <b>'+esc(e.port)+'</b> on '+esc(e.switch)+' reports <b>'+esc(h.oper)+'</b> (admin '+esc(h.admin)+').'};
+  if(wl&&mer.status&&mer.status!=='Online'){
+    var ls=seen(mer.lastSeen), where=(mer.ssid?' on <b>'+esc(mer.ssid)+'</b>':'')+(apn(mer)?' via '+esc(apn(mer)):'');
+    if(r&&r.device&&r.device.icmp)return{l:'good',t:nm+' is online',
+      d:'It answers on <b>'+esc(loc.ip||mer.ip||'')+'</b> ('+r.device.rtt_ms+' ms). Meraki lists it as <b>'+esc(mer.status)+'</b> on Wi-Fi'+(ls?' (last seen '+ls+where+')':'')+', so it may be wired or between Wi-Fi sessions.'};
+    return{l:'warn',t:nm+' was last seen on Wi-Fi',
+      d:'Meraki lists it as <b>'+esc(mer.status)+'</b>'+(ls?'; last seen '+ls:'')+where+'.'};}
   var pIss=[],oIss=[];
   if(h){if(h.in_err>0)pIss.push(h.in_err.toLocaleString()+' input errors');
         if(h.out_err>0)pIss.push(h.out_err.toLocaleString()+' output errors');
@@ -159,7 +174,7 @@ function verdict(loc,mer){
                      :('Reachable, but showing '+j(oIss)+'.');
     return{l:'warn',t:nm+' is online, with issues',d:d};}
   if(wl)return{l:'good',t:nm+' is online over Wi-Fi',
-    d:'Connected to <b>'+esc(mer.ssid)+'</b> on '+esc(mer.recentDeviceName||'an access point')+(rssi!=null?' at <b>'+rssi+' dBm</b>':'')+'.'};
+    d:'Connected to <b>'+esc(mer.ssid)+'</b> on '+esc(apn(mer)||'an access point')+(rssi!=null?' at <b>'+rssi+' dBm</b>':'')+'.'};
   if(e&&h)return{l:'good',t:nm+' is online',
     d:'Wired to <b>'+esc(e.switch)+' '+esc(e.port)+'</b>'+(e.vlan!=null?' on VLAN '+e.vlan:'')+
       ' — link up'+(h.speed_mbps?' at '+h.speed_mbps+' Mbps':'')+
@@ -197,7 +212,7 @@ function pathHtml(loc,mer,fwi,xp){
     st:dev?(dev.present!==false?'':'bad'):''});
   if(wl){
     var rs=mer.signalQuality&&mer.signalQuality.rssi;
-    N.push({role:'Wireless',val:mer.recentDeviceName||'Access point',
+    N.push({role:'Wireless',val:apn(mer)||'Access point',
       sub:(rs!=null?rs+' dBm \u00b7 ':'')+(mer.ssid||''),st:(rs!=null&&rs<-72)?'warn':''});
   }
   if(e){
@@ -552,13 +567,16 @@ async function runNet(q,kind,ctx){
     (mac||ip)?jget('/api/netswitch/correlate?'+(mac?'mac='+enc(mac):'ip='+enc(ip))).catch(function(){return null;}):Promise.resolve(null)]);
   var resolve=pr[0], mer=pr[1], corr=pr[2], wifi=null;
   if(mer&&mer.found&&mac){try{wifi=await jget('/api/meraki/wifi-events?mac='+enc(mac)+'&hours=24');}catch(e){}}
-  var person=resolve&&resolve.user360&&(resolve.user360.identity||null);
+  var person=personOf(resolve&&resolve.user360&&resolve.user360.identity), owner=null;
   if(!person&&host){try{var u=await jget('/api/user360/'+enc(host.split('.')[0]));
-    if(u&&u.ok!==false)person=u.identity||null;}catch(e){}}
+    if(u&&u.ok!==false)person=personOf(u.identity);}catch(e){}}
+  if(ctx.asset&&ctx.asset.user_name&&ctx.asset.user_name!=='--')owner={name:ctx.asset.user_name,src:String(ctx.asset.src||'inventory').replace(/^./,function(c){return c.toUpperCase();})};
+  if(!person&&owner){try{var uo=await jget('/api/user360/'+enc(owner.name));
+    if(uo&&uo.ok!==false){person=personOf(uo.identity);if(person)person.via=owner.src;}}catch(e){}}
 
   var e=loc.edge,h=e&&e.health,fwS=resolve&&resolve.network,dhcp=resolve&&resolve.dhcp;
   var wl=mer&&mer.found, ipD=ip||(wl&&mer.ip)||mac;
-  var site=(e&&e.switch)||(wl&&mer.recentDeviceName)||'', fwi=fwSite(site);
+  var site=(e&&e.switch)||(wl&&apn(mer))||'', fwi=fwSite(site);
   var v=verdict(loc,mer), r=loc.reachability&&loc.reachability.device;
   var vic={good:'check',warn:'alert',bad:'x',info:'search'}[v.l];
 
@@ -599,7 +617,7 @@ async function runNet(q,kind,ctx){
       '<div class="sig"><div class="bars">'+bars+'</div><div><div class="v '+(sc==='b'?'txt-bad':(sc==='w'?'txt-warn':'txt-good'))+'">'+
         (rssi!=null?rssi+' dBm':'—')+'</div><div class="s">signal'+(snr!=null?' · SNR '+snr:'')+' · '+
         (['','very weak','weak','fair','good','excellent'][q5]||'')+'</div></div></div>'+
-      kv('SSID',esc(mer.ssid))+kv('Access point',esc(mer.recentDeviceName))+kv('Site',esc(mer.site||site))+
+      (mer.status!=='Online'?kv('Last seen',esc(seen(mer.lastSeen))):'')+kv('SSID',esc(mer.ssid))+kv('Access point',esc(apn(mer)))+kv('Site',esc(mer.site||site))+
       kv('Manufacturer',esc(mer.manufacturer))+kv('Meraki IP',mer.ip?esc(mer.ip)+cp(mer.ip):''));
     if(wifi&&wifi.found&&wifi.events&&wifi.events.length){
       var bad=wifi.events.filter(function(x){return /poor|low ack|fail/i.test(x.reason||'');}).length;
@@ -669,9 +687,12 @@ async function runNet(q,kind,ctx){
   html+=card('Firewall path','shield',fwT,fwB);
   var idB,idT;
   if(person){idT=tag('good','matched');
-    idB=kv('Name',esc(person.displayName||person.name||''))+
+    idB=(person.via?kv('Matched by',esc(person.via)+' assigned user'):'')+kv('Name',esc(person.displayName||person.name||''))+
         kv('Email',(person.email||person.upn)?'<span class="u-mono">'+esc(person.email||person.upn)+'</span>'+cp(person.email||person.upn):'')+
         kv('Department',esc(person.department||''))+kv('Title',esc(person.jobTitle||person.title||''));}
+  else if(owner){idT=tag('','from '+esc(owner.src));
+    idB=kv('Assigned user',esc(owner.name))+kv('Source',esc(owner.src))+
+        '<div class="u-empty">No directory account matched this name.</div>';}
   else{idT=host?tag('','host only'):null;
     idB=(host?kv('Hostname','<span class="u-mono">'+esc(host)+'</span>'+cp(host))+kv('Resolved by','reverse DNS (PTR)'):'')+
         (dhcp&&dhcp.hostname?kv('DHCP host','<span class="u-mono">'+esc(dhcp.hostname)+'</span>'):'')+
@@ -707,8 +728,7 @@ async function runId(q,seq){
   try{ u=await jget('/api/user360/'+enc(q)); }catch(e){ u=null; }
   // user360 can answer ok:true with an EMPTY identity for serials/device names —
   // only treat it as a person when there is actually a person in it
-  var _p=(u&&u.identity)||{};
-  var _real=!!(_p.email||_p.upn||_p.displayName||_p.name);
+  var _real=!!personOf(u&&u.identity);
   var _devs=(u&&u.devices&&(u.devices.devices||u.devices.items||u.devices))||[];
   if(!u||u.ok===false||(!_real&&(!Array.isArray(_devs)||!_devs.length))){
     // not a person — it may still be a device name or serial we hold in inventory
@@ -721,14 +741,15 @@ async function runId(q,seq){
     var dnsTried=/^[A-Za-z0-9][A-Za-z0-9._-]{1,63}$/.test(q), dnsFailed=false;
     if(dnsTried){
       var dl=null;
-      try{ dl=await jget('/api/netswitch/locate?q='+enc(q)); }catch(e){ dl=null; dnsFailed=true; }
+      try{ dl=await jget('/api/netswitch/locate?q='+enc(q)); }catch(e){ if(e&&e.code===401)throw e; dl=null;
+        dnsFailed=!!(e&&(e.name==='TypeError'||/took too long|Request failed/i.test(e.message||''))); }
       if(seq&&seq!==RUNSEQ)return;
       if(dl&&dl.ip) return runNet(q,'host',{searched:q,seq:seq,loc:dl});
     }
     if(seq&&seq!==RUNSEQ)return;
     out.innerHTML='<div class="u-note">'+ic('search')+'<div><b>No match for “'+esc(q)+'”.</b><br>'+
       '<span class="txt-2">Checked identity, Kandji, Intune'+(!dnsTried?' (not a DNS name, so DNS was not checked)':dnsFailed?'; the DNS lookup did not finish, so try again':' and DNS')+' — nothing matches. Try an IP, MAC, username, email, device name or serial.</span></div></div>';return;}
-  var p=u.identity||{}, dv=(u.devices&&(u.devices.devices||u.devices.items||u.devices))||[];
+  var p=personOf(u.identity)||{}, dv=(u.devices&&(u.devices.devices||u.devices.items||u.devices))||[];
   var list=Array.isArray(dv)?dv:[];
   var nm=p.displayName||p.name||q;
   var html='<div class="verdict info u-fade"><div class="vi">'+ic('user')+'</div><div class="vm"><h2>'+esc(nm)+'</h2>'+
