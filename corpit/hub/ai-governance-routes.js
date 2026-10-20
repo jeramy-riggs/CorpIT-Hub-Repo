@@ -56,6 +56,7 @@ module.exports=function({pool,rbac,rapid7Client,rapid7Collect,entraCollect,zscal
  require('./ai-governance-maintenance-routes')({router,pool,rbac,admin,wrap,actor,id});
  require('./ai-governance-sources-routes')({router,pool,rbac,admin,wrap,transaction,actor,fail,value,id,refresh});
  require('./ai-governance-portal-routes')({router,pool,rbac,wrap,actor}); // AI-GOVERNANCE PORTAL SYNC 2026-10-15
+ require('./ai-governance-use-case-routes')({router,pool,rbac,admin,wrap,transaction,actor,id}); // AI USE-CASE INVENTORY 2026-10-20
  router.get('/audit',wrap(async(req,res)=>{const [rows]=await pool.query('SELECT a.*,c.app_name FROM ai_governance_audit a LEFT JOIN ai_catalog c ON c.id=a.catalog_id ORDER BY a.id DESC LIMIT 500');res.json({rows,limit:500});}));
  router.use((err,req,res,next)=>{if(err.code==='ER_DUP_ENTRY')return res.status(409).json({error:'That application or project mapping already exists.'});console.error('[ai-governance]',err.message);res.status(err.status||500).json({error:err.status?err.message:'Governance data is unavailable. Retry or contact an administrator.'});});
  return router;

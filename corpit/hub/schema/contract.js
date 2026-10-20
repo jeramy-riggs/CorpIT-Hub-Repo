@@ -162,6 +162,10 @@ const TABLES = [
   { slice: 'ai-governance', store: 'mysql', db: 'hub', table: 'ai_governance_portal_sync',
     columns: { id: 'tinyint', enabled: 'tinyint', token: 'varchar', saved_by: 'varchar', saved_at: 'timestamp', next_run_at: 'datetime', last_run_at: 'datetime', last_run_by: 'varchar', last_pull_at: 'datetime', last_pull_status: 'varchar', last_pull_error: 'varchar', last_pull_detail: 'json', last_push_at: 'datetime', last_push_status: 'varchar', last_push_error: 'varchar', last_push_detail: 'json' },
     unique: [['id']] },
+  // AI USE-CASE INVENTORY 2026-10-20 (ai-governance-use-case-*.js; hub-0028).
+  { slice: 'ai-governance-use-case', store: 'mysql', db: 'hub', table: 'ai_governance_use_case',
+    columns: { id: 'int', catalog_id: 'int', profile: 'json', revision: 'int', created_by: 'varchar', created_at: 'timestamp', updated_by: 'varchar', updated_at: 'timestamp' },
+    unique: [['id']] },
 ];
 
 const SLICES = [...new Set(TABLES.map(t => t.slice))];

@@ -510,4 +510,18 @@ CREATE TABLE IF NOT EXISTS net_claims(id INTEGER PRIMARY KEY AUTOINCREMENT,
   last_push_detail json DEFAULT NULL,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci` },
+  // AI USE-CASE INVENTORY 2026-10-20 (ai-governance-use-case-*.js).
+  { id: 'hub-0028-aigov-use-case', store: 'mysql', db: 'hub', kind: 'create-table', table: 'ai_governance_use_case',
+    sql: `CREATE TABLE ai_governance_use_case (
+  id int NOT NULL AUTO_INCREMENT,
+  catalog_id int NOT NULL,
+  profile json NOT NULL,
+  revision int NOT NULL DEFAULT '1',
+  created_by varchar(190) NOT NULL,
+  created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_by varchar(190) NOT NULL,
+  updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY catalog_id (catalog_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci` },
 ];
