@@ -28,7 +28,7 @@
 <script>
 (function () {
   /* The old page's tabs. Anything else is a destination hash already and passes through. */
-  var MAP = { '': '#overview', overview: '#overview', apps: '#apps', matches: '#queue/applications', users: '#apps', security: '#security/mfa' };
+  var MAP = { '': '#apps', overview: '#overview', apps: '#apps', matches: '#queue/applications', users: '#apps', security: '#security/mfa' };
   var h = (location.hash || '').replace(/^#/, '');
   var q = null;
   try { q = new URLSearchParams(location.search).get('tab'); } catch (e) {}

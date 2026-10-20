@@ -33,15 +33,17 @@ function fetchAdLocked() {
     client.on('error', (err) => reject(new Error('LDAP connection error: ' + err.message)));
     client.bind(process.env.LDAP_BIND_USER, process.env.LDAP_BIND_PASS, (err) => {
       if (err) { client.destroy(); return reject(new Error('LDAP bind failed: ' + err.message)); }
-      const filter = '(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=16))';
+      const filter = '(&(objectCategory=person)(objectClass=user)(lockoutTime>=1))';
       const entries = [];
       client.search(process.env.LDAP_BASE_DN || 'DC=nrpi,DC=local',
-        { filter, attributes: ['sAMAccountName', 'userPrincipalName', 'displayName', 'department'], scope: 'sub', sizeLimit: 300 },
+        { filter, attributes: ['sAMAccountName', 'userPrincipalName', 'displayName', 'department', 'msDS-User-Account-Control-Computed'], scope: 'sub', paged: true },
         (err, res) => {
           if (err) { client.unbind(); return reject(new Error('LDAP search error: ' + err.message)); }
           res.on('searchEntry', (entry) => {
             const attrs = {};
             (entry.attributes || []).forEach(a => { attrs[a.type] = a.values.length === 1 ? a.values[0] : a.values; });
+            // lockoutTime stays set after the window expires; the computed UAC says if it is still locked.
+            if (!(parseInt(attrs['msDS-User-Account-Control-Computed'] || '0', 10) & 16)) return;
             entries.push({
               upn: attrs.userPrincipalName || attrs.sAMAccountName || '',
               displayName: attrs.displayName || '',

@@ -41,13 +41,13 @@ const _fetch = global.fetch;
 /**
  * Internal GET with the caller's auth forwarded. Returns parsed JSON or throws.
  */
-async function passthru(path, authHeader) {
+async function passthru(path, cred) {
   if (!_fetch) throw new Error('global fetch unavailable (Node < 18)');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
     const r = await _fetch(BASE + path, {
-      headers: authHeader ? { Authorization: authHeader } : {},
+      headers: { ...(cred.authorization ? { Authorization: cred.authorization } : {}), ...(cred.cookie ? { Cookie: cred.cookie } : {}) },
       signal: ctrl.signal,
     });
     const text = await r.text();
@@ -74,7 +74,7 @@ router.get('/:q', rbac.requirePage('identity-diag', 'read'), async (req, res) =>
   if (!q) return res.status(400).json({ error: 'path parameter q is required' });
   if (q.length > 256) return res.status(400).json({ error: 'query too long' });
 
-  const auth = req.headers.authorization || '';
+  const auth = { authorization: req.headers.authorization || '', cookie: req.headers.cookie || '' };
   const _errors = {};
 
   // 1) Seed lookup — must succeed; everything else keys off it.
@@ -82,7 +82,7 @@ router.get('/:q', rbac.requirePage('identity-diag', 'read'), async (req, res) =>
   try {
     identity = await passthru(`/api/identity/lookup?q=${encodeURIComponent(q)}`, auth);
   } catch (e) {
-    const status = e.status === 404 ? 404 : (e.status === 401 ? 401 : 502);
+    const status = e.status === 404 ? 404 : 502;
     return res.status(status).json({
       error: status === 404 ? 'user not found' : 'seed lookup failed',
       detail: e.message,

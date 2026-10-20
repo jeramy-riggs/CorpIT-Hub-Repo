@@ -420,6 +420,8 @@ async function searchUsers(prefix) {
     const filter = '(|' +
       '(sAMAccountName=' + esc + '*)' +
       '(displayName=' + esc + '*)' +
+      '(sn=' + esc + '*)' +
+      '(givenName=' + esc + '*)' +
       '(mail=' + esc + '*)' +
       '(userPrincipalName=' + esc + '*)' +
       ')';

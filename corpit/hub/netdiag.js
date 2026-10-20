@@ -60,14 +60,14 @@ async function dhcpResolve(ip) {
   ]);
   return primary || secondary;
 }
-async function user360(q, authHeader) {
+async function user360(q, cred) {
   const _fetch = global.fetch;
   if (!_fetch) throw new Error('global fetch unavailable (Node < 18)');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), RESOLVE_TIMEOUT_MS);
   try {
     const r = await _fetch(`${INTERNAL_API_BASE}/api/user360/${encodeURIComponent(q)}`, {
-      headers: authHeader ? { Authorization: authHeader } : {}, signal: ctrl.signal,
+      headers: { ...(cred.authorization ? { Authorization: cred.authorization } : {}), ...(cred.cookie ? { Cookie: cred.cookie } : {}) }, signal: ctrl.signal,
     });
     const text = await r.text();
     let body; try { body = text ? JSON.parse(text) : null; } catch { body = null; }
@@ -450,7 +450,7 @@ module.exports = function buildNetdiagRouter(deps) {
   router.get('/resolve', async (req, res) => {
     const by = String(req.query.by || 'user').toLowerCase();
     const q = String(req.query.q || '').trim();
-    const auth = req.headers.authorization || '';
+    const auth = { authorization: req.headers.authorization || '', cookie: req.headers.cookie || '' };
     if (!q) return res.status(400).json({ ok: false, error: { message: 'q required' } });
     // CR-2: anything other than by=user takes the IP path below, whose q feeds
     // dhcp-lookup.py (WinRM PowerShell). Reject unknown modes and require a strict

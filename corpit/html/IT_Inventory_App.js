@@ -958,7 +958,11 @@ function applySorting(rows, table) {
 // ============================================================
 // PAGINATION
 // ============================================================
+// INV-09: the rows each table last rendered (view + filters + search + sort,
+// before paging). exportCSV() exports exactly these.
+const _VIEW_ROWS = {};
 function paginate(rows, table) {
+  _VIEW_ROWS[table] = rows;
   const p = pages[table]||1;
   const start = (p-1)*PAGE_SIZE;
   return rows.slice(start, start+PAGE_SIZE);
@@ -2946,7 +2950,7 @@ function _downloadBlob(blob, filename) {
 }
 
 function exportCSV(section) {
-  let rows = getDataArr(section);
+  let rows = _VIEW_ROWS[section] || getDataArr(section);
   if (!rows) { showToast('Export not available for this view — use page-specific exports', 'warn'); return; }
   // Match the visible row filter for each page.
   if (section === 'intune')    rows = rows.filter(d => !d['is_historical']);

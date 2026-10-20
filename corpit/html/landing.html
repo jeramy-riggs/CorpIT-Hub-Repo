@@ -1293,7 +1293,7 @@ const DEFAULT_TILES = [
     "cat": "iam",
     "icon": "ticket",
     "tone": "t-blue",
-    "href": "https://dev-accessportal.nrpi.local/",
+    "href": "https://accessportal.nrpi.local/",
     "purpose": "Submit access, AI-tool and security-exception requests.",
     "newTab": true,
     "favorite": false,
@@ -2182,7 +2182,7 @@ function cmdSearch(q) {
       const list = Array.isArray(r.data) ? r.data : [];
       G.people = { state: 'done', rows: list.slice(0, 6).map(p => ({
         href: '/identity-diag.html?q=' + encodeURIComponent(p.email || p.sam || ''),
-        icon: 'user', tone: 't-blue', app: 'identity-diag', name: 'Identity Diagnostics',
+        icon: 'user', tone: 't-blue', app: 'identity-diag', name: 'People & Devices',
         title: p.displayName || p.sam, sub: p.email || p.sam, hint: 'Look up',
       })) };
     }
@@ -2517,7 +2517,7 @@ const RP = (() => {
         '<button type="button" class="uc-fb" data-sw="reset"' + ADMIN_ATTR + '>Reset password</button>' +
         '<button type="button" class="uc-fb" data-sw="ticket"' + ADMIN_ATTR + '>New ticket</button>' +
         '<a class="uc-fb pri" href="/identity-diag.html?q=' + encodeURIComponent(sel.sam) + '"' +
-          READ_ATTR + '>Open in Identity Diagnostics</a>' +
+          READ_ATTR + '>Open in People &amp; Devices</a>' +
       '</div>';
 
     const who = sel.sam;
@@ -2736,11 +2736,14 @@ const RP = (() => {
       fetch('/api/sdp/changes/health', { credentials: 'same-origin', cache: 'no-store' })
         .then(r => r.json().catch(() => ({})).then(d => ({ ok: r.ok, status: r.status, d })))
         .then(x => {
-          if (x.ok) return;
+          if (x.ok) {
+            if (x.d && x.d.reachable && isOpen() && mode === 'cab' && $('rp-cab-title')) sayText('ok', 'Service Desk Plus connected: change module reachable.');
+            return;
+          }
           if (x.d && x.d.code === 'SDP_SCOPE') {
             sayText('err', 'Change filing is not available: the Service Desk token is missing the changes scope.');
           } else if (denied(x)) {
-            sayText('err', 'Filing a change needs admin access to Identity Diagnostics.');
+            sayText('err', 'Filing a change needs admin access to People & Devices.');
           } else {
             sayText('err', 'Service Desk change module unreachable: ' + failText(x));
           }
@@ -2752,7 +2755,7 @@ const RP = (() => {
   /* ── writes ──────────────────────────────────────────────────────────── */
   function busy(btn, label) { btn.disabled = true; btn.textContent = label; clearMsg(); }
   function fail(btn, label, x) {
-    if (denied(x)) sayText('err', 'Not permitted — this action needs admin access to Identity Diagnostics.');
+    if (denied(x)) sayText('err', 'Not permitted — this action needs admin access to People & Devices.');
     else sayText('err', 'Failed: ' + failText(x));
     btn.disabled = false; btn.textContent = label;
   }

@@ -110,7 +110,7 @@ svg{display:block}
 .pin[aria-pressed="true"]{opacity:1;color:#F2B01E;fill:#F2B01E}
 .pin[aria-pressed="true"] svg{fill:#F2B01E}
 .card:hover .pin,.pin:focus-visible{opacity:1}
-@media (hover:hover) and (pointer:fine){ .pin:hover{background:#F1F5F9;color:#F2B01E} }
+@media (hover:hover) and (pointer:fine){ .pin:hover{background:#F1F5F9;color:#64748B} .pin[aria-pressed="true"]:hover{color:#F2B01E} }
 .t-blue{background:var(--blue-tint);color:var(--blue)}
 .t-green{background:var(--green-tint);color:var(--green)}
 .t-purple{background:var(--purple-tint);color:var(--purple)}
@@ -263,7 +263,7 @@ let TILES=[
     "cat": "iam",
     "icon": "ticket",
     "tone": "t-blue",
-    "href": "https://dev-accessportal.nrpi.local/",
+    "href": "https://accessportal.nrpi.local/",
     "purpose": "Submit access, AI-tool and security-exception requests.",
     "newTab": true,
     "favorite": false,

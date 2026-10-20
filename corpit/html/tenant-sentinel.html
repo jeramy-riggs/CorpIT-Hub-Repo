@@ -730,7 +730,7 @@ footer{color:var(--ink-3);font-size:11.5px;padding:8px 26px 30px;border-top:1px 
       </div>
       
 
-      <footer>M365 Control Center · read-only · auction.com IT</footer>
+      <footer>M365 Control Center · reads Microsoft 365 only; fix tracking is saved in CorpIT · auction.com IT</footer>
     </div>
   </main>
 </div>
@@ -1159,7 +1159,7 @@ function trackingSection(f){
   const opts=Object.entries(TRK_LABEL).map(([v,l])=>
     `<option value="${v}" ${t.status===v?'selected':''}>${l}</option>`).join('');
   const meta=t.updated_by?`<div style="color:var(--ink-3);font-size:11px;margin-top:6px">last updated by ${esc(t.updated_by)} · ${String(t.updated_at).replace('T',' ').slice(0,16)}</div>`:'';
-  return `<section><h4>Tracking</h4>
+  return `<section data-rbac-page="tenant-sentinel" data-rbac-level="admin" data-rbac-action="dim"><h4>Tracking</h4>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <select id="trkStatus" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px">${opts}</select>
       <input id="trkOwner" placeholder="owner (email)" value="${esc(t.owner||'')}" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;flex:1;min-width:160px">
@@ -1657,7 +1657,7 @@ function showScopes(){
     ['Devices','All Intune-managed phones and computers — compliance, encryption, and check-in status.'],
     ['Email & files','Exchange mailbox usage and SharePoint site activity, including external file sharing.'],
     ['Two different scores','Our score (0–100) measures observed problems in live data across 9 modules. Microsoft Secure Score measures how many of Microsoft\'s recommended settings are enabled. They answer different questions and will not match — ours is tracked here; Microsoft\'s appears as a finding under Threat Protection.'],
-    ['Read-only','The dashboard only reads data. It never changes anything in any system.'],
+    ['Reads Microsoft 365 only','The dashboard never changes anything in Microsoft 365. Fix tracking (owner, status, notes) is saved in CorpIT, and only admins can change it.'],
   ]);
 }
 let privSortKey='tier', privSortDir=1, privSearch='';
@@ -2027,8 +2027,8 @@ function renderOwnership(){
         <span style="font-size:13px">${f.title}</span>
         <span style="font-size:11px;color:var(--ink-3)">${f.module}</span>
       </span>
-      <input type="email" id="qa-${f.id}" placeholder="owner email" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;width:150px" onkeydown="if(event.key==='Enter')quickAssign('${f.id}')">
-      <button class="btn" style="font-size:11px;padding:5px 10px" onclick="quickAssign('${f.id}')">Assign</button>
+      <input type="email" id="qa-${f.id}" data-rbac-page="tenant-sentinel" data-rbac-level="admin" data-rbac-action="dim" placeholder="owner email" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;width:150px" onkeydown="if(event.key==='Enter')quickAssign('${f.id}')">
+      <button class="btn" data-rbac-page="tenant-sentinel" data-rbac-level="admin" data-rbac-action="dim" style="font-size:11px;padding:5px 10px" onclick="quickAssign('${f.id}')">Assign</button>
     </div>`;
   }).join(''):'<div style="color:var(--ink-3);font-size:13px;padding:8px 0">Every open finding has an owner. \u2713</div>';
 
@@ -2049,7 +2049,7 @@ function renderOwnership(){
       return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
         <span style="font-size:12.5px;cursor:pointer;flex:1;min-width:0" onclick="openDrawer(OV.findings[${idx}])">${f.title}</span>
         <span style="font-size:10.5px;color:var(--ink-3);white-space:nowrap">${age!=null?age+'d ago':''}</span>
-        <select onchange="quickStatus('${f.id}',this.value)" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:11px">${opts}</select>
+        <select data-rbac-page="tenant-sentinel" data-rbac-level="admin" data-rbac-action="dim" onchange="quickStatus('${f.id}',this.value)" style="background:var(--panel-2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:11px">${opts}</select>
       </div>`;
     }).join('');
     return `<div style="margin-bottom:16px"><div style="font-weight:600;font-size:13px;margin-bottom:4px">${esc(owner)} <span style="color:var(--ink-3);font-weight:400">(${items.length})</span></div>${rows}</div>`;

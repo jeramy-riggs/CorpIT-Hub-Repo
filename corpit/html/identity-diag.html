@@ -6019,7 +6019,7 @@ function adCls(a){
   if(a==='failed')return 'ad-failed';
   return 'ad-skipped_already_member';
 }
-async function api(path,opts){
+async function api(path,opts){if(window.itRbac&&itRbac.ready)await itRbac.ready();
   if(opts&&opts.method&&opts.method!=='GET'&&!canWrite())throw new Error('Admin access to user-projects is required.');
   var r=await fetch(API+path,Object.assign({credentials:'include',headers:{'Content-Type':'application/json'}},opts||{}));
   if(!r.ok){

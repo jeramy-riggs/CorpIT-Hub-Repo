@@ -4512,7 +4512,7 @@ function gpoPlanSteps() {
 }
 function buildGpoDraft(g, detail, snapshot, review) {
   return {
-    schema: 'corpit.gpo-review-plan.v1', environment: 'DEV', generatedAt: new Date().toISOString(), snapshot,
+    schema: 'corpit.gpo-review-plan.v1', environment: /^dev-/.test(location.hostname) ? 'DEV' : 'PROD', generatedAt: new Date().toISOString(), snapshot,
     purpose: 'Review worksheet only; not a Microsoft Graph or Intune import payload.',
     gpo: detail?.gpo || (g ? { guid: g.guid, name: g.name } : null), links: detail?.links || [], findings: detail?.findings || [],
     checklist: gpoPlanSteps().map(([title, guidance], i) => ({ title, guidance, reviewed: !!review?.[i] })),

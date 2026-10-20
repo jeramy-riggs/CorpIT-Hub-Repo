@@ -22,19 +22,19 @@
       title: 'Find the person',
       description: 'Search by name, username or email. People you look up appear in Recent, so you can return to them quickly.',
       image: 'find-person.webp',
-      alt: 'DEV account search beside the Accounts panel, with the search field and Recent tab highlighted.'
+      alt: 'Account search beside the Accounts panel, with the search field and Recent tab highlighted.'
     },
     {
       title: 'Start with the issue',
       description: 'Choose Can’t sign in, Device issue, Missing access or Offboarding review. Pick a task first, or look up the person and continue from there.',
       image: 'choose-task.webp',
-      alt: 'DEV task shortcuts: Can’t sign in, Device issue, Missing access and Offboarding review.'
+      alt: 'Task shortcuts: Can’t sign in, Device issue, Missing access and Offboarding review.'
     },
     {
       title: 'Explore the workspace',
       description: 'Use the left navigation to move between Devices, Sign-ins, Security and Group access. Available tools follow your access permissions.',
       image: 'explore-workspace.webp',
-      alt: 'DEV Identity support page with the left workspace navigation highlighted.'
+      alt: 'Identity support page with the left workspace navigation highlighted.'
     }
   ];
   function render(moveFocus) {

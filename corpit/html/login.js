@@ -32,7 +32,7 @@
     if (r.length > 2000) return null;
     if (/[\u0000-\u001f\\]/.test(r)) return null;
     // Cross-host allowlist: exactly the approver console on the accessportal vhost.
-    if (r === 'https://accessportal.itam.nrpi.local/approver.html') return r;
+    if (r === 'https://accessportal.nrpi.local/approver.html') return r;
     if (!/^\/[A-Za-z0-9_\-.]/.test(r)) return null;
     if (r.toLowerCase().indexOf('/login.html') === 0) return null;
     return r;
