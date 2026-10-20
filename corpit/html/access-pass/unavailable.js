@@ -8,6 +8,9 @@
 //   4. HEAD /                     -> the site the person was opening (idempotent, so it never repeats a click-through
 //                                    URL; the page they asked for is only requested once, at the end, by the reload)
 // Nothing is "all clear" until a probe actually answered; before the first answer every row says "Checking…".
+// A 429 is its own answer (gate429kit 2026-10-20): the service is up but is turning this network away for a moment,
+// so it reads "busy", never "Responding", the headline says so, and the next check waits for the limit to reset
+// (checking every 5 s would only spend more of the same allowance).
 // No ticket button on purpose: an outage affects everyone, and a flood of tickets would bury the real work.
 (function () {
   'use strict';
@@ -27,6 +30,7 @@
     wait: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M20 20v-4h-4"/>',
     unsure: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.4v.1"/>',
     refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M20 20v-4h-4"/>',
+    busy: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
   };
   function icon(name, spin) {
     var s = document.createElementNS(NS, 'svg');
@@ -40,7 +44,7 @@
   function announce(msg) { if (E.live) { E.live.textContent = ''; window.setTimeout(function () { E.live.textContent = msg; }, 30); } }
 
   // ── probes ─────────────────────────────────────────────────────────────────────────────────────────────────────
-  // Each resolves (never rejects) to { v: 'ok' | 'down' | 'unsure', note }.
+  // Each resolves (never rejects) to { v: 'ok' | 'down' | 'unsure' | 'busy', note, wait? }.
   function probe(url, method, judge) {
     return new Promise(function (resolve) {
       var ctl = ('AbortController' in window) ? new AbortController() : null;
@@ -56,7 +60,16 @@
       });
     });
   }
+  // 429: up, but limiting this network. wait = seconds until it lets requests through again (Retry-After, else the
+  // RateLimit-Reset that express-rate-limit sends), kept between 5 and 65 so a bad header can't stall or spin the page.
+  function judgeBusy(r) {
+    if (r.status !== 429) return null;
+    var s = parseInt(r.headers.get('Retry-After') || r.headers.get('RateLimit-Reset') || '', 10);
+    if (!(s >= 0)) s = 30;
+    return { v: 'busy', note: 'Busy: too many requests from your network (HTTP 429)', wait: Math.min(Math.max(s + 1, 5), 65) };
+  }
   function judgeHealth(r) {
+    var b = judgeBusy(r); if (b) return b;
     // an opaque redirect or status 0 means a redirect we chose not to follow: something answered
     if (r.type === 'opaqueredirect' || r.status === 0) return { v: 'ok', note: 'Responding' };
     if (r.status >= 500) return { v: 'down', note: 'Not responding (HTTP ' + r.status + ')' };
@@ -64,11 +77,13 @@
     return { v: 'unsure', note: 'Unclear answer (HTTP ' + r.status + ')' };
   }
   function judgeGate(r) {
+    var b = judgeBusy(r); if (b) return b;
     if (r.type === 'opaqueredirect' || r.status === 0) return { v: 'ok', note: 'Responding' };
     if (r.status >= 500) return { v: 'down', note: 'Not responding (HTTP ' + r.status + ')' };
     return { v: 'ok', note: 'Responding (HTTP ' + r.status + ')' };
   }
   function judgeSite(r) {
+    var b = judgeBusy(r); if (b) return b;
     // the site's front door answering with a sign-in redirect or a refusal still proves it is up
     if (r.type === 'opaqueredirect' || r.status === 0) return { v: 'ok', note: 'Responding (sign-in redirect)' };
     if (r.status >= 500) return { v: 'down', note: 'Not responding (HTTP ' + r.status + ')' };
@@ -86,7 +101,7 @@
     return li;
   }
   function stateOf(r) { return !r ? 'wait' : r.v === 'ok' ? 'ok' : r.v === 'down' ? 'down' : 'wait'; }
-  function iconOf(r) { return !r ? 'wait' : r.v === 'ok' ? 'check' : r.v === 'down' ? 'down' : 'unsure'; }
+  function iconOf(r) { return !r ? 'wait' : r.v === 'ok' ? 'check' : r.v === 'down' ? 'down' : r.v === 'busy' ? 'busy' : 'unsure'; }
   function paintChecks() {
     clear(E.checks);
     E.checks.appendChild(row('check', 'Your connection to CorpIT', R.edge.note, 'ok'));
@@ -112,7 +127,8 @@
     E.radar.classList.remove('is-down', 'is-up');
     if (!a || !g || !s) return 'checking';
     var authDown = a.v === 'down', gateDown = g.v === 'down', siteDown = s.v === 'down';
-    if (!authDown && !gateDown && !siteDown) {
+    var limited = [a, g, s].filter(function (x) { return x.v === 'busy'; });
+    if (!authDown && !gateDown && !limited.length && !siteDown) {
       E.radar.classList.add('is-up');
       headline('Back online', 'Taking you back to what you were opening…');
       return 'up';
@@ -124,6 +140,11 @@
     } else if (gateDown) {
       headline('Access checks aren’t answering right now',
         'CorpIT can’t check which sites you’re allowed into at the moment, so nobody is being let through, including you. Nothing is wrong with your account. This page keeps checking and takes you back in as soon as it can.');
+    } else if (limited.length) {
+      R.wait = Math.max.apply(null, limited.map(function (x) { return x.wait; }));
+      headline('Too many requests from your network',
+        'CorpIT is up. It is slowing down requests from your network for a moment, usually because many pages were opened quickly. Nothing is wrong with your account. This page waits for the limit to reset, then takes you back.');
+      return 'busy';
     } else {
       headline(HOST + ' isn’t answering right now',
         'CorpIT sign-in is working, but ' + HOST + ' itself isn’t responding. This page keeps checking and takes you back in when it answers.');
@@ -168,6 +189,14 @@
         setNext('Reloading…');
         // one request for the page they originally asked for, nothing else
         window.setTimeout(function () { window.location.replace(window.location.href); }, 900);
+        return;
+      }
+      if (verdict === 'busy') {
+        delay = 5000;   // back to the normal cadence once the limit has reset
+        due = Date.now() + R.wait * 1000;
+        countdown();
+        tick = window.setInterval(countdown, 1000);
+        timer = window.setTimeout(check, R.wait * 1000);
         return;
       }
       fails += 1;

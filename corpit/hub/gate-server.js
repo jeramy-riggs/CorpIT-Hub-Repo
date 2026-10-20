@@ -88,11 +88,20 @@ app.use(require('./drain').middleware);
 app.use(express.json({ limit: '1mb' }));
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
 app.set('trust proxy', 1);
-// server.js:152-165 unchanged. The buckets are this process's own (in-memory store; B11).
+// server.js:152-165, except that /api/gate/check is not counted (gate429kit 2026-10-20). The buckets are
+// this process's own (in-memory store; B11).
+// Why /check is skipped: nginx asks it once for EVERY gated request (page, script, style, API call -- an AI
+// Governance load is ~58), so a quick walk through a few pages, or everyone behind one office NAT or ZPA
+// connector, spent the 500/min bucket on page assets. nginx's auth_request turns the 429 into a 500 and
+// error_page into the 503 "isn't answering" page (UAT 1.5: 59 gate 429s, 2026-10-20 04:42Z). Only the internal
+// /_gate location proxies to it (no public location maps to /api/gate/check), and it is a pure HMAC check of
+// the cookie with no DB or LDAP, so there is nothing behind it for the limiter to protect. Every other gate
+// route (landing, logout, refresh, ...) stays limited, and the APIs behind the pages keep their own limiters.
 app.use(rateLimit({
   windowMs: 60_000,
   max: 500,
   standardHeaders: true,
+  skip: (req) => req.path === '/api/gate/check',
   keyGenerator: (req) => {
     const peer = req.socket && req.socket.remoteAddress;
     const fromProxy = peer === '127.0.0.1' || peer === '::1' || peer === '::ffff:127.0.0.1';
