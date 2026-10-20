@@ -69,7 +69,7 @@ async function lookup(pool,{client,cookie,actor,use_case_id,q}){
   const row=raw.get(r.id),m=match(row,uc,byId.get(r.id));
   return {request_id:r.id,use_case_name:r.business_purpose||null,requested_application:r.app_name||null,department:r.department||null,business_owner:null,technical_owner:null,requester:r.requester||null,vendor:r.vendor||null,request_status:r.status,approval_status:r.status,archived:r.archived,source_url:r.source_url,source_updated_at:r.updated_at,match_level:m.level,match_reason:m.reason,linked_to_other:!!byId.get(r.id)?.use_case_id&&Number(byId.get(r.id).use_case_id)!==Number(uc.id),proposals:facts(row).map(f=>({field:f.field,label:model.fields.find(x=>x.key===f.field)?.label||f.field,value:f.value,source_value:f.source_value,source_field:f.source_field,existing:uc.profile[f.field]||'',conflict:!!uc.profile[f.field]&&String(uc.profile[f.field]).trim()!==f.value}))};
  });
- await audit(pool,actor,'use_case_portal_lookup',uc,null,{ref:model.ref(uc.id),query,results:filtered.length,retrieved_at:source.checked_at,source_origin:client.origin,note:'Searched Access Portal for "'+query+'"; '+filtered.length+' request(s) matched.'});
+ await audit(pool,actor,'use_case_portal_lookup',uc,null,{ref:model.ref(uc.id),query,results:filtered.length,retrieved_at:source.checked_at,source_origin:client.origin,note:'Searched Access Portal for "'+query+'"; '+filtered.length+' search result'+(filtered.length===1?'':'s')+'.'});
  return {use_case_id:uc.id,ref:model.ref(uc.id),revision:uc.revision,query,results:filtered.length,shown:matches.length,records:matches,retrieved_at:source.checked_at,last_success_at:source.checked_at,source_origin:client.origin,stale:false};
 }
 

@@ -42,9 +42,9 @@ function mount(el,opts={}){
   function portalView(){
     if(!data.can_edit)return '<div class="empty"><strong>Portal lookup is available to governance editors with Access Portal read access.</strong></div>';
     const selected=data.use_cases.find(r=>String(r.id)===String(portal.use_case_id));
-    const form='<form data-ucr-portal-search class="sai-controls ucr-portal-search"><label>Governance use case<select name="use_case_id" required><option value="">Choose a use case</option>'
+    const form='<form data-ucr-portal-search class="sai-controls ucr-portal-search"><label>Governance use case<select name="use_case_id" required'+(portal.loading?' disabled':'')+'><option value="">Choose a use case</option>'
       +data.use_cases.filter(r=>r.profile).map(r=>'<option value="'+r.id+'"'+(String(portal.use_case_id)===String(r.id)?' selected':'')+'>'+E(r.ref+' · '+r.profile.name)+'</option>').join('')+'</select></label>'
-      +'<label>Search Access Portal<input name="q" type="search" minlength="2" maxlength="120" required value="'+E(portal.query)+'" placeholder="Request ID, application, purpose, requester, department, vendor or status"></label>'
+      +'<label>Search Access Portal<input name="q" type="search" minlength="2" maxlength="120" required'+(portal.loading?' disabled':'')+' value="'+E(portal.query)+'" placeholder="Request ID, application, purpose, requester, department, vendor or status"></label>'
       +'<button type="submit" class="sai-primary"'+(portal.loading?' disabled':'')+'>'+(portal.loading?'Searching…':'Search requests')+'</button></form>';
     const response=portal.response;
     const cards=response?response.records.map(r=>{
@@ -59,9 +59,16 @@ function mount(el,opts={}){
         +(canConfirm?'<div class="ucr-acts"><label><input type="checkbox" data-ucr-portal-verify="'+E(r.request_id)+'"> I confirm this request belongs to '+E(response.ref)+'.</label><button type="button" class="sai-primary" data-ucr-portal-confirm="'+E(r.request_id)+'"'+(portal.loading?' disabled':'')+'>Confirm match and propose values</button></div>':'')+'</section>';
     }).join(''):'';
     return '<div class="sai-note">Search the existing Access Portal through its authorized read-only endpoint. Confirm a request before its available fields become proposals. No Portal value changes a governance record until you review it in the Review tab. Missing fields stay missing.</div>'
-      +form+(portal.error?'<p role="alert">'+E(portal.error)+'</p>':'')+(portal.message?'<p role="status">'+E(portal.message)+'</p>':'')
+      +form+(portal.error?'<p role="alert" data-ucr-portal-error>'+E(portal.error)+'</p>':'')+(portal.message?'<p role="status" data-ucr-portal-message>'+E(portal.message)+'</p>':'')
       +(portal.last_success_at?'<p class="ucr-fine">Most recent successful retrieval: '+E(when(portal.last_success_at))+'.</p>':'')
-      +(response?'<p class="sai-count">'+response.results+' matching requests · showing '+response.shown+' · retrieved '+E(when(response.retrieved_at))+' from '+E(response.source_origin)+'. Results are live and are cleared if a read fails.</p>'+(cards||'<div class="empty"><strong>No requests matched.</strong><p>Try a request ID, application, purpose, requester, department, vendor or status.</p></div>'):'');
+      +(response?'<div data-ucr-portal-results><p class="sai-count">'+response.results+' search result'+(response.results===1?'':'s')+' · showing '+response.shown+' · retrieved '+E(when(response.retrieved_at))+' from '+E(response.source_origin)+'. Results are live and are cleared if a read fails.</p>'+(cards||'<div class="empty"><strong>No search results.</strong><p>Try a request ID, application, purpose, requester, department, vendor or status.</p></div>')+'</div>':'');
+  }
+  function portalInvalidate(form){
+    portal.use_case_id=form.elements.use_case_id.value;portal.query=form.elements.q.value;
+    portal.response=null;portal.error='';portal.message='';
+    el.querySelector('[data-ucr-portal-results]')?.remove();
+    el.querySelector('[data-ucr-portal-error]')?.remove();
+    el.querySelector('[data-ucr-portal-message]')?.remove();
   }
   async function portalSearch(form){
     portal.use_case_id=form.elements.use_case_id.value;portal.query=form.elements.q.value.trim();portal.loading=true;portal.error='';portal.message='';portal.response=null;render();
@@ -244,8 +251,10 @@ function mount(el,opts={}){
     else if(b.hasAttribute('data-ucr-tab'))opts.goto?.(b.dataset.ucrTab);
   },{signal:listeners.signal});
   el.addEventListener('submit',e=>{if(e.target.matches('[data-ucr-portal-search]')){e.preventDefault();portalSearch(e.target);}},{signal:listeners.signal});
+  el.addEventListener('input',e=>{if(e.target.matches('[data-ucr-portal-search] input[name="q"]'))portalInvalidate(e.target.form);},{signal:listeners.signal});
   el.addEventListener('change',e=>{
-    if(e.target.matches('[data-ucr-filter]')){const k=e.target.dataset.ucrFilter;f[k]=e.target.value;render();el.querySelector('[data-ucr-filter="'+k+'"]')?.focus();}
+    if(e.target.matches('[data-ucr-portal-search] select[name="use_case_id"]'))portalInvalidate(e.target.form);
+    else if(e.target.matches('[data-ucr-filter]')){const k=e.target.dataset.ucrFilter;f[k]=e.target.value;render();el.querySelector('[data-ucr-filter="'+k+'"]')?.focus();}
     else if(e.target.matches('[data-ucr-pick]')){const id=Number(e.target.dataset.ucrPick);e.target.checked?picked.add(id):picked.delete(id);const b=el.querySelector('[data-ucr-bulk]');if(b){b.disabled=!picked.size;b.textContent='Accept '+picked.size+' selected';}}
   },{signal:listeners.signal});
   load();

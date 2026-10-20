@@ -15,7 +15,7 @@ module.exports=function({router,pool,rbac,admin,wrap,actor,id,intakeClient=requi
  const portalRead=rbac.requirePage('approver-portal','read');
  async function level(req,key){if(req.user.isSuperAdmin)return 'admin';const [p]=await pool.query('SELECT access_policy FROM rbac_pages WHERE page_key=? LIMIT 1',[key]);return p.length?rbac.effectiveLevelForPage(req.user.email,req.user.roles||[],key,p[0].access_policy):'none';}
  router.get('/use-cases/enrichment',...ready,wrap(async(req,res)=>{
-  const editor=await level(req,'ai-governance')==='admin';
+  const editor=['read','admin'].includes(await level(req,'ai-governance'));
   res.json(await enrich.view(pool,{editor}));
  }));
  router.post('/use-cases/enrichment/run',admin,...ready,wrap(async(req,res)=>{
@@ -41,7 +41,7 @@ module.exports=function({router,pool,rbac,admin,wrap,actor,id,intakeClient=requi
   res.json({ok:true,...await portalLookup.confirm(pool,{client:intakeClient,cookie:req.headers.cookie,actor:actor(req),use_case_id:b.use_case_id,request_id:b.request_id,expected_revision:b.expected_revision,expected_updated_at:b.expected_updated_at})});
  }));
  router.get('/use-cases/enrichment/audit',...ready,wrap(async(req,res)=>{
-  if(await level(req,'ai-governance')!=='admin')return res.json({rows:[],can_edit:false,note:'The audit trail is shown to editors.'});
+  if(!['read','admin'].includes(await level(req,'ai-governance')))return res.json({rows:[],can_edit:false,note:'The audit trail is shown to editors.'});
   res.json({rows:await enrich.auditTrail(pool),limit:300,can_edit:true});
  }));
 };

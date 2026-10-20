@@ -31,7 +31,7 @@ let template=null;
 module.exports=function({router,pool,rbac,admin,wrap,transaction,actor,id}){
  const ready=contract.SLICES.includes(SLICE)?require('./schema/readiness').requireSchema(SLICE):(req,res)=>res.status(503).json({error:'SCHEMA_NOT_READY',slice:SLICE});
  const appId=v=>{if(v==null||v==='')fail('Choose the catalog application this use case belongs to');return id(v);};
- async function canEdit(req){if(req.user.isSuperAdmin)return true;const [p]=await pool.query("SELECT access_policy FROM rbac_pages WHERE page_key='ai-governance' LIMIT 1");return p.length?await rbac.effectiveLevelForPage(req.user.email,req.user.roles||[],'ai-governance',p[0].access_policy)==='admin':false;}
+ async function canEdit(req){if(req.user.isSuperAdmin)return true;const [p]=await pool.query("SELECT access_policy FROM rbac_pages WHERE page_key='ai-governance' LIMIT 1");return p.length?['read','admin'].includes(await rbac.effectiveLevelForPage(req.user.email,req.user.roles||[],'ai-governance',p[0].access_policy)):false;}
  async function apps(c=pool){const [r]=await c.query('SELECT id,app_name,aliases FROM ai_catalog WHERE retired=0 ORDER BY app_name');return r;}
  async function liveApp(c,n){const [a]=await c.query('SELECT id FROM ai_catalog WHERE id=? AND retired=0 FOR SHARE',[n]);if(!a.length)fail('Choose a current catalog application');}
  async function audit(c,req,action,catalogId,entityId,before,after){await c.query('INSERT INTO ai_governance_audit(actor,action,catalog_id,entity_id,before_json,after_json) VALUES(?,?,?,?,?,?)',[actor(req),action,catalogId,entityId,before?JSON.stringify(before):null,JSON.stringify(after||{})]);}
