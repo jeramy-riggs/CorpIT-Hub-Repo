@@ -1,12 +1,15 @@
 'use strict';
 const https=require('node:https'),fs=require('node:fs');
 const allowed=new Set(['https://dev-accessportal.nrpi.local','https://accessportal.nrpi.local']);
-module.exports=function create({origin=process.env.AI_GOVERNANCE_INTAKE_ORIGIN||'https://accessportal.nrpi.local',caPath=process.env.AI_GOVERNANCE_INTAKE_CA||'/etc/ssl/certs/nrpi-ca-chain.pem',request=https.request,readFile=fs.readFileSync}={}){
+module.exports=function create({origin=process.env.AI_GOVERNANCE_INTAKE_ORIGIN||'https://accessportal.nrpi.local',caPath=process.env.AI_GOVERNANCE_INTAKE_CA,request=https.request,readFile=fs.readFileSync}={}){
  if(!allowed.has(origin))throw new Error('Intake origin must be the existing Access Portal');
  const error=(message,status=502)=>Object.assign(new Error(message),{status});
+ // CA FALLBACK 2026-10-20: prod A/B have no /etc/ssl/certs copy, so the hub carries the same public NRPI chain in
+ // certs/; it then follows every release and failover. An explicit AI_GOVERNANCE_INTAKE_CA is still the only path tried.
+ const caPaths=caPath?[caPath]:['/etc/ssl/certs/nrpi-ca-chain.pem',require('node:path').join(__dirname,'certs','nrpi-ca-chain.pem')];
  return {origin,read(cookie){
   if(!cookie)return Promise.reject(error('Access Portal source access is required. Open Access Portal to check your access.',424));
-  let ca;try{ca=readFile(caPath);}catch{return Promise.reject(error('The configured corporate CA bundle is unavailable'));}
+  let ca;for(const p of caPaths){try{ca=readFile(p);break;}catch{}}if(!ca)return Promise.reject(error('The configured corporate CA bundle is unavailable'));
   return new Promise((resolve,reject)=>{
    const req=request(new URL('/api/portal/requests?type=aia&archived=all',origin),{method:'GET',ca,rejectUnauthorized:true,timeout:12000,headers:{Accept:'application/json',Cookie:cookie}},res=>{
     if(res.statusCode!==200){res.resume();return reject(error([401,403].includes(res.statusCode)?'Production Access Portal did not authorize this source read. Open Access Portal to check source access. Your AI Governance session remains valid.':res.statusCode>=300&&res.statusCode<400?'Access Portal requires its own source sign-in. Open Access Portal to check source access; no redirect or credentials were forwarded.':'Access Portal intake read failed',[401,403].includes(res.statusCode)||res.statusCode>=300&&res.statusCode<400?424:502));}
