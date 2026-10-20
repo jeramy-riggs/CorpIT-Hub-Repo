@@ -293,6 +293,7 @@
           <button type="button" data-ac-view="roles" aria-pressed="true">Roles &amp; permissions</button>
           <button type="button" data-ac-view="people" aria-pressed="false">People &amp; exceptions</button>
           <button type="button" data-ac-view="activity" aria-pressed="false">Audit log</button>
+          <button type="button" data-ac-view="register" aria-pressed="false">Register a page</button>
         <button type="button" class="ac-compare" data-ac-view="matrix" aria-pressed="false">Compare all roles</button>
         </nav>
         <section data-ac-pane="roles" aria-label="Roles and permissions">
@@ -331,6 +332,29 @@
             <label class="sr-only" for="ac-a-search">Find an audit event</label><input id="ac-a-search" type="search" placeholder="Find an actor, event or target" autocomplete="off"><label class="ac-chk"><input type="checkbox" id="ac-a-lookups"> Include access lookups</label><span class="hint" id="ac-a-count"></span>
           </div>
           <div class="tblwrap"><table class="grid ac-audit" id="ac-audit"></table></div>
+        </section>
+
+        <section data-ac-pane="register" aria-label="Register a page" hidden>
+          <form class="ac-reg" data-ac-reg novalidate>
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <p class="hint ac-howto">A Hub page checks its key on every request. Until the key is registered here, only super admins can open it. Every role gets an explicit level below, because a role with no setting would follow its default, and some defaults are Admin.</p>
+            <div class="ac-reg-grid">
+              <label>Page key<input name="page_key" required pattern="[a-z0-9][a-z0-9\-]{1,62}" maxlength="63" placeholder="ai-governance" autocomplete="off" spellcheck="false"></label>
+              <label>Display name<input name="display_name" required maxlength="128" placeholder="AI Governance" autocomplete="off"></label>
+              <label>Page path<input name="url_path" required maxlength="255" placeholder="/ai-governance.html" autocomplete="off" spellcheck="false"></label>
+              <label>Category<select name="category"><option value="app">App</option><option value="sop">SOP</option><option value="admin">Admin</option></select></label>
+              <label>Access rule<select name="access_policy"><option value="matrix">Role permissions</option><option value="authenticated">Everyone signed in (Read)</option></select></label>
+              <label>Status<select name="status"><option value="active">Active</option><option value="beta">Beta</option><option value="draft">Draft</option></select></label>
+              <label>Order<input name="display_order" type="number" min="0" max="100000" step="1" value="100"></label>
+              <label class="ac-reg-wide">Description<textarea name="description" rows="2" maxlength="1000"></textarea></label>
+              <label class="ac-chk"><input type="checkbox" name="has_admin_actions"> Page has admin actions</label>
+              <label class="ac-chk"><input type="checkbox" name="nav_visible"> Show in Hub navigation</label>
+            </div>
+            <h3 class="ac-reg-h">Role permissions on this page</h3>
+            <div class="tblwrap"><table class="grid" id="ac-reg-roles"></table></div>
+            <p class="ac-reg-err" data-ac-reg-err role="alert" hidden></p>
+            <button type="submit" class="btn pri" data-ac-reg-go>Register page</button>
+          </form>
         </section>
       </div>
 

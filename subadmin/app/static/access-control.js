@@ -387,7 +387,7 @@
     var q=$('#ac-a-search').value.trim().toLowerCase();
     var rows=S.audit.filter(function(a){return ($('#ac-a-lookups').checked||!LOOKUP_ACTIONS[a.action])&&(!q||[a.actor_email,a.action,a.target_email,a.target_page_key,JSON.stringify(a.details)].join(' ').toLowerCase().indexOf(q)>=0);});
     $('#ac-a-count').textContent=rows.length+' of '+S.audit.length+' loaded events';
-    var labels={view_as_lookup:'Access checked',superadmin_access:'Super-admin access',user_activity_lookup:'User activity checked',authorization_denied:'Access denied',qa_token_minted:'QA token created',role_updated:'Role permissions updated',user_access_updated:'Personal permissions updated',roles_invalidated:'AD group refresh requested'};
+    var labels={view_as_lookup:'Access checked',superadmin_access:'Super-admin access',user_activity_lookup:'User activity checked',authorization_denied:'Access denied',qa_token_minted:'QA token created',role_updated:'Role permissions updated',user_access_updated:'Personal permissions updated',roles_invalidated:'AD group refresh requested',page_registered:'Page registered'};
     $('#ac-audit').innerHTML='<thead><tr><th>When</th><th>Actor</th><th>Event & target</th><th>Details</th></tr></thead><tbody>'+rows.map(function(a){
       var d=a.details;if(typeof d==='string')try{d=JSON.parse(d);}catch(e){}
       var when=new Date(a.created_at),target=[a.target_email,a.target_page_key].filter(Boolean).join(' · '),label=labels[a.action]||String(a.action||'Event').replace(/_/g,' ').replace(/^./,function(c){return c.toUpperCase();});
@@ -397,6 +397,52 @@
   function loadAudit(){
     var request=++auditRequest;$('#ac-audit').innerHTML='<tbody><tr><td>Loading audit events…</td></tr></tbody>';
     return api('GET','/audit?limit=120').then(function(j){if(request!==auditRequest)return;S.audit=j.entries||[];renderAudit();}).catch(function(e){if(request!==auditRequest)return;$('#ac-audit').innerHTML='<tbody><tr><td>'+deniedHtml(e)+'</td></tr></tbody>';$('#ac-a-count').textContent='Unavailable';});
+  }
+
+  /* ---------- register a page (regpagekit 2026-10-20) ----------
+     POST /api/rbac/pages adds the rbac_pages row and one explicit grant per role in one
+     hub transaction. Every role is sent, so no role silently follows its default. */
+  var regFresh = true;
+  function renderRegister(){
+    var t = $('#ac-reg-roles'); if(!t) return;
+    var keep = {};
+    if(!regFresh) t.querySelectorAll('select[data-reg-role]').forEach(function(s){ keep[s.dataset.regRole] = s.value; });
+    regFresh = false;
+    var roles = S.roles.slice().sort(function(a, b){ return a.role_key.localeCompare(b.role_key); });
+    t.innerHTML = '<thead><tr><th>Role</th><th>Role default</th><th>On this page</th></tr></thead><tbody>' + roles.map(function(r){
+      var cur = keep[r.role_key] || 'none', id = 'ac-reg-' + r.role_key;
+      return '<tr><td><b>' + esc(r.display_name || r.role_key) + '</b><small class="ac-access-source">' + esc(r.role_key) + '</small></td><td>' + tag(r.default_access) +
+        '</td><td><label class="sr-only" for="' + esc(id) + '">Level for ' + esc(r.display_name || r.role_key) + '</label><select id="' + esc(id) + '" data-reg-role="' + esc(r.role_key) + '">' +
+        LEVELS.map(function(l){ return '<option value="' + l + '"' + (l === cur ? ' selected' : '') + '>' + esc(levelName(l)) + '</option>'; }).join('') + '</select></td></tr>';
+    }).join('') + (roles.length ? '' : '<tr><td colspan="3">No roles loaded.</td></tr>') + '</tbody>';
+  }
+  function regErr(text){ var p = $('[data-ac-reg-err]'); p.textContent = text || ''; p.hidden = !text; }
+  function register(form){
+    var f = form.elements, grants = {}, picked = [];
+    regErr('');
+    if(!form.reportValidity()) return;
+    form.querySelectorAll('select[data-reg-role]').forEach(function(s){
+      grants[s.dataset.regRole] = s.value;
+      if(s.value !== 'none') picked.push(roleName(s.dataset.regRole) + ': ' + levelName(s.value));
+    });
+    var body = {
+      page_key: f.page_key.value.trim().toLowerCase(), display_name: f.display_name.value.trim(), url_path: f.url_path.value.trim(),
+      category: f.category.value, access_policy: f.access_policy.value, status: f.status.value,
+      display_order: f.display_order.value === '' ? 100 : Number(f.display_order.value), description: f.description.value.trim(),
+      has_admin_actions: f.has_admin_actions.checked, nav_visible: f.nav_visible.checked, grants: grants,
+    };
+    if(!Object.keys(grants).length){ regErr('Roles have not loaded. Refresh and try again.'); return; }
+    if(S.pages.some(function(p){ return p.page_key === body.page_key; })){ regErr(body.page_key + ' is already registered.'); return; }
+    if(!confirm('Register ' + body.page_key + ' (' + body.url_path + ')?\n\n' + (picked.length ? picked.join('\n') + '\n' : '') +
+      'Every other role: No access.\n\nThe change is audited and takes effect immediately.')) return;
+    var btn = $('[data-ac-reg-go]'); btn.disabled = true; btn.textContent = 'Registering…';
+    api('POST', '/pages', body).then(function(j){
+      form.reset(); regFresh = true;
+      msg('Registered ' + j.page.page_key + '. It is in Roles & permissions now.', 'ok');
+      return loadAll();
+    }).catch(function(e){ regErr(e.message); }).then(function(){
+      btn.disabled = false; btn.textContent = 'Register page'; renderRegister();
+    });
   }
 
   /* ---------- dirty tracking + save ---------- */
@@ -511,6 +557,7 @@
     root.querySelectorAll('[data-ac-view]').forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.acView === v)); });
     root.querySelectorAll('[data-ac-pane]').forEach(function(p){ p.hidden = p.dataset.acPane !== v; });
     if(v === 'activity') loadAudit();
+    if(v === 'register') renderRegister();
   }
 
   /* ---------- events (scoped to this panel) ---------- */
@@ -587,6 +634,13 @@
         .then(function(){ msg('Reloaded from the hub.', 'ok'); })
         .catch(function(err){ msg(err.message, 'err'); });
     }
+  });
+  root.addEventListener('submit', function(e){
+    var form = e.target.closest('[data-ac-reg]');
+    if(!form) return;
+    e.preventDefault();
+    if(S.saving) return;
+    register(form);
   });
   window.addEventListener('beforeunload', function(e){
     if(S.loaded && describeChanges().length){ e.preventDefault(); e.returnValue = ''; }

@@ -316,9 +316,10 @@ server {
     # CORPIT-ACCESS-FOLD 2026-10-12: People & Access > Hub page access (the Access
     # Control page that used to stand alone at corpit /access-admin.html). Each path
     # is exact and limited to the one method the console uses, so the RBAC admin API
-    # is still not exposed as a namespace: no DELETE on roles, no page or role
-    # creation, no bulk routes. The hub's requireSuperAdmin decides every call.
-    location ~ ^/api/rbac/(?:pages|roles|audit)$ {
+    # is still not exposed as a namespace: no DELETE on roles, no role creation, no
+    # bulk routes. Pages also take POST (Register a page, the exact location below).
+    # The hub's requireSuperAdmin decides every call.
+    location ~ ^/api/rbac/(?:roles|audit)$ {
         limit_except GET { deny all; }
         auth_request /_gate;
         error_page 401 = @gate_denied;
@@ -336,6 +337,30 @@ server {
         add_header Cache-Control "no-store, private" always;
         include snippets/corpit-security-headers.conf;
         proxy_read_timeout 30s;
+    }
+
+    # regpagekit 2026-10-20: the console's "Register a page" posts here. Exact path,
+    # GET + POST only; the regex above keeps roles and audit GET-only. The hub's
+    # requireSuperAdmin decides every call.
+    location = /api/rbac/pages {
+        limit_except GET POST { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+        proxy_read_timeout 30s;
+        client_max_body_size 16k;
     }
 
     location ~ "^/api/rbac/roles/[a-z0-9][a-z0-9_-]{0,63}$" {

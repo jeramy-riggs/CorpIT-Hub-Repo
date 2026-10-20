@@ -160,3 +160,13 @@
 .ac .ac-ptbl table{min-width:720px}
 .ac .ac-ptbl th{white-space:normal}
 .ac .ac-ptbl col:nth-child(1){width:36%!important}.ac .ac-ptbl col:nth-child(2){width:18%!important}.ac .ac-ptbl col:nth-child(3){width:26%!important}.ac .ac-ptbl col:nth-child(4){width:20%!important}
+
+/* regpagekit 2026-10-20: Register a page */
+.ac-reg .ac-howto{border:1px solid var(--border);border-radius:8px;margin-bottom:14px}
+.ac-reg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 16px;margin-bottom:14px}
+.ac-reg-grid>label:not(.ac-chk){display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink-2)}
+.ac-reg-grid input:not([type=checkbox]),.ac-reg-grid select,.ac-reg-grid textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+.ac-reg-wide{grid-column:1/-1}
+.ac-reg-h{margin:6px 0 8px;font-size:14px}
+.ac-reg-err{color:var(--crit);margin:10px 0}
+.ac-reg [data-ac-reg-go]{margin-top:12px}
