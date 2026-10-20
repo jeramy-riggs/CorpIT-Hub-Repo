@@ -368,7 +368,8 @@ def build(A):
         if not site:
             return {"mode": default_mode, "groups": [], "inherited": True}
         return {"mode": site.get("mode", "superadmin"),
-                "groups": site.get("groups") or [], "inherited": False}
+                "groups": site.get("groups") or [], "inherited": False,
+                "page_limits": site.get("page_limits") or {}}   # SECPAGELIMIT-20261019
 
     access_map, policy_rows, csr_map = {}, [], {}
     for s in subs:
@@ -379,6 +380,8 @@ def build(A):
         if path and os.path.exists(path):
             csr_map[s["id"]] = _read(path, 8192)
     ctx.update(access_map=access_map, policy_rows=policy_rows, csr_map=csr_map)
+    # DEVACCESS-W3-20261019: the launch pad (dev-releases) has no subdomain row. Only the itam dev helper lists it.
+    ctx["launchpad_access"] = access_for("releases.nrpi.local") if policy.get("dev_view") else None
 
     def access_summary(fqdn):
         a = access_for(fqdn)

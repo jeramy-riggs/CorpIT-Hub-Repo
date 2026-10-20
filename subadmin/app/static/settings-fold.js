@@ -9,6 +9,7 @@
      Launch pad         itam only  /__dev/api/cab/settings  -> devrel :8480 (Hub super admin)
      Backup & HA        itam only  /bkp-api/settings, /bkp-api/ha/settings -> bkp-console :8470
      Darktrace email    Hub :3001  /api/sentinel/darktrace-email/config{,/test}  (Hub super admin; DARKTRACE-EMAIL 2026-10-14)
+     AI Governance sync Hub :3001  /api/zscaler/governance/portal-sync/config{,/run}  (Hub super admin; AI-GOVERNANCE PORTAL SYNC 2026-10-15)
    The owning API decides who may read and who may save. A tab button appears after a successful read or a temporary availability failure. Denied
    and absent editors stay hidden; unavailable editors show the owning error with Reload. A host without the
    API (prod has no launch pad or backup proxy) never shows it. A refused save is shown as refused. */
@@ -17,7 +18,7 @@
   var view = document.querySelector('[data-view="settings"]');
   if(!view) return;
   var tablist = view.querySelector('[data-tabs="settings"]');
-  var ORDER = ['certs', 'signin', 'digest', 'zscaler-ai', 'launchpad', 'backup', 'darktrace-email'];
+  var ORDER = ['certs', 'signin', 'digest', 'zscaler-ai', 'launchpad', 'backup', 'darktrace-email', 'aigov-portal'];
   var CONSOLE_HDR = { 'X-Subadmin-Console': '1' };
   var DEV = /^dev-/.test(location.hostname);
   var WARN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
@@ -885,6 +886,76 @@
     });
   }
 
+  /* ---------- AI Governance <-> Access Portal sync (Hub ai-governance-portal-routes.js) ---------- */
+  // AI-GOVERNANCE PORTAL SYNC 2026-10-15. Hourly: pull approved AIA intake from the Access Portal, push the
+  // at-a-glance summary back. The Hub answers only to a Hub super admin and audits every save and run.
+  // The Portal service token is write-only: the Hub returns only whether one is saved.
+  var AP = '/api/zscaler/governance/portal-sync/config';
+  function apStep(name, s){
+    var det = s.detail || {}, facts;
+    if(name === 'pull') facts = det.total == null ? '' : det.total + ' requests held · ' + det.approved + ' approved · last run +' + (det.added || []).length + ' new, ' + (det.changed || []).length + ' changed';
+    else facts = det.status ? det.status.apps + ' apps · ' + det.attention + ' attention · ' + det.due_soon + ' due soon · ' + det.recent + ' recent · ' + det.bytes + ' bytes' : '';
+    return '<div><span>' + (name === 'pull' ? 'Pull (AIA intake → Hub)' : 'Push (summary → Portal)') + '</span><b>' +
+      (s.at ? esc(s.status || 'unknown') + ' · ' + esc(when(s.at)) : 'not run yet') + '</b>' +
+      (s.error ? '<span class="sf-dim">' + esc(s.error) + '</span>' : facts ? '<span class="sf-dim">' + esc(facts) + '</span>' : '') + '</div>';
+  }
+  function apRender(d){
+    var c = d.config || {}, sc = d.schedule || {};
+    var cfg =
+      '<div class="sf-grid">' +
+      field({ kind: 'check', k: 'enabled', l: 'Hourly sync enabled', v: !!c.enabled, t: 'bool', h: 'Off: the worker does not pull or push. Intake already pulled stays; Portal marks the summary stale after 2 hours.' }) +
+      '</div><div class="sf-grid">' +
+      field({ kind: 'pw', k: 'token', l: 'Portal service token', v: '', ml: 200, ph: 'Leave blank to keep the saved token',
+        h: esc(c.token_set ? 'A token is saved; it is never sent back to the browser. Leave blank to keep it.' : 'No token is saved. The Access Portal administrator issues it (Approver console → AI Governance → Integration).') }) +
+      field({ kind: 'check', k: '__clear_token', l: 'Clear the saved token', v: false }) +
+      '</div>' +
+      '<div class="sf-foot"><button type="button" class="btn" data-sf-aprun' + (d.configured ? '' : ' disabled') + '>Run now</button>' +
+      '<span class="hint">' + (d.configured ? 'Uses the saved token, not unsaved edits: pulls the AIA feed, then pushes the summary. Runs even when the hourly sync is off.' : 'Save the token first.') + '</span></div>' +
+      '<div data-sf-apres></div>';
+    var meta = c.saved_at ? 'saved ' + esc(when(c.saved_at)) + (c.saved_by ? ' by ' + esc(c.saved_by) : '') : 'never saved';
+    var st = '<div class="sf-facts">' + apStep('pull', d.pull || {}) + apStep('push', d.push || {}) +
+      '<div><span>Last run · next scheduled</span><b>' + (sc.last_run_at ? esc(when(sc.last_run_at)) + (sc.last_run_by ? ' by ' + esc(sc.last_run_by) : '') : 'never') + ' · ' +
+      (c.enabled ? (sc.next_run_at ? esc(when(sc.next_run_at)) : 'next worker minute') : 'off') + '</b></div></div>' +
+      '<p class="sf-dim">Portal on this host: <span class="mono">' + esc((d.endpoint || {}).origin || '') + '</span>. The pull reads every AIA request since 2026-01-01 each hour and keeps the request id, status, tool, purpose, requester name and department only.</p>';
+    return '<section class="card" data-sf-ed="ap"><div class="card-h"><h3>Access Portal connection</h3><span class="meta">Hub table ai_governance_portal_sync · ' + meta + '</span></div>' +
+           '<div class="card-b">' + cfg + '</div>' + foot('ap') + '</section>' +
+           '<section class="card"><div class="card-h"><h3>Last sync</h3><span class="meta">read-only · ' + (d.configured ? 'configured' : 'not configured') + '</span></div>' +
+           '<div class="card-b">' + st + '</div></section>';
+  }
+  function apSave(ed){
+    var sent = {}, en = ed.querySelector('[data-k="enabled"]'), tok = ed.querySelector('[data-k="token"]'), clr = ed.querySelector('[data-k="__clear_token"]');
+    if(String(en.checked) !== en.dataset.o) sent.enabled = en.checked;
+    if(clr.checked) sent.token = '';
+    else if(tok.value.trim()) sent.token = tok.value.trim();
+    if(!Object.keys(sent).length) return Promise.resolve();
+    return api('PUT', AP, sent).then(function(){ return reread('aigov-portal'); }).then(function(d){
+      var back = d.config || {}, missed = Object.keys(sent).filter(function(k){
+        if(k === 'token') return !!back.token_set !== (sent.token !== '');
+        return !!back.enabled !== !!sent.enabled;
+      });
+      if(missed.length) throw new Error('the Hub answered OK but reading back shows these did not change: ' + missed.join(', ') + '.');
+      return 'Saved ' + Object.keys(sent).length + ' setting' + (Object.keys(sent).length === 1 ? '' : 's') + '; read back from the Hub.' + (back.enabled && back.token_set ? ' The worker runs it within a minute.' : '');
+    });
+  }
+  function apRun(ed, tab){
+    var out = ed.querySelector('[data-sf-apres]');
+    busy(ed, true);
+    msg(tab, 'Running the Portal sync…');
+    out.innerHTML = '';
+    var line = function(name, s){ return '<li><b>' + esc(name) + ':</b> ' + (s && s.ok ? 'done' : 'failed' + (s && s.error ? ': ' + esc(s.error) : '')) + '</li>'; };
+    api('POST', AP + '/run', {}).then(function(j){
+      if(document.contains(ed)) busy(ed, false);
+      var r = j.run || {};
+      out.innerHTML = '<div class="note' + (j.passed ? '' : ' warn') + '">' + (j.passed ? INFO_SVG : WARN_SVG) + '<div><b>' + (j.passed ? 'Sync ran.' : 'Sync ran with errors.') + '</b>' +
+        '<ul>' + line('Pull AIA intake', r.pull) + line('Push summary', r.push) + '</ul></div></div>';
+      msg(tab, (j.passed ? 'Sync ran' : 'Sync ran with errors') + '; recorded in the Hub audit.', j.passed ? 'ok' : 'err');
+      ST[tab].data = j; var held = out.innerHTML; draw(tab, true); var o2 = q(tab, '[data-sf-apres]'); if(o2) o2.innerHTML = held;
+    }, function(e){
+      if(document.contains(ed)) busy(ed, false);
+      msg(tab, '<b>Not run.</b> ' + esc(e.message), 'err');
+    });
+  }
+
   /* ---------- tab definitions ---------- */
   var DEF = {
     certs: {
@@ -967,6 +1038,15 @@
       probe: function(){ return api('GET', DT).then(function(j){ return !!(j && j.ok === true && j.config && typeof j.config === 'object'); }); },
       load: function(){ return api('GET', DT); },
       render: dtRender, save: dtSave,
+    },
+    'aigov-portal': {
+      label: 'AI Governance sync', what: 'AI Governance Portal sync settings',
+      lede: 'The hourly exchange between AI Governance and the Access Portal: approved AI intake (AIA) requests come in, the governance at-a-glance summary goes out. Stored in the Hub. The Hub accepts reads and changes only from a Hub super admin (<span class="mono">SaaS-ITH-SA</span>) and audits every save and run.',
+      guard: ' AI Governance sync settings are Hub super admin only (<span class="mono">SaaS-ITH-SA</span>).',
+      links: [[hubUrl('/ai-governance.html'), 'Open AI Governance']],
+      probe: function(){ return api('GET', AP).then(function(j){ return !!(j && j.ok === true && j.config && typeof j.config === 'object'); }); },
+      load: function(){ return api('GET', AP); },
+      render: apRender, save: apSave,
     },
   };
   DIRTY.digest = null;
@@ -1073,6 +1153,8 @@
     }
     var dtt = e.target.closest('[data-sf-dttest]');
     if(dtt){ dtTest(dtt.closest('[data-sf-ed]'), tab); return; }
+    var apr = e.target.closest('[data-sf-aprun]');
+    if(apr){ apRun(apr.closest('[data-sf-ed]'), tab); return; }
     var dis = e.target.closest('[data-sf-discard]');
     if(dis){ resetEd(dis.closest('[data-sf-ed]')); msg(tab, ''); return; }
     var sv = e.target.closest('[data-sf-save]'), del = e.target.closest('[data-sf-delete]');

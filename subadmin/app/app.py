@@ -562,7 +562,8 @@ def site_access_for(fqdn):
         d = pol.get("default") or {"mode": "superadmin"}
         return {"mode": d.get("mode", "superadmin"), "groups": [], "inherited": True}
     return {"mode": site.get("mode", "superadmin"),
-            "groups": site.get("groups") or [], "inherited": False}
+            "groups": site.get("groups") or [], "inherited": False,
+            "page_limits": site.get("page_limits") or {}}   # SECPAGELIMIT-20261019
 
 
 def _ldap_search_groups(flt, limit=200):
@@ -1354,6 +1355,66 @@ def set_access(sub_id):
     return redirect(url_for("detail", sub_id=sub_id))
 
 
+# SECPAGELIMIT-20261019 (itam dev): hold one of a site's groups to a few pages.
+_PAGE_LIMIT_RE = re.compile(r"/[A-Za-z0-9_-][A-Za-z0-9._/-]{0,150}\.html")
+
+
+@app.route("/subdomains/<int:sub_id>/page-limits", methods=["POST"])
+@requires("subdomain.access")
+def set_page_limits(sub_id):
+    """Members of one group that opens this site get only the listed pages; the gate
+    refuses every other page document. Empty pages clears the limit. Same bar as
+    set_access: this decides what people see."""
+    check_csrf()
+    row = db().execute("SELECT * FROM subdomains WHERE id=?", (sub_id,)).fetchone()
+    if not row:
+        abort(404)
+    group = request.form.get("limit_group", "").strip()
+    pages = parse_groups_field(request.form.get("limit_pages", ""))
+    acc = site_access_for(row["fqdn"])
+    if acc["mode"] != "groups" or group.lower() not in {g.lower() for g in acc["groups"]}:
+        flash("Pick one of the AD groups that opens this site.", "error")
+        return redirect(url_for("detail", sub_id=sub_id))
+    bad = [p for p in pages if not _PAGE_LIMIT_RE.fullmatch(p) or ".." in p or "//" in p]
+    if bad or len(pages) > 50:
+        flash("Pages must be site paths ending in .html, like /ai-governance.html (at most 50)%s."
+              % (": " + ", ".join(bad[:5]) if bad else ""), "error")
+        return redirect(url_for("detail", sub_id=sub_id))
+    _, err = _helper_json(["set-page-limit", row["label"], group, ",".join(pages) if pages else "-"])
+    if err:
+        flash("Could not update page limits: %s" % err, "error")
+    else:
+        audit("page-limit-set", "%s group=%s pages=%s" % (row["fqdn"], group, ",".join(pages) or "-"))
+        flash("Page limit for %s %s. Takes effect at once." % (group, "saved" if pages else "cleared"), "ok")
+    return redirect(url_for("detail", sub_id=sub_id))
+
+
+# DEVACCESS-W3-20261019 (itam dev): who may open the launch pad, dev-releases.nrpi.local. It has no
+# subdomain row, so it gets its own form under Identity & Access > Site access. The launch pad lets only
+# its signers (jriggs, rabad) change anything and only superadmins open its Settings, so a group added
+# here can look and nothing more. Only the dev helper lists the launch pad (get-access "dev_view").
+@app.route("/launch-pad/access", methods=["POST"])
+@requires("subdomain.access")
+def set_launchpad_access():
+    check_csrf()
+    back = "/console#iam/siteaccess"
+    if not site_policy().get("dev_view"):
+        flash("The launch pad's access is set only on the itam dev server, and its policy could not be read "
+              "here. Nothing was changed.", "error")
+        return redirect(back)
+    mode = request.form.get("access_mode", "").strip()
+    groups = parse_groups_field(request.form.get("access_groups", ""))
+    if mode not in ("groups", "superadmin"):
+        flash("The launch pad is open either to the AD groups you list or to platform owners only.", "error")
+        return redirect(back)
+    ok, msg = apply_site_access("releases", mode, groups)
+    if not ok:
+        flash(msg, "error")
+    else:
+        audit("access-set", "dev-releases.nrpi.local mode=%s groups=%s" % (mode, ",".join(groups) or "-"))
+        flash("Launch pad access updated. People in these groups can look; only jriggs and rabad can act. "
+              "Anyone already signed in must sign in again for this to apply to them.", "ok")
+    return redirect(back)
 @app.route("/subdomains/<int:sub_id>")
 @login_required
 def detail(sub_id):
