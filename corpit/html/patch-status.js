@@ -19,6 +19,9 @@
   var APP_API = '/hub-api/api/patch-status/app/';
   var GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   var DAY = 864e5, STALE_MS = 7 * DAY, AUTO_MS = 5 * 60 * 1000, TIMEOUT_MS = 40000;
+  // The snapshot can wait on a whole Intune read (first read after a hub restart, Refresh, a ring
+  // save); that has taken over 40 s while Intune throttles. Kept under nginx's 180 s on /hub-api/.
+  var SNAP_TIMEOUT_MS = 170000, SLOW_MS = 15000, RECHECK_MS = 20000, RECHECKS = 9;
   var LABEL = { current: 'Current', pending: 'Pending', stale: 'Not checking in', unknown: 'Unrecognised build' };
   var ORDER = { stale: 0, pending: 1, unknown: 2, current: 3 };
   var VIEWS = { overview: 'Intune health', devices: 'Devices', updates: 'Windows updates', security: 'Compliance & security',
@@ -2476,7 +2479,9 @@
     });
     var body = $('ps-body'); clear(body);
     if (!snap && view !== 'migration') {
-      body.appendChild(h('div', { class: 'ps-empty' }, [h('strong', { text: lastErr ? 'Intune data did not load' : 'Reading Intune…' }), lastErr ? h('span', { class: 'noc-small', text: lastErr }) : null]));
+      body.appendChild(h('div', { class: 'ps-empty' }, [h('strong', { text: lastErr ? 'Intune data did not load' : 'Reading Intune…' }),
+        lastErr ? h('span', { class: 'noc-small', text: lastErr })
+          : slow ? h('span', { class: 'noc-small', text: 'The hub has no saved read, so it is reading Intune now. This can take a few minutes while Intune limits how fast it answers.' }) : null]));
       status();
       return;
     }
@@ -2505,7 +2510,7 @@
     ref.textContent = reading ? 'Reading…' : 'Refresh';
     $('ps-export').disabled = view === 'migration' ? !(migration && migration.canExport()) : !snap || !snap.devicesOk;
     if (!snap) { live.textContent = reading ? 'Reading Intune…' : 'No completed read'; st.hidden = true; return; }
-    live.textContent = (reading ? 'Reading… · ' : '') + 'Read ' + ago(snap.at);
+    live.textContent = (reading ? 'Reading… · ' : snap.refreshing ? 'Updating in the background · ' : '') + 'Read ' + ago(snap.at);
     $('ps-stamp').textContent = 'Intune read ' + stamp(snap.at);
     var warn = '';
     if (lastErr) warn = 'The latest refresh failed (' + lastErr + '). Showing the read from ' + stamp(snap.at) + '.';
@@ -2514,11 +2519,13 @@
   }
 
   /* ── network ─────────────────────────────────────────────────────────── */
-  var fetchedAt = 0;
+  var fetchedAt = 0, slow = false, rechecks = 0, recheckT = null;
   function load(force) {
     if (reading) return;
-    reading = true; status();
-    var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, TIMEOUT_MS);
+    var prevAt = snap ? snap.at : null;
+    reading = true; slow = false; clearTimeout(recheckT); status();
+    var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, SNAP_TIMEOUT_MS);
+    var slowT = setTimeout(function () { slow = true; if (!snap && reading && !$('ps-work').hidden) rerender(); }, SLOW_MS);
     fetch(API + (force ? '?refresh=1' : ''), { credentials: 'same-origin', headers: { Accept: 'application/json' }, signal: ctl.signal })
       .then(function (r) {
         if (r.status === 401) throw { gate: 'auth' };
@@ -2533,14 +2540,18 @@
       .catch(function (e) {
         if (e && e.gate === 'auth') return gate('Session required', 'Your session is not active. Sign in, then return here.', signIn());
         if (e && e.gate === 'denied') return gate('Not available to your account', 'Intune health is limited to super-admins and SaaS-ITH-HD. The server refused this account.');
-        lastErr = e && e.name === 'AbortError' ? 'no answer within ' + TIMEOUT_MS / 1000 + ' s' : (e && e.message) || 'could not reach the hub';
+        lastErr = e && e.name === 'AbortError' ? 'no answer within ' + SNAP_TIMEOUT_MS / 1000 + ' s' : (e && e.message) || 'could not reach the hub';
       })
       .then(function () {
-        clearTimeout(t); reading = false; fetchedAt = Date.now();
+        clearTimeout(t); clearTimeout(slowT); reading = false; slow = false; fetchedAt = Date.now();
+        // The hub answered with its last read and is reading Intune again: look back soon for the new one.
+        if (snap && snap.refreshing && !lastErr && rechecks < RECHECKS) { rechecks++; recheckT = setTimeout(function () { load(false); }, RECHECK_MS); }
+        else rechecks = 0;
         if ($('ps-work').hidden) return;
         // A background refresh does not rebuild a view the technician is typing in or scrolled into.
         var typing = D.activeElement && /INPUT|SELECT/.test(D.activeElement.tagName) && $('ps-body').contains(D.activeElement);
-        if (typing || (view === 'migration' && migration && migration.hasEdits())) status(); else rerender();
+        // A look-back that found the same read only updates the status line.
+        if (typing || (view === 'migration' && migration && migration.hasEdits()) || (prevAt && snap && snap.at === prevAt && !lastErr)) status(); else rerender();
         if (drawerId && drawerId.indexOf('ring:') !== 0 && drawerId !== 'repair' && !devices().some(function (d) { return d.id === drawerId; })) closeDrawer();
       });
   }
@@ -2548,7 +2559,7 @@
   /* ── access gate ─────────────────────────────────────────────────────── */
   function signIn() { return h('a', { href: '/login.html?return=' + encodeURIComponent(location.pathname), text: 'Sign in' }); }
   function gate(title, text, action) {
-    clearInterval(timer);
+    clearInterval(timer); clearTimeout(recheckT);
     $('ps-work').hidden = true;
     var g = $('ps-gate'); g.hidden = false;
     $('ps-gate-h').textContent = title; $('ps-gate-p').textContent = text;

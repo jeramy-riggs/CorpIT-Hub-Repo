@@ -844,11 +844,13 @@ function saveTrend(s) {
   return t.rows;
 }
 // So the trend has a point on days nobody opens the page: every 30 minutes, if
-// today has no row yet, take one read (the same read the page would take).
+// today has no row yet, take one read (the same read the page would take). The
+// first tick also reads when the hub holds no read yet, so the first visitor after
+// a restart is not the one who waits for it.
 setTimeout(function tick() {
   try {
     const today = new Date().toISOString().slice(0, 10), rows = loadTrend().rows;
-    if (!inflight && !(rows.length && rows[rows.length - 1].day === today)) refresh().catch(function () {});
+    if (!inflight && (!snap || !(rows.length && rows[rows.length - 1].day === today))) refresh().catch(function () {});
   } catch (e) { console.error('[patch-status] trend tick failed:', e && e.message); }
   finally { setTimeout(tick, 30 * 60 * 1000).unref(); }
 }, 2 * 60 * 1000).unref();
@@ -858,9 +860,12 @@ router.get('/snapshot', async function (req, res) {
     const force = req.query.refresh === '1';
     const age = snap ? Date.now() - snap.at : Infinity;
     const sinceTry = Date.now() - lastTry;   // while Intune fails, snap.at stays old; lastTry stops a re-read per request
-    if (!snap || ringsDirty || (age > CACHE_MS && sinceTry > CACHE_MS) || (force && age > MIN_FORCE_MS && sinceTry > MIN_FORCE_MS)) { ringsDirty = false; await refresh(); }
+    // Only the first read, a ring save and Refresh wait for Intune. An old read is answered at once
+    // and re-read in the background (a cold read can pass 40 s while Intune throttles per-device reads).
+    if (!snap || ringsDirty || (force && age > MIN_FORCE_MS && sinceTry > MIN_FORCE_MS)) { ringsDirty = false; await refresh(); }
+    else if (age > CACHE_MS && sinceTry > CACHE_MS) refresh().catch(function (e) { console.error('[patch-status] background refresh failed:', e && e.message); });
     res.set('Cache-Control', 'no-store');
-    res.json(Object.assign({ ok: true, now: Date.now(), cacheMs: CACHE_MS, minForceMs: MIN_FORCE_MS, canEditRings: canEditRings(req.user) }, snap));
+    res.json(Object.assign({ ok: true, now: Date.now(), cacheMs: CACHE_MS, minForceMs: MIN_FORCE_MS, canEditRings: canEditRings(req.user) }, snap, { refreshing: !!inflight }));
   } catch (e) {
     console.error('[patch-status] snapshot failed:', e && e.message);
     res.status(500).json({ ok: false, error: 'INTERNAL' });
