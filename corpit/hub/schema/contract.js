@@ -166,6 +166,16 @@ const TABLES = [
   { slice: 'ai-governance-use-case', store: 'mysql', db: 'hub', table: 'ai_governance_use_case',
     columns: { id: 'int', catalog_id: 'int', profile: 'json', revision: 'int', created_by: 'varchar', created_at: 'timestamp', updated_by: 'varchar', updated_at: 'timestamp' },
     unique: [['id']] },
+  // AI USE-CASE ENRICHMENT 2026-10-20 (ai-governance-use-case-enrich*.js; hub-0029..0031).
+  { slice: 'ai-governance-use-case-enrich', store: 'mysql', db: 'hub', table: 'ai_governance_uc_proposal',
+    columns: { id: 'int', use_case_id: 'int', candidate_id: 'int', field_key: 'varchar', proposed_value: 'text', source_value: 'text', source_key: 'varchar', source_system: 'varchar', source_record_id: 'varchar', observed_at: 'datetime', confidence: 'varchar', match_method: 'varchar', evidence_note: 'varchar', evidence_url: 'varchar', fingerprint: 'char', status: 'varchar', decided_value: 'text', reviewer: 'varchar', reviewed_at: 'datetime', run_id: 'char', created_at: 'timestamp', updated_at: 'timestamp' },
+    unique: [['id'], ['fingerprint']] },
+  { slice: 'ai-governance-use-case-enrich', store: 'mysql', db: 'hub', table: 'ai_governance_uc_candidate',
+    columns: { id: 'int', kind: 'varchar', source_key: 'varchar', source_system: 'varchar', source_record_id: 'varchar', name: 'varchar', catalog_id: 'int', match_status: 'varchar', detail: 'json', status: 'varchar', use_case_id: 'int', reviewer: 'varchar', reviewed_at: 'datetime', observed_at: 'datetime', run_id: 'char', created_at: 'timestamp', updated_at: 'timestamp' },
+    unique: [['id'], ['source_key', 'source_record_id']] },
+  { slice: 'ai-governance-use-case-enrich', store: 'mysql', db: 'hub', table: 'ai_governance_uc_enrich_run',
+    columns: { id: 'char', trigger_kind: 'varchar', actor: 'varchar', status: 'varchar', started_at: 'datetime', completed_at: 'datetime', sources: 'json', counts: 'json', error: 'varchar' },
+    unique: [['id']] },
 ];
 
 const SLICES = [...new Set(TABLES.map(t => t.slice))];

@@ -148,7 +148,11 @@ module.exports=function({router,pool,rbac,admin,wrap,transaction,actor,id}){
  router.get('/use-cases/export',ready,wrap(async(req,res)=>{
   const [rows]=await pool.query('SELECT id,profile FROM ai_governance_use_case ORDER BY id');
   if(!template)template=fs.readFileSync(TEMPLATE);
-  const buf=xlsx.buildExport(template,rows.map(r=>{const profile=model.parsed(r.profile);return {ref:model.ref(r.id),profile,calc:model.calc(profile)};}));
+  // AI USE-CASE ENRICHMENT 2026-10-20: column AT names the source of each saved value that a
+  // reviewer accepted (or auto-fill set) and that still equals the saved value. Without the
+  // enrichment tables the export is the plain workbook.
+  let evidence=null;try{evidence=await require('./ai-governance-use-case-enrich').evidenceRefs(pool);}catch(e){if(e.code!=='ER_NO_SUCH_TABLE')console.error('[use-case export evidence]',e.code||e.name);}
+  const buf=xlsx.buildExport(template,rows.map(r=>{const profile=model.parsed(r.profile);return {ref:model.ref(r.id),profile,calc:model.calc(profile),evidence:evidence?.get(r.id)||''};}),new Date(),{evidence:!!evidence});
   res.set({'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition':'attachment; filename="AI_ML_Use_Inventory_'+new Date().toISOString().slice(0,10)+'.xlsx"','Cache-Control':'no-store, private','X-Content-Type-Options':'nosniff'});
   res.send(buf);
  }));

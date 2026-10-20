@@ -204,7 +204,11 @@ function summaryValue(formula,records){
   return total;
 }
 // records: [{ref, profile, calc}] in output order. Returns the filled workbook.
-function buildExport(template,records,now=new Date()){
+// opts.evidence (AI USE-CASE ENRICHMENT 2026-10-20): adds column AT, "Source / evidence
+// reference (CorpIT)", after the template's last column. The importer reads columns A..AS
+// only, so an exported workbook still imports.
+const EVIDENCE_COL='AT',EVIDENCE_HEADER='Source / evidence reference (CorpIT)';
+function buildExport(template,records,now=new Date(),opts={}){
   const book=open(template),inv=book.sheet('Inventory'),sum=book.sheet('Summary');
   if(!inv||!inv.path)throw new Error('use-case template has no Inventory sheet');
   const last=Math.max(TEMPLATE_LAST_ROW,FIRST_DATA_ROW-1+records.length),out=new Map();
@@ -212,23 +216,29 @@ function buildExport(template,records,now=new Date()){
   const master=new Map(),rowXml=new Map();
   for(const m of xml.matchAll(/<row r="(\d+)"([^>]*)>([\s\S]*?)<\/row>/g))if(m[1]==='5'||m[1]===String(TEMPLATE_LAST_ROW))rowXml.set(m[1],m);
   for(const c of rowXml.get('5')[3].matchAll(/<c r="([A-Z]+)5"[^>]*>(<f\b[^>]*>([\s\S]*?)<\/f>)/g))master.set(colIndex(c[1]),c[3]);
+  const evidenceCell=(n,rec,styles)=>opts.evidence&&rec?cell(EVIDENCE_COL+n,styles.get(WIDTH-1),{text:rec.evidence||''}):'';
   const parse=inner=>{const styles=new Map(),formulas=new Map();for(const c of inner.matchAll(/<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)){const i=colIndex(c[1]),s=/\bs="(\d+)"/.exec(c[2]),f=/<f\b[^>]*\/>|<f\b[^>]*>[\s\S]*?<\/f>/.exec(c[3]||'');if(s)styles.set(i,s[1]);if(f)formulas.set(i,f[0]);}return {styles,formulas};};
   xml=xml.replace(/<row r="(\d+)"([^>]*)>([\s\S]*?)<\/row>/g,(m,r,a,inner)=>{
     const n=Number(r),rec=records[n-FIRST_DATA_ROW];if(n<FIRST_DATA_ROW||!rec)return m;
-    const {styles,formulas}=parse(inner);return '<row r="'+n+'"'+a+'>'+rowCells(n,rec,styles,formulas)+'</row>';
+    const {styles,formulas}=parse(inner);return '<row r="'+n+'"'+a+'>'+rowCells(n,rec,styles,formulas)+evidenceCell(n,rec,styles)+'</row>';
   });
   if(last>TEMPLATE_LAST_ROW){
     // Rows past the template: row 505's styles, explicit formulas from the row-5 masters.
     const t=rowXml.get(String(TEMPLATE_LAST_ROW)),{styles}=parse(t[3]),extra=[];
     for(let n=TEMPLATE_LAST_ROW+1;n<=last;n++){
       const formulas=new Map([...master].map(([i,f])=>[i,'<f>'+f.replace(/(?<![A-Za-z0-9_$.])(\$?[A-Z]{1,3})5(?![0-9])/g,(x,c)=>c+n)+'</f>']));
-      extra.push('<row r="'+n+'"'+t[2]+'>'+rowCells(n,records[n-FIRST_DATA_ROW],styles,formulas)+'</row>');
+      extra.push('<row r="'+n+'"'+t[2]+'>'+rowCells(n,records[n-FIRST_DATA_ROW],styles,formulas)+evidenceCell(n,records[n-FIRST_DATA_ROW],styles)+'</row>');
     }
     xml=xml.replace('</sheetData>',extra.join('')+'</sheetData>');
     const grow=s=>s.replace(/([A-Z]{1,3})5:([A-Z]{1,3})505(?![0-9])/g,(x,a,b)=>a+'5:'+b+last);
     xml=xml.replace(/sqref="([^"]*)"/g,(m,v)=>'sqref="'+grow(v)+'"');
   }
   xml=xml.replace(/(<dimension ref="A1:[A-Z]+)\d+"/,'$1'+last+'"').replace(/(<autoFilter ref="A4:[A-Z]+)\d+"/,'$1'+last+'"').replace(/(<pane\b[^>]*\btopLeftCell=")[A-Z]+\d+"/,'$1D5"');
+  if(opts.evidence){
+    xml=xml.replace(/(<row r="4"[^>]*>[\s\S]*?)<\/row>/,(m,body)=>{const s=/<c r="[A-Z]+4"[^>]*\bs="(\d+)"/.exec(body);return body+cell(EVIDENCE_COL+'4',s&&s[1],{text:EVIDENCE_HEADER})+'</row>';})
+      .replace('</cols>','<col min="'+(WIDTH+1)+'" max="'+(WIDTH+1)+'" width="60" customWidth="1"/></cols>')
+      .replace(/ spans="1:45"/g,' spans="1:'+(WIDTH+1)+'"').replace(/(<dimension ref="A1:)[A-Z]+(\d+")/,'$1'+EVIDENCE_COL+'$2');
+  }
   out.set(inv.path,xml);
   if(sum&&sum.path){
     out.set(sum.path,book.get(sum.path).replace(/<c r="([A-Z]+\d+)"([^>]*)><f>([^<]*)<\/f>(?:<v>[^<]*<\/v>|<v\/>)?<\/c>/g,(m,ref,a,f)=>{

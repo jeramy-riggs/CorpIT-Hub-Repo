@@ -1,7 +1,9 @@
 /* AI USE-CASE INVENTORY 2026-10-20. One record per AI use case from the InfoSec / Legal
    "AI/ML Use Inventory" workbook, each linked to a catalog application. Import shows the
    returned workbook row by row before anything is saved; export fills the workbook's own
-   template. Records only: nothing here approves an application or changes its assessment. */
+   template. Records only: nothing here approves an application or changes its assessment.
+   AI USE-CASE ENRICHMENT 2026-10-20: Review, queue, Summary, sources and audit tabs come from
+   ai-governance-use-case-review.js when it is loaded; the form shows each field's review state. */
 (function(root){'use strict';
 const E=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const API='/api/zscaler/governance/use-cases',HIGH='Review for High';
@@ -9,6 +11,7 @@ const NO_FILL='Name, Category and the InfoSec / Legal review section are never f
 const today=()=>new Date().toLocaleDateString('en-CA');
 const day=v=>{if(!v)return '';const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleDateString():'';};
 const badge=(s,t='')=>'<span class="sai-badge '+t+'">'+E(s)+'</span>';
+const TABS=[['inventory','Inventory'],['portal','Portal lookup'],['review','Review'],['queue','Use-case queue'],['summary','Summary'],['sources','Enrichment sources'],['audit','Audit trail']];
 const overdue=r=>/^\d{4}-\d{2}-\d{2}$/.test(r.calc.next_review)&&r.calc.next_review<today();
 function b64(buf){const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);}
 async function request(path,options={},ms=20000){
@@ -19,7 +22,17 @@ async function request(path,options={},ms=20000){
 }
 function mount(el,opts={}){
   const listeners=new AbortController(),dialogs=new Set(),toast=opts.toast||(()=>{});
-  let data=null,error='',q='',app='',status='',flag='',inflight=0,alive=true;
+  let data=null,error='',q='',app='',status='',flag='',inflight=0,alive=true,tab='inventory',review=null;
+  const Review=root.AIGovernanceUseCaseReview;
+  el.innerHTML='<div class="sai uc-shell">'+(Review?'<nav class="ucr-tabs" aria-label="Use-case inventory views">'+TABS.map(([k,l])=>'<button type="button" data-uc-tab="'+k+'"'+(k===tab?' aria-current="true"':'')+'>'+E(l)+'<span data-uc-tab-count="'+k+'"></span></button>').join('')+'</nav>':'')+'<div data-uc-pane="inventory"></div><div data-uc-pane="review" hidden></div></div>';
+  const inv=el.querySelector('[data-uc-pane="inventory"]'),pane=el.querySelector('[data-uc-pane="review"]');
+  function tabCounts(){const c=review?.counts();if(!c)return;const set=(k,n,warn)=>{const x=el.querySelector('[data-uc-tab-count="'+k+'"]');if(x){x.textContent=n?String(n):'';x.className=n?'ucr-count'+(warn?' warn':''):'';}};set('review',c.review);set('sources',c.failed,true);}
+  function show(t){
+    if(!Review)return;tab=t;
+    for(const b of el.querySelectorAll('[data-uc-tab]'))b.toggleAttribute('aria-current',b.dataset.ucTab===t);
+    inv.hidden=t!=='inventory';pane.hidden=t==='inventory';
+    if(t!=='inventory')review.show(t);
+  }
   const track=async p=>{inflight++;try{return await p;}finally{inflight--;}};
   const field=k=>data.fields.find(f=>f.key===k);
   async function load(){
@@ -43,14 +56,14 @@ function mount(el,opts={}){
       +'<td>'+E(p.tier||'Not assigned')+'<small>'+E(c.next_review?'Next review '+c.next_review:'No review date')+(overdue(r)?' · Overdue':'')+'</small></td>'
       +'<td>'+E(day(r.updated_at))+'<small>'+E(r.updated_by)+'</small></td></tr>';}).join('');
   }
-  function results(){const list=matching();el.querySelector('[data-uc-results]').innerHTML=rows(list);el.querySelector('[data-uc-count]').textContent=list.length+' of '+data.rows.length+' use cases';}
+  function results(){const list=matching();inv.querySelector('[data-uc-results]').innerHTML=rows(list);inv.querySelector('[data-uc-count]').textContent=list.length+' of '+data.rows.length+' use cases';}
   function render(){
-    if(error&&!data){el.innerHTML='<div class="sai uc-view"><h2>Use-case inventory unavailable</h2><p role="alert">'+E(error)+'</p><button type="button" data-uc-refresh>Try again</button></div>';return;}
-    if(!data){el.innerHTML='<div class="sai uc-view"><p role="status">Loading use cases…</p></div>';return;}
+    if(error&&!data){inv.innerHTML='<div class="sai uc-view"><h2>Use-case inventory unavailable</h2><p role="alert">'+E(error)+'</p><button type="button" data-uc-refresh>Try again</button></div>';return;}
+    if(!data){inv.innerHTML='<div class="sai uc-view"><p role="status">Loading use cases…</p></div>';return;}
     const all=data.rows,apps=[...new Map(all.map(r=>[r.catalog_id,r.app_name||'Application '+r.catalog_id])).entries()].sort((a,b)=>String(a[1]).localeCompare(String(b[1])));
     if(app&&!apps.some(([n])=>String(n)===app))app='';
     const opt=(v,l,cur)=>'<option value="'+E(v)+'"'+(String(v)===cur?' selected':'')+'>'+E(l)+'</option>';
-    el.innerHTML='<div class="sai uc-view">'+(error?'<p role="alert">'+E(error)+'</p>':'')
+    inv.innerHTML='<div class="sai uc-view">'+(error?'<p role="alert">'+E(error)+'</p>':'')
       +'<div class="sai-note">'+E(data.note)+' Required (*) fields may be left blank; the workbook counts them in "Required fields still blank".</div>'
       +'<div class="sai-metrics" aria-label="Use-case summary"><div><strong>'+all.length+'</strong><span>Use cases recorded</span></div><div><strong>'+all.filter(r=>r.calc.required_blank>0).length+'</strong><span>With required fields still blank</span></div><div><strong>'+all.filter(r=>r.calc.auto_flag===HIGH).length+'</strong><span>Auto-flag: Review for High</span></div><div><strong>'+all.filter(overdue).length+'</strong><span>Next review overdue</span></div></div>'
       +'<div class="sai-controls"><label>Search<input type="search" data-uc-search value="'+E(q)+'" placeholder="Use case, department, application, vendor or ID"></label>'
@@ -84,6 +97,7 @@ function mount(el,opts={}){
       +sections.map(s=>'<section><h3>'+E(s)+'</h3><div class="sai-fields">'+data.fields.filter(f=>f.section===s).map(input).join('')+'</div></section>').join('')+'</fieldset>'
       +'<p role="alert" data-uc-error hidden></p><footer><span>Saving records the use case only. It does not approve the application or change its assessment.</span><button type="button" data-uc-close>'+(edit?'Cancel':'Close')+'</button>'+(edit?'<button type="submit" class="sai-primary">'+(rec?'Save use case':'Add use case')+'</button>':'')+'</footer></form>');
     const f=d.querySelector('form'),pick=d.querySelector('[data-uc-app]');
+    if(rec)for(const [k,t] of Object.entries(review?.hints(rec.id)||{})){const h=d.querySelector('[data-uc-hint="'+k+'"]');if(h){h.textContent=t;h.classList.add('uc-state');}}
     d.querySelector('[data-uc-fill]')?.addEventListener('click',()=>{
       const note=d.querySelector('[data-uc-fill-note]'),a=apps.find(x=>String(x.id)===pick.value);
       if(!a){note.textContent='Choose the application first.';pick.focus();return;}
@@ -100,7 +114,7 @@ function mount(el,opts={}){
       try{
         const body=JSON.stringify({catalog_id:Number(pick.value)||null,profile,...(rec?{revision:rec.revision}:{})});
         const r=await track(request(rec?'/'+rec.id:'',{method:rec?'PATCH':'POST',body}));
-        d.close();toast((rec?'Saved ':'Added ')+(rec?rec.ref:r.ref)+'.');await load();
+        d.close();toast((rec?'Saved ':'Added ')+(rec?rec.ref:r.ref)+'.');await load();review?.reload();
       }catch(x){err.textContent=x.message;err.hidden=false;}finally{submit.disabled=false;}
     };
   }
@@ -137,7 +151,7 @@ function mount(el,opts={}){
     go.onclick=async()=>{
       const rows=picked().map(tr=>{const r=byRow.get(Number(tr.dataset.ucRow));return {row:r.row,catalog_id:Number(tr.querySelector('[data-uc-row-app]').value),use_case_id:r.use_case_id,revision:r.revision};});
       go.disabled=true;err.hidden=true;
-      try{const res=await track(request('/import',{method:'POST',body:JSON.stringify({file_name:name,data_base64,rows})},60000));d.close();toast('Imported '+name+': '+res.added.length+' added, '+res.updated.length+' updated.');await load();}
+      try{const res=await track(request('/import',{method:'POST',body:JSON.stringify({file_name:name,data_base64,rows})},60000));d.close();toast('Imported '+name+': '+res.added.length+' added, '+res.updated.length+' updated.');await load();review?.reload();}
       catch(x){err.textContent=x.message;err.hidden=false;update();}
     };
     update();
@@ -154,12 +168,13 @@ function mount(el,opts={}){
     finally{clearTimeout(timer);b.disabled=false;}
   }
   el.addEventListener('click',e=>{
+    const t=e.target.closest('[data-uc-tab]');if(t){show(t.dataset.ucTab);return;}
     const b=e.target.closest('[data-uc-open],[data-uc-add],[data-uc-import],[data-uc-export],[data-uc-refresh]');if(!b||!data&&!b.hasAttribute('data-uc-refresh'))return;
     if(b.hasAttribute('data-uc-open')){const r=data.rows.find(x=>x.id===Number(b.dataset.ucOpen));if(r)form(r);}
     else if(b.hasAttribute('data-uc-add'))form(null);
     else if(b.hasAttribute('data-uc-import'))el.querySelector('[data-uc-file]').click();
     else if(b.hasAttribute('data-uc-export'))exportFile(b);
-    else{b.disabled=true;load();}
+    else{b.disabled=true;load();review?.reload();}
   },{signal:listeners.signal});
   el.addEventListener('input',e=>{if(e.target.matches('[data-uc-search]')){q=e.target.value;results();}},{signal:listeners.signal});
   el.addEventListener('change',e=>{
@@ -167,9 +182,10 @@ function mount(el,opts={}){
     else if(e.target.matches('[data-uc-file]')){const file=e.target.files[0];e.target.value='';chooseFile(file);}
   },{signal:listeners.signal});
   render();load();
+  if(Review)review=Review.mount(pane,{toast,catalog:()=>data?data.apps:[],goto:show,onLoad:tabCounts,onChange:()=>load()});
   return {
-    destroy(){alive=false;listeners.abort();for(const d of [...dialogs])d.close();el.replaceChildren();},
-    busy(){return dialogs.size>0||inflight>0;}
+    destroy(){alive=false;listeners.abort();review?.destroy();for(const d of [...dialogs])d.close();el.replaceChildren();},
+    busy(){return dialogs.size>0||inflight>0||!!review?.busy();}
   };
 }
 root.AIGovernanceUseCases={mount};
