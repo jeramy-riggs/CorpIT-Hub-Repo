@@ -154,8 +154,10 @@ function verdict(loc,mer){
       d:'Port <b>'+esc(e.port)+'</b> on '+esc(e.switch)+' reports <b>'+esc(h.oper)+'</b> (admin '+esc(h.admin)+').'};
   if(wl&&mer.status&&mer.status!=='Online'){
     var ls=seen(mer.lastSeen), where=(mer.ssid?' on <b>'+esc(mer.ssid)+'</b>':'')+(apn(mer)?' via '+esc(apn(mer)):'');
-    if(r&&r.device&&r.device.icmp)return{l:'good',t:nm+' is online',
-      d:'It answers on <b>'+esc(loc.ip||mer.ip||'')+'</b> ('+r.device.rtt_ms+' ms). Meraki lists it as <b>'+esc(mer.status)+'</b> on Wi-Fi'+(ls?' (last seen '+ls+where+')':'')+', so it may be wired or between Wi-Fi sessions.'};
+    var rd=r&&r.device;
+    if(rd&&rd.present!==false&&(rd.icmp||rd.evidence))return{l:'good',t:nm+(rd.icmp?' is online':' is on the network'),
+      d:(rd.icmp?'It answers on <b>'+esc(loc.ip||mer.ip||'')+'</b> ('+rd.rtt_ms+' ms)':'It was seen on the network ('+esc(rd.evidence)+')')+
+        '. Meraki lists it as <b>'+esc(mer.status)+'</b> on Wi-Fi'+(ls?' (last seen '+ls+where+')':'')+', so it may be wired or between Wi-Fi sessions.'};
     return{l:'warn',t:nm+' was last seen on Wi-Fi',
       d:'Meraki lists it as <b>'+esc(mer.status)+'</b>'+(ls?'; last seen '+ls:'')+where+'.'};}
   var pIss=[],oIss=[];
