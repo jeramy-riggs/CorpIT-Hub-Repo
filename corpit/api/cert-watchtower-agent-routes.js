@@ -19,6 +19,10 @@ const crypto = require('crypto');
 
 module.exports = function createAgentRouter(pool, rbac) {
   const router = express.Router();
+  // DEV: no enrolled per-agent credentials exist yet. Reject before session
+  // lookup or body parsing; the server-side WinRM scanner uses other routes.
+  router.post('/api/agents/checkin', (_req, res) =>
+    res.status(503).json({ error: 'Agent check-in is disabled on DEV' }));
   router.use(rbac.loadCurrentUser);
 
   // ---------------------------------------------------------------------------
@@ -136,9 +140,12 @@ module.exports = function createAgentRouter(pool, rbac) {
   // Response:
   //   { ok: true, agent_id: 12, findings_processed: 47, findings_new: 3, findings_updated: 44 }
   // ===========================================================================
+  // DEV has no successful agent check-ins; its certificate hosts are scanned
+  // server-side through WinRM. Keep the shared-token ingress unavailable until
+  // per-agent credentials are implemented and the clients are migrated.
   router.post('/api/agents/checkin',
-    express.json({ limit: '5mb' }),
     requireAgentToken,
+    express.json({ limit: '5mb' }),
     async (req, res) => {
       const body = req.body || {};
       const { fqdn, hostname, os_family = 'windows', os_version, agent_version, findings } = body;

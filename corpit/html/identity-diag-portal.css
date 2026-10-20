@@ -1,0 +1,241 @@
+/* Identity Diagnostics: AI Governance portal skin. Presentation only; loads after the inline styles.
+   Shares the governance banner and Nunito face; header and icon rail stay dark in both themes. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+:root:not([data-theme=light]) {
+  --bg: #071520; --bg-2: #0c1c29; --bg-3: #050f18;
+  --surface: #142533; --surface-2: #182c3c; --surface-3: #1e3546;
+  --line: #2a3d4d; --line-2: #37505f; --line-3: #4a6577;
+  --text: #ebf1f6; --text-2: #a4b5c5; --muted: #91a3b5;
+  --accent: #9bd64a; --accent-2: #84bf37; --accent-ink: #0b1a05;
+  --accent-dim: rgba(155, 214, 74, .13); --accent-line: rgba(155, 214, 74, .36); --accent-rgb: 155, 214, 74;
+  --good: #9bd64a; --good-dim: rgba(155, 214, 74, .13);
+  --warn: #f0d08b; --warn-dim: rgba(240, 208, 139, .14);
+  --bad: #ffa1ac; --bad-dim: rgba(255, 161, 172, .14); --bad-ink: #2a0b10;
+  --info: #7dc9e7; --info-dim: rgba(125, 201, 231, .14);
+  --unk: #8796a3; --unk-dim: rgba(135, 150, 163, .14);
+  --good-ink: #0b1a05; --warn-ink: #1d1405; --unk-ink: #06120e;
+  --scrim: rgba(3, 9, 15, .72); --red-h: #ffb8c0;
+  --idp-edge: #1f3445; --idp-overlay: #1a2f40;
+  --idp-elev-1: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --idp-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  /* Theme values kept under a second name, for overlays nested inside the re-pointed banner. */
+  --idp-t-text: #ebf1f6; --idp-t-text-2: #a4b5c5; --idp-t-muted: #91a3b5;
+  --idp-t-surface-2: #182c3c; --idp-t-line: #2a3d4d; --idp-t-line-2: #37505f; --idp-t-accent: #9bd64a;
+}
+:root[data-theme=light] {
+  --bg: #eff1f3; --bg-2: #fff; --bg-3: #e6e9ed;
+  --surface: #fff; --surface-2: #f6f8fa; --surface-3: #eceff3;
+  --line: #dfe3e8; --line-2: #cdd4dc; --line-3: #b3bfc9;
+  --text: #17212e; --text-2: #5d6b7e; --muted: #5f6d80;
+  --accent: #3d7924; --accent-2: #31631c; --accent-ink: #fff;
+  --accent-dim: rgba(61, 121, 36, .10); --accent-line: rgba(61, 121, 36, .32); --accent-rgb: 61, 121, 36;
+  --good: #3d7924; --good-dim: rgba(61, 121, 36, .10);
+  --warn: #8b641f; --warn-dim: rgba(139, 100, 31, .12);
+  --bad: #b33440; --bad-dim: rgba(179, 52, 64, .10); --bad-ink: #fff;
+  --info: #147299; --info-dim: rgba(20, 114, 153, .10);
+  --unk: #5d6b77; --unk-dim: rgba(93, 107, 119, .11);
+  --good-ink: #fff; --warn-ink: #fff; --unk-ink: #fff;
+  --scrim: rgba(23, 33, 46, .44); --red-h: #94262f;
+  --idp-edge: #e4e8ed; --idp-overlay: #fff;
+  --idp-elev-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --idp-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --idp-t-text: #17212e; --idp-t-text-2: #5d6b7e; --idp-t-muted: #5f6d80;
+  --idp-t-surface-2: #f6f8fa; --idp-t-line: #dfe3e8; --idp-t-line-2: #cdd4dc; --idp-t-accent: #3d7924;
+}
+:root, :root[data-theme] {
+  --display: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --font: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --radius: 13px; --radius-sm: 7px; --radius-lg: 16px;
+  --shadow: 0 1px 2px #00000026; --shadow-lg: var(--idp-elev-2);
+  --tr: 160ms cubic-bezier(.23, 1, .32, 1);
+  --idp-ease: cubic-bezier(.23, 1, .32, 1);
+  --idp-lift: 28px;
+}
+body { background: var(--bg); }
+
+/* Header and rail: the governance chrome. Tokens are re-pointed so every nested control stays legible in light mode. */
+.hdr, .rail {
+  --surface: #202936; --surface-2: #202936; --surface-3: #283645;
+  --line: #303746; --line-2: #3c4556; --line-3: #4c5668;
+  --text: #e6edf7; --text-2: #c1cad6; --muted: #9aa6b5;
+  --accent: #a5d877; --accent-2: #8fc45c; --accent-ink: #0b1a05;
+  --accent-dim: #a5d8771f; --accent-line: #a5d87766;
+  --good: #9bd64a; --warn: #f0d08b; --bad: #ffa1ac; --bad-ink: #2a0b10; --info: #7dc9e7; --unk: #8796a3;
+  --unk-dim: rgba(135, 150, 163, .16); --shadow-lg: 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  color: var(--text);
+}
+.hdr { --bg-2: #161c28; background: #161c28; border-bottom-color: #303746; }
+.hdr-mark { background: linear-gradient(140deg, #3d7924, #78be20); box-shadow: inset 0 1px 0 #ffffff33; }
+.hdr-mark circle { fill: #f2fae6; }
+.hdr-titles h1 { color: #fff; font-size: 13.5px; font-weight: 850; letter-spacing: -.2px; }
+.hdr-titles span { color: #a2adbb; }
+.hdr-sep { background: #303746; }
+.hdr-search input { background: #202936; border-color: #3c4556; color: #e6edf7; }
+.hdr-search input::placeholder { color: #9aa6b5; }
+.hdr-search input:focus { background: #202936; border-color: #a5d87799; }
+.hdr #it-topbar .ittb {
+  --ittb-fg: #e6edf7; --ittb-muted: #b7c5d7; --ittb-surface: #263241;
+  --ittb-panel: #142533; --ittb-panel-2: #203645; --ittb-line: #43546a;
+  --ittb-av-bg: #294b7c; font-family: inherit;
+}
+.rail { --bg-2: #131823; --line: #29313d; background: #131823; border-right-color: #29313d; }
+.rail-btn { color: #b8c2cf; transition: color var(--tr), background-color var(--tr), border-color var(--tr), transform var(--tr); }
+.rail-btn.active { color: #a5d877; background: #29323c; border-color: transparent; }
+.rail-btn.active::before { width: 3px; background: #78be20; }
+.rail-sep { background: #29313d; }
+
+/* Pane follows the theme. */
+.pane { border-right-color: var(--line); }
+.pane-hd h2, .pane-group { font-weight: 850; }
+.pane-tab, .adp-pill {
+  transition: background-color var(--tr), border-color var(--tr), color var(--tr), transform var(--tr);
+}
+.pane-tab { font-weight: 750; }
+.acct, .tool-link { transition: background-color var(--tr), border-color var(--tr), box-shadow var(--tr), transform var(--tr); }
+.acct.sel, .tool-link.active { box-shadow: inset 3px 0 var(--accent); }
+.acct-n, .tl-n { font-weight: 700; }
+/* The project nav buttons sit outside .uproj-scope's button reset, so they drew the browser's default border. */
+.up-nav-item {
+  border: 0; border-left: 2px solid transparent; background: transparent;
+  transition: background-color var(--tr), color var(--tr), border-color var(--tr), transform var(--tr);
+}
+
+/* Banner page headings: one treatment for every view's heading. */
+.view > .wrap > .hero:first-child, .view > .wrap > .tool-head:first-child {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 16px 24px;
+  min-height: 151px; margin: -16px -20px 18px; padding: 25px 28px;
+  border: 0; border-bottom: 3px solid #78be20; border-radius: 0; color: #fff;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+.hero-t, .tool-head > *, .hero-f {
+  --text: #fff; --text-2: #e0e8ef; --muted: #c3cfdb;
+  --surface: #172c3cbb; --surface-2: #172c3cbb; --surface-3: #172c3c;
+  --line: #91a8b877; --line-2: #b3c5d299; --line-3: #c3cfdb;
+  --accent: #c0e39a; --accent-line: #c0e39a99; --accent-dim: #c0e39a26;
+  --unk: #d3dce5; --unk-dim: #172c3cbb;
+}
+.hero-t h1, .tool-head h1 { color: #fff; font-size: 29px; font-weight: 850; letter-spacing: -.7px; line-height: 1.15; }
+.hero-t p, .tool-head p { color: #e0e8ef; font-size: 12.5px; max-width: 750px; }
+.hero-t p b, .tool-head p b { color: #fff; }
+.hero-f input, .tool-head .hdr-search input, .tool-head .env-select {
+  background: #172c3cbb; border-color: #b3c5d299; color: #fff;
+}
+.hero-f input { height: 36px; border-radius: 8px; font-size: 13px; }
+.hero-f .btn-primary { height: 36px; padding: 0 16px; }
+.hero-f input::placeholder, .tool-head input::placeholder { color: #c3cfdb; }
+.hero-f input:focus, .tool-head input:focus { border-color: #c0e39a; background: #10202dee; }
+.tool-head .lb-label { color: #e0e8ef; }
+/* Dropdowns inside the banner take the page theme back, not the banner's translucent tokens. */
+.hero .ta-dd, .tool-head .ta-dd, .tool-head select option {
+  --text: var(--idp-t-text); --text-2: var(--idp-t-text-2); --muted: var(--idp-t-muted);
+  --surface: var(--idp-overlay); --surface-2: var(--idp-t-surface-2);
+  --line: var(--idp-t-line); --line-2: var(--idp-t-line-2); --accent: var(--idp-t-accent);
+  color: var(--text); background: var(--idp-overlay);
+}
+
+/* Depth: canvas, raised, overlay. The first surface under a banner sits on it. */
+.hero:first-child:has(+ .metrics),
+.tool-head:first-child:has(+ .panel),
+.tool-head:first-child:has(+ div > :is(.panel, .card, .metrics, .grid, .verdict):first-child) {
+  min-height: calc(151px + var(--idp-lift)); padding-bottom: calc(25px + var(--idp-lift)); margin-bottom: 0;
+}
+.hero:first-child + .metrics,
+.tool-head:first-child + .panel,
+.tool-head:first-child + div > :is(.panel, .card, .metrics, .grid, .verdict):first-child {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--idp-lift));
+}
+/* Account detail: a slim banner band with the account header card overlapping it. */
+#view-detail > .wrap:has(> #aheadHost > .ahead)::before {
+  content: ""; display: block; height: 92px; margin: -16px -20px -50px;
+  border-bottom: 3px solid #78be20;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+#view-detail > .wrap > #aheadHost { position: relative; z-index: 1; }
+
+/* Surfaces */
+.panel, .card, .metric, .ahead, .verdict { border-radius: var(--radius); border-color: var(--idp-edge); box-shadow: var(--idp-elev-1); }
+.panel .panel, .panel .card, .card .card, .panel .metric { box-shadow: none; }
+.panel-hd { background: transparent; }
+.metric { background: var(--surface); padding: 13px 15px; }
+.metric-t { text-transform: none; letter-spacing: 0; font-size: 11.5px; font-weight: 750; color: var(--text-2); }
+.metric-n { font-weight: 850; font-size: 26px; letter-spacing: -1px; }
+.panel-hd h3, .card-hd h4, .sec-head h3, .sec-block h3, .verdict h4, .ahead-id h2, .idm-hd h3 { font-weight: 800; }
+.ahead-id h2 { font-size: 17px; letter-spacing: -.3px; }
+.ahead { padding: 14px 16px; }
+.mn { font-weight: 850; }
+.dtable th { background: var(--surface-2); color: var(--text-2); font-size: 10px; font-weight: 800; letter-spacing: .5px; }
+.verdict.good { border-color: color-mix(in srgb, var(--good) 34%, transparent); }
+.verdict.warn { border-color: color-mix(in srgb, var(--warn) 36%, transparent); }
+.verdict.bad { border-color: color-mix(in srgb, var(--bad) 36%, transparent); }
+.dg.pass, .adp-baseline.complete, .adp-defaults.ok { border-color: color-mix(in srgb, var(--good) 32%, transparent); }
+.dg.warnx, .adp-defaults.missing, .uproj-scope .inline-note.warn, #adp_revertBanner { border-color: color-mix(in srgb, var(--warn) 36%, transparent) !important; }
+.dg.fail, .uproj-scope .inline-note.bad { border-color: color-mix(in srgb, var(--bad) 36%, transparent); }
+.dchip.queued { border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+.dchip.missing { border-color: color-mix(in srgb, var(--warn) 42%, transparent); }
+.ta-dd, .menu, .idm-card, .toast { background: var(--idp-overlay); border-color: var(--line-2); box-shadow: var(--idp-elev-2); }
+.toast { background: var(--surface-3); }
+
+/* Controls */
+.btn { font-weight: 750; transition: background-color var(--tr), border-color var(--tr), color var(--tr), transform var(--tr); }
+.btn-primary, .uproj-scope .btn-primary { background: #3d7924; border-color: #3d7924; color: #fff; }
+.tab, .seg button, .sec-link { font-weight: 750; transition: color var(--tr), border-color var(--tr), background-color var(--tr), transform var(--tr); }
+.card.hover { transition: border-color var(--tr), background-color var(--tr), transform var(--tr); }
+.see-all, .dt-link { font-weight: 750; }
+.btn:not(:disabled):active, .rail-btn:active, .pane-tab:active, .adp-pill:active,
+.seg button:active, .tab:active, .menu-item:not(:disabled):active { transform: scale(.97); }
+.acct:active, .tool-link:active, .sec-link:active, .up-nav-item:active, .card.hover:active { transform: scale(.985); }
+@media (hover: hover) and (pointer: fine) {
+  .rail-btn:hover { color: #fff; background: #202936; }
+  .rail-btn.active:hover { color: #a5d877; background: #29323c; }
+  .btn-primary:hover:not(:disabled), .uproj-scope .btn-primary:hover:not(:disabled) { background: #31631c; border-color: #31631c; }
+  .card.hover:hover { border-color: var(--accent-line); }
+  .hero-f > .btn:not(.btn-primary):hover:not(:disabled), .tool-head .btn:not(.btn-primary):hover:not(:disabled) { background: #172c3c; border-color: #c0e39a; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root, :root[data-theme] { --tr: 0ms; }
+  .btn:not(:disabled):active, .rail-btn:active, .pane-tab:active, .adp-pill:active,
+  .seg button:active, .tab:active, .menu-item:not(:disabled):active,
+  .acct:active, .tool-link:active, .sec-link:active, .up-nav-item:active, .card.hover:active { transform: none; }
+}
+
+@media (max-width: 1200px) and (min-width: 901px) { .hero-t h1, .tool-head h1 { font-size: 26px; } }
+@media (max-width: 900px) {
+  :root, :root[data-theme] { --idp-lift: 18px; }
+  .view > .wrap > .hero:first-child, .view > .wrap > .tool-head:first-child { min-height: 130px; padding: 22px 18px; }
+  .hero:first-child:has(+ .metrics),
+  .tool-head:first-child:has(+ .panel),
+  .tool-head:first-child:has(+ div > :is(.panel, .card, .metrics, .grid, .verdict):first-child) {
+    min-height: calc(130px + var(--idp-lift)); padding-bottom: calc(22px + var(--idp-lift));
+  }
+  .hero-t h1, .tool-head h1 { font-size: 24px; }
+}
+@media (max-width: 620px) {
+  .view > .wrap > .hero:first-child, .view > .wrap > .tool-head:first-child { margin: -12px -12px 16px; padding: 20px 16px; }
+  .hero:first-child:has(+ .metrics),
+  .tool-head:first-child:has(+ .panel),
+  .tool-head:first-child:has(+ div > :is(.panel, .card, .metrics, .grid, .verdict):first-child) {
+    margin-bottom: 0; padding-bottom: calc(20px + var(--idp-lift));
+  }
+  #view-detail > .wrap:has(> #aheadHost > .ahead)::before { margin: -12px -12px -50px; }
+  .hero-f { min-width: 0; flex-basis: 100%; }
+}
+@media print {
+  :root, :root[data-theme] { --idp-elev-1: 0 0 #0000; --idp-elev-2: 0 0 #0000; }
+  .view > .wrap > .hero:first-child, .view > .wrap > .tool-head:first-child {
+    background: none; box-shadow: none; color: #17212e; margin: 0 0 20px; padding: 0 0 15px; min-height: 0; border-bottom: 2px solid #3d7924;
+  }
+  .hero-t h1, .tool-head h1, .hero-t p, .tool-head p { color: #17212e; }
+  .hero:first-child + .metrics, .tool-head:first-child + .panel,
+  .tool-head:first-child + div > :first-child { margin-top: 0; }
+  #view-detail > .wrap::before { display: none !important; }
+}

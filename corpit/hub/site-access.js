@@ -83,6 +83,56 @@ function envSuperAdmins() {
   return new Set(lower(String(process.env.RBAC_SUPERADMINS || '').split(',')));
 }
 
+// SECPAGELIMIT-20261019 (itam dev, Jeramy 2026-10-19: SaaS-ITH-SEC sees only
+// /ai-governance.html and /my-profile.html on dev-corpit). Optional per-group page
+// allowlist inside a site entry, set from the admin console:
+//   "page_limits": { "<AD group>": ["/a.html", "/b.html"], ... }
+// A person is limited only when EVERY group that grants them the site has an entry;
+// their pages are then the union of those entries and every other page document on
+// the host is refused. Assets and /api/ are not pages and keep the site answer.
+// Superadmins are never limited. The first listed page is the person's home there.
+const PAGE_ASSET_EXT = /\.(js|mjs|css|map|png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|otf|eot)$/i;
+
+// The path nginx will serve for a raw $request_uri, or null when it cannot be read
+// safely (null refuses a limited user). One decode, like nginx; repeated slashes and
+// dot segments resolved, like nginx.
+function pagePath(uri) {
+  if (typeof uri !== 'string' || !uri) return null;
+  const cut = uri.search(/[?#]/);
+  let p = cut === -1 ? uri : uri.slice(0, cut);
+  if (p.charAt(0) !== '/') return null;
+  try { p = decodeURIComponent(p); } catch (e) { return null; }
+  if (/[\x00-\x1f\x7f\\]/.test(p)) return null;
+  p = require('path').posix.normalize(p);
+  return p.charAt(0) === '/' ? p : null;
+}
+
+// A page document, as opposed to an asset or an API call. nginx's '\.html$' regex
+// location beats the /api/ and /hub-api/ prefixes, so an .html path is a page there too.
+function isPage(p) {
+  if (/^\/(api|hub-api)\//.test(p) && !/\.html?$/i.test(p)) return false;
+  return !PAGE_ASSET_EXT.test(p);
+}
+
+function computeLimit(site, mine) {
+  const pl = site && site.page_limits;
+  if (!pl || typeof pl !== 'object' || !mine) return null;
+  const byGroup = {};
+  Object.keys(pl).forEach(function (g) { byGroup[String(g).trim().toLowerCase()] = pl[g]; });
+  const granting = lower(site.groups).filter(function (g) { return mine.has(g); });
+  if (!granting.length) return null;
+  const pages = [];
+  for (let i = 0; i < granting.length; i++) {
+    const list = byGroup[granting[i]];
+    if (!Array.isArray(list)) return null;      // one unlimited granting group lifts the limit
+    list.forEach(function (x) {
+      x = String(x || '');
+      if (x.charAt(0) === '/' && pages.indexOf(x) === -1) pages.push(x);
+    });
+  }
+  return { pages: pages, home: pages[0] || null };
+}
+
 /**
  * Decide whether `email` (holding AD groups `groups`) may open `host`.
  *
@@ -90,9 +140,12 @@ function envSuperAdmins() {
  * @param {string}        email   HMAC-verified identity from the session token
  * @param {string[]|null} groups  groups from the token; null means the session
  *                                predates group resolution and we know nothing
+ * @param {string|null}   [uri]   raw request URI; only the gate's per-request check
+ *                                passes it, and only then do page_limits apply
+ *                                (SECPAGELIMIT-20261019)
  * @returns {{allow:boolean, reason:string, mode:string}}
  */
-function decide(host, email, groups) {
+function decide(host, email, groups, uri) {
   const policy = loadPolicy();
   const h = normHost(host);
   const who = String(email || '').trim().toLowerCase();
@@ -128,7 +181,18 @@ function decide(host, email, groups) {
     }
     const allowed = lower(site.groups);
     for (let i = 0; i < allowed.length; i++) {
-      if (mine.has(allowed[i])) return { allow: true, reason: 'group-match', mode: mode };
+      if (mine.has(allowed[i])) {
+        if (uri !== undefined) {                 // SECPAGELIMIT-20261019
+          const lim = computeLimit(site, mine);
+          if (lim) {
+            const p = pagePath(uri);
+            if (p === null || (isPage(p) && lim.pages.indexOf(p) === -1)) {
+              return { allow: false, reason: 'page-limited', mode: mode };
+            }
+          }
+        }
+        return { allow: true, reason: 'group-match', mode: mode };
+      }
     }
     return { allow: false, reason: 'not-in-allowed-group', mode: mode };
   }
@@ -179,5 +243,15 @@ function allowedSitesFor(email, groups) {
     });
 }
 
+// SECPAGELIMIT-20261019: this person's page limit on `host`, or null when they are
+// not limited there (refused outright, superadmin, or a granting group has no limit).
+function pageLimitFor(host, email, groups) {
+  const d = decide(host, email, groups);
+  if (!d.allow || d.reason !== 'group-match') return null;
+  const policy = loadPolicy();
+  const site = (policy.sites && policy.sites[normHost(host)]) || policy.default || FALLBACK.default;
+  return computeLimit(site, new Set(lower(groups)));
+}
+
 module.exports = { decide, referencedGroups, status, normHost, POLICY_PATH,
-                   allowedSitesFor };
+                   allowedSitesFor, pageLimitFor, pagePath, isPage };

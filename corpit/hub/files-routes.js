@@ -16,6 +16,26 @@ const rbac = createRbac(rbacPool);
 router.use(rbac.loadCurrentUser);
 const guard = rbac.requirePage('sharepoint-gov', 'read');
 const guardAdmin = rbac.requirePage('sharepoint-gov', 'admin');
+// Spreadsheet applications can execute a quoted CSV cell that begins with a
+// formula sigil. Prefix attacker-controlled metadata as text before quoting it.
+function csvCell(v) {
+  let s = String(v == null ? '' : v);
+  if (/^[\s\u0000-\u001f]*[=+\-@]/u.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+function writeCsvLine(res, line) {
+  if (res.destroyed) return Promise.reject(new Error('CSV client disconnected'));
+  if (res.write(line)) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => { res.off('drain', onDrain); res.off('close', onClose); res.off('error', onError); };
+    const onDrain = () => { cleanup(); resolve(); };
+    const onClose = () => { cleanup(); reject(new Error('CSV client disconnected')); };
+    const onError = e => { cleanup(); reject(e); };
+    res.once('drain', onDrain);
+    res.once('close', onClose);
+    res.once('error', onError);
+  });
+}
 
 // ── stale files ────────────────────────────────────────────────────────────────
 async function latestCompleteSnap() {
@@ -190,7 +210,7 @@ router.get('/stale/export', guard, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="stale-files-${new Date().toISOString().slice(0, 10)}.csv"`);
     res.write('File Name,Site,Site URL,File Path,Owner,Last Modified By,Last Modified,Created,Size (bytes)\n');
-    const csv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const csv = csvCell;
     const CH = 5000; let off = 0;
     for (;;) {
       const [rows] = await rbacPool.query(
@@ -700,28 +720,50 @@ router.get('/inventory/files', guard, async (req, res) => {
   } catch (e) { console.error('[INV] files', e.message); res.status(500).json({ error: e.message }); }
 });
 
+const INVENTORY_EXPORT_MAX_ROWS = 100000;
+let inventoryExportRunning = false;
 router.get('/inventory/export', guard, async (req, res) => {
+  if (inventoryExportRunning) return res.status(429).json({ error: 'An inventory export is already running' });
+  inventoryExportRunning = true;
   try {
     const { where, params } = _invWhere(req.query);
+    // Refuse overlarge downloads before sending CSV headers. Exporting the full
+    // multi-million-row inventory ties up the database and response for hours.
+    const [excess] = await rbacPool.query(
+      `SELECT id FROM file_inventory ${where} ORDER BY id LIMIT 1 OFFSET ?`,
+      [...params, INVENTORY_EXPORT_MAX_ROWS]);
+    if (excess.length) return res.status(413).json({
+      error: 'Export exceeds 100,000 rows. Narrow the filters and try again.',
+      code: 'EXPORT_TOO_LARGE', maxRows: INVENTORY_EXPORT_MAX_ROWS,
+    });
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="inventory-${new Date().toISOString().slice(0, 10)}.csv"`);
-    res.write('Site,Library,File Name,Folder,File Path,Owner,Last Modified By,Modified,Created,Size (bytes),Ext,Web URL\n');
-    const csv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-    const CH = 5000; let off = 0;
+    await writeCsvLine(res, 'Site,Library,File Name,Folder,File Path,Owner,Last Modified By,Modified,Created,Size (bytes),Ext,Web URL\n');
+    const csv = csvCell;
+    const CH = 5000; let lastId = 0;
     for (;;) {
+      if (res.destroyed) break;
+      const nextWhere = where ? `${where} AND id > ?` : 'WHERE id > ?';
       const [rows] = await rbacPool.query(
-        `SELECT site_name,drive_name,file_name,file_path,owner,modified_by,modified_date,created_date,size,ext,web_url
-           FROM file_inventory ${where} ORDER BY size DESC LIMIT ? OFFSET ?`, [...params, CH, off]);
+        `SELECT id,site_name,drive_name,file_name,file_path,owner,modified_by,modified_date,created_date,size,ext,web_url
+           FROM file_inventory ${nextWhere} ORDER BY id LIMIT ?`, [...params, lastId, CH]);
       if (!rows.length) break;
       for (const r of rows) {
         const folder = (r.file_path || '').replace(/\/[^/]*$/, '') || '/';
-        res.write([csv(r.site_name), csv(r.drive_name), csv(r.file_name), csv(folder), csv(r.file_path), csv(r.owner), csv(r.modified_by),
+        await writeCsvLine(res, [csv(r.site_name), csv(r.drive_name), csv(r.file_name), csv(folder), csv(r.file_path), csv(r.owner), csv(r.modified_by),
           r.modified_date ? new Date(r.modified_date).toISOString() : '', r.created_date ? new Date(r.created_date).toISOString() : '', r.size || 0, csv(r.ext), csv(r.web_url)].join(',') + '\n');
       }
-      off += CH; if (rows.length < CH) break;
+      lastId = rows[rows.length - 1].id;
+      if (rows.length < CH) break;
     }
-    res.end();
-  } catch (e) { console.error('[INV] export', e.message); res.status(500).end(); }
+    if (!res.destroyed) res.end();
+  } catch (e) {
+    if (!res.destroyed) {
+      console.error('[INV] export', e.message);
+      if (!res.headersSent) res.status(500).json({ error: 'Export failed' });
+      else res.destroy(e);
+    }
+  } finally { inventoryExportRunning = false; }
 });
 // ── file inventory: storage by file type (dashboard strip) ───────────────
 // The crawler writes a small, table-generation-keyed snapshot after the inventory table

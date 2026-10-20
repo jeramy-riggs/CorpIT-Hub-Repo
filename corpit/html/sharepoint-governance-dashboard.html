@@ -809,10 +809,14 @@ input:focus,select:focus{outline:2px solid var(--blue);outline-offset:1px}
 @media(max-width:900px){.da-row{grid-template-columns:140px 1fr 90px 90px}.da-count{display:none}}
 </style>
 <link rel="stylesheet" href="/it-depth.css">
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/sharepoint-governance-portal.css?v=b22910519076">
+<link rel="stylesheet" href="/sharepoint-governance-dashboard-view.css?v=review1">
+<script src="/sharepoint-governance-dashboard-view.js?v=review1"></script>
 </head>
 <body data-dp="sharepoint-governance-dashboard">
 <div class="app">
-<div class="sidebar">
+<div class="sidebar" id="spg-sidebar" aria-label="SharePoint navigation">
   <div class="sidebar-logo">
     <div class="logo-icon">&#128193;</div>
     <div>
@@ -842,21 +846,17 @@ input:focus,select:focus{outline:2px solid var(--blue);outline-offset:1px}
 </div>
 <div class="main">
   <div class="topbar">
-    <div>
-      <div class="topbar-title" id="topbar-title">Dashboard</div>
-      <div class="topbar-sub" id="topbar-sub">auctiondotcom.sharepoint.com &#183; Loading&#8230;</div>
+    <button type="button" id="spg-menu" class="tbtn" aria-label="Toggle navigation" aria-expanded="false" aria-controls="spg-sidebar" onclick="spgToggleNav()"><svg class="spg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <div class="spg-workspace-name"><span>SharePoint /</span><span class="topbar-title" id="topbar-title">Dashboard</span></div>
+    <div class="topbar-sub" id="topbar-sub"></div>
+    <div class="spg-bar-actions">
+      <button type="button" class="tbtn btn-ghost" onclick="exportSites()" aria-label="Export sites as CSV" title="Export all sites as CSV"><svg class="spg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 16v5h16v-5"/></svg><span class="spg-export-label">Export sites</span></button>
+      <button type="button" class="tbtn" id="refresh-btn" onclick="doRefresh()" title="Refresh from Graph API">Refresh data</button>
+      <button type="button" class="tbtn btn-ghost tour-btn-circle" id="tour-btn" onclick="startTour()" title="Guided tour of this page" style="display:none">?</button>
+      <span class="noc-countdown" id="noc-countdown"><span class="cd-dot"></span> <span id="noc-timer">5:00</span></span>
+      <button type="button" class="tbtn noc-btn" id="noc-btn" onclick="toggleNOC()" title="NOC Mode — auto-refresh every 5 min">NOC</button>
     </div>
-    <div id="data-freshness" style="display:flex;gap:16px;align-items:center;margin-left:18px;flex-wrap:wrap"></div>
-    <div class="topbar-spacer"></div>
-    <div class="search-box">
-      <span style="color:var(--text3)">&#128269;</span>
-      <input id="gsearch" placeholder="Search recommendations&#8230;" oninput="gSearch(this.value)"/>
-    </div>
-    <button class="tbtn btn-ghost" onclick="exportAll()">&#11015; Export CSV</button>
-    <button class="tbtn btn-green" id="refresh-btn" onclick="doRefresh()" title="Refresh from Graph API">&#8635; Refresh</button>
-    <button class="tbtn btn-ghost tour-btn-circle" id="tour-btn" onclick="startTour()" title="Guided tour of this page" style="display:none">?</button>
-    <span class="noc-countdown" id="noc-countdown"><span class="cd-dot"></span> <span id="noc-timer">5:00</span></span>
-    <button class="tbtn noc-btn" id="noc-btn" onclick="toggleNOC()" title="NOC Mode — auto-refresh every 5 min">&#9684; NOC</button>
+    <div id="it-topbar"></div>
   </div>
   <div class="content" id="content"></div>
 </div>
@@ -913,7 +913,7 @@ input:focus,select:focus{outline:2px solid var(--blue);outline-offset:1px}
     <div class="dlp-modal-footer" id="dlp-modal-footer">
       <span id="dlp-modal-meta"></span>
       <div style="flex:1"></div>
-      <button class="tbtn btn-ghost" style="font-size:.72rem" onclick="exportDlpCsv()">⬇ Export CSV</button>
+      <button class="tbtn btn-ghost" style="font-size:.72rem" onclick="exportDlpCsv('modal')">⬇ Export matching CSV</button>
     </div>
   </div>
 </div>
@@ -2029,7 +2029,7 @@ async function loadLiveData(showToast = true) {
   } finally {
     DATA_LOADING = false;
     SP_ATTEMPTED = true;
-    if (btn) btn.textContent = '⟳ Refresh';
+    if (btn) btn.textContent = 'Refresh data';
   }
 }
 
@@ -2038,6 +2038,7 @@ async function doRefresh() {
   // Force cache clear on backend
   try { await fetch(`${API_BASE}/api/sharepoint/refresh`, { method: 'POST' }); } catch {}
   await loadLiveData(true);
+  spgLoadFeedStatus();
   loadDashStorage(true); // retry failed storage sources without holding the refresh UI
 }
 
@@ -2077,18 +2078,7 @@ function seedAsOfLabel() {
 
 function updateTopbar() {
   const sub = document.getElementById('topbar-sub');
-  if (!sub) return;
-  const date = DATA_SOURCE === 'live'
-    ? new Date(SUMMARY.refreshed_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})
-    : 'Mar 30, 2026';
-  const badge = DATA_SOURCE === 'live'
-    ? `<span class="live-badge"><span class="live-dot"></span>LIVE</span>`
-    : `<span class="seed-badge">XLS BASELINE</span>`;
-  const seedNote = DATA_SOURCE === 'live'
-    ? ` · <span style="color:var(--text3)" title="External-sharing and hub assignments come from the SharePoint admin export, not the Graph API">sharing/hub flags as of ${seedAsOfLabel()}</span>`
-    : '';
-  sub.innerHTML = `auctiondotcom.sharepoint.com &nbsp;${badge}&nbsp; ${date}${seedNote}`;
-  renderFreshness();
+  if (sub) sub.textContent = 'auctiondotcom.sharepoint.com';
 }
 
 function updateNavBadges() {
@@ -2190,6 +2180,14 @@ function renderDashStorage(){
   const el=document.getElementById('dash-storage'); if(!el) return;
   const D=DASH_STORAGE;
   if(!D){ el.innerHTML='<div class="muted" style="padding:8px;font-size:.78rem">Loading storage intelligence…</div>'; return; }
+  /* At boot setPage('dashboard') runs from the first script block, before the Storage Growth block defines
+     growthBytes. Throwing here also aborted loadDashStorage before any fetch, so the tiles sat on "loading"
+     forever. Show the loading line until it exists, and render again once the page has parsed. */
+  if(typeof growthBytes!=='function'){
+    el.innerHTML='<div class="muted" style="padding:8px;font-size:.78rem">Loading storage intelligence…</div>';
+    document.addEventListener('DOMContentLoaded',()=>{ if(currentPage==='dashboard') renderDashStorage(); },{once:true});
+    return;
+  }
   const inv=D.inv||{}, st=D.stale||{}, g=D.growth||{};
   const invT=INV_TILE(inv,D.pending.has('inv'));
   const stT=SRC_TILE(D.stale,'Stale-file totals',D.pending.has('stale')),
@@ -2230,181 +2228,10 @@ function drawDashTrend(){
   charts.dashTrend.$source=D.growth;
 }
 
-function renderDash() {
-  const totalTB     = (SUMMARY.total_gb / 1024).toFixed(2);
-  const inactiveTot = SUMMARY.inactive_critical + SUMMARY.inactive_high + SUMMARY.inactive_medium + SUMMARY.inactive_watch;
-  const health      = computeHealthScore();
-  const noOwner     = getNoOwnerSites();
-  const prev        = loadTrendSnapshot();
-
-  // Trend deltas (prev snapshot was saved BEFORE this render's saveTrendSnapshot)
-  const td = prev ? {
-    critical: CRITICAL_SITES.length - prev.critical,
-    high:     HIGH_SITES.length     - prev.high,
-    ext_on:   EXT_ON_SITES.length   - prev.ext_on,
-    no_hub:   NO_HUB_SITES.length   - prev.no_hub,
-  } : {};
-
-  const growthTileAc  = GROWTH_ALERTS.length ? 'var(--red)' : 'var(--green)';
-  const growthTileVal = GROWTH_ALERTS.length ? GROWTH_ALERTS.length : '✓';
-  const growthTileSub = GROWTH_ALERTS.length
-    ? `${GROWTH_ALERTS.length} site${GROWTH_ALERTS.length!==1?'s':''} ≥${GROWTH_THRESHOLD_PCT}% growth`
-    : `No sites exceed ${GROWTH_THRESHOLD_PCT}% threshold`;
-
-  // ── Cost math (active tier vs cold archive) ──────────────────────────────
-  const CA_RATE = (typeof CA_STATE!=='undefined' && CA_STATE.rate)  ? CA_STATE.rate  : 0.20;
-  const CA_ARATE= (typeof CA_STATE!=='undefined' && CA_STATE.arate) ? CA_STATE.arate : 0.05;
-  const annualCost = SUMMARY.total_gb * CA_RATE * 12;
-  const usd0 = n => '$' + Number(Math.round(n)).toLocaleString();
-  const usdShort = n => { n=Number(n)||0; if(n>=1e6) return '$'+(n/1e6).toFixed(2)+'M'; if(n>=1e3) return '$'+(n/1e3).toFixed(1)+'K'; return '$'+Math.round(n); };
-  const extPct = SUMMARY.total_sites ? (SUMMARY.ext_on_count/SUMMARY.total_sites*100).toFixed(0) : 0;
-  const alertsSum = ALERTS_SUMMARY();
-  reportAlertsSummary(alertsSum);
-
-  document.getElementById('content').innerHTML = `
-    <div class="breadcrumb">
-      <span class="crumb">auctiondotcom.sharepoint.com</span>
-      <span class="sep">›</span><span class="crumb cur">Dashboard</span>
-    </div>
-    <div class="page-header">
-      <div class="ph-left">
-        <h2>SharePoint Governance</h2>
-        <p>${SUMMARY.total_sites} sites · ${totalTB} TB · ${inactiveTot} flagged · ${DATA_SOURCE==='live'?'Microsoft Graph API — live':'SharepontData.xls baseline'}</p>
-      </div>
-      <div class="ph-right">
-        <select id="pf" onchange="filterP()" style="font-size:.75rem">
-          <option value="">All Priorities</option>
-          <option value="critical">🔴 Critical</option>
-          <option value="high">🟠 High</option>
-          <option value="medium">🔵 Medium</option>
-          <option value="low">🟢 Low / Watch</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- ═══ EXECUTIVE HERO ═══ -->
-    <div class="exec-hero">
-      <div class="eh-cell eh-red">
-        <div class="eh-label">Annual Storage Cost</div>
-        <div class="eh-value">${usd0(annualCost)}<span class="eh-unit">/yr</span></div>
-        <div class="eh-sub">${totalTB} TB on active tier · ${usd0(annualCost/12)}/mo · illustrative (overage-only actual)</div>
-      </div>
-      <div class="eh-cell eh-green" style="cursor:pointer" onclick="setPage('cost-analysis')">
-        <div class="eh-label">Recoverable / yr</div>
-        <div class="eh-value" id="hero-reclaim">…</div>
-        <div class="eh-sub" id="hero-reclaim-sub">calculating from stale-file scan…</div>
-        <div class="eh-cta">Open Cost Analysis →</div>
-      </div>
-      <div class="eh-cell eh-grade" style="--gc:${health.color}">
-        <div class="eh-label">Tenant Health</div>
-        <div class="eh-value" style="color:${health.color}">${health.score}<span class="eh-unit">/100</span> <span class="eh-badge" style="background:${health.bg};color:${health.color}">${health.grade}</span></div>
-        <div class="eh-sub">${health.breakdown.critical} critical · ${health.breakdown.extInactive} inactive+shared · ${health.breakdown.noOwner} ownerless</div>
-      </div>
-    </div>
-
-    <div class="eh-narrative">
-      <span class="ehn-dot"></span>
-      <span><b>${totalTB} TB</b> across <b>${SUMMARY.total_sites}</b> sites costs <b style="color:var(--red)">${usd0(annualCost)}/yr</b> to keep on the active tier — <b style="color:var(--green)" id="hero-narr-reclaim">a portion</b> is recoverable by archiving files untouched 5+ years.</span>
-    </div>
-
-    <!-- ═══ EXPOSURE ROW ═══ -->
-    <div class="sec-label" style="margin-top:20px">Exposure &amp; Risk</div>
-    <div class="stat-grid" style="margin-bottom:6px">
-      <div class="stat-card" style="--ac:var(--red)" onclick="filterP2('critical')">
-        <div class="stat-label">Critical Risk Sites ${trendBadge(td.critical)}</div>
-        <div class="stat-value" style="color:var(--red)">${SUMMARY.inactive_critical}</div>
-        <div class="stat-sub">2yr+ dormant or never active</div><div class="sa">→</div>
-      </div>
-      <div class="stat-card" style="--ac:var(--purple)" onclick="openPanel('ext-sharing')">
-        <div class="stat-label">External Sharing ON ${trendBadge(td.ext_on)}</div>
-        <div class="stat-value" style="color:var(--purple)">${SUMMARY.ext_on_count}</div>
-        <div class="stat-sub">${extPct}% of tenant exposed externally</div><div class="sa">→</div>
-      </div>
-      <div class="stat-card" id="dash-dlp-card" style="--ac:${DLP_TILE().tone}" onclick="${DLP_TILE().click}">
-        <div class="stat-label">Sensitive Data — DLP</div>
-        <div class="stat-value" id="dash-dlp-value" style="color:${DLP_TILE().tone}">${DLP_TILE().value}</div>
-        <div class="stat-sub" id="dash-dlp-sub">${DLP_TILE().sub}</div><div class="sa" id="dash-dlp-arrow" style="${DLP_TILE().arrow}">→</div>
-      </div>
-      <div class="stat-card" style="--ac:var(--cyan)" onclick="showNoOwnerDrill()">
-        <div class="stat-label">Owner Coverage Gap</div>
-        <div class="stat-value" style="color:${noOwner.length>20?'var(--red)':noOwner.length>10?'var(--amber)':'var(--green)'}">${noOwner.length}</div>
-        <div class="stat-sub">${SUMMARY.no_hub_count} sites w/ no hub · ${(SUMMARY.no_hub_gb||0).toLocaleString()} GB unclassified</div><div class="sa">→</div>
-      </div>
-    </div>
-
-    <!-- collapsible alerts -->
-    <div id="dash-alerts-wrap" style="margin:6px 0 4px">
-      <div onclick="toggleDashAlerts()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
-        <span id="dash-alerts-summary" style="font-size:.78rem;font-weight:600;color:${alertsSum.color}">${alertsSum.text}</span>
-        <span style="font-size:.7rem;color:var(--text3)"><span id="dash-alerts-caret">▸</span> <span id="dash-alerts-counts">${GROWTH_ALERTS.length} growth · ${DLP_TILE().n} DLP</span></span>
-      </div>
-      <div id="dash-alerts-body" style="display:none;margin-top:10px">
-        <div id="growth-banner" class="growth-banner"></div>
-        <div id="dlp-banner" class="dlp-banner"></div>
-      </div>
-    </div>
-
-    <!-- ═══ VISUAL BAND: trend + dept cost ═══ -->
-    <div class="dash-2col">
-      <div class="chart-wrap" style="margin-bottom:0">
-        <div class="dash-cardhead"><span>📈 Tenant Storage Trend</span><span class="muted" style="font-size:.66rem" id="dash-trend-note"></span></div>
-        <div style="height:210px"><canvas id="dashTrend"></canvas></div>
-      </div>
-      <div class="chart-wrap" style="margin-bottom:0">
-        <div class="dash-cardhead"><span>💰 Top Departments by Annual Cost</span><span class="muted" style="font-size:.66rem;cursor:pointer" onclick="setPage('cost-analysis')">full breakdown →</span></div>
-        <div style="height:210px"><canvas id="dashDeptBars"></canvas></div>
-      </div>
-    </div>
-
-    <!-- ═══ STORAGE INTELLIGENCE (ops) ═══ -->
-    <div id="dash-storage"></div>
-
-    <!-- ═══ RISK MAP (ops) ═══ -->
-    <div class="scatter-section" style="margin-top:16px">
-      <div class="scatter-header">
-        <div class="scatter-title">📍 Risk Map — Storage vs Inactivity</div>
-        <div class="scatter-legend">
-          <span class="scatter-leg-item"><span class="scatter-leg-dot" style="background:#ef4444"></span>Critical</span>
-          <span class="scatter-leg-item"><span class="scatter-leg-dot" style="background:#f59e0b"></span>High</span>
-          <span class="scatter-leg-item"><span class="scatter-leg-dot" style="background:#3b82f6"></span>Medium</span>
-          <span class="scatter-leg-item"><span class="scatter-leg-dot" style="background:#22c55e"></span>Watch</span>
-          <span class="scatter-leg-item"><span class="scatter-leg-dot" style="background:#5a6f8e"></span>Active</span>
-        </div>
-        <span style="font-size:.64rem;color:var(--text3);font-family:var(--font-mono)">top-right = highest risk</span>
-      </div>
-      <div style="position:relative"><canvas id="riskScatter" style="max-height:240px"></canvas></div>
-    </div>
-
-    <!-- ═══ RECOMMENDATIONS ═══ -->
-    <div class="sec-label" style="margin-top:18px">Recommended Actions</div>
-    <div class="rec-grid" id="rec-grid">${RECS.map(recCard).join('')}</div>`;
-
-  renderGrowthBanner();
-  renderDlpBanner();
-  loadDashStorage();
-  updateHeroCost();
-  pendingDraw = setTimeout(() => { drawScatterChart(); drawDashDeptBars(); }, 60);
-
-  // Save the snapshot AFTER computing this render's deltas, so the next dashboard
-  // render compares against the counts shown here (trend "since last view").
-  saveTrendSnapshot();
-}
+function renderDash() { spgRenderDashboard(); }
 
 // ── HERO COST: fill reclaimable $ once stale scan is loaded ─────────────────
-function updateHeroCost(){
-  const rate  = (typeof CA_STATE!=='undefined' && CA_STATE.rate)  ? CA_STATE.rate  : 0.20;
-  const arate = (typeof CA_STATE!=='undefined' && CA_STATE.arate) ? CA_STATE.arate : 0.05;
-  const elV=document.getElementById('hero-reclaim'), elS=document.getElementById('hero-reclaim-sub'), elN=document.getElementById('hero-narr-reclaim');
-  const st = (DASH_STORAGE && DASH_STORAGE.stale && !DASH_STORAGE.stale.error) ? DASH_STORAGE.stale : null;
-  if(!st){ return; } // will be called again after load
-  const gb = (Number(st.total_bytes||0))/(1024*1024*1024);
-  const reclaimYr = gb*(rate-arate)*12;
-  const usd0 = n => '$'+Number(Math.round(n)).toLocaleString();
-  const fmtGB = g => g>=1024?(g/1024).toFixed(2)+' TB':g.toFixed(0)+' GB';
-  if(elV) elV.textContent = usd0(reclaimYr)+'/yr';
-  if(elS) elS.textContent = fmtGB(gb)+' of stale data (5y+) · '+(st.count||0).toLocaleString()+' files';
-  if(elN) elN.textContent = usd0(reclaimYr)+'/yr';
-}
+function updateHeroCost(){ spgUpdateCost(); }
 
 // ── DEPARTMENT COST BARS (hub-grouped, top 5 by annual cost) ────────────────
 function drawDashDeptBars(){
@@ -2521,27 +2348,7 @@ function showNoOwnerDrill() {
 }
 
 
-function recCard(r) {
-  const pLabel = {critical:'CRITICAL',high:'HIGH',medium:'MEDIUM',low:'WATCH'}[r.priority];
-  return `<div class="rec-card" style="--ac:${r.ac}" onclick="openPanel('${r.id}')">
-    <div class="rc-header">
-      <div class="rc-icon" style="background:${r.ac}22">${r.icon}</div>
-      <div class="rc-meta">
-        <div class="rc-title">${r.title}</div>
-        <div class="rc-sub">${r.subtitle}</div>
-      </div>
-      <div class="pri-pill p-${r.priority}">${pLabel}</div>
-    </div>
-    <div class="rc-body">${r.body}</div>
-    <div class="rc-footer">
-      <div>
-        <div class="rc-footer-meta">${r.source.split('·')[0].trim()}</div>
-        <div class="drill-hint">🔍 Click to explore site data →</div>
-      </div>
-      <div class="rc-metric">${r.metric}<br/><span class="rc-metric-sub">${r.metricLabel}</span></div>
-    </div>
-  </div>`;
-}
+function recCard(r) { return spgQueueRow(r); }
 
 // ── PANEL ─────────────────────────────────────────────────────────────────
 function openPanel(id) {
@@ -2556,6 +2363,10 @@ function closePanel() {
   cancelPendingDraw();
   Object.values(charts).forEach(c => c.destroy());
   for (const k in charts) delete charts[k];
+  if (spgReviewTrigger && document.contains(spgReviewTrigger)) spgReviewTrigger.focus();
+  if (currentPage === 'dashboard' && document.querySelector('.spg-analytics')?.open) {
+    drawDashTrend(); drawDashDeptBars(); drawScatterChart();
+  }
 }
 function handleOC(e) { if (e.target === document.getElementById('overlay')) closePanel(); }
 
@@ -2658,6 +2469,7 @@ function filterTable(val) {
   });
   const rc = document.getElementById('rcnt'); if(rc) rc.textContent = vis + ' rows';
   const rc2 = document.getElementById('rcnt2'); if(rc2) rc2.textContent = vis + ' records';
+  const scope = document.getElementById('site-filter-scope'); if(scope) scope.textContent = vis + ' matching / ' + SUMMARY.total_sites + ' total sites';
 }
 
 function sortTableBy(col) {
@@ -2680,18 +2492,8 @@ function sortTableBy(col) {
 
 // ── FILTER ────────────────────────────────────────────────────────────────
 function filterP() { filterP2(document.getElementById('pf')?.value || ''); }
-function filterP2(p) {
-  const grid = document.getElementById('rec-grid'); if (!grid) return;
-  const pf = document.getElementById('pf'); if (pf && p) pf.value = p;
-  const filtered = p ? RECS.filter(r => r.priority===p||(p==='low'&&r.priority==='low')) : RECS;
-  grid.innerHTML = filtered.map(recCard).join('');
-  if (p) toast(`Showing ${filtered.length} ${p} priority recommendations`);
-}
-function gSearch(val) {
-  const grid = document.getElementById('rec-grid'); if (!grid) return;
-  const f = RECS.filter(r=>r.title.toLowerCase().includes(val.toLowerCase())||r.body.toLowerCase().includes(val.toLowerCase())||r.subtitle.toLowerCase().includes(val.toLowerCase()));
-  grid.innerHTML = f.map(recCard).join('');
-}
+function filterP2(priority) { SPG_QUEUE.priority = priority; spgFilterQueue(); }
+function gSearch(value) { SPG_QUEUE.search = value; spgFilterQueue(); }
 
 // ── ACTIONS ───────────────────────────────────────────────────────────────
 function getActions(id) {
@@ -2739,6 +2541,20 @@ function exportAll() {
   const csv = ['Title,Priority,Metric,Metric Label,Updated,Source', ...RECS.map(r=>`"${r.title}",${r.priority},"${r.metric}","${r.metricLabel}","${r.updated}","${r.source}"`)].join('\n');
   dl(csv, `sp-recommendations-${new Date().toISOString().slice(0,10)}.csv`);
   toast('📥 All recommendations exported');
+}
+// The global Export sites action always exports the full site dataset,
+// independently of the current section or any page-level table filter.
+function exportSites() {
+  if (!ALL_SITES.length) { toast('No sites available to export'); return; }
+  const sites = [...ALL_SITES].sort((a,b) => Number(b.storage_gb||0) - Number(a.storage_gb||0));
+  const cell = value => '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"';
+  const headers = ['Site Name','Hub','Storage (GB)','Last Activity','Days Inactive','Ext. Sharing','Template','Admin'];
+  const csv = [headers.join(','), ...sites.map(s => [
+    s.name, s.hub || 'No Hub', s.storage_gb, s.last_activity,
+    s.days_inactive, s.ext_sharing, s.template, s.admin
+  ].map(cell).join(','))].join('\n');
+  dl(csv, `sharepoint-sites-${new Date().toISOString().slice(0,10)}.csv`);
+  toast(`📥 ${sites.length} sites exported`);
 }
 function exportTableData(filename) {
   const tbl = document.querySelector('#dtbl'); if (!tbl) return;
@@ -2799,7 +2615,7 @@ function renderAllSites() {
             <td style="color:var(--text3)">${esc(s.admin||'—')}</td></tr>`;
         }).join('')}</tbody>
       </table>
-      <div class="tbl-footer"><span id="rcnt2">${sorted.length} records</span><span>All ${SUMMARY.total_sites} sites shown</span></div>
+      <div class="tbl-footer"><span id="rcnt2">${sorted.length} records</span><span id="site-filter-scope">${sorted.length} matching / ${SUMMARY.total_sites} total sites</span></div>
     </div>`;
 }
 
@@ -3271,26 +3087,28 @@ let CA_ALL=null, CA_ALL_LOADING=false;
 let CA_POOL_LIVE=null, CA_POOL_LIVE_LOADING=false;
 let CA_POOL_BASIS='enabled'; // 'enabled' | 'consumed'
 const CA_RENEWAL={term:12, buffer:1024};
-// Merges live insight_sku values over hardcoded CA_POOL fallback, honoring the selected license basis.
+// Use one selected pool for breakdowns, forecasts, renewal estimates and simulations.
 function caEffectivePool(){
   const L=CA_POOL_LIVE;
-  if(!L || L.error) return {base_gb:CA_POOL.base_gb, per_license_gb:CA_POOL.per_license_gb, eligible_licenses:CA_POOL.eligible_licenses, extra_storage_gb:CA_POOL.extra_storage_gb, source:'fallback', collected_at:null, licenses_enabled:CA_POOL.eligible_licenses, licenses_consumed:CA_POOL.eligible_licenses};
-  const lic=(CA_POOL_BASIS==='consumed')?Number(L.licenses.consumed||0):Number(L.licenses.enabled||0);
-  return {base_gb:Number(L.base_gb||CA_POOL.base_gb), per_license_gb:Number(L.per_license_gb||CA_POOL.per_license_gb), eligible_licenses:lic, extra_storage_gb:Number(L.extra_storage_gb||CA_POOL.extra_storage_gb), source:L.source||'insight_sku', collected_at:L.collected_at||null, licenses_enabled:Number(L.licenses.enabled||0), licenses_consumed:Number(L.licenses.consumed||0)};
+  const fallback={...CA_POOL, source:'fallback', collected_at:null, licenses_enabled:CA_POOL.eligible_licenses, licenses_consumed:CA_POOL.eligible_licenses};
+  if(!L || L.error) return fallback;
+  const value=(v, f)=>v!==null && v!==undefined && v!=='' && Number.isFinite(Number(v)) && Number(v)>=0 ? Number(v) : f;
+  const enabled=value(L.licenses?.enabled, fallback.licenses_enabled);
+  const consumed=value(L.licenses?.consumed, fallback.licenses_consumed);
+  return {base_gb:value(L.base_gb, fallback.base_gb), per_license_gb:value(L.per_license_gb, fallback.per_license_gb), eligible_licenses:CA_POOL_BASIS==='consumed'?consumed:enabled, extra_storage_gb:value(L.extra_storage_gb, fallback.extra_storage_gb), source:L.source||'insight_sku', collected_at:L.collected_at||null, licenses_enabled:enabled, licenses_consumed:consumed};
 }
 function caSetPoolBasis(v){ CA_POOL_BASIS=(v==='consumed')?'consumed':'enabled'; renderCostAnalysis(); }
 let CA_STATE={preset:'7', rate:0.20, arate:0.05, sort:'bytes', dir:'desc'};
 // Microsoft 365 pooled SharePoint storage. Model A: cost applies ONLY to overage above the included pool.
-// Pool = 1TB base + 10GB per eligible license (781 SPE_E3) + SHAREPOINTSTORAGE add-on (20000 GB).
-// TODO(backlog): wire eligible_licenses/extra_storage_gb to a live /subscribedSkus endpoint so the pool self-updates.
+// Live values come from /api/files/tenant/pool; these are the dated offline fallback only.
 const CA_POOL={base_gb:1024, per_license_gb:10, eligible_licenses:781, extra_storage_gb:20000,
   source:'Microsoft Graph /subscribedSkus (SPE_E3 enabled) + SHAREPOINTSTORAGE add-on', verified:'2026-07-22'};
 let CA_SIM={active:false};   // what-if simulation: view the tab as if N+ yr files were removed and the add-on shrunk to match
 function caSimActive(){ return CA_SIM.active && CA_SUM && !CA_SUM.error; }
 function caSimRemovedGB(){ return caSimActive()? Number(CA_SUM.bytes||0)/CA_GIB : 0; }
-function caSimDroppedGB(){ return caSimActive()? Math.min(caSimRemovedGB(), CA_POOL.extra_storage_gb) : 0; }
-function caAddonGB(){ return CA_POOL.extra_storage_gb - caSimDroppedGB(); }
-function caPoolGB(){ return CA_POOL.base_gb + CA_POOL.per_license_gb*CA_POOL.eligible_licenses + caAddonGB(); }
+function caSimDroppedGB(){ return caSimActive()? Math.min(caSimRemovedGB(), caEffectivePool().extra_storage_gb) : 0; }
+function caAddonGB(){ return caEffectivePool().extra_storage_gb - caSimDroppedGB(); }
+function caPoolGB(){ const p=caEffectivePool(); return p.base_gb + p.per_license_gb*p.eligible_licenses + caAddonGB(); }
 function caSimulate(v){ const changed=(v!==CA_STATE.preset); CA_STATE.preset=v; CA_SIM.active=true; if(changed){ CA_SUM=null; CA_SITES=null; } renderCostAnalysis(); }
 function caResetSim(){ CA_SIM.active=false; renderCostAnalysis(); }
 
@@ -3306,10 +3124,10 @@ function caAddonWhatIf(){
   const G=1024, tb=g=>(g/G).toFixed(2)+' TB', usd0=n=>'$'+Number(Math.round(n)).toLocaleString();
   const p=CA_STATE.preset, rate=CA_STATE.rate, sim=caSimActive();
   const staleGB=Number(CA_SUM.bytes||0)/CA_GIB, files=Number(CA_SUM.files||0);
-  const addonGB=CA_POOL.extra_storage_gb;                     // actual purchased add-on
+  const pool=caEffectivePool(), addonGB=pool.extra_storage_gb;                     // actual purchased add-on
   const releasable=Math.max(0, Math.min(staleGB, addonGB));   // shed add-on equal to freed space -> same runway
   const moNow=addonGB*rate, moAfter=(addonGB-releasable)*rate, save=moNow-moAfter;
-  const actualPool=CA_POOL.base_gb+CA_POOL.per_license_gb*CA_POOL.eligible_licenses+addonGB;
+  const actualPool=pool.base_gb+pool.per_license_gb*pool.eligible_licenses+addonGB;
   const used=caActualTotalGB(), curFree=(used!=null)?(actualPool-used):null;
   const runwayTxt=(curFree!=null)?`keeps today's ${curFree>=G?tb(curFree):Math.round(curFree)+' GB'} runway`:'keeps current runway';
   const btn=(v,l)=>`<button onclick="caSimulate('${v}')" class="tbtn ${(sim&&p===v)?'':'btn-ghost'}" style="font-size:.74rem">${(sim&&p===v)?'▶ ':''}${l}</button>`;
@@ -3345,8 +3163,9 @@ function caRenewalPlanning(){
   const gb=b=>(b/G);
   const rate=CA_STATE.rate, arate=CA_STATE.arate;
   const usedGB=(CA_TENANT&&CA_TENANT.used_bytes)?Number(CA_TENANT.used_bytes)/G:null;
-  const includedGB=CA_POOL.base_gb+CA_POOL.per_license_gb*CA_POOL.eligible_licenses;
-  const addonNowGB=CA_POOL.extra_storage_gb;
+  const pool=caEffectivePool();
+  const includedGB=pool.base_gb+pool.per_license_gb*pool.eligible_licenses;
+  const addonNowGB=pool.extra_storage_gb;
   const buffer=CA_RENEWAL.buffer, term=CA_RENEWAL.term;
   if(usedGB==null) return '<div class="sec-label" style="margin-top:18px">Renewal planning · at next add-on renewal</div><div class="chart-wrap" style="padding:14px 18px;color:var(--text2);font-size:.82rem">Awaiting tenant storage snapshot…</div>';
 
@@ -3438,7 +3257,7 @@ function caRenewalPlanning(){
       +scenarios.map(s=>rowHTML(s, rec && s.p===rec.p && s.deltaMo>0)).join('')
       +'</tbody></table></div>'
     +recLine
-    +'<div style="font-size:.66rem;color:var(--text3);opacity:.85;margin-top:12px;border-left:2px solid var(--border);padding-left:8px">Add-on and archive rates are set at the top of this tab. Included pool assumes '+CA_POOL.eligible_licenses+' E3 licenses × '+CA_POOL.per_license_gb+' GB + '+CA_POOL.base_gb+' GB base = '+includedGB.toLocaleString()+' GB. Recommendation prefers 7+ yr over 5+ yr when it captures ≥66% of maximum savings (24% fewer files to archive). Confirm archive tier billing terms with your Microsoft rep before committing.</div>'
+    +'<div style="font-size:.66rem;color:var(--text3);opacity:.85;margin-top:12px;border-left:2px solid var(--border);padding-left:8px">Add-on and archive rates are set at the top of this tab. Included pool assumes '+pool.eligible_licenses+' eligible licenses × '+pool.per_license_gb+' GB + '+pool.base_gb+' GB base = '+includedGB.toLocaleString()+' GB. Recommendation prefers 7+ yr over 5+ yr when it captures ≥66% of maximum savings (24% fewer files to archive). Confirm archive tier billing terms with your Microsoft rep before committing.</div>'
     +'</div>';
 }
 
@@ -3609,12 +3428,12 @@ function caPoolFreshness(){
 function caPoolPanel(){
   const G=1024, tb=g=>(g/G).toFixed(2)+' TB';
   const _p=caEffectivePool();
-  const base=_p.base_gb, perUser=_p.per_license_gb*_p.eligible_licenses, addon=_p.extra_storage_gb, pool=caPoolGB();
+  const base=_p.base_gb, perUser=_p.per_license_gb*_p.eligible_licenses, addon=caAddonGB(), pool=caPoolGB();
   const used=caTotalActiveGB();
   const usedTxt=used!=null?tb(used):'—';
   const freeGB=used!=null?Math.max(0,pool-used):null;
   const freeTxt=freeGB!=null?(freeGB>=G?tb(freeGB):freeGB.toFixed(0)+' GB'):'—';
-  const pctUsed=used!=null?Math.min(100,used/pool*100):0;
+  const pctUsed=used!=null?(pool>0?Math.min(100,used/pool*100):(used>0?100:0)):0;
   const over=used!=null&&used>pool;
   const barColor=over?'var(--red)':(pctUsed>90?'var(--amber)':'var(--green)');
   const row=(label,val,note)=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:.82rem"><span style="color:var(--text2)">${label}${note?` <span style="color:var(--text3);font-size:.72rem">${note}</span>`:''}</span><span style="font-family:var(--font-mono);color:var(--text1,#e5e7eb)">${val}</span></div>`;
@@ -3750,7 +3569,7 @@ function renderCostAnalysis(){
 
   let view='';
   if(V==='overview'){
-    const oppSave=Math.min(gb, CA_POOL.extra_storage_gb)*rate*12;
+    const oppSave=Math.min(gb, caEffectivePool().extra_storage_gb)*rate*12;
     view=`<div class="sec-label">Where we stand</div>
     ${heroBlock('Headroom · storage before overage','')}
     ${caPoolPanel()}
@@ -4297,11 +4116,11 @@ function syncDashDlpTile() {
   const t = DLP_TILE();
   const n = t.n;
   card.style.setProperty('--ac', t.tone);
-  card.setAttribute('onclick', t.click);
+  if (!card.classList.contains('spg-sensitive')) card.setAttribute('onclick', t.click);
   const v = document.getElementById('dash-dlp-value');
-  if (v) { v.textContent = t.value; v.style.color = t.tone; }
+  if (v) { v.textContent = n ? spgNumber(n) : t.value; v.style.color = t.tone; }
   const sb = document.getElementById('dash-dlp-sub');
-  if (sb) sb.textContent = t.sub;
+  if (sb) sb.textContent = card.classList.contains('spg-sensitive') ? spgDlpText(t) : t.sub;
   const ar = document.getElementById('dash-dlp-arrow');
   if (ar) ar.style.display = n ? '' : 'none';
   const g = (typeof GROWTH_ALERTS !== 'undefined' && GROWTH_ALERTS) ? GROWTH_ALERTS.length : 0;
@@ -4422,15 +4241,27 @@ function renderDlpModalBody() {
       </select>
       <span style="margin-left:auto;font-size:.68rem;font-family:var(--font-mono);color:var(--text3)" id="dlp-rcnt">${sorted.length} alerts</span>
     </div>
-    <div class="tbl-wrap" id="dlp-tbl-wrap">${_dlpTable(sorted)}</div>`;
+    <div class="tbl-wrap" id="dlp-tbl-wrap">${_dlpTable(sorted,'modal')}</div>`;
 }
 
-function _dlpTable(rows) {
-  if (!rows.length) return `<div style="padding:24px;text-align:center;color:var(--text3);font-size:.8rem">No alerts match the current filters.</div>`;
+const DLP_PAGE_SIZE=100;
+const DLP_VIEWS={page:{rows:[],page:1},modal:{rows:[],page:1}};
+function dlpSetPage(context, page){
+  const view=DLP_VIEWS[context];
+  const wrap=document.getElementById(context==='modal'?'dlp-tbl-wrap':'dlp-page-tbl-wrap');
+  if(view && wrap) wrap.innerHTML=_dlpTable(view.rows,context,page);
+}
+function _dlpTable(rows, context='page', requestedPage=1) {
+  const pages=Math.max(1,Math.ceil(rows.length/DLP_PAGE_SIZE));
+  const page=Math.max(1,Math.min(pages,Math.floor(Number(requestedPage)||1)));
+  DLP_VIEWS[context]={rows,page};
+  const start=(page-1)*DLP_PAGE_SIZE, visible=rows.slice(start,start+DLP_PAGE_SIZE);
+  const footer=`<div class="tbl-footer"><span>Showing ${rows.length?start+1:0}–${Math.min(start+DLP_PAGE_SIZE,rows.length)} of ${rows.length.toLocaleString()} matching alerts · ${DLP_ALERTS.length.toLocaleString()} total · CSV includes all matches</span><span><button class="tbtn btn-ghost" aria-label="Previous DLP page" onclick="dlpSetPage('${context}',${page-1})" ${page<=1?'disabled':''}>‹ Previous</button> Page ${page} of ${pages} <button class="tbtn btn-ghost" aria-label="Next DLP page" onclick="dlpSetPage('${context}',${page+1})" ${page>=pages?'disabled':''}>Next ›</button></span></div>`;
+  if (!rows.length) return `<div style="padding:24px;text-align:center;color:var(--text3);font-size:.8rem">No alerts match the current filters.</div>`+footer;
   return `<table class="dtbl"><thead><tr>
     <th>File Name</th><th>Site</th><th>File Path</th><th>Owner</th><th>Modified By</th>
     <th>Last Modified</th><th>File Age</th><th>Rule</th><th>Purview Policy</th><th>Matches</th><th>Sharing</th><th>Severity</th>
-  </tr></thead><tbody>${rows.map(a=>{
+  </tr></thead><tbody>${visible.map(a=>{
     const md = a.modified_date?new Date(a.modified_date).toLocaleDateString():'—';
     return `<tr>
       <td title="${esc(a.file_name)}">${a.file_path ? `<a href="${esc(a.file_path)}" target="_blank" rel="noopener noreferrer" style="color:var(--blue);text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'"><strong>${esc(a.file_name)}</strong></a>` : `<strong>${esc(a.file_name)}</strong>`}</td>
@@ -4447,7 +4278,7 @@ function _dlpTable(rows) {
       <td>${dlpSeverityBadge(a.severity)}</td>
     </tr>`;
   }).join('')}</tbody></table>
-  <div class="tbl-footer"><span>${rows.length} alert${rows.length!==1?'s':''}</span></div>`;
+  ${footer}`;
 }
 
 function filterDlpTable(q) {
@@ -4458,28 +4289,27 @@ function filterDlpTable(q) {
     const t=[a.file_name,a.site_name,a.owner,a.modified_by,a.file_path,a.purview_policy].join(' ').toLowerCase();
     return(!q||t.includes(q))&&(!rule||a.rule===rule)&&(!sev||a.severity===sev);
   }).sort((a,b)=>({critical:0,high:1,medium:2,low:3}[a.severity]||9)-({critical:0,high:1,medium:2,low:3}[b.severity]||9));
-  const w=document.getElementById('dlp-tbl-wrap'); if(w) w.innerHTML=_dlpTable(f);
+  const w=document.getElementById('dlp-tbl-wrap'); if(w) w.innerHTML=_dlpTable(f,'modal');
   const c=document.getElementById('dlp-rcnt'); if(c) c.textContent=`${f.length} alerts`;
 }
 
-function exportDlpCsv() {
-  if (!DLP_ALERTS.length) { toast('No DLP alerts to export'); return; }
-  const h=['File Name','Site Name','Site URL','File Path','Owner','Modified By','Last Modified','Created Date','File Age (days)','Rule','Zscaler Policy','Match Count','Severity'];
-  const csv=[h.join(','),...DLP_ALERTS.map(a=>[
-    `"${a.file_name||''}"`,`"${a.site_name||''}"`,`"${a.site_url||''}"`,`"${a.file_path||''}"`,
-    `"${a.owner||''}"`,`"${a.modified_by||''}"`,
-    `"${a.modified_date?new Date(a.modified_date).toLocaleString():''}"`,
-    `"${a.created_date?new Date(a.created_date).toLocaleString():''}"`,
-    `"${dlpFileAgeDays(a.created_date)||''}"`,
-    `"${a.rule_label||a.rule||''}"`,`"${a.purview_policy||''}"`,
-    a.match_count||0,`"${a.severity||''}"`,
-  ].join(','))].join('\n');
+function exportDlpCsv(context='page') {
+  const rows=DLP_VIEWS[context]?.rows || DLP_ALERTS;
+  if (!rows.length) { toast('No matching DLP alerts to export'); return; }
+  const cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const h=['File Name','Site Name','Site URL','File Path','Owner','Modified By','Last Modified','Created Date','File Age (days)','Rule','Purview Policy','Match Count','Severity'];
+  const csv=[h.join(','),...rows.map(a=>[
+    a.file_name,a.site_name,a.site_url,a.file_path,a.owner,a.modified_by,
+    a.modified_date?new Date(a.modified_date).toLocaleString():'',
+    a.created_date?new Date(a.created_date).toLocaleString():'',
+    dlpFileAgeDays(a.created_date)??'',a.rule_label||a.rule,a.purview_policy,a.match_count||0,a.severity,
+  ].map(cell).join(','))].join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
-  const el=document.createElement('a');
-  el.href=URL.createObjectURL(blob);
+  const el=document.createElement('a'), url=URL.createObjectURL(blob);
+  el.href=url;
   el.download=`dlp-alerts-${new Date().toISOString().slice(0,10)}.csv`;
-  el.click();
-  toast('⬇ DLP alerts exported');
+  el.click(); URL.revokeObjectURL(url);
+  toast('⬇ '+rows.length.toLocaleString()+' matching DLP alerts exported');
 }
 
 function initDlpCollapse() {
@@ -4761,27 +4591,7 @@ function renderDlpAlerts(deferred) {
       </div>`;
     return;
   }
-  // Heavy render guard: building ~8K DLP rows via innerHTML is a 1-3s main-thread
-  // block. Show a lightweight skeleton first, yield one frame so the browser can
-  // paint AND process pending clicks (lets the user navigate away if they hit
-  // this tab by mistake), then commit the heavy render. Skip the defer if the
-  // user already navigated away during the yielded frame.
-  if (!deferred && DLP_ALERTS.length > 200) {
-    document.getElementById('content').innerHTML=`
-      <div class="breadcrumb">
-        <span class="crumb" onclick="setPage('dashboard')">Dashboard</span>
-        <span class="sep">›</span><span class="crumb cur">DLP Sensitive Data Alerts</span>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:20px">
-        <div style="width:48px;height:48px;border:4px solid rgba(239,68,68,.2);border-top-color:var(--red);border-radius:50%;animation:spin 0.8s linear infinite"></div>
-        <div style="font-size:.9rem;color:var(--text2);font-family:var(--font-mono)">Rendering ${DLP_ALERTS.length.toLocaleString()} DLP findings…</div>
-        <div style="font-size:.75rem;color:var(--text3)">Click any other page to cancel</div>
-      </div>`;
-    requestAnimationFrame(() => {
-      if (currentPage === 'dlp-alerts') renderDlpAlerts(true);
-    });
-    return;
-  }
+  // Only the current 100-row page is rendered; all matching findings remain exportable.
   const critCount=DLP_ALERTS.filter(a=>a.severity==='critical').length;
   const highCount=DLP_ALERTS.filter(a=>a.severity==='high').length;
   const r1Count=DLP_ALERTS.filter(a=>a.rule==='rule_1').length;
@@ -4801,7 +4611,7 @@ function renderDlpAlerts(deferred) {
         <p>Loan number detection · Zscaler policies SP-DLP-LOAN-NUM-001 &amp; SP-DLP-LOAN-ALNUM-002 &nbsp;${srcBadge}</p>
       </div>
       <div class="ph-right">
-        <button class="tbtn btn-ghost" onclick="exportDlpCsv()">⬇ Export CSV</button>
+        <button class="tbtn btn-ghost" onclick="exportDlpCsv('page')">⬇ Export matching CSV</button>
         <button class="tbtn btn-primary" data-rbac-page="sharepoint-gov" data-rbac-level="admin" onclick="refreshDlpAlerts()">⟳ Refresh</button>
       </div>
     </div>
@@ -6749,4 +6559,4 @@ function endTour(){
 </script>
 <script src="/it-version.js" data-app-key="sharepoint-governance" defer></script>
 <script src="/it-topbar.js" defer></script>
-<script src="/feed-freshness.js" data-page="sharepoint-governance" defer></script>
+<!-- Feed freshness is presented by the dashboard view, including source details. -->

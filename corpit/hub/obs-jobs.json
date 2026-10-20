@@ -641,6 +641,18 @@
       "scheduled": false,
       "scheduleSrc": null,
       "notes": "Not scheduled on corpit."
+    },
+    {
+      "jobName": "darktrace-email-sync.js",
+      "label": "Darktrace /EMAIL pull",
+      "script": "darktrace-email-sync.js",
+      "ownerPage": "tenant-sentinel",
+      "cadenceMin": 30,
+      "graceMin": 30,
+      "enabled": true,
+      "scheduled": true,
+      "scheduleSrc": "pm2 syncs-worker (darktrace-email scheduler, 60 s tick; cadence from dt_email_config)",
+      "notes": "Added 2026-10-14. Held / junk / critical mail, threat counts, data-loss senders, anomaly mailboxes and audit events from Darktrace /EMAIL (read-only). Does nothing until the token is saved and the pull enabled in subadmin Settings."
     }
   ]
 }

@@ -1,0 +1,134 @@
+/* Identity support: governance facelift over the task-first layout. Skin only: no layout, sizing or order changes.
+   Loads after identity-diag-portal.css and identity-diag-support.css: it puts the banner,
+   radius and depth back that the support layer flattened, and skins the support-* blocks. */
+:root, :root[data-theme] { --radius: 13px; --radius-lg: 16px; }
+
+/* Banner page headings. The support layer widened .view padding to 22px 24px, so the bleed matches it. */
+.view > .wrap > .hero:first-child, .view > .wrap > .tool-head:first-child {
+  min-height: 151px; margin: -22px -24px 22px; padding: 25px 28px;
+  border: 0; border-bottom: 3px solid #78be20; border-radius: 0; color: #fff;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+  --text: #fff; --text-2: #e0e8ef; --muted: #c3cfdb;
+  --surface-2: #172c3cbb; --line: #91a8b877; --line-2: #b3c5d299; --accent: #c0e39a;
+}
+body .view > .wrap > .tool-head:first-child { min-height: 151px; padding-bottom: 25px; margin-bottom: 22px; }
+.hero-t, .hero-f, .tool-head > * {
+  --text: #fff; --text-2: #e0e8ef; --muted: #c3cfdb;
+  --surface: #172c3cbb; --surface-2: #172c3cbb; --surface-3: #172c3c;
+  --line: #91a8b877; --line-2: #b3c5d299; --line-3: #c3cfdb;
+  --accent: #c0e39a; --accent-line: #c0e39a99; --accent-dim: #c0e39a26;
+  --unk: #d3dce5; --unk-dim: #172c3cbb;
+}
+.hero-t h1, .tool-head h1 { color: #fff; font-weight: 850; }
+.hero-t p, .tool-head p { color: #e0e8ef; }
+.hero-f .fw { background: transparent; }
+.hero-f input, .tool-head .hdr-search input, .tool-head .env-select { background: #172c3cbb; border-color: #b3c5d299; color: #fff; }
+.hero-f input::placeholder, .tool-head input::placeholder { color: #c3cfdb; }
+.hero-f input:focus, .tool-head input:focus { border-color: #c0e39a; background: #10202dee; }
+.tool-head .lb-label { color: #e0e8ef; }
+
+/* Depth: the first surface under a tool banner overlaps it. Provisioning's sticky person bar counts. */
+body .view > .wrap > .tool-head:first-child:is(
+  :has(+ .panel),
+  :has(+ div > :is(.panel, .card, .metrics, .grid, .verdict):first-child),
+  :has(+ .support-group-tools:not([hidden])),
+  :has(+ .support-group-tools[hidden] + .panel)) {
+  min-height: calc(151px + var(--idp-lift)); padding-bottom: calc(25px + var(--idp-lift)); margin-bottom: 0;
+}
+.tool-head:first-child + .support-group-tools:not([hidden]) { margin-top: calc(-1 * var(--idp-lift)); }
+.tool-head:first-child + .support-group-tools[hidden] + .panel { position: relative; z-index: 1; margin-top: calc(-1 * var(--idp-lift)); }
+
+/* Account detail: the slim banner band under the account header card. */
+#view-detail > .wrap:has(> #aheadHost > .ahead)::before {
+  content: ""; display: block; height: 92px; margin: -22px -24px -50px;
+  border-bottom: 3px solid #78be20;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+
+/* Surfaces the support layer flattened. Nested surfaces stay flat. */
+.panel, .ahead, .verdict { border-radius: var(--radius); border-color: var(--idp-edge); box-shadow: var(--idp-elev-1); }
+.panel .panel, .support-evidence .panel, .support-org .metric, .panel .metric { box-shadow: none; }
+
+/* Task-first blocks as raised governance surfaces. */
+.support-task-head h2 { font-weight: 850; letter-spacing: -.3px; }
+.support-tasks {
+  border: 1px solid var(--idp-edge); border-radius: var(--radius); background: var(--surface);
+  box-shadow: var(--idp-elev-1); overflow: hidden;
+}
+.support-tasks > button {
+  position: relative; transition: background-color var(--tr), transform var(--tr);
+}
+.support-tasks > button:nth-last-child(-n+2):nth-child(odd), .support-tasks > button:last-child { border-bottom: 0; }
+.support-tasks > button strong { font-weight: 800; }
+.support-tasks > button::before {
+  content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0;
+  background: var(--accent); opacity: 0; transition: opacity var(--tr);
+}
+.support-task-hint { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.support-tools, .support-org, .support-evidence, .support-group-tools {
+  border-color: var(--idp-edge); border-radius: var(--radius); background: var(--surface); box-shadow: var(--idp-elev-1);
+}
+.support-group-tools { box-shadow: var(--idp-elev-2); }
+.support-tools > summary, .support-org > summary, .support-evidence > summary {
+  font-weight: 800; border-radius: var(--radius); transition: color var(--tr), background-color var(--tr);
+}
+.support-tools > summary::marker, .support-org > summary::marker, .support-evidence > summary::marker { color: var(--accent); }
+.support-group-tools strong { font-weight: 800; }
+.support-feed-note { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.support-person-context strong { font-weight: 800; }
+
+/* Press and hover: Emil rules, hover gated to fine pointers. */
+.support-tasks > button:active { transform: scale(.985); }
+@media (hover: hover) and (pointer: fine) {
+  .support-tasks > button:hover::before { opacity: 1; }
+  .support-tools > summary:hover, .support-org > summary:hover, .support-evidence > summary:hover { color: var(--accent); }
+}
+@media (hover: none) { .support-tasks > button:hover { background: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .support-tasks > button:active { transform: none; }
+}
+
+@media (max-width: 900px) {
+  .view > .wrap > .hero:first-child, body .view > .wrap > .tool-head:first-child { min-height: 130px; padding: 22px 18px; }
+  body .view > .wrap > .tool-head:first-child:is(
+    :has(+ .panel),
+    :has(+ div > :is(.panel, .card, .metrics, .grid, .verdict):first-child),
+    :has(+ .support-group-tools:not([hidden])),
+    :has(+ .support-group-tools[hidden] + .panel)) {
+    min-height: calc(130px + var(--idp-lift)); padding-bottom: calc(22px + var(--idp-lift));
+  }
+}
+/* At 880 and below the support layer sets .view padding to 20px 18px. */
+@media (max-width: 880px) {
+  .view > .wrap > .hero:first-child, .view > .wrap > .tool-head:first-child { margin: -20px -18px 20px; }
+  body .view > .wrap > .tool-head:first-child { margin-bottom: 20px; }
+  #view-detail > .wrap:has(> #aheadHost > .ahead)::before { margin: -20px -18px -50px; }
+}
+@media (max-width: 620px) {
+  .view > .wrap > .hero:first-child, body .view > .wrap > .tool-head:first-child { padding: 20px 16px; min-height: 0; }
+  .view > .wrap > .hero:first-child { margin: -20px -18px 18px; }
+  body .view > .wrap > .tool-head:first-child { margin: -20px -18px 18px; }
+  body .view > .wrap > .tool-head:first-child:is(
+    :has(+ .panel),
+    :has(+ div > :is(.panel, .card, .metrics, .grid, .verdict):first-child),
+    :has(+ .support-group-tools:not([hidden])),
+    :has(+ .support-group-tools[hidden] + .panel)) {
+    margin-bottom: 0; padding-bottom: calc(20px + var(--idp-lift));
+  }
+  .support-tasks > button:nth-last-child(-n+2):nth-child(odd) { border-bottom: 1px solid var(--line); }
+  .support-tasks > button:last-child { border-bottom: 0; }
+}
+@media print {
+  .view > .wrap > .hero:first-child, body .view > .wrap > .tool-head:first-child {
+    background: none; box-shadow: none; color: #17212e; margin: 0 0 20px; padding: 0 0 15px; min-height: 0; border-bottom: 2px solid #3d7924;
+    --text: #17212e; --text-2: #17212e; --muted: #5f6d80;
+  }
+  .hero-t h1, .tool-head h1, .hero-t p, .tool-head p { color: #17212e; }
+  .tool-head:first-child + .support-group-tools, .tool-head:first-child + .support-group-tools + .panel { margin-top: 0; }
+  #view-detail > .wrap::before { display: none !important; }
+  .support-tasks, .support-tools, .support-org, .support-evidence, .support-group-tools { box-shadow: none; }
+}

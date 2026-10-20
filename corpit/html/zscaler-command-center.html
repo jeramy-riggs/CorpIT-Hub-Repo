@@ -341,7 +341,7 @@ details.help .hrow>span:first-child{flex:none;width:16px;text-align:center}
       <button type="button" class="ghead"><svg class="gic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16.2 6.2a3 3 0 010 5.6"/><path d="M17.6 14.4c2 .7 3.4 2.4 3.4 4.6"/></svg><span>People &amp; devices</span><svg class="gchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
       <div class="gitems">
         <div class="item" data-v="zcc">Devices</div>
-        <div class="item" data-v="presence">Live presence<span class="tag live">LIVE</span></div>
+        <div class="item" data-v="presence">Presence availability</div>
         <div class="item" data-v="zdx">Experience</div>
         <div class="item" data-v="useraccess">User access</div>
       </div>
@@ -416,7 +416,7 @@ details.help .hrow>span:first-child{flex:none;width:16px;text-align:center}
           <svg class="hchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="svcmenu" id="svcmenu" role="menu" aria-labelledby="svcBtn">
-          <div class="smh">Service status</div>
+          <div class="smh">API read status</div>
           <span class="pill" id="pill-zia" role="menuitem"><span class="d"></span>ZIA<span class="st"></span></span>
           <span class="pill" id="pill-zpa" role="menuitem"><span class="d"></span>ZPA<span class="st"></span></span>
           <span class="pill" id="pill-zdx" role="menuitem"><span class="d"></span>ZDX<span class="st"></span></span>
@@ -500,8 +500,8 @@ details.help .hrow>span:first-child{flex:none;width:16px;text-align:center}
   <!-- ═══ LIVE PRESENCE ═══ -->
   <section class="view" id="v-presence">
     <div class="hero">
-      <div><h2>Live presence</h2><div class="bar"></div>
-      <p>People and devices reporting across your organization.</p></div>
+      <div><h2>Presence availability</h2><div class="bar"></div>
+      <p>Current subscription capabilities and supported device inventory.</p></div>
       <div class="stamps">
         <div class="stamp">Updated <b id="pr-when">&mdash;</b></div>
         <label class="pr-auto" title="Re-read ZCC and ZDX every 60 seconds while this page is open."><input type="checkbox" id="pr-auto" checked onchange="CC.presenceAuto()"><span>Auto &middot; 60s</span></label>
@@ -592,7 +592,7 @@ details.help .hrow>span:first-child{flex:none;width:16px;text-align:center}
     <div class="card mb"><div class="h"><span class="t">Incident Receivers</span></div><div class="tscroll" id="dc-recv-out"><div class="empty">—</div></div></div>
     <div class="card"><div class="h"><span class="t">IDM Profiles</span></div><div class="tscroll" id="dc-idm-out"><div class="empty">—</div></div></div></section>
 
-  <section class="view" id="v-genai"><div class="hero"><div><h2>Gen AI Security</h2><div class="bar"></div><p>Gen AI usage, shadow AI, data-loss exposure, and policy coverage — from ZIA web logs, ZWA, and Entra. Click any user or app to open an investigation.</p></div>
+  <section class="view" id="v-genai"><div style="margin-bottom:16px"><a class="sb ghost" href="/ai-governance.html">AI Governance inventory, requests &amp; project access ↗</a></div><div class="hero"><div><h2>Gen AI Security</h2><div class="bar"></div><p>Gen AI usage, shadow AI, data-loss exposure, and policy coverage — from ZIA web logs, ZWA, and Entra. Click any user or app to open an investigation.</p></div>
     <div class="stamps">
       <span id="gx-feed-chip" style="font-size:11px;align-self:center;padding:3px 10px;border:1px solid var(--line);border-radius:12px;color:var(--tx3);cursor:pointer" onclick="CC.gxFeedExplain()" title="AI feed health — click for details">feed: checking…</span>
       <select class="si" id="gx-win" style="width:auto" onchange="CC.gxWinChange()"><option value="24">24h</option><option value="168" selected>7d</option><option value="720">30d</option></select>
@@ -705,14 +705,14 @@ details.help .hrow>span:first-child{flex:none;width:16px;text-align:center}
   </section>
 
   <section class="view" id="v-zdx">
-    <div class="hero"><div><h2>ZDX · Devices</h2><div class="bar"></div><p>Devices actively reporting digital-experience telemetry in the last 2 hours.</p></div>
+    <div class="hero"><div><h2>ZDX · Devices</h2><div class="bar"></div><p>ZDX Standard capability and supported ZCC device inventory.</p></div>
       <div class="stamps"><input class="si" id="zdx-q" placeholder="filter user/device…" onkeydown="if(event.key==='Enter')CC.loadZdx(true)"><button class="sb ghost" onclick="CC.loadZdx(true)">↻ Load</button></div></div>
     <div class="card"><div class="h"><span class="t"><span class="dot"></span>Active Devices</span><span class="meta" id="zdx-meta"></span></div><div class="tscroll" id="zdx-out"><div class="empty">Click Load.</div></div></div>
   </section>
 
   <!-- ═══ ZDX APPS ═══ -->
   <section class="view" id="v-zdxapps">
-    <div class="hero"><div><h2>ZDX · Application Health</h2><div class="bar"></div><p>Experience scores for every ZDX-monitored application, worst first.</p></div>
+    <div class="hero"><div><h2>ZDX · Application Health</h2><div class="bar"></div><p>Application experience telemetry availability under the current ZDX subscription.</p></div>
       <div class="stamps"><button class="sb ghost" onclick="CC.loadZdxApps(true)">↻ Load</button></div></div>
     <div class="card"><div class="h"><span class="t"><span class="dot"></span>Monitored Apps</span><span class="meta" id="zdxapps-meta"></span></div><div class="b" id="zdxapps-out"><div class="empty">Click Load.</div></div></div>
   </section>
@@ -814,7 +814,7 @@ details.help .hrow>span:first-child{flex:none;width:16px;text-align:center}
       <div class="kpi" title="Connectors an administrator has disabled in ZPA." data-ic="dot" data-tone="mu"><div class="lab">Disabled</div><div class="num" id="cn-dis">—</div></div>
       <div class="kpi" title="Connectors whose installed version differs from the version their group expects." data-ic="alert" data-tone="am"><div class="lab">Version drift</div><div class="num" id="cn-drift">—</div></div>
       <div class="kpi" title="App Connector Groups holding at least one connector." data-ic="people" data-tone="bl"><div class="lab">Groups</div><div class="num" id="cn-groups">—</div></div>
-      <div class="kpi kpi-note" data-ic="none"><div class="lab">ZPA connection status <span class="rd-i" tabindex="0" role="note" aria-label="Status is what the ZPA service reports for the control channel. Heartbeat freshness is shown separately on each connector — a connector can report Online with an old heartbeat." title="Status is what the ZPA service reports for the control channel. Heartbeat freshness is shown separately on each connector — a connector can report Online with an old heartbeat.">i</span></div><div class="sub">From the Zscaler service</div></div>
+      <div class="kpi kpi-note" data-ic="none"><div class="lab">ZPA connection status <span class="rd-i" tabindex="0" role="note" aria-label="Status is what the ZPA service reports for the control channel. Connection-event age is shown separately. It does not measure heartbeat freshness." title="Status is what the ZPA service reports for the control channel. Connection-event age is shown separately. It does not measure heartbeat freshness.">i</span></div><div class="sub">From the Zscaler service</div></div>
     </div>
     <div class="rd-split closed" id="cn-split">
       <div class="card" id="cn-listcard">
@@ -841,7 +841,7 @@ details.help .hrow>span:first-child{flex:none;width:16px;text-align:center}
       <div><h2>ZPA · Traffic Routes</h2><div class="bar"></div>
       <p>How traffic actually flows: App Segment → Server Group → Connector Group → connectors, with live health and single-point-of-failure risk. Bandwidth appears once the LSS stream is wired in.</p></div>
       <div class="stamps">
-        <select class="si" id="rt-hours" style="padding:6px 10px;font-size:12px" onchange="CC.rtWindowChange()"><option value="1">1h</option><option value="8">8h</option><option value="24" selected>24h</option><option value="168">7d</option></select>
+        <select class="si" id="rt-hours" style="padding:6px 10px;font-size:12px" onchange="CC.rtWindowChange()"><option value="1">1h</option><option value="8">8h</option><option value="24" selected>24h</option></select>
         <button class="sb ghost" onclick="CC.rtRefresh()">↻ Refresh</button>
       </div>
     </div>
@@ -1229,30 +1229,35 @@ function toast(m,bad){var t=$('toast');t.textContent=m;t.className='toast show '
    timeout turns an indefinite spinner into an honest, explainable failure for
    all 36 views at once. */
 var CC_TIMEOUT_MS=20000;
+var ccCapabilityPromise;
+function ccCapabilities(){if(!ccCapabilityPromise){var c=new AbortController(),t=setTimeout(function(){c.abort();},5000);ccCapabilityPromise=fetch('/api/zscaler/capabilities',{credentials:'same-origin',cache:'no-store',signal:c.signal}).then(function(r){if(!r.ok)throw Error('Capability read unavailable');return r.json();}).catch(function(){ccCapabilityPromise=null;return null;}).finally(function(){clearTimeout(t);});}return ccCapabilityPromise;}
+function zdxStandardHtml(){return '<div class="pend-card"><b>ZDX Standard</b><p>API experience scores, live presence and ISP/location telemetry are not included in this workspace. No entitlement upgrade is planned.</p><p>Use <button class="sb ghost" type="button" onclick="CC.go(\'zcc\')">Devices and check-in inventory</button> for ZCC enrollment, agent versions and reported last check-in. A device check-in is not proof that a person is online.</p></div>';}
 async function J(url,opts){
+  if(/^\/api\/zscaler\/zdx\/(apps|devices|departments)(?:[/?]|$)/.test(url)){
+    var capabilities=await ccCapabilities();
+    if(capabilities&&capabilities.zdx&&capabilities.zdx.api===false)return {ok:false,status:501,data:{code:'ZDX_API_NOT_INCLUDED',error:capabilities.zdx.reason,state:'not_included'},receivedAt:Date.now(),elapsedMs:0};
+  }
+
   opts=opts||{};
-  /* per-call budget: the Rapid7 async log searches legitimately run 15–40s,
-     so those callers pass {timeoutMs:120000} instead of eating the default */
-  var ms=opts.timeoutMs||CC_TIMEOUT_MS;
-  var ctl=(typeof AbortController!=='undefined')?new AbortController():null;
-  var timer=ctl?setTimeout(function(){ctl.abort();},ms):null;
+  var ms=opts.timeoutMs||CC_TIMEOUT_MS,ctl=new AbortController();
+  var started=performance.now(),timer=setTimeout(function(){ctl.abort();},ms);
   try{
     var cfg=Object.assign({cache:'no-store',credentials:'same-origin'},opts);
-    delete cfg.timeoutMs;
-    if(ctl)cfg.signal=ctl.signal;
-    var r=await fetch(url,cfg);
-    if(timer)clearTimeout(timer);
-    var raw=''; try{raw=await r.text();}catch(e){}
-    var d={}; try{d=JSON.parse(raw);}catch(e){}
-    return {ok:r.ok,status:r.status,data:d,raw:raw,ctype:(r.headers.get('content-type')||'')};
+    delete cfg.timeoutMs;cfg.signal=ctl.signal;
+    var response=await fetch(url,cfg),raw=await response.text(),data={};
+    if(raw){try{data=JSON.parse(raw);}catch(e){
+      return {ok:false,status:response.ok?502:response.status,data:{error:'The source did not return readable JSON'},raw:'Invalid source response',ctype:'invalid-json',receivedAt:Date.now(),elapsedMs:Math.round(performance.now()-started)};
+    }}else if(response.status!==204&&response.ok){
+      return {ok:false,status:502,data:{error:'The source returned an empty response'},raw:'Empty source response',ctype:'invalid-json',receivedAt:Date.now(),elapsedMs:Math.round(performance.now()-started)};
+    }
+    var applicationFailed=!data||data.ok===false||!!data.error;
+    return {ok:response.ok&&!applicationFailed,status:response.status,data:data||{},raw:raw,ctype:response.headers.get('content-type')||'',receivedAt:Date.now(),elapsedMs:Math.round(performance.now()-started)};
   }catch(e){
-    if(timer)clearTimeout(timer);
-    var aborted=(e&&e.name==='AbortError');
-    return {ok:false,status:aborted?408:0,data:{},
-            raw:aborted?('No response after '+Math.round(ms/1000)+'s — the request timed out.'):String(e&&e.message||e),
-            ctype:aborted?'timeout':'network-error'};
-  }
+    var timed=ctl.signal.aborted||e&&e.name==='AbortError';
+    return {ok:false,status:timed?408:0,data:{error:timed?'The source did not finish responding within its time budget':'The source could not be reached'},raw:timed?'Response timed out':'Network request failed',ctype:timed?'timeout':'network-error',receivedAt:Date.now(),elapsedMs:Math.round(performance.now()-started)};
+  }finally{clearTimeout(timer);}
 }
+CC.request=J;
 function ago(ts){
   if(!ts) return '—';
   if(typeof ts==='string'&&/^\d+$/.test(ts)) ts=parseInt(ts,10);
@@ -1635,6 +1640,16 @@ var PR_IC={
 };
 function prSaveCols(){try{localStorage.setItem('cc_pr_cols',JSON.stringify(prColOn));}catch(e){}}
 CC.loadPresence=async function(force){
+  var capability=await ccCapabilities();
+  if(capability&&capability.zdx&&capability.zdx.api===false){
+    if(prTimer){clearInterval(prTimer);prTimer=null;}
+    $('pr-auto').checked=false;$('pr-auto').disabled=true;
+    ['pr-strip','pr-split','pr-noc','pr-foot'].forEach(function(id){if($(id))$(id).hidden=true;});
+    $('pr-listcard').querySelector('.h').style.display='none';
+    $('v-presence').querySelector('.rd-footnote').style.display='none';
+    $('pr-when').textContent='Not collected · Standard';
+    $('pr-out').innerHTML=zdxStandardHtml();return;
+  }
   var out=$('pr-out'); if(force||!cache.presence) out.innerHTML=loadingHtml('Joining ZCC + ZDX…');
   var calls=await Promise.all([J('/api/zscaler/zcc/devices'),J('/api/zscaler/zdx/devices'),J('/api/zscaler/zdx/device-geo')]);
   var zc=calls[0],zd=calls[1],zg=calls[2];
@@ -2283,6 +2298,7 @@ CC.loadZdx=async function(force){
   var q=($('zdx-q').value||'').trim();
   var isEmail=q.indexOf('@')>-1;
   var r=await J('/api/zscaler/zdx/devices'+(isEmail?'?emails='+encodeURIComponent(q):''));
+  if(r.data&&r.data.code==='ZDX_API_NOT_INCLUDED'){$('zdx-meta').textContent='Standard subscription';out.innerHTML=zdxStandardHtml();return;}
   if(!r.ok){out.innerHTML=pendHtml('HTTP '+r.status,r.data.error||'');return;}
   var devs=r.data.devices||[];
   /* ZDX only filters by email/user id — match anything else against the device
@@ -2301,6 +2317,7 @@ CC.loadZdx=async function(force){
 CC.loadZdxApps=async function(force){
   var out=$('zdxapps-out'); out.innerHTML=loadingHtml();
   var r=await J('/api/zscaler/zdx/apps');
+  if(r.data&&r.data.code==='ZDX_API_NOT_INCLUDED'){$('zdxapps-meta').textContent='Standard subscription';out.innerHTML=zdxStandardHtml();return;}
   if(!r.ok){out.innerHTML='<div class="pend-card"><b>ZDX apps unavailable</b> — HTTP '+r.status+'.</div>';return;}
   var apps=(r.data.apps||[]).filter(function(a){return typeof a.score==='number';}).sort(function(a,b){return a.score-b.score;});
   $('zdxapps-meta').textContent=apps.length+' apps · 2h window';
@@ -2320,6 +2337,8 @@ CC.loadZdxApps=async function(force){
    filter, the scope and the page you were on all survive opening a record.
    Every number here is read from the ZCC service or the enrolment snapshot —
    nothing on this page is derived from a baseline the page invented itself.  */
+var zdRequestedUdid=(new URLSearchParams(location.search).get('udid') || '').trim();
+var zdLoadGeneration=0;
 var zcCur='all', zdRaw=[], zdView=[], zdPage=0, zdPer=10, zdSel=null, zdReq=0, zdTab='ov', zdDrift=null, zdTrunc=null;
 var ZD={
   apple:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.3 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9s-1.8-.9-3-.8c-1.5 0-2.9.9-3.7 2.2-1.6 2.8-.4 6.9 1.1 9.1.8 1.1 1.7 2.3 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7 2-1.1 2.8-2.2c.9-1.3 1.2-2.5 1.2-2.6 0 0-2.4-.9-2.4-3.6zM14.1 5.6c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.8 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.8-1.3z"/></svg>',
@@ -2526,6 +2545,7 @@ CC.loadZccSummary=async function(){
 
 /* ── load ── */
 CC.loadZcc=async function(force){
+  var loadGeneration=++zdLoadGeneration;
   zcTabPaint();
   CC.loadZccSummary();
   var out=$('zcc-out'); if(!out)return;
@@ -2537,6 +2557,7 @@ CC.loadZcc=async function(force){
          :(zcCur==='dereg')?'/api/zscaler/zcc/dereg'
          :'/api/zscaler/zcc/devices';
   var r=await J(url);
+  if(loadGeneration!==zdLoadGeneration)return;
   var when=$('zcc-when'); if(when)when.textContent=new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
   if(!r.ok){out.innerHTML=pendHtml('HTTP '+r.status,(r.data&&r.data.error)||'');$('zcc-meta').textContent='';return;}
   var devs=r.data.devices||r.data.outdatedDevices||r.data.deregistered||[];
@@ -2579,7 +2600,29 @@ CC.loadZcc=async function(force){
   zdPlatOptions();
   zdPage=0;
   CC.zdFilter();
+  zdOpenRequested();
 };
+/* Stage 2 exact-UDID handoff. No hostname/user fallback and no OTP calls. */
+function zdOpenRequested(){
+  if(!zdRequestedUdid || zcCur!=='all')return;
+  var requested=zdRequestedUdid;zdRequestedUdid='';
+  var matches=zdRaw.filter(function(c){return zdUdid(c)===requested;});
+  CC.zdClose();
+  if(matches.length!==1){
+    var message=matches.length?'The requested UDID is ambiguous in this response; no device was selected.':'The requested UDID was not returned'+(zdTrunc?' in this partial list':'')+'; no device was selected.';
+    var meta=$('zcc-meta');if(meta)meta.textContent=message;
+    toast(message,true);return;
+  }
+  if($('zcc-q'))$('zcc-q').value='';
+  if($('zd-plat'))$('zd-plat').value='';
+  CC.zdFilter();
+  var index=zdView.findIndex(function(c){return zdUdid(c)===requested;});
+  if(index<0)return;
+  zdPage=Math.floor(index/zdPer);CC.zdRender();
+  var row=$('zcc-out').querySelector('tr[data-i="'+index+'"]');
+  CC.zdToggle(index,row);
+}
+
 function zdPlatOptions(){
   var sel=$('zd-plat'); if(!sel)return;
   var keep=sel.value, seen={};
@@ -2772,11 +2815,25 @@ function zdPanelBody(c,i){
     +'<details class="rd-raw"><summary>All ZCC fields for this device</summary>'+kvWalk(c)+'</details>';
 }
 async function zdIntune(upn,tok){
-  var host=$('zd-intune'); if(!host)return;
+  var host=$('zd-intune');if(!host)return;
+  host.innerHTML='<div id="zd-intune-endpoint"></div><details class="rd-raw"><summary>Person-scoped inventory · separate lookup</summary><div id="zd-intune-person"></div></details>';
+  zdIntuneByUser(upn,tok);
+  var c=zdView[zdSel],udid=c&&zdUdid(c);
+  if(!udid){$('zd-intune-endpoint').textContent='This record has no UDID; endpoint matching is unavailable.';return;}
+  var r=await J('/api/zscaler/zcc/device/'+encodeURIComponent(udid));
+  if(tok!==zdReq)return;
+  host=$('zd-intune-endpoint');if(!host)return;
+  if(!r.ok){host.innerHTML=pendHtml('Endpoint snapshot unavailable',(r.data&&r.data.error)||'The stored export may not contain this live UDID.');return;}
+  var d=r.data,match=d.intuneMatch||{status:'unavailable'},rows=d.intuneMatches||[];
+  host.innerHTML='<div class="rd-note info"><div>Selected UDID: <b>'+esc(udid)+'</b><br>Intune association: '+esc(match.status)+' · '+esc(match.basis||'Not reported')+(match.enrollmentCount>1?'<br>'+esc(match.enrollmentCount)+' ZCC enrollments share this serial.':'')+'</div></div>'
+    +(rows.length?'<table class="mt rd-mini"><thead><tr><th>Device</th><th>Serial</th><th>Device ID</th></tr></thead><tbody>'+rows.map(function(x){return '<tr><td>'+esc(x.device_name)+'</td><td>'+esc(x.serial_number)+'</td><td>'+esc(x.device_id)+'</td></tr>';}).join('')+'</tbody></table>':'<div class="rd-empty">No confirmed selected-device Intune record returned.</div>');
+}
+async function zdIntuneByUser(upn,tok){
+  var host=$('zd-intune-person'); if(!host)return;
   if(!upn||upn==='—'){host.innerHTML='<div class="rd-empty"><b>No user on this record.</b><span>Intune records are looked up by user, so there is nothing to match against.</span></div>';return;}
   var r=await J('/api/zscaler/asset/by-user?upn='+encodeURIComponent(upn));
   if(tok!==zdReq)return;
-  host=$('zd-intune'); if(!host)return;
+  host=$('zd-intune-person'); if(!host)return;
   if(!r.ok){host.innerHTML=pendHtml('HTTP '+r.status,(r.data&&r.data.error)||'The IT asset inventory could not be read, so Intune matching for this user is unknown — not absent.');return;}
   var devs=(r.data&&r.data.devices)||[];
   if(!devs.length){host.innerHTML='<div class="rd-empty"><b>No Intune record for this user.</b><span>The IT asset inventory holds no Intune-managed device for '+esc(upn)+'. That is an absence of a record, not proof the device is unmanaged.</span></div>';return;}
@@ -2930,7 +2987,7 @@ var LISTS={
 
 /* ── APP CONNECTOR MONITOR (v2.0.17) ── */
 var cnTimer=null, cnData=null, cnApps=null;
-function cnIsUp(c){return !!c.enabled && /AUTHENTICATED/i.test(String(c.ctrlChannelStatus||c.controlChannelStatus||''));}
+function cnIsUp(c){return c.enabled===true&&['ZPN_STATUS_AUTHENTICATED','AUTHENTICATED'].indexOf(String(c.ctrlChannelStatus||c.controlChannelStatus||'').toUpperCase())>=0;}
 function cnDrift(c){return !!(c.expectedVersion&&c.currentVersion&&c.expectedVersion!==c.currentVersion);}
 function cnUptime(c){
   var ts=c.applicationStartTime||c.systemStartTime; if(!ts)return '—';
@@ -2991,7 +3048,7 @@ function cnHbTs(c){
   var ms=(typeof ts==='number')?(ts<1e11?ts*1000:ts):new Date(ts).getTime();
   return (!ms||isNaN(ms))?null:ms;
 }
-function cnHbStale(c){var ms=cnHbTs(c);return ms!=null&&(Date.now()-ms)>86400000;}
+function cnHbStale(c){return false; /* Broker event age is not heartbeat freshness. */}
 function cnState(c){return !c.enabled?'disabled':(cnIsUp(c)?'up':'down');}
 function cnStateLabel(c){var s=cnState(c);return s==='disabled'?'Disabled':s==='up'?'Online':'Offline';}
 function cnTone(c){var s=cnState(c);return s==='up'?'gr':s==='down'?'rd':'mu';}
@@ -3056,7 +3113,7 @@ CC.renderConnectors=function(){
       +'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10l4-4 4 4"/><path d="M8 14l4 4 4-4"/></svg></button></th>';
   }
   var view=[],h='<table class="mt cn-mt"><colgroup><col><col style="width:132px"><col style="width:158px"><col style="width:150px"><col style="width:56px"></colgroup><thead><tr>'
-    +sh('name','Connector')+sh('status','Status')+sh('version','Version')+sh('hb','Heartbeat')
+    +sh('name','Connector')+sh('status','Status')+sh('version','Version')+sh('hb','Connection event')
     +'<th><span class="vh">Actions</span></th></tr></thead><tbody>';
   order.forEach(function(g){
     var list=groups[g].slice().sort(function(a,b){var x=key(a),y=key(b);return (x<y?-1:x>y?1:0)*cnSort.d;});
@@ -3079,7 +3136,7 @@ CC.renderConnectors=function(){
         +'<td><span class="cst '+cnState(c)+'"><span class="rd-dot '+cnTone(c)+'"></span>'+cnStateLabel(c)+'</span></td>'
         +'<td><span class="mono cver">'+esc(c.currentVersion||'—')+'</span>'
           +(cnDrift(c)?' <span class="rd-bdg am" title="expected '+esc(c.expectedVersion||'')+'">Drift</span>':'')+'</td>'
-        +'<td><span class="chb'+(stale?' stale':'')+'" title="'+(stale?'Heartbeat is older than 24 hours':'Last heartbeat reported by ZPA')+'">'+CN.clock+(hbTs?esc(ago(hbTs)):'—')+'</span></td>'
+        +'<td><span class="chb'+(stale?' stale':'')+'" title="'+(stale?'Connection-event age does not establish heartbeat freshness':'Most recent reported connection event; not a heartbeat')+'">'+CN.clock+(hbTs?esc(ago(hbTs)):'—')+'</span></td>'
         +'<td><button class="rowdots" type="button" aria-label="Actions for '+esc(c.name||'connector')+'" onclick="event.stopPropagation();CC.cnMenu('+i+',this)">'+CN.dots+'</button></td></tr>';
     });
   });
@@ -3145,7 +3202,7 @@ function cnCur(){
   return view.filter(function(c){return c.name===cnSel;})[0]||null;
 }
 function cnWinBar(){
-  return '<div class="rd-seg cn-seg" role="group" aria-label="Traffic window">'+[[1,'1h'],[8,'8h'],[24,'24h'],[168,'7d']].map(function(w){
+  return '<div class="rd-seg cn-seg" role="group" aria-label="Traffic window">'+[[1,'1h'],[8,'8h'],[24,'24h']].map(function(w){
     return '<button type="button" class="'+(cnWin===w[0]?'on':'')+'" aria-pressed="'+(cnWin===w[0])+'" onclick="CC.cnWin('+w[0]+')">'+w[1]+'</button>';
   }).join('')+'</div>';
 }
@@ -3172,14 +3229,14 @@ function cnPanel(c){
   var body=$('cn-rdbody');
   if(cnTab==='ov'){
     var apps=cnAppsFor(c.appConnectorGroupName||'Ungrouped');
-    body.innerHTML=(stale?'<div class="rd-note">'+CN.clock+'<div>Heartbeat is older than 24 hours. The service still reports <b>'+cnStateLabel(c)+'</b> — reported status and heartbeat freshness are separate signals.</div></div>':'')
+    body.innerHTML=(stale?'<div class="rd-note">'+CN.clock+'<div>Connection-event age does not establish heartbeat freshness. The service still reports <b>'+cnStateLabel(c)+'</b> — reported status and connection-event age are separate signals.</div></div>':'')
       +'<dl class="rd-kv">'
       +'<dt>Private IP</dt><dd class="mono">'+esc(c.privateIp||'—')+'</dd>'
       +'<dt>Public IP</dt><dd class="mono">'+esc(c.publicIp||'—')+'</dd>'
       +'<dt>Platform</dt><dd>'+esc(c.platform||c.runtimeOS||'—')+'</dd>'
       +'<dt>Installed version</dt><dd class="mono">'+esc(c.currentVersion||'—')+'</dd>'
       +'<dt>Expected version</dt><dd>'+(c.expectedVersion?'<span class="mono">'+esc(c.expectedVersion)+'</span>':'<span class="mu">no group baseline published</span>')+'</dd>'
-      +'<dt>Last heartbeat</dt><dd>'+(hbTs?esc(ago(hbTs))+' <span class="mu">'+esc(new Date(hbTs).toLocaleString())+'</span>':'—')+'</dd>'
+      +'<dt>Last connection event</dt><dd>'+(hbTs?esc(ago(hbTs))+' <span class="mu">'+esc(new Date(hbTs).toLocaleString())+'</span>':'—')+'</dd>'
       +'<dt>Uptime</dt><dd>'+esc(cnUptime(c))+'</dd>'
       +'<dt>Group</dt><dd>'+esc(c.appConnectorGroupName||'Ungrouped')+'</dd>'
       +'</dl>'
@@ -3316,6 +3373,7 @@ CC.otpShow=async function(src,i){
   var row=null;
   if(src==='pr'){var v=$('pr-out')._view||[];row=v[i];}
   else if(src==='zcc'){var v2=$('zcc-out')._view||[];row=v2[i];}
+  else if(src==='hd'){row=(CC.hdDevices||[])[i];}
   if(!row)return;
   var udid=row.udid||(pick?pick(row,'udid'):row.udid);
   if(!udid){toast('No UDID on this device',true);return;}
@@ -4023,7 +4081,7 @@ CC.gxLoadShadow=async function(){
     var d0=calls[0].data||{}; var un=d0.unsanctioned||[];
     $('gxs-unsanc').textContent=un.length;
     $('gxs-unsanc-meta').textContent=un.length+' shadow apps · '+(d0.governedCount||0)+' governed · '+(d0.policyApps||0)+' policy apps';
-    if(!un.length){$('gxs-unsanc-out').innerHTML='<div class="empty" style="color:var(--gr)">✅ Every AI app observed is covered by a policy rule.</div>';}
+    if(!un.length){$('gxs-unsanc-out').innerHTML='<div class="empty" style="color:var(--gr)">No unmatched AI applications returned for this window. This does not establish complete policy coverage; check feed freshness.</div>';}
     else{
       $('gxs-unsanc-out').innerHTML=un.map(function(a){
         var tu=(a.topUsers||[]).map(function(u){return '<span class="tagx" style="font-size:10.5px;cursor:pointer" title="Investigate this user" onclick="event.stopPropagation();CC.gxInvestigate(\''+gxEnc(u.user)+'\')">'+esc(u.user)+' · '+u.count+'</span>';}).join('');
@@ -4046,7 +4104,7 @@ CC.gxLoadShadow=async function(){
     $('gxs-dom-meta').textContent=hosts.length+' hosts';
     $('gxs-dom-out').innerHTML=hosts.length?'<table class="mt"><thead><tr><th>Host</th><th>Category</th><th>Txns</th><th>Users</th><th>Blocked</th><th>Top users</th></tr></thead><tbody>'+hosts.slice(0,60).map(function(s){
       return '<tr style="cursor:pointer" onclick="CC.gxDrill(\'host\',\''+gxEnc(s.host)+'\')"><td class="mono" style="font-size:11.5px">'+esc(s.host)+'</td><td style="font-size:11px;color:var(--tx2)">'+esc(s.url_category||'')+'</td><td class="mono">'+s.total.toLocaleString()+'</td><td class="mono">'+s.users+'</td><td>'+(s.blocked?'<span class="bdg rd">'+s.blocked+'</span>':'<span style="color:var(--tx3)">0</span>')+'</td><td style="font-size:10.5px;color:var(--tx3)">'+(s.topUsers||[]).map(function(u){return esc(u.user)+' ('+u.count+')';}).join(', ')+'</td></tr>';
-    }).join('')+'</tbody></table>':'<div class="empty" style="color:var(--gr)">✅ No uncategorized AI hosts — Zscaler classified everything.</div>';
+    }).join('')+'</tbody></table>':'<div class="empty" style="color:var(--gr)">No uncategorized AI hosts returned for this window. Missing or stale logs cannot establish complete classification.</div>';
   }
   if(!calls[2].ok){$('gxs-cli-out').innerHTML=pendHtml('HTTP '+calls[2].status,(calls[2].data||{}).error||'');}
   else{
@@ -5303,7 +5361,8 @@ async function boot(){
     var usp=new URLSearchParams(location.search);
     var dq=(usp.get('q')||'').trim(), wq=(usp.get('webq')||'').trim();
     var tq=(usp.get('timeline')||'').trim(), tat=(usp.get('at')||'').trim();
-    if(tq){ CC.tlFromAlert(tq, tat||null); }
+    if(zdRequestedUdid){CC.go('zcc');}
+    else if(tq){ CC.tlFromAlert(tq, tat||null); }
     else if(dq){ CC.go('usearch'); $('us-q').value=dq; CC.unifiedRun(); }
     else if(wq){ CC.go('webact'); CC.loadWebAct(true,wq); }
   }catch(e){}
@@ -5367,7 +5426,7 @@ CC.cnAuto();
 var C=window.CC; if(!C){console.warn('[cc-v3] CC missing');return;}
 function $(id){return document.getElementById(id);}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function j(u,opt){return fetch(u,Object.assign({credentials:'include'},opt||{})).then(function(r){return r.text().then(function(t){var d=null;try{d=JSON.parse(t);}catch(e){}return {ok:r.ok,status:r.status,data:d,raw:t};});});}
+function j(u,opt){return C.request(u,opt);}
 var API='/api/zscaler';
 
 /* ---------- inject new views ---------- */
@@ -7878,7 +7937,7 @@ body.noc .rd-footnote,body.noc .pr-chiprow{display:none}
        "view" not "loaded" — navigation happens here, loading may not have */
     var c=on?on.cloneNode(true):null;
     if(c){var tg=c.querySelector('.tag'); if(tg)tg.remove();}
-    var msg=c?(c.textContent||'').trim().replace(/\s+/g,' '):'';
+    var active=D.querySelector('.noc-nav [aria-current=page]');var msg=active&&D.body.classList.contains('noc-owned')?(active.textContent||'').trim():c?(c.textContent||'').trim().replace(/\s+/g,' '):'';
     if(msg&&msg!==lastSaid){lastSaid=msg;live.textContent=msg+' view';}
   }
 
@@ -8186,8 +8245,8 @@ function decorateKpis(root){
       if(st)st.textContent=val||(p.classList.contains('ok')?'connected':p.classList.contains('err')?'error':p.classList.contains('warn')?'unconfigured':'checking…');
     });
     var lab=$('svc-label'), dot=$('svc-dot');
-    if(lab)lab.textContent = unknown===IDS.length ? 'checking services…'
-                          : ok+' of '+IDS.length+' services connected';
+    if(lab)lab.textContent = unknown===IDS.length ? 'checking API reads…'
+                          : ok+' of '+IDS.length+' API reads available';
     if(dot)dot.style.background = bad?'var(--rd-dot)' : (warn||unknown)?'var(--am-dot)' : 'var(--gr-dot)';
     btn.title = IDS.map(function(id){var p=$(id);return p?(p.title||p.textContent):'';}).filter(Boolean).join(' · ');
   }
@@ -8512,7 +8571,15 @@ console.info('[cc-rd] r4 shell loaded');
 </script>
 
 <script src="/it-topbar.js" defer></script>
-<script src="/feed-freshness.js" data-page="zscaler-command-center" defer></script>
+<script src="/feed-freshness.js?v=bf8acae2b314" data-page="zscaler-command-center" defer></script>
 <script src="/it-version.js" data-app-key="zscaler-command-center" defer></script>
+<link rel="stylesheet" href="/zscaler-noc.css?v=gov2">
+<script src="/zscaler-noc-model.js?v=5f4d39344db5" defer></script>
+<script src="/zscaler-noc.js?v=a4c2b49168da" defer></script>
+<script src="/zscaler-helpdesk.js?v=2" defer></script>
+<link rel="stylesheet" href="/zcc-releases.css?v=1">
+<script src="/zcc-releases.js?v=1" defer></script>
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/zscaler-portal.css?v=72a4a3b58a69">
 </body>
 </html>

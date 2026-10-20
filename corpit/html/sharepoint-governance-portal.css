@@ -1,0 +1,241 @@
+/* SharePoint Governance: AI Governance portal skin. Presentation only; loads after the inline styles and it-depth.css.
+   Shares the governance banner and Nunito face; the top bar and sidebar stay dark in both themes.
+   it-depth.css still drives which surfaces are raised or recessed; its --dp-* tokens are re-pointed here. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+:root:not([data-theme=light]) {
+  --bg: #071520; --surface: #142533; --surface0: #142533; --surface2: #182c3c;
+  --border: #2a3d4d; --border2: #37505f;
+  --text: #ebf1f6; --text1: #ebf1f6; --text2: #a4b5c5; --text3: #91a3b5;
+  --blue: #7dc9e7; --cyan: #7dc9e7; --green: #9bd64a; --amber: #f0d08b; --red: #ffa1ac;
+  --red-fg: #ffb8c0; --red-fg-faint: #ffb8c080; --amber-fg: #f5dca6; --blue-fg: #a9dcf0; --green-fg: #b9e283;
+  --nav-active-fg: #a5d877; --btn-primary-accent: #3d7924; --btn-primary-accent-h: #31631c;
+  --pill-active-accent-h: #31631c; --on-cyan: #071520;
+  --overlay-soft: #ffffff0b; --overlay-softer: #ffffff07; --overlay-mid: #ffffff12; --overlay-border: #ffffff21;
+  --row-hover: #ffffff06; --chip-gray-bg: rgba(135, 150, 163, .14);
+  --scrim: rgba(3, 9, 15, .72); --scrim-strong: rgba(3, 9, 15, .78); --code-bg: #0b1a26;
+  --spg-edge: #1f3445; --spg-overlay: #1a2f40;
+  --spg-elev-1: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --spg-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  --card-shadow: var(--spg-elev-1); --card-shadow-hover: var(--spg-elev-2); --modal-shadow: var(--spg-elev-2); --shadow: var(--spg-elev-2);
+  /* Theme values kept under a second name, for dropdowns opened from inside the banner. */
+  --spg-t-text: #ebf1f6;
+}
+:root[data-theme=light] {
+  --bg: #eff1f3; --surface: #fff; --surface0: #fff; --surface2: #f6f8fa;
+  --border: #dfe3e8; --border2: #cdd4dc;
+  --text: #17212e; --text1: #17212e; --text2: #5d6b7e; --text3: #5f6d80;
+  --blue: #147299; --cyan: #147299; --green: #3d7924; --amber: #8b641f; --red: #b33440;
+  --red-fg: #94262f; --red-fg-faint: #94262f99; --amber-fg: #7a5617; --blue-fg: #105c7b; --green-fg: #31631c;
+  --nav-active-fg: #a5d877; --btn-primary-accent: #3d7924; --btn-primary-accent-h: #31631c;
+  --pill-active-accent-h: #31631c; --on-cyan: #fff;
+  --spg-edge: #e4e8ed; --spg-overlay: #fff;
+  --spg-elev-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --spg-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --card-shadow: var(--spg-elev-1); --card-shadow-hover: var(--spg-elev-2); --modal-shadow: var(--spg-elev-2); --shadow: var(--spg-elev-2);
+  --spg-t-text: #17212e;
+}
+:root, :root[data-theme] {
+  --font-sans: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --radius: 13px; --radius-sm: 7px;
+  --spg-ease: cubic-bezier(.23, 1, .32, 1);
+  /* The page uses var(--tr) as a whole transition shorthand; list the properties instead of "all". */
+  --tr: background-color 160ms var(--spg-ease), border-color 160ms var(--spg-ease), color 160ms var(--spg-ease),
+        box-shadow 160ms var(--spg-ease), opacity 160ms var(--spg-ease), transform 160ms var(--spg-ease);
+  --spg-lift: 28px; --spg-pad-y: 28px; --spg-pad-x: 32px;
+}
+html, body { background: var(--bg); }
+
+/* it-depth.css material, re-pointed to the governance elevation: flat faces, one lit edge, a soft cast shadow. */
+:root:not([data-theme=light]) body[data-dp="sharepoint-governance-dashboard"] {
+  --dp-face: none; --dp-face-2: none; --dp-grain: none; --dp-wash: none; --dp-bar: none; --dp-rail: none;
+  --dp-sheen: inset 0 1px 0 #ffffff0b; --dp-sheen-2: inset 0 1px 0 #ffffff10;
+  --dp-relief: inset 0 1px 0 #ffffff0b; --dp-relief-2: inset 0 1px 0 #ffffff10;
+  --dp-lift-1: 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --dp-lift-2: 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  --dp-lift-3: 0 2px 4px #00000066, 0 26px 52px -18px #000000cc;
+  --dp-well: inset 0 1px 2px #00000040; --dp-well-2: inset 0 1px 3px #00000066;
+}
+:root[data-theme=light] body[data-dp="sharepoint-governance-dashboard"] {
+  --dp-face: none; --dp-face-2: none; --dp-grain: none; --dp-wash: none; --dp-bar: none; --dp-rail: none;
+  --dp-sheen: 0 0 #0000; --dp-sheen-2: 0 0 #0000; --dp-relief: 0 0 #0000; --dp-relief-2: 0 0 #0000;
+  --dp-lift-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --dp-lift-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --dp-lift-3: 0 2px 4px #10182814, 0 22px 44px -16px #10182833;
+  --dp-well: inset 0 1px 2px #1018280f; --dp-well-2: inset 0 1px 3px #1018281a;
+}
+
+/* Top bar and sidebar: the governance chrome. Tokens are re-pointed so every nested control stays legible in light mode. */
+.topbar, .sidebar {
+  --surface: #202936; --surface2: #202936; --border: #303746; --border2: #3c4556;
+  --text: #e6edf7; --text1: #e6edf7; --text2: #c1cad6; --text3: #9aa6b5;
+  --blue: #a5d877; --cyan: #a5d877; --green: #9bd64a; --amber: #f0d08b; --red: #ffa1ac;
+  --overlay-soft: #ffffff0d; --overlay-softer: #ffffff08; --overlay-mid: #ffffff14; --overlay-border: #ffffff26;
+  --row-hover: #ffffff08; --on-cyan: #0b1a05;
+  color: var(--text);
+}
+.topbar { background: #161c28; border-bottom-color: #303746; }
+.topbar-title { color: #fff; font-weight: 850; letter-spacing: -.2px; }
+.topbar .search-box { background: #202936; border-color: #3c4556; }
+.topbar .search-box input::placeholder { color: #9aa6b5; }
+.topbar .ittb {
+  --ittb-fg: #e6edf7; --ittb-muted: #b7c5d7; --ittb-surface: #263241;
+  --ittb-panel: #142533; --ittb-panel-2: #203645; --ittb-line: #43546a;
+  --ittb-av-bg: #294b7c; font-family: inherit;
+}
+.sidebar { --surface: #131823; --border: #29313d; background: #131823; border-right-color: #29313d; }
+.sidebar-logo { border-bottom-color: #29313d; }
+.logo-icon { background: linear-gradient(140deg, #3d7924, #78be20) !important; box-shadow: inset 0 1px 0 #ffffff33; }
+.logo-name { color: #fff; font-weight: 850; letter-spacing: -.2px; }
+.logo-sub { color: #9aa6b5; }
+.sidebar-section { font-family: var(--font-sans); font-weight: 800; font-size: .66rem; letter-spacing: .06em; color: #8f9bab; }
+.nav-item { color: #b8c2cf; font-weight: 650; }
+.nav-item:hover { background: #202936; color: #fff; }
+body[data-dp="sharepoint-governance-dashboard"] .nav-item.active {
+  background: #29323c; color: #a5d877; box-shadow: inset 3px 0 #78be20;
+}
+.nav-badge { background: #202936; color: #b8c2cf; }
+.nav-item.active .nav-badge { background: #a5d87726; color: #a5d877; }
+body[data-dp="sharepoint-governance-dashboard"] .noc-btn {
+  border-color: #a5d87766 !important; color: #a5d877 !important; background: #a5d8771a !important;
+}
+body[data-dp="sharepoint-governance-dashboard"] .noc-btn:hover { background: #a5d8772e !important; border-color: #a5d877 !important; }
+body[data-dp="sharepoint-governance-dashboard"] .noc-btn.active { background: #78be20 !important; border-color: #78be20 !important; color: #0b1a05 !important; }
+.noc-bar-fill { background: linear-gradient(90deg, #3d7924, #78be20) !important; }
+.page-pill.active { background: #3d7924 !important; border-color: #3d7924 !important; }
+.tnav-btn.active { background: #3d7924 !important; border-color: #3d7924 !important; color: #fff !important; }
+
+/* Banner page headings. The breadcrumb rides inside the banner's top edge; the heading block is the banner.
+   Margins assume the breadcrumb is one 18px line (it is nowrap here). NOC mode hides the breadcrumb and keeps the plain header. */
+.app:not(.noc-mode) .content > .breadcrumb:first-child:has(+ .page-header) {
+  position: relative; z-index: 2; height: 18px; line-height: 18px; white-space: nowrap; flex-wrap: nowrap;
+  margin: calc(16px - var(--spg-pad-y)) 0 -34px; color: #c3cfdb;
+}
+.app:not(.noc-mode) .content > .breadcrumb:first-child:has(+ .page-header) .crumb { color: #c3cfdb; }
+.app:not(.noc-mode) .content > .breadcrumb:first-child:has(+ .page-header) .crumb.cur { color: #fff; }
+.app:not(.noc-mode) .content > .breadcrumb:first-child:has(+ .page-header) .sep { color: #91a8b8; }
+.app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header {
+  align-items: center; gap: 16px 24px; min-height: 150px;
+  margin: 0 calc(-1 * var(--spg-pad-x)) 24px; padding: 48px var(--spg-pad-x) 26px;
+  border-bottom: 3px solid #78be20; color: #fff;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+.app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header > * {
+  --text: #fff; --text1: #fff; --text2: #e0e8ef; --text3: #c3cfdb;
+  --surface: #172c3cbb; --surface2: #172c3cbb; --border: #b3c5d299; --border2: #c3cfdb;
+  --blue: #c0e39a; --overlay-soft: #172c3cbb; --overlay-border: #b3c5d299;
+}
+.app:not(.noc-mode) .page-header .ph-left h2 { color: #fff; font-size: 29px; font-weight: 850; letter-spacing: -.7px; line-height: 1.15; }
+.app:not(.noc-mode) .page-header .ph-left p { color: #e0e8ef; font-size: 12.5px; margin-top: 6px; max-width: 760px; }
+.app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header select,
+.app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header input {
+  background-color: #172c3cbb; border-color: #b3c5d299; color: #fff;
+}
+.app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header select option { background: var(--spg-overlay); color: var(--spg-t-text); }
+.app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header .btn-ghost { border-color: #b3c5d299; color: #e0e8ef; }
+
+/* Depth: canvas, raised, overlay. A card row directly under a banner sits on it. */
+.app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header:has(+ :is(.exec-hero, .stat-grid)) {
+  min-height: calc(150px + var(--spg-lift)); padding-bottom: calc(26px + var(--spg-lift)); margin-bottom: 0;
+}
+.app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header + :is(.exec-hero, .stat-grid) {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--spg-lift));
+}
+
+/* Cost Analysis builds its own header (breadcrumb with a Download button, then a title row): a banner band behind both.
+   The title row is the div with align-items:flex-end right after the breadcrumb. While a simulation is active its
+   banner sits between them, the selectors stop matching and the page keeps its plain header. */
+.app:not(.noc-mode) .content > .ca-page:has(> .breadcrumb:first-child + div[style*="align-items:flex-end"])::before {
+  content: ""; display: block; height: calc(var(--spg-pad-y) + 95px);
+  margin: calc(-1 * var(--spg-pad-y)) calc(-1 * var(--spg-pad-x)) -95px;
+  border-bottom: 3px solid #78be20;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+.app:not(.noc-mode) .content > .ca-page > .breadcrumb:first-child:has(+ div[style*="align-items:flex-end"]),
+.app:not(.noc-mode) .content > .ca-page > .breadcrumb:first-child + div[style*="align-items:flex-end"] {
+  position: relative; z-index: 1;
+  --text: #fff; --text2: #e0e8ef; --text3: #c3cfdb; --border: #b3c5d299; --surface2: #172c3c; --blue: #c0e39a;
+}
+.app:not(.noc-mode) .content > .ca-page > .breadcrumb:first-child:has(+ div[style*="align-items:flex-end"]) .crumb { color: #c3cfdb; }
+.app:not(.noc-mode) .content > .ca-page > .breadcrumb:first-child:has(+ div[style*="align-items:flex-end"]) .crumb.cur { color: #fff; }
+.app:not(.noc-mode) .content > .ca-page > .breadcrumb:first-child:has(+ div[style*="align-items:flex-end"]) .btn-ghost { color: #e0e8ef; border-color: #b3c5d299; }
+.app:not(.noc-mode) .content > .ca-page > .breadcrumb:first-child + div[style*="align-items:flex-end"] { margin-bottom: 30px !important; }
+.app:not(.noc-mode) .content > .ca-page > .breadcrumb:first-child + div[style*="align-items:flex-end"] > div:first-child {
+  color: #fff; font-size: 26px !important; font-weight: 850 !important; letter-spacing: -.6px;
+}
+
+/* Surfaces */
+.stat-card, .rec-card, .chart-wrap, .scatter-section, .health-banner, .eh-cell, .eh-narrative, .dlp-setup-box, .action-item, .metric-box {
+  border-color: var(--spg-edge);
+}
+.stat-card, .rec-card, .chart-wrap, .scatter-section, .health-banner, .eh-cell { border-radius: var(--radius); }
+.chart-wrap .chart-wrap, .chart-wrap .stat-card, .rec-card .metric-box { box-shadow: none; }
+.panel, .dlp-modal, .growth-modal, .cfg-modal, .toast, .scatter-site-tip { background-color: var(--spg-overlay); }
+.panel, .dlp-modal { border-left-color: var(--border2); }
+
+/* Type: governance labels are sentence-weight, not mono capitals. Numbers keep tabular figures. */
+.stat-label, .eh-label, .m-label, .health-label, .cfg-label {
+  font-family: var(--font-sans); text-transform: none; letter-spacing: 0; font-size: 11.5px; font-weight: 750; color: var(--text2);
+}
+.sec-label {
+  font-family: var(--font-sans); text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 800; color: var(--text);
+}
+.stat-value, .eh-value, .m-value, .health-score-num, .rc-metric, .stat-num {
+  font-family: var(--font-sans); font-weight: 850; letter-spacing: -.5px; font-variant-numeric: tabular-nums;
+}
+.stat-value { font-size: 1.85rem; }
+.rc-title, .p-title, .growth-modal-title, .cfg-modal-title, .scatter-title, .dash-cardhead, .ai-title, .dlp-setup-title, .growth-banner-title { font-weight: 800; }
+.dtbl th { font-family: var(--font-sans); font-size: 10px; font-weight: 800; letter-spacing: .5px; color: var(--text2); }
+.dtbl th.sorted { color: var(--blue); }
+
+/* Controls */
+.tbtn { font-weight: 700; }
+.p-tab, .gm-tab { font-weight: 750; }
+.p-tab.active { color: var(--text); border-bottom-color: #78be20; }
+body[data-dp="sharepoint-governance-dashboard"] .tbtn:not(:disabled):active,
+body[data-dp="sharepoint-governance-dashboard"] .p-close:active,
+.p-tab:active, .gm-tab:active, .tnav-btn:active, .page-pill:active, .noc-btn:active { transform: scale(.97); }
+body[data-dp="sharepoint-governance-dashboard"] .stat-card:active,
+body[data-dp="sharepoint-governance-dashboard"] .rec-card:active,
+.nav-item:active { transform: scale(.985); }
+@media (prefers-reduced-motion: reduce) {
+  :root, :root[data-theme] { --tr: none; }
+  body[data-dp="sharepoint-governance-dashboard"] .tbtn:not(:disabled):active,
+  body[data-dp="sharepoint-governance-dashboard"] .p-close:active,
+  .p-tab:active, .gm-tab:active, .tnav-btn:active, .page-pill:active, .noc-btn:active,
+  body[data-dp="sharepoint-governance-dashboard"] .stat-card:active,
+  body[data-dp="sharepoint-governance-dashboard"] .rec-card:active,
+  .nav-item:active, .stat-card:hover, .rec-card:hover { transform: none; }
+}
+
+@media (max-width: 1200px) { .app:not(.noc-mode) .page-header .ph-left h2 { font-size: 26px; } }
+@media (max-width: 900px) {
+  :root, :root[data-theme] { --spg-lift: 18px; }
+  .app:not(.noc-mode) .page-header .ph-left h2 { font-size: 24px; }
+  .app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header { min-height: 130px; }
+  .app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header:has(+ :is(.exec-hero, .stat-grid)) { min-height: calc(130px + var(--spg-lift)); }
+}
+/* The page drops the sidebar and pads .content 16px at this width. */
+@media (max-width: 768px) {
+  :root, :root[data-theme] { --spg-pad-y: 16px; --spg-pad-x: 16px; }
+  .app:not(.noc-mode) .content > .breadcrumb:first-child:has(+ .page-header) { overflow: hidden; text-overflow: ellipsis; }
+}
+@media print {
+  :root, :root[data-theme] { --spg-elev-1: 0 0 #0000; --spg-elev-2: 0 0 #0000; }
+  .app:not(.noc-mode) .content > .breadcrumb:first-child:has(+ .page-header) { margin: 0 0 10px; height: auto; color: #586a80; }
+  .app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header {
+    background: none; box-shadow: none; color: #17212e; margin: 0 0 20px; padding: 0 0 15px; min-height: 0; border-bottom: 2px solid #3d7924;
+  }
+  .app:not(.noc-mode) .page-header .ph-left h2, .app:not(.noc-mode) .page-header .ph-left p { color: #17212e; }
+  .app:not(.noc-mode) .content > .breadcrumb:first-child + .page-header + * { margin-top: 0; }
+  .app:not(.noc-mode) .content > .ca-page::before { display: none !important; }
+}

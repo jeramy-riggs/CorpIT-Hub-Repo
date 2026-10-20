@@ -11,6 +11,10 @@ const obsDep = require('./obs-dependency');
 // (legacy ZIA key obfuscation removed — ZIdentity OneAPI OAuth2)
 
 function httpsRequest(url, options, body) {
+  // An intentionally unavailable subscription is not a failed vendor probe.
+  const capability = require('./zscaler-capabilities');
+  try { if (capability.blocked(new URL(String(url)))) return Promise.resolve({status:501,headers:{},body:capability.unavailable()}); } catch (_) {}
+
   return new Promise((resolve, reject) => {
     // -- instrumentation prelude ------------------------------------------
     // Nothing here may change the request. Every value is derived from what
@@ -50,8 +54,18 @@ function httpsRequest(url, options, body) {
     }
 
     const req = https.request(url, options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
+      let data = '', bytes = 0;
+      const maxBytes = Number.isSafeInteger(options && options.maxResponseBytes) && options.maxResponseBytes > 0 ? options.maxResponseBytes : Infinity;
+      res.setEncoding('utf8');
+      res.on('data', chunk => {
+        bytes += Buffer.byteLength(chunk, 'utf8');
+        if (bytes > maxBytes) {
+          const err = Object.assign(new Error('Zscaler response exceeds configured size limit'), { code: 'ERESPONSETOOLARGE' });
+          note(null, false, err.code); req.destroy(err); reject(err); return;
+        }
+        data += chunk;
+      });
+      res.on('error', err => { note(null, false, err.code || 'response failed'); reject(err); });
       res.on('end', () => {
         // Recorded from the STATUS, not from whether the body parsed. A 200
         // carrying unparseable text still resolves below and is still a

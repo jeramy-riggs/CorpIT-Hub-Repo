@@ -1,0 +1,40 @@
+/* Opt-in usability additions. Every color comes from the page's existing skin. */
+body[data-op-page] { --op-ink:var(--ink,var(--text,var(--o-ink,#ebf1f6)));--op-muted:var(--ink-3,var(--text-dim,var(--text2,var(--o-dim,#a4b5c5))));--op-line:var(--line,var(--border,var(--stroke,var(--o-line,#2a3d4d))));--op-bg:var(--panel-2,var(--bg-input,var(--layer2,var(--o-panel2,var(--bg-card,#182c3c)))));--op-accent:var(--accent,var(--blue,var(--o-sig,#7dc9e7))); }
+body[data-op-page] :is(button,input,select,textarea,a,[tabindex]):focus-visible {outline:2px solid var(--op-accent);outline-offset:3px;}
+body[data-op-page] :is(.op-btn,.op-input) {font:inherit;font-size:12px;color:var(--op-ink);background:var(--op-bg);border:1px solid var(--op-line);border-radius:6px;min-height:32px;padding:6px 10px;max-width:100%;}
+body[data-op-page] .op-btn {cursor:pointer;white-space:nowrap;}
+body[data-op-page] .op-btn:disabled {opacity:.45;cursor:default;}
+body[data-op-page] .op-input {min-width:0;}
+body[data-op-page] .op-tools {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;}
+body[data-op-page] .op-tools input {flex:1 1 220px;}
+body[data-op-page] .op-results {font-size:12px;color:var(--op-muted);font-variant-numeric:tabular-nums;margin:8px 0;}
+body[data-op-page] .op-pager {display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--op-muted);padding:12px 0;}
+body[data-op-page] .op-pager > span {margin-right:auto;}
+body[data-op-page] .op-link {font:inherit;color:inherit;font-weight:650;text-align:left;background:transparent;border:0;padding:0;cursor:pointer;}
+body[data-op-page] .op-link:hover {text-decoration:underline;text-underline-offset:3px;}
+body[data-op-page] .op-table-wrap {width:100%;min-width:0;overflow:auto;}
+body[data-op-page="tenant-sentinel"] .op-table-wrap table {min-width:760px;}
+body[data-op-page="tenant-sentinel"] .x {background:none;border:0;color:inherit;font:inherit;}
+body[data-op-page="cert-watchtower"] .card:has(> table) {overflow-x:auto;}
+body[data-op-page="signin-watch"] .filter-bar {flex-wrap:wrap;gap:8px;}
+body[data-op-page="signin-watch"] .pager {flex-wrap:wrap;}
+body[data-op-page="device-trace"] .op-trace-tools {padding:0 16px 12px;margin:0;}
+body[data-op-page="network-switches"] .nch .tools {flex-wrap:wrap;}
+body[data-op-page="okta-entra-migration"] .pager {flex-wrap:wrap;gap:8px;}
+@media(max-width:640px){
+ body[data-op-page] .op-tools {gap:8px;}
+ body[data-op-page] .op-tools input {flex-basis:100%;}
+ body[data-op-page="signin-watch"] .filter-bar #fSearch {min-width:0!important;width:100%;flex-basis:100%!important;}
+ body[data-op-page="signin-watch"] .filter-bar select {flex:1 1 42%;min-width:0;}
+ body[data-op-page="okta-dashboard"] .toolbar {flex-wrap:wrap;}
+ body[data-op-page="okta-dashboard"] .toolbar > .search {min-width:0;flex-basis:100%;}
+ body[data-op-page="cert-watchtower"] .toolbar .search {min-width:0;flex-basis:100%;}
+ body[data-op-page="network-health"] .nch {flex-wrap:wrap;}
+}
+@media(prefers-reduced-motion:reduce){body[data-op-page] .op-btn {transition:none;}}
+
+body[data-op-page="device-trace"] #tchip[hidden] {display:none!important;}
+body[data-op-page="tenant-sentinel"] #fbar button.chip {font-family:inherit;cursor:pointer;}
+@media(max-width:640px){
+ body[data-op-page="network-switches"] #kpis > .c2,body[data-op-page="network-health"] #kpis > .c2 {grid-column:span 6;}
+}

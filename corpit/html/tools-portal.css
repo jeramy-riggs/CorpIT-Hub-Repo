@@ -1,0 +1,98 @@
+/* Tools catalog: approved Operations Hub palette and desktop surface polish.
+   Preserve the catalog's existing type, grid, spacing, content and logos.
+   Page-only tokens avoid the accent values written inline by it-theme.js. */
+@media screen {
+  :root {
+    --page: #edf2f0; --surface: #fcfdfc;
+    --line: #dfe7e3; --line-2: #d8e2dd;
+    --ink: #21343b; --muted: #52666c; --dim: #62767b;
+    --tp-accent: #286b72; --tp-accent-dark: #20575d;
+    --tp-surface2: #f2f6f3; --tp-surface3: #e9f0ec;
+    --tp-primary: #49743e; --tp-leaf: #92b474; --tp-leaf-light: #c0d7ad;
+    --shadow-panel: 0 1px 2px #1018280a, 0 4px 8px -6px #10182824,
+      0 16px 28px -24px #10182840, inset 0 1px 0 #ffffff;
+  }
+
+  ::selection { background: #286b7224; }
+  :focus-visible { outline-color: var(--tp-accent); }
+  .hdr {
+    background: #19272e;
+    box-shadow: inset 0 -1px 0 #303746, 0 2px 8px #060e1826;
+  }
+  .hdr :focus-visible { outline-color: var(--tp-leaf-light); }
+  .brand-sq {
+    background: linear-gradient(140deg, var(--tp-primary), var(--tp-leaf));
+    color: #0b1a05; box-shadow: inset 0 1px 0 #ffffff33;
+  }
+  .brand-tx i { color: #9aa6b5; }
+  .nav-i { color: #b8c2cf; }
+  .nav-i::after { background: var(--tp-leaf); }
+  .nav-i.is-active { color: var(--tp-leaf-light); }
+  .hdr-btn { color: #c1cad6; }
+  .hdr .ittb {
+    --ittb-fg: #e6edf7; --ittb-muted: #b7c5d7; --ittb-surface: #263241;
+    --ittb-panel: #142533; --ittb-panel-2: #203645; --ittb-line: #43546a;
+    --ittb-av-bg: #34525a;
+  }
+  .hdr .ittb .ittb-av { background: #34525a; border-color: #587078; }
+
+  .filter {
+    background: var(--surface); border-color: var(--line-2);
+    box-shadow: inset 0 1px 0 #ffffffb3, 0 1px 2px #1018280f,
+      0 3px 5px -4px #10182840;
+  }
+  .filter:focus-within {
+    border-color: var(--tp-accent); box-shadow: 0 0 0 3px #286b7224;
+  }
+  .filter svg { color: var(--muted); }
+  .filter input::placeholder, .tx { color: var(--dim); }
+  .sect-h h2, .foot { color: var(--muted); }
+
+  /* Surface depth is static. Only transform and the inset light edge animate,
+     using the same small feedback as Overview's Quick launch tiles. */
+  .card { transition: transform 160ms var(--ease-out); }
+  .card::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    pointer-events: none; opacity: 0;
+    box-shadow: inset 0 0 0 1px #286b7240, inset 0 1px 0 #ffffffcc,
+      inset 0 -8px 14px -12px #286b7280;
+    transition: opacity 160ms ease;
+  }
+  .card:active { transform: none; }
+  .card:focus-visible { transition: none; transform: none; }
+  .card:focus-visible::after { opacity: 1; }
+  .sq {
+    box-shadow: inset 0 1px 0 #ffffffb3, inset 0 -1px 1px #10182808;
+  }
+  .sq.t-blue { background: #e7f0f1; color: #367783; }
+  .sq.t-green { background: #e8f1e9; color: #4a7a59; }
+  .sq.t-purple { background: #eeedf5; color: #70629c; }
+  .sq.t-rose, .sq.t-red { background: #f6e9ed; color: #b34c67; }
+  .sq.t-amber { background: #f6f0e3; color: #966e27; }
+  .sq.t-orange { background: #f7ece4; color: #b16a3a; }
+  .sq.t-teal { background: #e7f1ee; color: #3e7c74; }
+  .sq.t-slate { background: #edf0f0; color: #596b72; }
+  .sq.logo { background: #fff; border-color: var(--line-2); }
+  /* Gold remains a persistent pin-state cue, with stronger contrast. */
+  .pin { color: var(--dim); }
+  .pin[aria-pressed="true"], .pin[aria-pressed="true"] svg {
+    color: #966e27; fill: #966e27;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .nav-i.is-active:hover { color: var(--tp-leaf-light); }
+    .hdr-btn:hover { background: #26353c; }
+    .card:hover {
+      transform: translateY(-2px); border-color: var(--line);
+      box-shadow: var(--shadow-panel);
+    }
+    .card:hover::after { opacity: 1; }
+    .card:active { transform: translateY(0) scale(.995); }
+    .card:focus-visible { transform: none; }
+    .pin:hover { background: var(--tp-surface3); color: #966e27; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card, .card:hover, .card:active, .hdr-btn:active { transform: none; }
+    .card::after { transition: opacity 160ms ease !important; }
+  }
+}

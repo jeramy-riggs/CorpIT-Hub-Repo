@@ -119,6 +119,7 @@ const PRIVILEGED_GROUPS = [
 function parseEntry(entry) {
   const obj = {};
   entry.attributes.forEach(a => {
+    if (a.type === 'objectSid') { obj.objectSid = a.buffers[0]; return; }   // binary: .values would decode it as text
     obj[a.type] = a.values.length === 1 ? a.values[0] : a.values;
   });
   return obj;
@@ -429,16 +430,26 @@ router.get('/scan/groups', rbac.requirePage('ad-housekeeping','read'), async (re
     // All security groups
     const allGroups = await ldapSearch(client, LDAP_BASE_DN,
       '(&(objectClass=group)(groupType:1.2.840.113556.1.4.803:=2147483648))',
-      ['cn', 'distinguishedName', 'description', 'member', 'whenChanged', 'managedBy'], 0);
+      ['cn', 'distinguishedName', 'description', 'member', 'whenChanged', 'managedBy', 'objectSid', 'isCriticalSystemObject'], 0);
+
+    // A group whose members all hold it as their primary group (Domain Users, Domain Guests, ...) has an empty
+    // `member` attribute, so collect the RIDs that some account uses as primaryGroupID.
+    const primaryRids = new Set((await ldapSearch(client, LDAP_BASE_DN,
+      '(&(objectClass=user)(primaryGroupID=*))', ['primaryGroupID'], 0)).map(u => Number(u.primaryGroupID)));
 
     closeClient(client);
 
     const emptyGroups = [];
+    let systemSkipped = 0, primarySkipped = 0;
     for (const g of allGroups) {
       const name = g.cn || cnFromDN(g.distinguishedName);
       const members = g.member ? (Array.isArray(g.member) ? g.member : [g.member]) : [];
 
       if (members.length === 0) {
+        // Built-in and other system groups are AD's own; they are not cleanup candidates.
+        if (g.isCriticalSystemObject === 'TRUE' || /,CN=Builtin,/i.test(g.distinguishedName || '')) { systemSkipped++; continue; }
+        const sid = Buffer.isBuffer(g.objectSid) && g.objectSid.length >= 4 ? g.objectSid : null;
+        if (sid && primaryRids.has(sid.readUInt32LE(sid.length - 4))) { primarySkipped++; continue; }
         emptyGroups.push({
           name,
           dn: g.distinguishedName || '',
@@ -457,6 +468,7 @@ router.get('/scan/groups', rbac.requirePage('ad-housekeeping','read'), async (re
     const payload = {
       emptyGroups: { count: emptyGroups.length, items: emptyGroups },
       totalGroupsScanned: allGroups.length,
+      skipped: { system: systemSkipped, primaryGroup: primarySkipped },
       scannedAt: new Date().toISOString(),
     };
     cacheSet('groups', payload);
@@ -947,13 +959,15 @@ router.get('/audit-log', rbac.requirePage('ad-housekeeping','read'), needSchema,
 
 // ─── Routes: Recycle Bin ─────────────────────────────────────────────────────
 
+const recoveryLookup = require('./housekeeping-recycle-bin');
+const readRecycleBin = recoveryLookup.createRecoveryReader({ ldap, createClient, closeClient, parseEntry, baseDN: LDAP_BASE_DN });
 router.get('/recycle-bin', rbac.requirePage('ad-housekeeping','read'), async (req, res) => {
   try {
-    const result = await runAction({ action: 'list-recycle-bin' });
-    res.json(result);
+    res.json(await readRecycleBin());
   } catch (err) {
-    console.error('[housekeeping] recycle-bin error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('[housekeeping] recycle-bin read error:', err.message);
+    const failure = recoveryLookup.publicError(err);
+    res.status(failure.status).json({ success: false, source: 'ldap', error: failure.message });
   }
 });
 

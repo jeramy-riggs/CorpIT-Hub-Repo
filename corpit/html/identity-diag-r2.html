@@ -4842,7 +4842,7 @@ function attachTypeahead(input,onPick){
       dd.innerHTML=rows.map(function(r,i){
         return '<div class="ta-item'+(i===sel?' sel':'')+'" role="option" data-i="'+i+'" aria-selected="'+(i===sel?'true':'false')+'">'
           +'<span class="ta-name">'+x(r.displayName||r.samAccountName||'')+'</span>'
-          +'<span class="ta-sub">'+x(r.samAccountName||'')+(r.department?(' · '+r.department):'')+'</span></div>';
+          +'<span class="ta-sub">'+x(r.samAccountName||'')+(r.department?(' · '+x(r.department)):'')+'</span></div>';
       }).join('');
     }
     dd.hidden=false; input.setAttribute('aria-expanded','true');

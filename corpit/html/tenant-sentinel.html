@@ -245,8 +245,12 @@ footer{color:var(--ink-3);font-size:11.5px;padding:8px 26px 30px;border-top:1px 
 }
 </style>
 <link rel="stylesheet" href="/it-depth.css">
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/tenant-sentinel-portal.css?v=d2003888f5d1">
+<link rel="stylesheet" href="/operations-polish.css?v=28493dbcc646">
+<script src="/operations-polish.js?v=da7e6ad64b46"></script>
 </head>
-<body data-dp="tenant-sentinel">
+<body data-op-page="tenant-sentinel" data-dp="tenant-sentinel">
 <div class="app">
   <aside>
     <div class="brand">
@@ -311,6 +315,7 @@ footer{color:var(--ink-3);font-size:11.5px;padding:8px 26px 30px;border-top:1px 
     </div>
 
     <div class="wrap">
+<div id="desktop-feed-status"></div>
       <div id="breadcrumbBar" style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink-3);margin-bottom:10px;flex-wrap:wrap"></div>
       <div class="pagehead">
         <div>
@@ -705,12 +710,12 @@ footer{color:var(--ink-3);font-size:11.5px;padding:8px 26px 30px;border-top:1px 
         <!-- findings table -->
         <div class="card span12">
           <h3>Prioritized findings</h3>
-          <div class="sub">Sorted by risk-reduction value ÷ effort. Click a row for evidence &amp; remediation.</div>
+          <div class="sub">Search or sort findings. Open a finding for evidence and remediation.</div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="fbar" id="fbar"></div><button class="btn" onclick="downloadFindingsCsv()" style="white-space:nowrap">⬇ Export CSV</button></div>
-          <table>
+          <div class="op-tools"><input class="op-input" id="findingQuery" type="search" aria-label="Search tenant findings" placeholder="Search findings, frameworks or owners…" oninput="search=this.value.trim().toLowerCase();renderTable()"><select class="op-input" id="findingOrder" aria-label="Sort tenant findings" onchange="renderTable()"><option value="risk">Risk reduction: highest first</option><option value="severity">Severity: highest first</option><option value="affected">Affected: highest first</option></select><button class="op-btn" onclick="resetTenantFindings()">Reset filters</button><span class="op-results" id="findingResults" role="status"></span></div><div class="op-table-wrap" tabindex="0" aria-label="Tenant findings, scroll for more columns"><table>
             <thead><tr><th>Severity</th><th>Control</th><th>Finding</th><th>Module</th><th>Affected</th><th>Frameworks</th><th>Status</th></tr></thead>
             <tbody id="ftbody"></tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 
@@ -1079,15 +1084,15 @@ function setFilter(f){filter=f;renderFbar();renderTable();}
 function renderFbar(){
   const opts=['all','critical','high','medium','low'];
   let html=opts.map(o=>
-    `<div class="chip ${filter===o?'on':''}" data-f="${o}">${o==='all'?'All findings':o[0].toUpperCase()+o.slice(1)}</div>`).join('');
-  if(filter.startsWith('mod:')) html+=`<div class="chip on" data-f="all">${filter.slice(4)} ✕</div>`;
-  if(filter.startsWith('fw:')) html+=`<div class="chip on" data-f="all">${(FW_GROUPS.find(g=>g[0]===filter.slice(3))||['','Operational'])[1]} ✕</div>`;
-  if(filter.startsWith('grp:')) html+=`<div class="chip on" data-f="all">${GRP[filter.slice(4)].label} ✕</div>`;
+    `<button type="button" class="chip ${filter===o?'on':''}" aria-pressed="${filter===o}" data-f="${o}">${o==='all'?'All findings':o[0].toUpperCase()+o.slice(1)}</button>`).join('');
+  if(filter.startsWith('mod:')) html+=`<button type="button" class="chip on" data-f="all">${filter.slice(4)} ✕</button>`;
+  if(filter.startsWith('fw:')) html+=`<button type="button" class="chip on" data-f="all">${(FW_GROUPS.find(g=>g[0]===filter.slice(3))||['','Operational'])[1]} ✕</button>`;
+  if(filter.startsWith('grp:')) html+=`<button type="button" class="chip on" data-f="all">${GRP[filter.slice(4)].label} ✕</button>`;
   document.getElementById('fbar').innerHTML=html;
   document.querySelectorAll('#fbar .chip').forEach(c=>c.onclick=()=>setFilter(c.dataset.f));
 }
 function statColor(s){return s==='fail'?cssv('--crit'):s==='partial'?cssv('--med'):cssv('--pass');}
-function csvEscape(v){ const s=String(v==null?'':v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+function csvEscape(v){ return OpsPolish.csvCell(v); }
 function downloadFindingsCsv(){
   const rows=window._lastFilteredFindings||[];
   const header=['ID','Severity','Title','Module','Affected','Status','Frameworks','Tracking Status','Owner'];
@@ -1106,19 +1111,20 @@ function downloadFindingsCsv(){
 function renderTable(){
   const rows = OV.findings.filter(f=>
       (filter==='all' ? true : filter.startsWith('mod:') ? f.module===filter.slice(4) : filter.startsWith('fw:') ? f.fw.some(t=>fwGroupOf(t)===filter.slice(3)) : filter.startsWith('grp:') ? GRP[filter.slice(4)].mods.includes(f.module) : f.sev===filter) &&
-      (!search || (f.title+' '+f.id+' '+f.module).toLowerCase().includes(search)))
-    .sort((a,b)=>b.rr-a.rr);
+      (!search || [f.title,f.id,f.module,f.sev,f.status,(f.fw||[]).join(' '),(TRK[f.id]||{}).owner].join(' ').toLowerCase().includes(search)))
+    .sort((a,b)=>{const k=document.getElementById('findingOrder').value;return k==='severity'?(['critical','high','medium','low'].indexOf(a.sev)-['critical','high','medium','low'].indexOf(b.sev))||b.rr-a.rr:k==='affected'?(Number(b.affected)||0)-(Number(a.affected)||0):b.rr-a.rr;});
+  document.getElementById('findingResults').textContent=rows.length+' of '+OV.findings.length+' findings';
   window._lastFilteredFindings=rows;
   document.getElementById('ftbody').innerHTML = rows.map(f=>`
     <tr class="row" data-i="${OV.findings.indexOf(f)}">
       <td><span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${f.sev}</span></td>
       <td class="cid">${f.id}</td>
-      <td style="max-width:280px">${f.title}</td>
+      <td style="max-width:280px"><button type="button" class="op-link">${esc(f.title)}</button></td>
       <td style="color:var(--ink-2)">${f.module}</td>
       <td class="mono">${f.affected||'—'}</td>
       <td><div class="fwtags">${f.fw.slice(0,3).map(x=>`<span class="fw">${x}</span>`).join('')}${f.fw.length>3?`<span class="fw">+${f.fw.length-3}</span>`:''}</div></td>
       <td><span class="stat" style="background:color-mix(in srgb,${statColor(f.status)} 16%,transparent);color:${statColor(f.status)}">${statLabel(f.status)}</span>${trkChip(f)}</td>
-    </tr>`).join('');
+    </tr>`).join('')||'<tr><td colspan="7" class="op-results">No findings match. Use Reset filters to see all findings.</td></tr>';
   document.querySelectorAll('#ftbody .row').forEach(r=>r.onclick=()=>openDrawer(OV.findings[r.dataset.i]));
 }
 
@@ -1170,7 +1176,7 @@ function openDrawer(f){
   const evid = typeof f.evidence==='string' ? f.evidence : JSON.stringify(f.evidence,null,2);
   d.innerHTML=`
    <div class="dh">
-     <span class="x" id="dx">✕</span>
+     <button type="button" class="x" id="dx" aria-label="Close details">✕</button>
      <span class="sev" style="background:color-mix(in srgb,${cssv(SEV[f.sev])} 18%,transparent);color:${cssv(SEV[f.sev])}">${f.sev}</span>
      <span class="cid" style="margin-left:8px">${f.id}</span>
      <h2>${f.title}</h2>
@@ -1212,6 +1218,7 @@ const BREADCRUMB_LABELS={
   // [2026-09-09] These two nav keys had no label, so their breadcrumb showed
   // the raw view id. Text matches the sidebar link for each.
   'view-briefing':'Executive Briefing','view-ownership':'Ownership & Accountability',
+  'view-paidusage':'30/60/90 Day Usage', // UAT TS-01 (10-18): showed the raw key
 };
 let breadcrumbDrawerLabel=null;
 function renderBreadcrumb(navKey){
@@ -1238,7 +1245,8 @@ function showView(id, navKey){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function showGroup(g){ showView('view-group','grp-'+g); renderGroupView(g); }
-function gotoFindings(f){ showView('view-findings'); if(f) setFilter(f); }
+function resetTenantFindings(){search='';document.getElementById('findingQuery').value='';document.getElementById('findingOrder').value='risk';setFilter('all');}
+function gotoFindings(f){ showView('view-findings'); if(f){search='';document.getElementById('findingQuery').value='';setFilter(f);} }
 function grpScore(g){
   const ms=OV.moduleScores||{}; const vals=GRP[g].mods.map(m=>ms[m]).filter(v=>v!==undefined);
   return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):null;
@@ -1535,7 +1543,7 @@ function renderInsight(kind){
     window.openAppDrawer=(a)=>{
       const [label,col]=TIER_META[a.tier];
       const dr=document.getElementById('drawer');
-      dr.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span>
+      dr.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">✕</button>
         <span class="sev" style="background:color-mix(in srgb,${cssv(col)} 18%,transparent);color:${cssv(col)}">${label}</span>
         <h2>${a.name}</h2>
         <div style="color:var(--ink-3);font-size:12px">${a.verified?'Verified publisher: '+a.publisher:'Unverified publisher'} · third-party application</div></div>
@@ -1555,7 +1563,7 @@ function renderInsight(kind){
     };
     window.openFlowDrawer=(f)=>{
       const dr=document.getElementById('drawer');
-      dr.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span>
+      dr.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">✕</button>
         <span class="sev" style="background:color-mix(in srgb,${cssv('--med')} 18%,transparent);color:${cssv('--med')}">↻ Unmaintained</span>
         <h2>${esc(f.name)}</h2>
         <div style="color:var(--ink-3);font-size:12px">Power Automate flow · ${esc(f.env||'unknown environment')}</div></div>
@@ -1576,13 +1584,16 @@ function renderInsight(kind){
 }
 async function openHolders(sku){
   const d=document.getElementById('drawer');
-  d.innerHTML='<div class="dh"><span class="x" id="dx">✕</span><h2>Loading…</h2></div>';
+  d.innerHTML='<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">✕</button><h2>Loading…</h2></div>';
   d.classList.add('show');document.getElementById('scrim').classList.add('show');
   document.getElementById('dx').onclick=closeDrawer;
+  const selectedHeader=d.querySelector('.dh');
+  const stillSelected=()=>d.classList.contains('show')&&d.querySelector('.dh')===selectedHeader;
   try{
     const r=await fetch('/api/insights/licensing/holders/'+encodeURIComponent(sku),{headers:authHeaders()});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const h=await r.json();
+    if(!stillSelected())return;
     const depts=Object.entries(h.byDept).sort((a,b)=>b[1]-a[1]);
     window.holderDept=null;
     const renderHolders=()=>{
@@ -1603,7 +1614,7 @@ async function openHolders(sku){
         renderHolders();
       });
     };
-    d.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span>
+    d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">✕</button>
       <h2>${h.name}</h2>
       <div style="color:var(--ink-3);font-size:12px">${h.total} license holders${h.assignedPerMicrosoft&&h.assignedPerMicrosoft>h.total?' shown · '+h.assignedPerMicrosoft+' assigned per Microsoft (the rest are typically service accounts not in usage reports)':''}</div></div>
      <div class="db">
@@ -1612,7 +1623,7 @@ async function openHolders(sku){
      </div>`;
     renderHolders();
     document.getElementById('dx').onclick=closeDrawer;
-  }catch(e){
+  }catch(e){if(!stillSelected())return;
     d.querySelector('h2').textContent='Could not load holders ('+e.message+')';
   }
 }
@@ -1632,7 +1643,7 @@ function renderModTiles(){
 }
 function infoDrawer(title, rows){
   const d=document.getElementById('drawer');
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span><h2>${title}</h2></div>
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">✕</button><h2>${title}</h2></div>
    <div class="db">${rows.map(r=>`<section><h4 style="margin:0 0 4px">${r[0]}</h4>
      <p style="margin:0;color:var(--ink-2);font-size:13px;line-height:1.5">${r[1]}</p></section>`).join('')}</div>`;
   d.classList.add('show'); document.getElementById('scrim').classList.add('show');
@@ -1771,7 +1782,7 @@ async function openPrivDrawer(upn){
     :u.hasStrongMfa?'Has a strong MFA method registered (Authenticator, Windows Hello, FIDO2, or TOTP).'
     :u.hasSmsOnly?'Only SMS/voice MFA registered \u2014 phishable, should be upgraded.'
     :'No MFA method registered beyond password.';
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${esc(u.dn)}</h2>
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>${esc(u.dn)}</h2>
       <div style="color:var(--ink-3);font-size:12px;margin-top:2px">${esc(u.upn)} \u00b7 ${u.enabled?'active':'disabled'} account</div></div>
     <div class="db">
       <h4>Privileged roles (${u.roles.length})</h4>
@@ -1796,10 +1807,13 @@ async function openPrivDrawer(upn){
       <p style="color:var(--ink-3);font-size:12px;margin:0">Department, licensing and per-person findings do not apply to a ${esc(u.memberType)}. Review its credentials, owners and consented permissions in Entra ID.</p>`;
     return;
   }
+  const selectedHeader=d.querySelector('.dh');
+  const stillSelected=()=>d.classList.contains('show')&&d.querySelector('.dh')===selectedHeader;
   try{
     const r=await fetch('/api/sentinel/user360?upn='+encodeURIComponent(upn),{headers:authHeaders()});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j=await r.json();
+    if(!stillSelected())return;
     const sec=document.getElementById('u360Section'); if(!sec) return;
     const findingsHtml=j.relatedFindings.length?j.relatedFindings.map(f=>{
       const SEVW={critical:'Urgent',high:'High',medium:'Medium',low:'Minor'};
@@ -1812,7 +1826,7 @@ async function openPrivDrawer(upn){
       <p style="color:var(--ink-2);font-size:13px;margin:0 0 10px">${esc(j.activity?(j.activity.licenses||'no licenses on record'):'not found in usage report')}</p>
       <h4>Related findings (${j.relatedFindings.length})</h4>
       <div class="affected">${findingsHtml}</div>`;
-  }catch(e){
+  }catch(e){if(!stillSelected())return;
     const sec=document.getElementById('u360Section'); if(sec) sec.innerHTML='<div style="color:var(--ink-3);font-size:12px">Could not load full profile.</div>';
   }
 }
@@ -2095,17 +2109,19 @@ function deleteSavedView(idx){
 function restoreSavedView(idx){
   const v=getSavedViews()[idx];
   if(!v) return;
+  const extra=v.extra||{};
   document.getElementById('savedViewsMenu').style.display='none';
   if(v.navKey.startsWith('grp-')){ showGroup(v.navKey.slice(4)); return; }
   if(v.navKey==='view-findings'){
     showView('view-findings');
-    search=v.extra.search||''; document.getElementById('searchBox').value=search;
-    setFilter(v.extra.filter||'all');
+    search=extra.search||''; document.getElementById('findingQuery').value=search;
+    setFilter(extra.filter||'all');
     return;
   }
-  if(v.navKey==='view-changes'){ showView('view-changes'); loadTenantChanges(v.extra.chgDays||30); return; }
-  if(v.navKey==='view-signin'){ showView('view-signin'); loadSigninAnalytics(v.extra.siDays||30); return; }
+  if(v.navKey==='view-changes'){ showView('view-changes'); loadTenantChanges(extra.chgDays||30); return; }
+  if(v.navKey==='view-signin'){ showView('view-signin'); loadSigninAnalytics(extra.siDays||30); return; }
   const LOADERS={
+    'view-paidusage':()=>loadPaidUsage(),
     'view-priv':()=>loadPrivAccess(),'view-licensing':()=>loadInsight('licensing'),
     'view-usage':()=>loadInsight('usage'),'view-apps':()=>loadInsight('apps'),
     'view-roadmap':()=>renderRoadmap(),'view-ownership':()=>renderOwnership(),
@@ -2168,7 +2184,7 @@ function renderPuDeptTable(){
   const j=window._puData; if(!j) return;
   const rows=j.departments.filter(d=>!puSearch||d.department.toLowerCase().includes(puSearch));
   document.getElementById('puDeptTbody').innerHTML=rows.length?rows.map(d=>`
-    <tr class="row" style="cursor:pointer" onclick="openPuDeptDrawer('${d.department.replace(/'/g,"\\'")}')">
+    <tr class="row" style="cursor:pointer" onclick='openPuDeptDrawer(${jsAttr(d.department)})'>
       <td><b>${d.department}</b></td>
       <td class="mono">${d.total}</td>
       <td class="mono" style="color:${cssv('--pass')}">${d.active}</td>
@@ -2187,10 +2203,10 @@ function openPuStatusDrawer(status){
   const j=window._puData; if(!j||!j.employees) return;
   const rows=j.employees.filter(e=>e.status===status);
   const d=document.getElementById('drawer');
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${PU_STATUS_LABEL[status]}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">${rows.length} of ${j.employees.length} paid-license users \u00b7 last ${puDays} days</div></div>
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>${PU_STATUS_LABEL[status]}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">${rows.length} of ${j.employees.length} paid-license users \u00b7 last ${puDays} days</div></div>
     <div class="db">
       <p style="color:var(--ink-2);font-size:13px;margin:0 0 14px">${PU_STATUS_EXPLAIN[status].replace(/PERIOD/g,puDays)}</p>
-      <button class="btn" style="font-size:11px;margin-bottom:10px" onclick='csvDownloadRows("${status}-users.csv",["Employee","Department","Manager","Status"],${JSON.stringify(rows.map(r=>[r.name,r.department,r.manager,r.status]))})'>\u2b07 Export CSV</button>
+      <button class="btn" style="font-size:11px;margin-bottom:10px" onclick='csvDownloadRows("${status}-users.csv",["Employee","Department","Manager","Status"],${esc(JSON.stringify(rows.map(r=>[r.name,r.department,r.manager,r.status])))})'>\u2b07 Export CSV</button>
       ${rows.slice(0,300).map(r=>`<div class="row" style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">
         <span style="font-size:13px">${r.name}</span>
         <span style="font-size:11.5px;color:var(--ink-3)">${r.department} \u00b7 ${r.manager}</span>
@@ -2204,7 +2220,7 @@ function openPuUtilizationDrawer(){
   const j=window._puData; if(!j) return;
   const s=j.summary;
   const d=document.getElementById('drawer');
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>How ${s.utilizationRate}% was calculated</h2></div>
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>How ${s.utilizationRate}% was calculated</h2></div>
     <div class="db">
       <h4>Formula</h4>
       <p style="color:var(--ink-2);font-size:13px">Utilization % = Active users \u00f7 Total paid-license users \u00d7 100</p>
@@ -2220,7 +2236,7 @@ function openPuUtilizationDrawer(){
 function openPuSkuDrawer(){
   const j=window._puData; if(!j||!j.skuBreakdown) return;
   const d=document.getElementById('drawer');
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Paid subscription seats</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">${j.summary.totalPaidSubscriptionSeats} total seats across ${j.skuBreakdown.length} SKUs</div></div>
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>Paid subscription seats</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">${j.summary.totalPaidSubscriptionSeats} total seats across ${j.skuBreakdown.length} SKUs</div></div>
     <div class="db">
       <p style="color:var(--ink-2);font-size:13px;margin:0 0 14px">This is every paid Microsoft license currently assigned to an employee \u2014 the ${j.summary.totalUsersWithPaidLicense} people counted in this report all hold at least one of these.</p>
       ${j.skuBreakdown.map(s=>`<div class="row" style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">
@@ -2234,7 +2250,7 @@ function openAnnualizedDrawer(){
   const d=window._licData; if(!d) return;
   const money=(v)=>'$'+(+v).toLocaleString('en-US',{maximumFractionDigits:0});
   const d2=document.getElementById('drawer');
-  d2.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>How the annualized figure is calculated</h2></div>
+  d2.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>How the annualized figure is calculated</h2></div>
     <div class="db">
       <h4>Formula</h4>
       <p style="color:var(--ink-2);font-size:13px">Annualized = current month\'s total spend \u00d7 12</p>
@@ -2252,7 +2268,7 @@ function openCostPerUserDrawer(){
   const emp=INS.usage?INS.usage.paidLicenseUsers:null;
   const allUsers=INS.usage?INS.usage.totalUsers:null;
   const d2=document.getElementById('drawer');
-  d2.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>How cost per user is calculated</h2></div>
+  d2.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>How cost per user is calculated</h2></div>
     <div class="db">
       <h4>Formula</h4>
       <p style="color:var(--ink-2);font-size:13px">Cost per user = total monthly spend \u00f7 paid-license users</p>
@@ -2320,11 +2336,11 @@ function renderRenewal(){
     + tile(t.recommended.toLocaleString(), 'Recommended renewal', 'click: why this number', '--accent', 'openRenewalTotalsDrawer()')
     + tile(rpSigned(t.change), 'Change vs purchased', `${rpMoney(t.monthly)}/mo · ${rpMoney(t.monthly * 12)}/yr`, t.change < 0 ? '--pass' : t.change > 0 ? '--high' : null, 'openRenewalTotalsDrawer()');
   document.getElementById('rpTbody').innerHTML = j.skus.map(s => {
-    if(s.status !== 'ok') return `<tr class="row" style="cursor:pointer" onclick="openRenewalDrawer('${rpEsc(s.sku)}')"><td><b>${rpEsc(s.name)}</b></td>` +
+    if(s.status !== 'ok') return `<tr class="row" style="cursor:pointer" onclick='openRenewalDrawer(${jsAttr(s.sku)})'><td><b>${rpEsc(s.name)}</b></td>` +
       `<td class="mono">${s.purchased}</td><td class="mono">${s.assigned}</td>` +
       `<td colspan="8" style="color:var(--ink-3)">Insufficient data to recommend — ${rpEsc(s.reason)}</td></tr>`;
     const q = s.periods[rpDays];
-    return `<tr class="row" style="cursor:pointer" onclick="openRenewalDrawer('${rpEsc(s.sku)}')"><td><b>${rpEsc(s.name)}</b>${s.contractQtyDiffers ? ' <span title="Contract qty on file differs from Microsoft" style="color:' + cssv('--med') + '">⚠</span>' : ''}</td>` +
+    return `<tr class="row" style="cursor:pointer" onclick='openRenewalDrawer(${jsAttr(s.sku)})'><td><b>${rpEsc(s.name)}</b>${s.contractQtyDiffers ? ' <span title="Contract qty on file differs from Microsoft" style="color:' + cssv('--med') + '">⚠</span>' : ''}</td>` +
       `<td class="mono">${s.purchased}</td><td class="mono">${s.assigned}</td>` +
       `<td class="mono" style="color:${cssv('--pass')}">${q.active}</td><td class="mono" style="color:${cssv('--med')}">${q.low}</td>` +
       `<td class="mono" style="color:${(q.inactive+q.disabled)?cssv('--crit'):'var(--ink-3)'}">${q.inactive + q.disabled}</td>` +
@@ -2340,7 +2356,7 @@ function renderRenewal(){
 }
 function rpOpen(title, sub, body){
   const d = document.getElementById('drawer');
-  d.innerHTML = `<div class="dh"><span class="x" id="dx">✕</span><h2>${title}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">${sub}</div></div><div class="db">${body}</div>`;
+  d.innerHTML = `<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">✕</button><h2>${title}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">${sub}</div></div><div class="db">${body}</div>`;
   d.classList.add('show'); document.getElementById('scrim').classList.add('show');
   document.getElementById('dx').onclick = closeDrawer;
 }
@@ -2364,7 +2380,7 @@ function openRenewalDrawer(sku){
     `<tr><td>${rpEsc(dp.department)}</td><td class="mono">${dp.holders}</td><td class="mono">${dp.needed}</td><td class="mono" style="color:${dp.reduce?cssv('--crit'):'var(--ink-3)'}">${dp.reduce}</td></tr>`).join('');
   const cands = s.candidates[rpDays];
   const candRows = cands.slice(0, 200).map(c =>
-    `<div class="row" style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openPuEmployeeDrawer('${rpEsc(c.upn)}')">` +
+    `<div class="row" style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick='openPuEmployeeDrawer(${jsAttr(c.upn)})'>` +
     `<span style="font-size:13px">${rpEsc(c.name)}<div style="font-size:11.5px;color:var(--ink-3)">${rpEsc(c.department)} · ${rpEsc(c.manager)}</div></span>` +
     `<span style="font-size:11.5px;color:${cssv('--crit')};white-space:nowrap">${c.status === 'disabled' ? 'account disabled' : 'inactive'}<div style="color:var(--ink-3)">last: ${c.lastActivity || 'never'}</div></span></div>`).join('');
   rpOpen(rpEsc(s.name), `Why this number · last ${rpDays} days (${rpLong(j.periods[rpDays].start)} – ${rpLong(j.periods[rpDays].end)})`,
@@ -2382,7 +2398,7 @@ function openRenewalDrawer(sku){
     `<h4 style="margin-top:16px">How usage is measured</h4><p style="color:var(--ink-2);font-size:12.5px">${rpEsc(s.method)}</p>` +
     `<h4 style="margin-top:16px">By department</h4><div style="overflow-x:auto"><table><thead><tr><th>Department</th><th>Holders</th><th>Needed</th><th>Reduce</th></tr></thead><tbody>${depts}</tbody></table></div>` +
     `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px"><h4 style="margin:0">Reduction candidates (${cands.length})</h4>` +
-    (cands.length ? `<button class="btn" style="font-size:11px" onclick="exportRenewalCandidates('${rpEsc(s.sku)}')">⬇ Export CSV</button>` : '') + `</div>` +
+    (cands.length ? `<button class="btn" style="font-size:11px" onclick='exportRenewalCandidates(${jsAttr(s.sku)})'>⬇ Export CSV</button>` : '') + `</div>` +
     `<p style="color:var(--ink-3);font-size:11.5px">Review with the manager before removing a license — leave, new role or seasonal work can explain inactivity. Click a person for their usage detail.</p>` +
     (candRows || '<div style="color:var(--ink-3);font-size:13px">None in this period.</div>') +
     (cands.length > 200 ? `<div style="color:var(--ink-3);font-size:12px;margin-top:8px">Showing 200 of ${cands.length} — export for the full list.</div>` : ''));
@@ -2430,51 +2446,61 @@ function csvDownloadRows(filename, header, rows){
 }
 async function openPuDeptDrawer(dept){
   const d=document.getElementById('drawer');
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${dept}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">By manager, last ${puDays} days</div></div><div class="db"><div style="color:var(--ink-3);font-size:13px">Loading\u2026</div></div>`;
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>${dept}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">By manager, last ${puDays} days</div></div><div class="db"><div style="color:var(--ink-3);font-size:13px">Loading\u2026</div></div>`;
   d.classList.add('show'); document.getElementById('scrim').classList.add('show');
   document.getElementById('dx').onclick=closeDrawer;
+  const selectedHeader=d.querySelector('.dh');
+  const stillSelected=()=>d.classList.contains('show')&&d.querySelector('.dh')===selectedHeader;
   try{
     const r=await fetch('/api/insights/paid-usage/department?dept='+encodeURIComponent(dept)+'&days='+puDays,{headers:authHeaders()});
     const j=await r.json();
+    if(!stillSelected())return;
     const rows=j.managers.map(m=>`
-      <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openPuManagerDrawer('${m.manager_upn.replace(/'/g,"\\'")}','${m.managerName.replace(/'/g,"\\'")}')">
+      <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick='openPuManagerDrawer(${jsAttr(m.manager_upn)},${jsAttr(m.managerName)})'>
         <span style="font-size:13px">${m.managerName}</span>
         <span style="font-size:11.5px;color:var(--ink-3)">${m.active} active \u00b7 ${m.low} low \u00b7 ${m.inactive} inactive \u00b7 ${m.utilizationRate}%</span>
       </div>`).join('');
     d.querySelector('.db').innerHTML=`
-      <button class="btn" style="font-size:11px;margin-bottom:10px" onclick='csvDownloadRows("dept-${dept.replace(/[^a-z0-9]/gi,"_")}.csv",["Manager","Total","Active","Low","Inactive","Utilization"],${JSON.stringify(j.managers.map(m=>[m.managerName,m.total,m.active,m.low,m.inactive,m.utilizationRate+"%"]))})'>\u2b07 Export CSV</button>
+      <button class="btn" style="font-size:11px;margin-bottom:10px" onclick='csvDownloadRows("dept-${dept.replace(/[^a-z0-9]/gi,"_")}.csv",["Manager","Total","Active","Low","Inactive","Utilization"],${esc(JSON.stringify(j.managers.map(m=>[m.managerName,m.total,m.active,m.low,m.inactive,m.utilizationRate+"%"])))})'>\u2b07 Export CSV</button>
       ${rows||'<div style="color:var(--ink-3);font-size:13px">No managers found.</div>'}`;
-  }catch(e){ d.querySelector('.db').innerHTML='<div style="color:var(--ink-3);font-size:13px">Could not load.</div>'; }
+  }catch(e){if(!stillSelected())return; d.querySelector('.db').innerHTML='<div style="color:var(--ink-3);font-size:13px">Could not load.</div>'; }
 }
 async function openPuManagerDrawer(mgrUpn, mgrName){
   const d=document.getElementById('drawer');
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${mgrName}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">Direct reports, last ${puDays} days</div></div><div class="db"><div style="color:var(--ink-3);font-size:13px">Loading\u2026</div></div>`;
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>${mgrName}</h2><div style="color:var(--ink-3);font-size:12px;margin-top:2px">Direct reports, last ${puDays} days</div></div><div class="db"><div style="color:var(--ink-3);font-size:13px">Loading\u2026</div></div>`;
   document.getElementById('dx').onclick=closeDrawer;
+  const selectedHeader=d.querySelector('.dh');
+  const stillSelected=()=>d.classList.contains('show')&&d.querySelector('.dh')===selectedHeader;
   try{
     const r=await fetch('/api/insights/paid-usage/manager?manager='+encodeURIComponent(mgrUpn)+'&days='+puDays,{headers:authHeaders()});
     const j=await r.json();
+    if(!stillSelected())return;
     const STAT_COL={active:cssv('--pass'),low:cssv('--med'),inactive:cssv('--crit')};
     const rows=j.employees.map(e=>`
-      <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openPuEmployeeDrawer('${e.upn.replace(/'/g,"\\'")}')">
+      <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick='openPuEmployeeDrawer(${jsAttr(e.upn)})'>
         <span style="font-size:13px">${e.display_name}</span>
         <span style="font-size:11.5px;color:${STAT_COL[e.status]}">${e.status}</span>
       </div>`).join('');
     d.querySelector('.db').innerHTML=`
-      <button class="btn" style="font-size:11px;margin-bottom:10px" onclick='csvDownloadRows("manager-${mgrName.replace(/[^a-z0-9]/gi,"_")}.csv",["Employee","Status"],${JSON.stringify(j.employees.map(e=>[e.display_name,e.status]))})'>\u2b07 Export CSV</button>
+      <button class="btn" style="font-size:11px;margin-bottom:10px" onclick='csvDownloadRows("manager-${mgrName.replace(/[^a-z0-9]/gi,"_")}.csv",["Employee","Status"],${esc(JSON.stringify(j.employees.map(e=>[e.display_name,e.status])))})'>\u2b07 Export CSV</button>
       ${rows||'<div style="color:var(--ink-3);font-size:13px">No direct reports with a paid license.</div>'}`;
-  }catch(e){ d.querySelector('.db').innerHTML='<div style="color:var(--ink-3);font-size:13px">Could not load.</div>'; }
+  }catch(e){if(!stillSelected())return; d.querySelector('.db').innerHTML='<div style="color:var(--ink-3);font-size:13px">Could not load.</div>'; }
 }
 async function openPuEmployeeDrawer(upn){
   const d=document.getElementById('drawer');
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Loading\u2026</h2></div><div class="db"></div>`;
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>Loading\u2026</h2></div><div class="db"></div>`;
+  d.classList.add('show');document.getElementById('scrim').classList.add('show');
   document.getElementById('dx').onclick=closeDrawer;
+  const selectedHeader=d.querySelector('.dh');
+  const stillSelected=()=>d.classList.contains('show')&&d.querySelector('.dh')===selectedHeader;
   try{
     const r=await fetch('/api/insights/paid-usage/employee?upn='+encodeURIComponent(upn),{headers:authHeaders()});
     const j=await r.json();
+    if(!stillSelected())return;
     const w=j.workloads;
     const wRow=(label,x)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px">${label}</span><span style="font-size:12px;color:var(--ink-3)">${x.lastActive?x.daysSince+'d ago ('+String(x.lastActive).slice(0,10)+')':'never'}</span></div>`;
     const periodRow=(p)=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)"><span style="font-size:12.5px">Last ${p.period} days</span><span style="font-size:12px;color:${p.status==='active'?cssv('--pass'):p.status==='low'?cssv('--med'):cssv('--crit')}">${p.status}</span></div>`;
-    d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${j.identity.displayName}</h2>
+    d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>${j.identity.displayName}</h2>
         <div style="color:var(--ink-3);font-size:12px;margin-top:2px">${upn} \u00b7 ${j.identity.department||'no department'} \u00b7 reports to ${j.identity.managerName||'unknown'}</div></div>
       <div class="db">
         <h4>Licenses</h4>
@@ -2488,7 +2514,7 @@ async function openPuEmployeeDrawer(upn){
         ${j.copilotDetail?`<h4 style="margin-top:16px">Copilot activity</h4><p style="color:var(--ink-2);font-size:13px;margin:0">Chat last active: ${j.copilotDetail.chatLastActive?String(j.copilotDetail.chatLastActive).slice(0,10):'never'}</p>`:''}
       </div>`;
     document.getElementById('dx').onclick=closeDrawer;
-  }catch(e){ d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Not found</h2></div><div class="db"><p style="color:var(--ink-3);font-size:13px">Could not load usage detail for this person.</p></div>`; document.getElementById('dx').onclick=closeDrawer; }
+  }catch(e){if(!stillSelected())return; d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>Not found</h2></div><div class="db"><p style="color:var(--ink-3);font-size:13px">Could not load usage detail for this person.</p></div>`; document.getElementById('dx').onclick=closeDrawer; }
 }
 function fmtAge(m){
   if(m==null) return 'unknown';
@@ -2498,13 +2524,16 @@ function fmtAge(m){
 }
 async function showCollectors(){
   const d=document.getElementById('drawer');
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">✕</span><h2>How fresh is this data?</h2></div>
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">✕</button><h2>How fresh is this data?</h2></div>
    <div class="db"><div style="color:var(--ink-3);font-size:13px;padding:20px 0;text-align:center">Loading live status…</div></div>`;
   d.classList.add('show'); document.getElementById('scrim').classList.add('show');
   document.getElementById('dx').onclick=closeDrawer;
+  const selectedHeader=d.querySelector('.dh');
+  const stillSelected=()=>d.classList.contains('show')&&d.querySelector('.dh')===selectedHeader;
   try{
     const r=await fetch('/api/sentinel/freshness',{headers:authHeaders()});
     const j=await r.json();
+    if(!stillSelected())return;
     const rows=j.sources.map(s=>{
       const tierBadge = s.tier==='run-log-entra' ? '<span class="stat" style="background:color-mix(in srgb,'+cssv('--accent')+' 16%,transparent);color:'+cssv('--accent')+'">verified run log</span>'
         : s.tier==='count-only' ? '<span class="stat" style="background:var(--panel-2);color:var(--ink-3)">count only</span>'
@@ -2547,7 +2576,7 @@ async function showCollectors(){
         <div style="font-size:11px;color:var(--ink-3);margin-top:10px;line-height:1.5">${rel.note}</div>
       </div>` : '';
     d.querySelector('.db').innerHTML = `<div style="color:var(--ink-3);font-size:12px;margin-bottom:12px;line-height:1.5">${j.note}</div>${rows}${relHtml}`;
-  }catch(e){
+  }catch(e){if(!stillSelected())return;
     d.querySelector('.db').innerHTML = `<div style="color:${cssv('--crit')};font-size:13px">Could not load live freshness data: ${e.message}</div>`;
   }
 }
@@ -2677,18 +2706,21 @@ window.addEventListener('itcolormodechange',()=>{
   if(OV){renderScore();renderTrend();renderHeat();}
 });
 document.getElementById('refreshBtn').onclick=load;
-document.getElementById('searchBox').addEventListener('input',e=>{search=e.target.value.toLowerCase();renderTable();runGlobalSearch(e.target.value);});
+document.getElementById('searchBox').addEventListener('input',e=>{runGlobalSearch(e.target.value);});
 document.getElementById('searchBox').addEventListener('blur',()=>setTimeout(()=>{const dd=document.getElementById('searchDropdown');if(dd)dd.style.display='none';},200));
-let _searchTimer=null;
+let _searchTimer=null,_globalSearchSeq=0;
 async function openEmployeeDrawer(upn){
   const d=document.getElementById('drawer');
-  d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Loading\u2026</h2></div><div class="db"></div>`;
+  d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>Loading\u2026</h2></div><div class="db"></div>`;
   d.classList.add('show'); document.getElementById('scrim').classList.add('show');
   document.getElementById('dx').onclick=closeDrawer;
+  const selectedHeader=d.querySelector('.dh');
+  const stillSelected=()=>d.classList.contains('show')&&d.querySelector('.dh')===selectedHeader;
   try{
     const r=await fetch('/api/sentinel/user360?upn='+encodeURIComponent(upn),{headers:authHeaders()});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j=await r.json();
+    if(!stillSelected())return;
     breadcrumbDrawerLabel=j.identity.display_name||upn;
     renderBreadcrumb(document.querySelector('nav a.active')?.dataset.nav);
     const findingsHtml=j.relatedFindings.length?j.relatedFindings.map(f=>{
@@ -2699,7 +2731,7 @@ async function openEmployeeDrawer(upn){
     const mfaText=j.mfa.measured===false
       ?'MFA enrolment has not been collected on this host \u2014 not measured, rather than absent.'
       :j.mfa.hasActiveFactor?'Has an active MFA factor registered in Okta.':'No active MFA factor found in Okta.';
-    d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>${esc(j.identity.display_name||upn)}</h2>
+    d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>${esc(j.identity.display_name||upn)}</h2>
         <div style="color:var(--ink-3);font-size:12px;margin-top:2px">${esc(j.identity.user_principal_name)} \u00b7 ${j.identity.account_enabled?'active':'disabled'} account</div></div>
       <div class="db">
         ${rolesHtml}
@@ -2713,13 +2745,14 @@ async function openEmployeeDrawer(upn){
         <div class="affected">${findingsHtml}</div>
       </div>`;
     document.getElementById('dx').onclick=closeDrawer;
-  }catch(e){
-    d.innerHTML=`<div class="dh"><span class="x" id="dx">\u2715</span><h2>Not found</h2></div><div class="db"><p style="color:var(--ink-3);font-size:13px">Could not load a profile for this person.</p></div>`;
+  }catch(e){if(!stillSelected())return;
+    d.innerHTML=`<div class="dh"><button type="button" class="x" id="dx" aria-label="Close details">\u2715</button><h2>Not found</h2></div><div class="db"><p style="color:var(--ink-3);font-size:13px">Could not load a profile for this person.</p></div>`;
     document.getElementById('dx').onclick=closeDrawer;
   }
 }
 function runGlobalSearch(term){
   clearTimeout(_searchTimer);
+  const seq=++_globalSearchSeq;
   const dd=document.getElementById('searchDropdown');
   const t=term.trim();
   if(t.length<2){ dd.style.display='none'; return; }
@@ -2737,6 +2770,7 @@ function runGlobalSearch(term){
       +section('Privileged accounts',priv,p=>`<div class="row" style="padding:8px 12px;cursor:pointer" onmousedown="showView('view-priv');loadPrivAccess().then(()=>openPrivDrawer(${jsAttr(p.upn)}));document.getElementById('searchDropdown').style.display='none'"><b style="font-size:13px">${esc(p.dn)}</b><div style="font-size:11px;color:var(--ink-3)">${esc(p.role_name)}</div></div>`)
       +section('Employees',employees,p=>`<div class="row" style="padding:8px 12px;cursor:pointer" onmousedown="openEmployeeDrawer(${jsAttr(p.upn)});document.getElementById('searchDropdown').style.display='none'"><b style="font-size:13px">${esc(p.dn)}</b><div style="font-size:11px;color:var(--ink-3)">${esc(p.department||'no department on record')}</div></div>`)
       +section('Recent activity',activity,a=>`<div class="row" style="padding:8px 12px;cursor:pointer" onmousedown="showView('view-changes');loadTenantChanges().then(()=>{chgSearch=${jsAttr((a.initiator||'').toLowerCase())};document.getElementById('chgSearch').value=${jsAttr(a.initiator||'')};renderChgTable();});document.getElementById('searchDropdown').style.display='none'"><b style="font-size:13px">${esc(a.initiator)}${a.isApp?' (app)':''}</b><div style="font-size:11px;color:var(--ink-3)">recent tenant activity</div></div>`);
+    if(seq!==_globalSearchSeq)return;
     dd.innerHTML=html||'<div style="padding:12px;color:var(--ink-3);font-size:12px">No matches.</div>';
     dd.style.display='block';
   },250);
@@ -2748,9 +2782,17 @@ function toggleNav(force){
   b.setAttribute('aria-expanded', String(open));
 }
 // Picking a destination should close the drawer, or the choice stays hidden behind it.
-document.querySelectorAll('aside nav a').forEach(a=>a.addEventListener('click',()=>{
-  if(window.matchMedia('(max-width:1100px)').matches) toggleNav(false);
-}));
+document.querySelectorAll('aside nav a').forEach(a=>{
+  // These anchors switch local panels and have no href. Keep their skin,
+  // while making every sidebar action operable with Tab, Enter and Space.
+  a.setAttribute('role','button');a.tabIndex=0;
+  a.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();a.click();}
+  });
+  a.addEventListener('click',()=>{
+    if(window.matchMedia('(max-width:1100px)').matches) toggleNav(false);
+  });
+});
 window.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
   const a=document.querySelector('aside');
@@ -2764,7 +2806,7 @@ load();
 
 </script>
 <script src="/it-topbar.js" defer></script>
-<script src="/feed-freshness.js" data-page="tenant-sentinel" defer></script>
+<script src="/feed-freshness-desktop.js?v=9c6727302547" data-page="tenant-sentinel" defer></script>
 <script src="/it-version.js" data-app-key="tenant-sentinel" defer></script>
 </body>
 </html>

@@ -28,6 +28,8 @@
 
 const express = require('express');
 const mysql = require('mysql2/promise');
+const { readRollupEvidence } = require('./zdx-evidence');
+const CAPABILITIES = require('./zscaler-capabilities');
 const HOST = require('os').hostname();   // srv_job_run carries rows imported from ITAM (host NULL); only this host's runs count
 
 const router = express.Router();
@@ -191,10 +193,16 @@ async function measure(f) {
     key: f.key, page: f.page, label: f.label, table: f.table,
     maxAgeHours: f.maxAgeH, collector: f.collector,
   };
+  if (f.key.startsWith('zdx_') && !CAPABILITIES.zdx.api)
+    return Object.assign({},base,{state:'not_included',ageHours:null,newest:null,reason:CAPABILITIES.zdx.reason,scheduled:false});
+  if (HOST==='itam' && f.page==='zscaler-command-center') { base.collectionMode='manual_test';base.scheduled=false; }
   if (!IDENT.test(f.table) || !IDENT.test(f.ts)) {
     return Object.assign({}, base, { state: 'unknown', error: 'registry entry is not a valid identifier' });
   }
   try {
+    if (f.key === 'zdx_presence_geo' || f.key === 'zdx_user_isp') {
+      return Object.assign({},base,await readRollupEvidence(pool,f.key,f.maxAgeH));
+    }
     const [rows] = await pool.query(
       'SELECT COUNT(*) AS n, MAX(`' + f.ts + '`) AS newest, ' +
       'TIMESTAMPDIFF(MINUTE, MAX(`' + f.ts + '`), NOW()) AS age_min FROM ' + f.table
@@ -299,6 +307,7 @@ async function buildSnapshot() {
   ]);
   for (const f of feeds) {
     const r = runs && f.collector ? runs[f.collector] : null;
+    if(f.state==='not_included'){f.lastRun=null;f.producerFailing=false;f.producerAbandoned=false;f.producerOverdue=false;continue;}
     f.lastRun = r || null;
     // Only an explicitly recorded failure counts. No record at all means the
     // job has not run since the run log started -- unknown, not failing.
@@ -349,7 +358,7 @@ async function buildSnapshot() {
     feeds: feeds,
     count: count,
     // 'degraded' covers anything that is not a measured-and-current feed.
-    degraded: feeds.filter(function (f) { return f.state !== 'ok'; }).length,
+    degraded: feeds.filter(function (f) { return f.state !== 'ok' && f.state !== 'not_included'; }).length,
     // Counted separately: these feeds may look current and still be partial.
     producerFailing: feeds.filter(function (f) { return f.producerFailing; }).length,
     producerAbandoned: feeds.filter(function (f) { return f.producerAbandoned; }).length,
@@ -391,7 +400,7 @@ router.get('/freshness', async function (req, res) {
       page: page,
       feeds: feeds,
       count: feeds.reduce(function (a, f) { a[f.state] = (a[f.state] || 0) + 1; return a; }, {}),
-      degraded: feeds.filter(function (f) { return f.state !== 'ok'; }).length,
+      degraded: feeds.filter(function (f) { return f.state !== 'ok' && f.state !== 'not_included'; }).length,
       producerFailing: feeds.filter(function (f) { return f.producerFailing; }).length,
       producerAbandoned: feeds.filter(function (f) { return f.producerAbandoned; }).length,
       producerOverdue: feeds.filter(function (f) { return f.producerOverdue; }).length,

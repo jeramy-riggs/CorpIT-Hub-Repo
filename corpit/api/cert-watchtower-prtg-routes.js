@@ -36,6 +36,9 @@ function corpitRedactConfig(config) {
 // === end CORPIT-SECRET-CONFIG ================================================
 
 const { pushToPrtg } = require('./cert-watchtower-prtg-helper');
+// settingsfold W6 2026-10-12: PUT /api/prtg/config writes an rbac_audit_log row.
+// prtg_summary_sensor_token is recorded only as (set)/(changed)/(cleared).
+const SA = require('./settings-audit');
 
 // -----------------------------------------------------------------------------
 // Allow-list of PRTG config keys this router is permitted to read/write.
@@ -190,6 +193,7 @@ module.exports = function createCertWatchtowerPrtgRouter(pool, rbac) {
         return res.status(400).json({ error: 'No valid PRTG config keys provided' });
       }
 
+      const saBefore = await SA.byKey(pool, "SELECT config_key, config_value FROM cert_config WHERE config_key LIKE 'prtg_%'", [], 'config_key', 'config_value');
       const conn = await pool.getConnection();
       try {
         await conn.beginTransaction();
@@ -207,6 +211,9 @@ module.exports = function createCertWatchtowerPrtgRouter(pool, rbac) {
         conn.release();
       }
 
+      const saAfter = await SA.byKey(pool, "SELECT config_key, config_value FROM cert_config WHERE config_key LIKE 'prtg_%'", [], 'config_key', 'config_value');
+      await SA.record(rbac, req, 'cert-watchtower', 'settings_saved', SA.entry({ what: 'prtg_config', op: 'update',
+        before: saBefore, after: saAfter, keys: accepted.map(u => u[0]), secretKeys: CORPIT_SECRET_CONFIG_KEYS }));
       res.json({ ok: true, updated: accepted.map(u => u[0]) });
     } catch (err) {
       console.error('PUT /api/prtg/config failed:', err);

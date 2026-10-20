@@ -1,0 +1,247 @@
+/* Sign-In Watch: AI Governance portal skin. Presentation only; loads after the inline styles and it-depth.css.
+   Shares the governance banner and Nunito face with SharePoint, Zscaler, Identity, AD Management and the IT Asset Console.
+   The suite bar and rail are chrome and stay dark in both themes. Each monitor page draws the banner behind its own
+   heading (crumb, h1, sub) and lifts the command or filter bar onto the banner edge; Overview, which has no heading,
+   puts its status line on the banner and lifts the KPI strip.
+   it-theme.js writes --accent INLINE on :root, so page tokens are set on body, which outranks it. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+
+/* ── Tokens ── */
+:root:not([data-theme=light]) body[data-dp="signin-watch"] {
+  --accent: #7dc9e7; --accent-h: #a9dcf0; --accent-dim: #15384b; --accent-glow: #7dc9e71f; --on-accent: #071520;
+  --bg: #071520; --layer1: #142533; --layer2: #182c3c; --layer3: #203645;
+  --stroke: #1f3445; --stroke2: #2a3d4d; --stroke3: #37505f;
+  --text: #ebf1f6; --text2: #a4b5c5; --text3: #91a3b5; --text4: #6f8296;
+  --ok: #9bd64a; --ok-dim: rgba(155, 214, 74, .13); --ok-line: rgba(155, 214, 74, .28);
+  --warn: #f0d08b; --warn-dim: rgba(240, 208, 139, .14); --warn-line: rgba(240, 208, 139, .28); --warn-line-2: rgba(240, 208, 139, .32); --warn-line-3: rgba(240, 208, 139, .22);
+  --bad: #ffa1ac; --bad-dim: rgba(255, 161, 172, .14); --bad-line: rgba(255, 161, 172, .28); --bad-line-2: rgba(255, 161, 172, .32); --bad-line-3: rgba(255, 161, 172, .22);
+  --crit: #ff8a97; --crit-dim: rgba(255, 161, 172, .2); --crit-line: rgba(255, 161, 172, .3);
+  --accent-line: #7dc9e74d;
+  --scrim: rgba(3, 9, 15, .72); --shadow-strong: #000000a6; --shadow-soft: #00000080;
+  --hover-tint: #7dc9e712; --hover-tint-2: #7dc9e714; --hover-tint-3: #7dc9e71a;
+  --sw-elev-1: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --sw-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  --sw-danger: #b33440;
+  --dp-face: none; --dp-face-2: none; --dp-grain: none; --dp-wash: none; --dp-bar: none; --dp-rail: none;
+  --dp-sheen: inset 0 1px 0 #ffffff0b; --dp-sheen-2: inset 0 1px 0 #ffffff10;
+  --dp-relief: inset 0 1px 0 #ffffff0b; --dp-relief-2: inset 0 1px 0 #ffffff10;
+  --dp-lift-1: 0 1px 2px #00000059; --dp-lift-2: 0 2px 4px #00000066, 0 12px 28px -16px #000000a6;
+  --dp-lift-3: 0 2px 4px #00000066, 0 26px 52px -18px #000000cc;
+  --dp-well: inset 0 1px 2px #00000040; --dp-well-2: inset 0 1px 3px #00000066;
+  --dp-thead: inset 0 -1px 0 #1f3445; --dp-edge: 0 0 #0000;
+}
+:root[data-theme=light] body[data-dp="signin-watch"] {
+  --accent: #147299; --accent-h: #0f5d7d; --accent-dim: #dcecf3; --accent-glow: #1472991a; --on-accent: #fff;
+  --bg: #eff1f3; --layer1: #fff; --layer2: #f6f8fa; --layer3: #e8ecf0;
+  --stroke: #e4e8ed; --stroke2: #cdd4dc; --stroke3: #b3bfc9;
+  --text: #17212e; --text2: #5d6b7e; --text3: #5f6d80; --text4: #7d8a9b;
+  --ok: #3d7924; --ok-dim: rgba(61, 121, 36, .10); --ok-line: rgba(61, 121, 36, .30);
+  --warn: #8b641f; --warn-dim: rgba(139, 100, 31, .12); --warn-line: rgba(139, 100, 31, .30); --warn-line-2: rgba(139, 100, 31, .34); --warn-line-3: rgba(139, 100, 31, .24);
+  --bad: #b33440; --bad-dim: rgba(179, 52, 64, .10); --bad-line: rgba(179, 52, 64, .30); --bad-line-2: rgba(179, 52, 64, .34); --bad-line-3: rgba(179, 52, 64, .24);
+  --crit: #96242f; --crit-dim: rgba(179, 52, 64, .14); --crit-line: rgba(179, 52, 64, .30);
+  --accent-line: #1472994d;
+  --scrim: rgba(15, 27, 45, .45); --shadow-strong: #1018282e; --shadow-soft: #10182824;
+  --hover-tint: #1472990f; --hover-tint-2: #14729912; --hover-tint-3: #14729917;
+  --sw-elev-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --sw-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --sw-danger: #b33440;
+  --dp-face: none; --dp-face-2: none; --dp-grain: none; --dp-wash: none; --dp-bar: none; --dp-rail: none;
+  --dp-sheen: 0 0 #0000; --dp-sheen-2: 0 0 #0000; --dp-relief: 0 0 #0000; --dp-relief-2: 0 0 #0000;
+  --dp-lift-1: 0 1px 2px #1018280f; --dp-lift-2: 0 2px 4px #10182814, 0 8px 20px -12px #1018281f;
+  --dp-lift-3: 0 2px 4px #10182814, 0 22px 44px -16px #10182833;
+  --dp-well: inset 0 1px 2px #1018280f; --dp-well-2: inset 0 1px 3px #1018281a;
+  --dp-thead: inset 0 -1px 0 #e4e8ed; --dp-edge: 0 0 #0000;
+}
+body[data-dp="signin-watch"] {
+  --font: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --sw-ease: cubic-bezier(.23, 1, .32, 1);
+  --sw-t: 160ms cubic-bezier(.23, 1, .32, 1);
+  --sw-lift: 26px; --sw-pt: 16px; --sw-px: 24px;
+  background-color: var(--bg); background-image: none;
+}
+html:has(body[data-dp="signin-watch"]) { background: var(--bg, #071520); }
+body[data-dp="signin-watch"] ::selection { background: #7dc9e740; }
+
+/* ── Suite bar and rail: governance chrome, dark in both themes. Tokens re-pointed so nested controls stay legible. ── */
+body[data-dp="signin-watch"] .suitebar,
+body[data-dp="signin-watch"] nav.rail {
+  --rail: #131823; --layer2: #202936; --layer3: #263241; --stroke: #29313d; --stroke2: #3c4556; --stroke3: #4a5568;
+  --text: #e6edf7; --text2: #c1cad6; --text3: #9aa6b5; --text4: #8f9bab;
+  --accent: #a5d877; --accent-glow: #78be201c; --hover-tint-2: #ffffff0d;
+  background: #131823; border-color: #29313d; color: var(--text);
+}
+body[data-dp="signin-watch"] .suitebar { height: 46px; box-shadow: 0 1px 0 #0000004d; }
+body[data-dp="signin-watch"] .sb-brand { font-size: 12.5px; font-weight: 850; letter-spacing: .06em; color: #fff; }
+body[data-dp="signin-watch"] .sb-brand .mark {
+  width: 26px; height: 26px; border-radius: 8px;
+  background: linear-gradient(140deg, #3d7924, #78be20); box-shadow: inset 0 1px 0 #ffffff33;
+}
+body[data-dp="signin-watch"] .sb-brand .mark svg { stroke: #0b1a05; }
+body[data-dp="signin-watch"] .sb-brand .prod { color: #c1cad6; font-weight: 750; }
+body[data-dp="signin-watch"] .rl-sec { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; color: #8f9bab; }
+body[data-dp="signin-watch"] .rl-item {
+  font-weight: 700; color: #b8c2cf; border-radius: 8px;
+  transition: color var(--sw-t), background-color var(--sw-t), border-color var(--sw-t), transform var(--sw-t);
+}
+body[data-dp="signin-watch"] .rl-item.on { color: #fff; background: #78be201c; border-left-color: #78be20; font-weight: 800; }
+body[data-dp="signin-watch"] .rl-item.on svg { stroke: #a5d877; }
+body[data-dp="signin-watch"] .rl-badge { background: #b33440; font-weight: 800; font-variant-numeric: tabular-nums; }
+body[data-dp="signin-watch"] .suitebar .ittb .ittb-ctl { background: #1a212d; color: #c1cad6; border-color: #3c4556; }
+body[data-dp="signin-watch"] .suitebar .ittb .ittb-av { background: #263241; color: #fff; border-color: #3c4556; }
+@media (hover: hover) and (pointer: fine) {
+  body[data-dp="signin-watch"] .suitebar .ittb .ittb-ctl:hover { background: #202936; color: #fff; border-color: #4a5568; }
+}
+
+/* ── Banner: a band behind each page's heading, bled to main's edges past the 1520px column. ── */
+body[data-dp="signin-watch"] main { container-type: inline-size; }
+body[data-dp="signin-watch"] #monitorMode > .page.active:is(:has(> .crumb:first-child), :has(> .ov-status:first-child)) {
+  display: grid; grid-template-columns: minmax(0, 1fr); align-content: start;
+}
+body[data-dp="signin-watch"] #monitorMode > .page.active > * { grid-column: 1; }
+body[data-dp="signin-watch"] #monitorMode > .page.active > :nth-child(1) { grid-row: 1; }
+body[data-dp="signin-watch"] #monitorMode > .page.active > :nth-child(2) { grid-row: 2; }
+body[data-dp="signin-watch"] #monitorMode > .page.active > :nth-child(3) { grid-row: 3; }
+body[data-dp="signin-watch"] #monitorMode > .page.active > :nth-child(4) { grid-row: 4; }
+body[data-dp="signin-watch"] #monitorMode > .page.active > :nth-child(5) { grid-row: 5; }
+body[data-dp="signin-watch"] #monitorMode > .page.active > :nth-child(6) { grid-row: 6; }
+body[data-dp="signin-watch"] #monitorMode > .page.active > :nth-child(7) { grid-row: 7; }
+body[data-dp="signin-watch"] #monitorMode > .page.active > :nth-child(8) { grid-row: 8; }
+body[data-dp="signin-watch"] #monitorMode > .page.active:is(:has(> .crumb:first-child), :has(> .ov-status:first-child))::before {
+  content: ""; grid-column: 1; grid-row: 1 / 4;
+  margin: calc(-1 * var(--sw-pt)) calc((100% - 100cqw) / 2 - var(--sw-px)) 0;
+  border-bottom: 3px solid #78be20;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+  pointer-events: none;
+}
+body[data-dp="signin-watch"] #monitorMode > .page.active:has(> .ov-status:first-child)::before { grid-row: 1 / 2; }
+body[data-dp="signin-watch"] #monitorMode > .page.active > .crumb:first-child,
+body[data-dp="signin-watch"] #monitorMode > .page.active > h1.pg,
+body[data-dp="signin-watch"] #monitorMode > .page.active > .pg-sub { position: relative; z-index: 1; }
+body[data-dp="signin-watch"] .page > .crumb:first-child { padding-top: 22px; margin-bottom: 6px; font-size: 12px; font-weight: 700; color: #d5dee7; }
+body[data-dp="signin-watch"] .page > .crumb:first-child a { color: #a9dcf0; }
+body[data-dp="signin-watch"] h1.pg { color: #fff; font-size: 29px; font-weight: 850; letter-spacing: -.7px; line-height: 1.15; margin-bottom: 6px; }
+body[data-dp="signin-watch"] .page > .pg-sub { color: #e0e8ef; font-size: 13px; font-weight: 600; margin-bottom: calc(var(--sw-lift) + 24px); }
+
+/* Depth: whatever follows the heading is the raised bar sitting on the banner edge. */
+body[data-dp="signin-watch"] .page > .pg-sub + :is(.cmdbar, .filter-bar) {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--sw-lift)); margin-bottom: 14px;
+  min-height: 52px; padding: 10px 12px; gap: 8px;
+  background: var(--layer1); border: 1px solid var(--stroke); border-radius: 13px; box-shadow: var(--sw-elev-1);
+}
+body[data-dp="signin-watch"] .page > .pg-sub + .panel { position: relative; z-index: 1; margin-top: calc(-1 * var(--sw-lift)); }
+
+/* Overview: the status line sits on the banner as glass; the KPI strip is the lifted row. */
+body[data-dp="signin-watch"] .page > .ov-status:first-child {
+  position: relative; z-index: 1; margin: 22px 0 calc(var(--sw-lift) + 24px);
+  background: #0b1a26b8; border-color: #b3c5d266; border-radius: 13px; box-shadow: none;
+  --text: #fff; --text3: #d5dee7;
+}
+body[data-dp="signin-watch"] .page > .ov-status:first-child .ov-status-tx { font-size: 15px; font-weight: 800; }
+body[data-dp="signin-watch"] .page > .ov-status:first-child + .kpi-strip { position: relative; z-index: 1; margin-top: calc(-1 * var(--sw-lift)); }
+
+/* ── Surfaces ── */
+body[data-dp="signin-watch"] :is(.panel, .kpi, .inv-summary, .inv-posture, .tl-card, .tile, .ov-sys, .vip-board, .inv-panel, .ov-status) {
+  border: 1px solid var(--stroke); border-radius: 13px; background-image: none; box-shadow: var(--sw-elev-1);
+}
+body[data-dp="signin-watch"] .inv-panel { border-radius: 10px; }
+body[data-dp="signin-watch"] .panel-hd { background: var(--layer2); border-bottom-color: var(--stroke); }
+body[data-dp="signin-watch"] .panel-hd h2,
+body[data-dp="signin-watch"] .vip-board-hd,
+body[data-dp="signin-watch"] .tl-hd,
+body[data-dp="signin-watch"] .inv-panel h4,
+body[data-dp="signin-watch"] .inv-sec-head .stitle { font-weight: 800; letter-spacing: .06em; }
+body[data-dp="signin-watch"] .kpi { padding: 13px 16px 15px; }
+body[data-dp="signin-watch"] .kpi .kl { font-weight: 750; font-size: 12px; }
+body[data-dp="signin-watch"] .kpi .kv { font-family: var(--font); font-size: 30px; font-weight: 850; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+/* Tinted states are translucent in the page; lay them over a solid surface so the banner never shows through. */
+body[data-dp="signin-watch"] .kpi.alert-kpi { border-top: 3px solid var(--bad); background: linear-gradient(var(--bad-dim), var(--bad-dim)) var(--layer1); }
+body[data-dp="signin-watch"] .kpi.warn-kpi { border-top: 3px solid var(--warn); background: linear-gradient(var(--warn-dim), var(--warn-dim)) var(--layer1); }
+body[data-dp="signin-watch"] .tile.ok { border-top: 3px solid var(--ok); }
+body[data-dp="signin-watch"] .tile.warn { border-top: 3px solid var(--warn); }
+body[data-dp="signin-watch"] .tile.bad { border-top: 3px solid var(--bad); }
+body[data-dp="signin-watch"] .verdict { border-radius: 13px; box-shadow: var(--sw-elev-1); }
+
+/* ── Tables and lists ── */
+body[data-dp="signin-watch"] .grid th { font-size: 10.5px; font-weight: 800; color: var(--text2); border-bottom-color: var(--stroke); }
+body[data-dp="signin-watch"] .grid td { border-bottom-color: var(--stroke); }
+body[data-dp="signin-watch"] .vip-row .vname,
+body[data-dp="signin-watch"] .feed-who,
+body[data-dp="signin-watch"] .ev-who { font-weight: 750; }
+
+/* ── Controls: the primary action is governance green; per-row actions are quiet outlines. ── */
+body[data-dp="signin-watch"] :is(.btn, .cb, .ra, .pg-btn, .inv-back, .inv-link) {
+  font-weight: 700; border-radius: 7px; background-image: none; box-shadow: none;
+  transition: background-color var(--sw-t), border-color var(--sw-t), color var(--sw-t), transform var(--sw-t);
+}
+body[data-dp="signin-watch"] :is(.btn, .cb).primary { background: #3d7924; border-color: #3d7924; color: #fff; font-weight: 800; }
+body[data-dp="signin-watch"] .btn.danger { background: var(--sw-danger); border-color: var(--sw-danger); color: #fff; }
+body[data-dp="signin-watch"] .st, body[data-dp="signin-watch"] .ev-pill, body[data-dp="signin-watch"] .sanswer { font-weight: 750; }
+body[data-dp="signin-watch"] .tag, body[data-dp="signin-watch"] .vchip, body[data-dp="signin-watch"] .tier-badge { font-weight: 800; }
+body[data-dp="signin-watch"] .fg input,
+body[data-dp="signin-watch"] .fg select,
+body[data-dp="signin-watch"] .fg textarea,
+body[data-dp="signin-watch"] .filter-bar select {
+  border-radius: 7px; transition: border-color var(--sw-t), box-shadow var(--sw-t);
+}
+body[data-dp="signin-watch"] .fg input:focus,
+body[data-dp="signin-watch"] .fg select:focus,
+body[data-dp="signin-watch"] .fg textarea:focus,
+body[data-dp="signin-watch"] .filter-bar select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--hover-tint-3); }
+body[data-dp="signin-watch"] .fg label { font-weight: 800; }
+body[data-dp="signin-watch"] :is(.btn, .cb, .ra, .pg-btn, .inv-back, .inv-link, .rl-item, .kpi, .tile):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Flyover: slides on transform (not `right`), with the iOS drawer curve. Toast transitions name their properties. ── */
+body[data-dp="signin-watch"] .fly {
+  right: 0; transform: translateX(calc(100% + 24px));
+  background: var(--layer1); border-color: var(--stroke2); border-radius: 14px 0 0 14px; box-shadow: var(--sw-elev-2);
+  transition: transform 260ms cubic-bezier(.32, .72, 0, 1), visibility 0s linear 260ms;
+}
+body[data-dp="signin-watch"] .fly.open { right: 0; transform: none; transition: transform 260ms cubic-bezier(.32, .72, 0, 1), visibility 0s; }
+body[data-dp="signin-watch"] .fly-hd { background: var(--layer2); }
+body[data-dp="signin-watch"] .fly-hd h3 { font-weight: 850; font-size: 14px; }
+body[data-dp="signin-watch"] .toast {
+  border-radius: 11px; font-weight: 650; box-shadow: var(--sw-elev-2);
+  transition: transform 220ms var(--sw-ease), opacity 220ms var(--sw-ease);
+}
+
+/* ── Press feedback, hover (fine pointers only), reduced motion. ── */
+body[data-dp="signin-watch"] :is(.btn, .cb, .ra, .pg-btn:not(:disabled), .inv-back, .inv-link, .rl-item):active { transform: scale(.97); }
+body[data-dp="signin-watch"] :is(.kpi:not(.kpi-static), .tile):active { transform: scale(.985); }
+body[data-dp="signin-watch"] :is(.kpi, .tile) { transition: border-color var(--sw-t), transform var(--sw-t); }
+@media (hover: hover) and (pointer: fine) {
+  body[data-dp="signin-watch"] .rl-item:not(.on):hover { color: #fff; background: #ffffff0d; }
+  body[data-dp="signin-watch"] :is(.btn, .cb).primary:hover { background: #31631c; border-color: #31631c; color: #fff; }
+  body[data-dp="signin-watch"] .btn.danger:hover { background: #962a35; border-color: #962a35; color: #fff; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-dp="signin-watch"] :is(.btn, .cb, .ra, .pg-btn, .inv-back, .inv-link, .rl-item, .kpi, .tile):active { transform: none; }
+  body[data-dp="signin-watch"] .fly, body[data-dp="signin-watch"] .fly.open { transition: visibility 0s; }
+}
+
+/* ── Phones: the 200px rail left main 175px wide. Rail becomes a scrolling strip under the suite bar. ── */
+@media (max-width: 640px) {
+  body[data-dp="signin-watch"] { --sw-px: 14px; }
+  body[data-dp="signin-watch"] .shell { flex-direction: column; }
+  body[data-dp="signin-watch"] nav.rail {
+    width: auto; flex: none; display: flex; gap: 4px; padding: 6px 10px;
+    overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid #29313d; scrollbar-width: none;
+  }
+  body[data-dp="signin-watch"] nav.rail .rl-sec { display: none; }
+  body[data-dp="signin-watch"] nav.rail .rl-item { flex: none; white-space: nowrap; margin: 0; border-left: 0; padding: 7px 11px; }
+  body[data-dp="signin-watch"] main { flex: 1; min-height: 0; padding: 16px 14px 40px; }
+  body[data-dp="signin-watch"] h1.pg { font-size: 25px; }
+  body[data-dp="signin-watch"] .sb-brand :is(.sep, .prod) { display: none; }
+}
+
+@media print {
+  body[data-dp="signin-watch"] #monitorMode > .page.active::before { display: none; }
+  body[data-dp="signin-watch"] h1.pg, body[data-dp="signin-watch"] .page > .pg-sub, body[data-dp="signin-watch"] .page > .crumb:first-child { color: #000; }
+}

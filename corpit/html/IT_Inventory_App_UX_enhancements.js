@@ -54,15 +54,6 @@
     // ── ENHANCED TABLE ROW HOVER → show row number ───────────
     // (Purely visual, no DOM mutation needed — handled by CSS nth-child)
 
-    // ── SIDEBAR ACTIVE INDICATOR ANIMATION ───────────────────
-    // Add smooth transition to nav items
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-      item.addEventListener('mouseenter', function() {
-        this.style.transition = 'all 0.15s ease';
-      });
-    });
-
     // ── TOPBAR SHADOW ON SCROLL ──────────────────────────────
     const content = document.getElementById('content');
     const topbar = document.getElementById('topbar');
@@ -156,7 +147,10 @@
    global search. Data loads asynchronously, so the search is re-applied a few times; the
    app keeps searchQuery across renders, so the filter sticks once rows arrive. */
 (function () {
+  var preferHash=false;
   function params() {
+    var query = new URLSearchParams(location.search);
+    if(!preferHash && (query.has('table') || query.has('find')))return {table:query.get('table') || '',find:query.get('find') || ''};
     var h = String(location.hash || '').replace(/^#/, '');
     if (!/(^|&)(table|find)=/.test(h)) return null;
     var out = {}; h.split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) { try { out[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1)); } catch (e) {} } });
@@ -175,5 +169,5 @@
   }
   function boot() { apply(); setTimeout(apply, 1200); setTimeout(apply, 3000); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
-  window.addEventListener('hashchange', apply);
+  window.addEventListener('hashchange', function(){preferHash=true;apply();});
 })();

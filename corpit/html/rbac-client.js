@@ -24,6 +24,23 @@
   var GUARD_CSS_ID = 'itcmd-rbac-guard-css';
   var BANNER_ID   = 'itcmd-viewas-bar';
 
+  // Older tabs may still hold a portable SSO session token from before the
+  // cookie-only rollout. Retire that mirror on the next page load; leave
+  // break-glass and local-test bearer families alone.
+  try {
+    var _mirror = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}');
+    if (_mirror && _mirror.idToken) {
+      var _body = String(_mirror.idToken).split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+      while (_body.length % 4) _body += '=';
+      var _claim = JSON.parse(atob(_body));
+      if (_claim.typ === 'session') {
+        _mirror.idToken = '';
+        _mirror.cookieSession = true;
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(_mirror));
+      }
+    }
+  } catch (e) { /* malformed tab mirror: normal auth handling will resolve it */ }
+
   function getIdToken() {
     try {
       var raw = sessionStorage.getItem(STORAGE_KEY);
@@ -81,8 +98,10 @@
     if (_authRedirected) return;
     if (window.location.pathname === LOGIN_PATH) return;
     _authRedirected = true;
+    // [CORPIT-RETURN-HASH] keep the #view on the sign-in URL; login.js carries it through.
+    var h = /^#[A-Za-z0-9_\-\/.:]{1,100}$/.test(window.location.hash) ? window.location.hash : '';
     window.location.href = LOGIN_PATH + '?expired=1&return=' +
-      encodeURIComponent(window.location.pathname + window.location.search);
+      encodeURIComponent(window.location.pathname + window.location.search) + h;
   }
 
   // The observability INGEST endpoint, matched on the exact PATHNAME. it-observe.js

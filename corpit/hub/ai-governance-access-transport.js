@@ -1,0 +1,4 @@
+'use strict';
+function target(provider,path,oktaOrigin){const origin=provider==='Entra'?'https://graph.microsoft.com':oktaOrigin;if(!origin)throw Error('Provider not configured');const u=new URL(path,origin),base=new URL(origin);if(u.protocol!=='https:'||u.origin!==base.origin||u.username||u.password||u.hash)throw Error('Rejected origin');const allowed=provider==='Entra'?/^\/v1\.0\/(servicePrincipals(?:\/[a-zA-Z0-9-]+\/appRoleAssignedTo)?|groups\/[a-zA-Z0-9-]+\/members\/microsoft\.graph\.user|users(?:\/[a-zA-Z0-9-]+)?|subscribedSkus)$/:/^\/api\/v1\/(apps(?:\/[a-zA-Z0-9]+\/users)?|users\/[a-zA-Z0-9]+)$/;if(!allowed.test(u.pathname))throw Error('Rejected path');return u;}
+function oktaNext(header){for(const part of String(header||'').split(',')){const m=part.match(/^\s*<([^>]+)>\s*;\s*rel="next"\s*$/);if(m)return m[1];}return null;}
+module.exports={target,oktaNext};

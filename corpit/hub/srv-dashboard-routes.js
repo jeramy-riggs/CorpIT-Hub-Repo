@@ -42,6 +42,8 @@ const rbac = createRbac(pool);
 router.use(rbac.loadCurrentUser);
 
 const PAGE = 'server-health';
+// settingsfold W6 2026-10-12: PUT /thresholds writes an rbac_audit_log row.
+const SA = require('./settings-audit');
 const needRead = rbac.requirePage(PAGE, 'read');
 const needAdmin = rbac.requirePage(PAGE, 'admin');
 
@@ -1280,22 +1282,58 @@ router.get('/thresholds', needRead, async function (req, res) {
 });
 
 router.put('/thresholds', needAdmin, async function (req, res) {
+  // settingsfold W6: audited whenever the UPDATEs committed.
+  // W6 follow-up e (2026-10-12): every key is validated first, then all keys are
+  // written in ONE transaction. Any invalid key is a 400 with nothing written; a DB
+  // error rolls the whole save back. The partial flag below is kept but can no longer
+  // be true (saWritten is only set after the commit, when the status is 200).
+  let saBefore, saWritten = [];
   try {
     const updates = (req.body && req.body.thresholds) || {};
     const keys = Object.keys(updates);
     if (!keys.length) return res.status(400).json({ error: 'Nothing to update.' });
     const [known] = await pool.query('SELECT threshold_key FROM srv_threshold');
     const allowed = new Set(known.map(function (k) { return k.threshold_key; }));
+    saBefore = await SA.byKey(pool, 'SELECT threshold_key, warn_value, crit_value FROM srv_threshold', [], 'threshold_key');
+    const vals = [];
     for (const k of keys) {
       if (!allowed.has(k)) return res.status(400).json({ error: 'Unknown threshold: ' + clean(k, 64) });
       const w = Number(updates[k].warn), c = Number(updates[k].crit);
       if (!isFinite(w) || !isFinite(c)) return res.status(400).json({ error: 'Both values must be numbers for ' + k + '.' });
       if (w < 0 || c < 0 || w > 1e9 || c > 1e9) return res.status(400).json({ error: 'Values for ' + k + ' are out of range.' });
-      await pool.query('UPDATE srv_threshold SET warn_value=?, crit_value=?, updated_by=? WHERE threshold_key=?',
-        [w, c, actor(req), k]);
+      vals.push([k, w, c]);
     }
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      for (const v of vals) {
+        await conn.query('UPDATE srv_threshold SET warn_value=?, crit_value=?, updated_by=? WHERE threshold_key=?',
+          [v[1], v[2], actor(req), v[0]]);
+      }
+      await conn.commit();
+    } catch (e) {
+      try { await conn.rollback(); } catch (_) { /* the connection is released below either way */ }
+      throw e;
+    } finally { conn.release(); }
+    saWritten = vals.map(function (v) { return v[0]; });
     res.json({ ok: true, updated: keys.length });
   } catch (e) { res.status(400).json({ error: clean(e.message, 200) }); }
+  finally {
+    if (saWritten.length) {
+      const saAfter = await SA.byKey(pool, 'SELECT threshold_key, warn_value, crit_value FROM srv_threshold', [], 'threshold_key');
+      const flat = function (m) {
+        if (m === undefined) return undefined;
+        const o = {};
+        saWritten.forEach(function (k) { const r = m[k] || {}; o[k + '.warn'] = r.warn_value; o[k + '.crit'] = r.crit_value; });
+        return o;
+      };
+      const keysFlat = [];
+      saWritten.forEach(function (k) { keysFlat.push(k + '.warn', k + '.crit'); });
+      await SA.record(rbac, req, PAGE, 'settings_saved', SA.entry({ what: 'thresholds', op: 'update',
+        before: flat(saBefore), after: flat(saAfter), keys: keysFlat,
+        extra: { rows: saWritten.length, partial: res.statusCode >= 400 ? true : undefined } }));
+    }
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

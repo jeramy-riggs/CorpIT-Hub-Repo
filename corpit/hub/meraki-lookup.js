@@ -23,7 +23,7 @@ const KNOWN_SSIDS = ['Auction.com [SECURE]', 'Auction.com GUEST', 'Auction.com',
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
-function merakiGet(path) {
+function merakiGet(path, options = {}) {
   const token = process.env.MERAKI_API_KEY;
   if (!token) return Promise.reject(new Error('MERAKI_API_KEY not set in .env'));
 
@@ -37,18 +37,23 @@ function merakiGet(path) {
       }
     }, (res) => {
       let data = '';
-      res.on('data',  c => data += c);
+      res.on('data', c => { data += c; if (options.maxBytes && Buffer.byteLength(data) > options.maxBytes) req.destroy(new Error('Meraki response exceeded the read limit')); });
       res.on('end',   () => {
         if (res.statusCode === 204 || !data.trim()) {
           resolve({ status: res.statusCode, body: [] });
           return;
         }
-        try   { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        const pagination = {};
+        if (options.pagination) {
+          for (const match of (res.headers.link || '').matchAll(/<([^>]+)>;\s*rel="?([^",;\s]+)"?/g)) pagination[match[2]] = match[1];
+          pagination.retryAfter = res.headers['retry-after'] || null;
+        }
+        try   { resolve({ status: res.statusCode, body: JSON.parse(data), hasMore: /rel="?next(?:"|\s|,|$)/.test(res.headers.link || ''), ...(options.pagination ? {pagination} : {}) }); }
         catch { resolve({ status: res.statusCode, body: data }); }
       });
     });
     req.on('error', reject);
-    req.setTimeout(20000, () => { req.destroy(); reject(new Error(`Meraki request timed out: ${path}`)); });
+    req.setTimeout(Math.min(20000, Math.max(1, options.timeoutMs || 20000)), () => { req.destroy(); reject(new Error(`Meraki request timed out: ${path}`)); });
     req.end();
   });
 }
@@ -560,4 +565,4 @@ async function getWifiConnectionHistory(mac, hours) {
   }
 }
 
-module.exports = { getNocData, getApDetail, getClientByMac, getWifiConnectionHistory };
+module.exports = { getNocData, getApDetail, getClientByMac, getWifiConnectionHistory, merakiGet, ORG_ID, NETWORKS };

@@ -36,6 +36,9 @@ const tls = require('tls');
 const certificateConnectHost = require('./cert-self-target');
 const net = require('net');
 const crypto = require('crypto');
+// settingsfold W6 2026-10-12: PUT /api/cert-config writes an rbac_audit_log row
+// (corpit_hub, via the rbac passed in by server.js).
+const SA = require('./settings-audit');
 
 // Multer config: in-memory, 1MB max (CSV files are tiny). No disk writes.
 const upload = multer({
@@ -667,6 +670,7 @@ module.exports = function createCertWatchtowerRouter(pool, rbac) {
       }
       if (updates.length === 0) return res.status(400).json({ error: 'No valid config keys provided' });
 
+      const saBefore = await SA.byKey(pool, 'SELECT config_key, config_value FROM cert_config', [], 'config_key', 'config_value');
       const conn = await pool.getConnection();
       try {
         await conn.beginTransaction();
@@ -683,6 +687,9 @@ module.exports = function createCertWatchtowerRouter(pool, rbac) {
       } finally {
         conn.release();
       }
+      const saAfter = await SA.byKey(pool, 'SELECT config_key, config_value FROM cert_config', [], 'config_key', 'config_value');
+      await SA.record(rbac, req, 'cert-watchtower', 'settings_saved', SA.entry({ what: 'cert_config', op: 'update',
+        before: saBefore, after: saAfter, keys: updates.map(u => u[0]), secretKeys: CORPIT_SECRET_CONFIG_KEYS }));
       res.json({ ok: true, updated: updates.map(u => u[0]) });
     } catch (err) {
       console.error('PUT /api/cert-config failed:', err);

@@ -1,3 +1,4 @@
+const { readRollupEvidence } = require('./zdx-evidence');
 'use strict';
 const express = require('express');
 const router = express.Router();
@@ -15,6 +16,8 @@ const rbacPool = mysql.createPool({
   connectionLimit: 5,
 });
 const rbac = createRbac(rbacPool);
+// settingsfold W6 2026-10-12: report-config and AI watchlist saves write an rbac_audit_log row.
+const SA = require('./settings-audit');
 const aiCatLib = require('./ai-catalog-lib'); aiCatLib.init(rbacPool); aiCatLib.refresh().catch(function () {}); // AI catalog cache warm (CC-AICAT)
 router.use(rbac.loadCurrentUser);
 // ---------------------------------------------------------------------
@@ -1010,6 +1013,16 @@ router.post('/zpa/cache/clear', rbac.requirePage('zscaler-diag','admin'), (req, 
 // ═══════════════════════════════════════════════════════════════════════
 const requireRead = rbac.requirePage('zscaler-diag', 'read');
 const requireAdmin = rbac.requirePage('zscaler-diag', 'admin');
+const zscalerCapabilities = require('./zscaler-capabilities');
+router.get('/capabilities', requireRead, (req,res)=>res.json({zdx:zscalerCapabilities.zdx,
+  collectionMode:require('os').hostname()==='itam'?'manual_test':'production',
+  note:'ZCC enrollment and reported check-in are available independently. They do not measure live presence or experience.'}));
+router.use('/zdx', requireRead, (req,res,next)=>{
+  if (!zscalerCapabilities.zdx.api && /^\/(apps|devices|departments)(?:\/|$)/.test(req.path))
+    return res.status(501).json(zscalerCapabilities.unavailable());
+  next();
+});
+
 
 // ── Live Status: presence summary (helpdesk landing page tile) ──
 router.get('/presence-summary', requireRead, async (req, res) => {
@@ -1029,7 +1042,8 @@ router.get('/presence-summary', requireRead, async (req, res) => {
       "SELECT SUM(device_count) AS total, MAX(updated_at) AS updated_at FROM zdx_presence_geo WHERE geo_type='country'"
     );
     const total = rows[0] && rows[0].total != null ? Number(rows[0].total) : null;
-    return res.json({ total: total, updated_at: rows[0] ? rows[0].updated_at : null });
+    const freshness = await readRollupEvidence(router._presencePool,'zdx_presence_geo');
+    return res.json({ total:total,updated_at:freshness.newest,freshness });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -1226,14 +1240,18 @@ router.get('/zdx/presence-map', requireRead, async (req, res) => {
     const countries = rows.filter(r => r.geo_type === 'country');
     const states    = rows.filter(r => r.geo_type === 'state');
     const cities    = rows.filter(r => r.geo_type === 'city');
-    const updatedAt = rows.length ? rows.reduce((m, r) => (r.updated_at > m ? r.updated_at : m), rows[0].updated_at) : null;
+    const freshness = await readRollupEvidence(router._presencePool,'zdx_presence_geo');
+    const updatedAt = freshness.newest;
+    // Existing consumers read each row's updated_at; never expose a young rebuild as young evidence.
+    for (const row of rows) row.updated_at = updatedAt;
     return res.json({
       countries: countries,
       states:    states,
       cities:    cities,
       count: { countries: countries.length, states: states.length, cities: cities.length, total: rows.length },
       updated_at: updatedAt,
-      note: 'device_count is placeholder (1 per city); accurate counts arrive with Phase 5 ISP crawl'
+      freshness:freshness,
+      note:'Counts are cached device observations, not people currently online. Evidence dates are capped by underlying device collection; old observations remain historical.'
     });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
@@ -1513,6 +1531,9 @@ async function zccDeviceList(q) {
            body: { devices: all, count: all.length, pagesFetched: page,
                    truncated: truncated, truncatedReason: truncReason } };
 }
+
+// Internal reuse of the existing person-scoped GET; never the CSV export.
+router.identityDeviceList = zccDeviceList;
 
 // ── ZCC: Enrolled devices ── (base /zcc/papi/public/v1; paginated — fleets exceed one page)
 router.get('/zcc/devices', requireRead, async (req, res) => {
@@ -2288,7 +2309,12 @@ router.get('/zcc/summary', requireRead, async (req, res) => {
     const [[cnt]] = await p1aPool.query(
       'SELECT COUNT(*) total, ' +
       'SUM(CASE WHEN device_state="Registered" THEN 1 ELSE 0 END) registered, ' +
-      'SUM(CASE WHEN device_state="Removed" OR deregistration_ts IS NOT NULL THEN 1 ELSE 0 END) deregistered, ' +
+      // deregistration_ts is ZCC's "Last Deregistration TimeStamp": it survives re-enrollment, so it
+      // marks a past event, not a current state. Counting it put 416 registered devices in
+      // 'deregistered' (2026-10-15). The state buckets below sum to total.
+      'SUM(CASE WHEN device_state IN ("Unregistered","Removed") THEN 1 ELSE 0 END) deregistered, ' +
+      'SUM(CASE WHEN device_state="Remove pending" THEN 1 ELSE 0 END) remove_pending, ' +
+      'SUM(CASE WHEN device_state="Quarantined" THEN 1 ELSE 0 END) quarantined, ' +
       'SUM(CASE WHEN last_seen_active >= NOW() - INTERVAL 24 HOUR THEN 1 ELSE 0 END) active_24h, ' +
       'SUM(CASE WHEN last_seen_active < NOW() - INTERVAL 30 DAY THEN 1 ELSE 0 END) stale_30d ' +
       'FROM zcc_devices'
@@ -2448,7 +2474,8 @@ router.get('/zcc/dereg', requireRead, async (req, res) => {
     const [rows] = await p1aPool.query(
       'SELECT udid, user_upn, hostname, device_type, serial_number, ' +
       'registration_ts, deregistration_ts, last_seen_active, policy_name ' +
-      'FROM zcc_devices WHERE deregistration_ts IS NOT NULL ' +
+      // Current state, not the sticky deregistration timestamp (see /zcc/summary).
+      'FROM zcc_devices WHERE device_state <> "Registered" ' +
       'ORDER BY deregistration_ts DESC LIMIT 500'
     );
     return res.json({ deregistered: rows, count: rows.length });
@@ -2476,15 +2503,16 @@ router.get('/zcc/orphans', requireRead, async (req, res) => {
 
 // ── /zcc/device/:udid — single device with Intune cross-link ──
 router.get('/zcc/device/:udid', requireRead, async (req, res) => {
+  const udid=String(req.params.udid || '').trim();
+  if(!udid || udid.length>256)return res.status(400).json({error:'A valid UDID is required'});
   try {
-    const [rows] = await p1aPool.query(
-      'SELECT z.*, i.id intune_id, i.device_name intune_device_name ' +
-      'FROM zcc_devices z LEFT JOIN it_inventory.intune_devices i ON i.serial_number COLLATE utf8mb4_unicode_ci = z.serial_number ' +
-      'WHERE z.udid = ? LIMIT 1',
-      [req.params.udid]
-    );
+    const [rows] = await p1aPool.query('SELECT * FROM zcc_devices WHERE udid=?', [udid]);
     if (!rows.length) return res.status(404).json({ error: 'device not found' });
-    return res.json(rows[0]);
+    const detail=require('./identity-device-detail');
+    const access=await detail.permission(rbac,req,'it-inventory');
+    const crosslink=access==='ok' ? await detail.intuneCrosslink(p1aPool,rows[0])
+      : {intune_id:null,intune_device_name:null,intuneMatches:[],intuneMatch:{status:access,basis:'Inventory read permission is required'}};
+    return res.json({...rows[0],...crosslink});
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -3039,15 +3067,35 @@ router.post('/zia/ai/report-config', requireWrite, express.json(), async functio
     for (const k of allowed) if (b[k] !== undefined) { fields.push('`' + k + '`=?'); vals.push(b[k]); }
     if (!fields.length) return res.status(400).json({ error: 'no valid fields provided' });
     fields.push('updated_by=?'); vals.push((req.user && (req.user.email || req.user.upn)) || 'unknown');
-    vals.push(1);
-    await rbacPool.query('UPDATE ai_report_config SET ' + fields.join(', ') + ' WHERE id=?', vals);
+    // settingsfold W3 2026-10-12: upsert on the single config row (id=1). A plain
+    // UPDATE on an empty table changed nothing and still answered 200 ("saved").
+    // Columns not sent keep their table defaults on the first insert.
+    const cols = fields.map(function (f) { return f.slice(0, -2); });
+    const saBefore = await SA.snap(rbacPool, 'SELECT * FROM ai_report_config WHERE id=1');
+    await rbacPool.query('INSERT INTO ai_report_config (id, ' + cols.join(', ') + ') VALUES (1, ' +
+      cols.map(function () { return '?'; }).join(', ') + ') ON DUPLICATE KEY UPDATE ' +
+      cols.map(function (c) { return c + '=VALUES(' + c + ')'; }).join(', '), vals);
     const [[cfg]] = await rbacPool.query('SELECT * FROM ai_report_config WHERE id=1');
+    await SA.record(rbac, req, 'zscaler-diag', 'settings_saved', SA.entry({ what: 'ai_report_config', id: 1,
+      before: saBefore, after: cfg || null, keys: allowed.filter(function (k) { return b[k] !== undefined; }) }));
     return res.json(cfg);
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 router.post('/zia/ai/report-send', requireWrite, function (req, res) {
   const proc = spawn('/usr/bin/node', ['/var/www/corpit-hub-api/ai-report-send.js', '--now'], { cwd: '/var/www/corpit-hub-api', detached: true, stdio: 'ignore' });
+  // settingsfold W6 follow-up 2026-10-12: Send Now is audited like the digest send-test,
+  // once, when the child exits (exit 0 = settings_test_sent). No row if the hub stops
+  // before the child exits. The 'error' listener also stops a spawn error from
+  // crashing the hub (it was unhandled before).
+  let saDone = false;
+  const saRecord = function (code, signal) {
+    if (saDone) return; saDone = true;
+    SA.record(rbac, req, 'zscaler-diag', code === 0 ? 'settings_test_sent' : 'settings_test_failed',
+      SA.entry({ what: 'ai_report', op: 'send_now', extra: { ok: code === 0, exit_code: code == null ? null : code, signal: signal || null } }));
+  };
+  proc.once('exit', saRecord);
+  proc.once('error', function () { saRecord(null, null); });
   proc.unref();
   return res.json({ triggered: true, pid: proc.pid });
 });
@@ -3636,20 +3684,33 @@ router.post('/zia/ai/export/pdf', requireRead, express.json({ limit: '3mb' }), f
     try {
       var b = req.body || {};
       var who = aiWho(req);
+      var saCols = 'SELECT id, subject, subject_type, status, assignee, notes FROM ai_watchlist WHERE ';
+      var saKeys = ['status', 'assignee', 'notes'];
       if (b.id) {
         var st = ['open', 'monitoring', 'closed'].indexOf(b.status) >= 0 ? b.status : null;
-        await rbacPool.query(
+        var saId = parseInt(b.id, 10);
+        var saBefore = await SA.snap(rbacPool, saCols + 'id=?', [saId]);
+        var saUpd = await rbacPool.query(
           'UPDATE ai_watchlist SET status=COALESCE(?,status), assignee=COALESCE(?,assignee), notes=COALESCE(?,notes), updated_by=?, closed_at=IF(COALESCE(?,status)=\'closed\', COALESCE(closed_at, NOW()), NULL) WHERE id=?',
           [st, b.assignee || null, (typeof b.notes === 'string') ? b.notes : null, who, st, parseInt(b.id, 10)]);
+        if (saUpd[0] && saUpd[0].affectedRows > 0) {
+          var saAfter = await SA.snap(rbacPool, saCols + 'id=?', [saId]);
+          await SA.record(rbac, req, 'zscaler-diag', 'settings_saved', SA.entry({ what: 'ai_watchlist', op: 'update', id: saId,
+            subject: (saAfter || saBefore || {}).subject, before: saBefore, after: saAfter, keys: saKeys }));
+        }
         return res.json({ ok: true });
       }
       var ty = ['user', 'app', 'host'].indexOf(b.subject_type) >= 0 ? b.subject_type : null;
       var subj = String(b.subject || '').trim();
       if (!ty || !subj) return res.status(400).json({ error: 'subject and subject_type (user|app|host) required' });
+      var saPrev = await SA.snap(rbacPool, saCols + 'subject_type=? AND subject=?', [ty, subj]);
       await rbacPool.query(
         'INSERT INTO ai_watchlist (subject, subject_type, status, notes, created_by, updated_by) VALUES (?,?,\'open\',?,?,?) ' +
         'ON DUPLICATE KEY UPDATE status=\'open\', closed_at=NULL, notes=COALESCE(VALUES(notes),notes), updated_by=VALUES(updated_by)',
         [subj, ty, (typeof b.notes === 'string') ? b.notes : null, who, who]);
+      var saNow = await SA.snap(rbacPool, saCols + 'subject_type=? AND subject=?', [ty, subj]);
+      await SA.record(rbac, req, 'zscaler-diag', 'settings_saved', SA.entry({ what: 'ai_watchlist',
+        id: saNow ? saNow.id : undefined, subject: ty + ':' + subj, before: saPrev, after: saNow, keys: saKeys }));
       res.json({ ok: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });

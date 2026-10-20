@@ -1,0 +1,36 @@
+/* Small toggletips; headings keep their existing accessible names and IDs. */
+.ai-help-heading { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.ai-help-heading>h1, .ai-help-heading>h2, .ai-help-heading>h3 { margin-bottom: 0; }
+.ai-help-page-title { margin-bottom: 9px; }
+.ai-help-heading>.ai-help-trigger, .ai-help-field>.ai-help-trigger {
+  display: inline-grid; place-items: center; flex: 0 0 21px;
+  width: 21px; height: 21px; min-width: 21px; min-height: 21px;
+  margin: 0; padding: 0; border: 1px solid var(--line, #b6c2ce);
+  border-radius: 50%; background: transparent; color: var(--muted, #64738a);
+  font-family: inherit; font-size: 12px; line-height: 1; font-weight: 800;
+  cursor: help; vertical-align: middle;
+}
+.ai-help-trigger:hover, .ai-help-trigger[aria-expanded=true] { color: var(--accent, #147299); border-color: var(--accent, #147299); background: var(--tint, #eaf3f7); }
+.ai-help-trigger:focus-visible { outline: 2px solid var(--accent, #147299); outline-offset: 3px; }
+.page-heading .ai-help-trigger { color: #e7f0f5; border-color: #bdcddc88; }
+.page-heading .ai-help-trigger:hover, .page-heading .ai-help-trigger[aria-expanded=true] { color: #fff; background: #ffffff24; border-color: #e7f0f5; }
+.ai-help-popover {
+  position: fixed; inset: auto; margin: 0; padding: 15px 17px;
+  width: min(330px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
+  border: 1px solid var(--line, #dfe3e8); border-top: 3px solid var(--accent, #147299);
+  border-radius: 10px; background: var(--panel, #fff); color: var(--text, #17212e);
+  box-shadow: 0 8px 28px #0a192433; z-index: 10050;
+  font-family: "Governance Nunito", "Nunito", "Segoe UI", sans-serif; font-size: 12px; line-height: 1.6;
+  text-align: left; text-transform: none; letter-spacing: 0; font-weight: 400;
+}
+.ai-help-popover .ai-help-title { color: var(--text, #17212e); font-size: 13px; line-height: 1.4; font-weight: 800; margin: 0 0 7px; letter-spacing: 0; }
+.ai-help-heading .ai-help-popover p { color: var(--muted, #64738a); font-size: 12px; line-height: 1.65; margin: 0; }
+.ai-help-popover::backdrop { background: transparent; }
+.ai-help-popover[hidden] { display: none !important; }
+@media print { .ai-help-trigger, .ai-help-popover { display: none !important; } }
+
+.ai-help-field { position: relative; min-width: 0; }
+.ai-help-field>label { display: flex; flex-direction: column; gap: 6px; }
+.ai-help-field>label>span:first-child { padding-right: 28px; min-height: 21px; }
+.ai-help-field>.ai-help-trigger { position: absolute; right: 0; top: 0; }
+.ai-help-field .ai-help-popover p { margin: 0; }

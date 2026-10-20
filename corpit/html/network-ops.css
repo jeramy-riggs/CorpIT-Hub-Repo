@@ -1,0 +1,80 @@
+/* Workspace structure only; colors, typography, banner and components retain the existing NOC skin. */
+.ops-workspace [hidden],.ops-actions[hidden],.ops-view[hidden],#opsSearchResults[hidden],#opsEvidence[hidden]{display:none!important}
+.ops-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.ops-toolbar label{display:flex;align-items:center;gap:7px;color:var(--o-dim);font-size:12px;font-weight:700}
+.ops-tabs{margin-right:auto}
+.ops-tabs button.on{background:var(--o-mint-wash);color:var(--o-mint);box-shadow:inset 0 -2px var(--o-mint)}
+.ops-toolbar .op-input{min-height:34px;background:var(--o-panel);color:var(--o-ink);border-color:var(--o-line)}
+.ops-context{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;color:var(--o-dim);font-size:12px}
+#opsSelected{margin-left:auto;font-family:var(--n-mono);overflow-wrap:anywhere}
+#opsMessage{margin:6px 0 10px;color:var(--o-mint);font-size:12px;min-height:0}
+#opsMessage:empty{display:none}
+.ops-actions{display:flex;gap:8px;align-items:center}
+#opsEvidence{margin-bottom:14px}
+#opsEvidence p{margin:4px 0 10px;color:var(--o-dim);font-size:12px}
+.ops-related{border-top:1px solid var(--o-line);padding:14px 16px}
+.ops-related h3{font-size:13px;margin:0 0 10px}
+.ops-related p{font-size:12px;color:var(--o-dim);line-height:1.5}
+.ops-related .op-tools{display:flex;flex-wrap:wrap;gap:8px}
+.ops-finding{margin:8px 0;font-size:12px;line-height:1.5}
+body.u.cmd.noc .ntop .nsearch{position:relative;min-width:180px}
+.ops-search-results{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:200;max-height:340px;overflow:auto;background:var(--o-panel);border:1px solid var(--o-line);border-radius:var(--n-r);box-shadow:var(--o-shadow);padding:5px}
+.ops-search-results button{display:block;width:100%;border:0;background:transparent;color:var(--o-ink);font:inherit;font-size:12px;text-align:left;padding:10px;border-radius:7px;cursor:pointer;overflow-wrap:anywhere}
+.ops-search-results button:hover,.ops-search-results button:focus-visible{background:var(--o-panel2);outline:2px solid var(--o-focus);outline-offset:-2px}
+#ops-overview #oh-faults{max-height:560px;overflow:auto}
+.ops-view :is(th,td){overflow-wrap:anywhere}
+.ops-view .ntw{max-width:100%}
+#ops-investigate .op-trace-tools{padding:0 0 12px}
+@media(max-width:900px){.ops-toolbar label{flex:1}.ops-toolbar label select{flex:1;min-width:0}.ops-tabs{width:100%;margin:0}.ops-tabs button{flex:1}.ops-tabs{display:flex}.ops-toolbar>#opsCopy{margin-left:auto}#opsSelected{width:100%;margin-left:0}body.u.cmd.noc .ncrumb h1{font-size:18px}.ops-actions .nbtn{padding:6px 8px}}
+@media(max-width:640px){.ops-toolbar{gap:9px}.ops-toolbar label{flex:1 1 40%}.ops-toolbar>#opsCopy{width:100%}.ops-context{align-items:flex-start}body.u.cmd.noc .ntop{flex-wrap:wrap;height:auto;min-height:110px;gap:8px;padding:10px 12px}body.u.cmd.noc .ntop .nsearch{order:4;display:flex;flex:1 1 100%;max-width:none}body.u.cmd.noc .ncrumb{min-width:0;flex:1}body.u.cmd.noc .ncrumb .sub{font-size:10px}body.u.cmd.noc .nbody{padding:12px}.ops-actions{gap:5px}.ops-related .nbtn{white-space:normal}#ops-overview #oh-faults{max-height:460px}}
+@media(prefers-reduced-motion:reduce){.ops-workspace *{scroll-behavior:auto!important}}
+
+#oh-tRange,.rbar .u-seg:has([data-rh]){display:none!important}
+/* Use the layout viewport so a phone scrollbar cannot push the drawer off screen. */
+body.u.cmd.noc .u-drawer{width:min(560px,100%);max-width:100%;box-sizing:border-box}
+/* Modal details sit above the existing fixed account dock, including the close button. */
+body.u.cmd.noc .u-scrim{z-index:10010}
+body.u.cmd.noc .u-drawer{z-index:10011}
+
+.ops-port-finder{border-top:1px solid var(--o-line);margin-top:14px;padding-top:14px}
+.ops-port-finder .op-tools{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.ops-port-finder label{display:flex;align-items:center;gap:7px;color:var(--o-dim);font-size:12px}
+.ops-port-finder input{min-width:180px;max-width:100%}
+.ops-port-finder p{font-size:12px;color:var(--o-dim);margin:12px 0}
+.ops-port-matches{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto}
+.ops-port-matches .nbtn{text-align:left;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:640px){.ops-toolbar>#opsSummary{width:100%}.ops-port-finder label{width:100%}.ops-port-finder input{min-width:0;flex:1}}
+/* Replay uses the existing palette; avatar movement is isolated from the plan and labels. */
+#ops-investigate .roam-replay #rWalker{transition:none;will-change:transform}
+#ops-investigate .roam-replay .rstage{transition:none!important}
+#ops-investigate .rtravel3,#ops-investigate .rtravel-shadow{position:absolute;inset:0;display:none;pointer-events:none;transform-origin:0 0;will-change:transform}
+#ops-investigate .rtravel3{z-index:4}
+#ops-investigate .rtravel-shadow{z-index:2}
+#ops-investigate .rmap.r3d .rtravel3,#ops-investigate .rmap.r3d .rtravel-shadow{display:block}
+#ops-investigate .r-person{position:absolute;left:0;top:0;width:clamp(24px,5.5%,44px);transform-origin:50% 94%;transform:translate(-50%,-94%) rotateX(-55deg)}
+#ops-investigate .r-person.facing-left{transform:translate(-50%,-94%) rotateX(-55deg) scaleX(-1)}
+#ops-investigate .rmap .rperson-svg{position:static;inset:auto;width:100%;height:auto;overflow:visible;filter:drop-shadow(0 1px 1px rgba(0,0,0,.2))}
+#ops-investigate .rp-shadow{fill:rgba(0,0,0,.2)}
+#ops-investigate .r-person .rp-shadow{opacity:0}
+#ops-investigate .rp-leg{fill:none;stroke:var(--u-text-2);stroke-width:4;stroke-linecap:round;transform-origin:18px 30px}
+#ops-investigate .rp-shoe{stroke:var(--u-text)}
+#ops-investigate .rp-shirt{fill:var(--u-accent);stroke:var(--u-surface);stroke-width:.6}
+#ops-investigate .rp-head{fill:#dfb58f}
+#ops-investigate .rp-hair{fill:var(--u-text-2)}
+#ops-investigate .rp-arm-front,#ops-investigate .rp-arm-back{stroke:#dfb58f;stroke-width:3.8;stroke-linecap:round;fill:none}
+#ops-investigate .rp-laptop{fill:var(--u-surface-3);stroke:var(--u-text-2);stroke-width:1}
+#ops-investigate .rtravel-shadow span{display:block;width:6%;height:2.8%;background:radial-gradient(ellipse,rgba(0,0,0,.28),transparent 70%);transform:translate(-50%,-50%)}
+#ops-investigate .roam-replay .rcall{left:12px;bottom:12px;transform:none;min-width:0;max-width:210px;animation:none}
+#ops-investigate .roam-replay .rcall b svg{position:static;width:12px;height:12px}
+#ops-investigate .roam-replay .rtag.alert{animation:none;border-color:var(--u-bad)}
+#ops-investigate .roam-replay .rtag.current{outline:2px solid var(--u-accent);outline-offset:2px}
+#ops-investigate .walking .rp-leg-back{animation:roam-leg-back var(--r-gait,.5s) linear infinite}
+#ops-investigate .walking .rp-leg-front{animation:roam-leg-front var(--r-gait,.5s) linear infinite}
+#ops-investigate .walking .rp-person{animation:roam-stride var(--r-gait,.5s) linear infinite}
+@keyframes roam-leg-back{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(14deg)}}
+@keyframes roam-leg-front{0%,100%{transform:rotate(14deg)}50%{transform:rotate(-14deg)}}
+@keyframes roam-stride{0%,50%,100%{transform:translateY(0)}25%,75%{transform:translateY(-.7px)}}
+@media(prefers-reduced-motion:reduce){#ops-investigate .walking .rp-leg-back,#ops-investigate .walking .rp-leg-front,#ops-investigate .walking .rp-person{animation:none}#ops-investigate .rtravel3,#ops-investigate .rtravel-shadow{will-change:auto}}
+/* Keep the map usable even when the floor image cannot be loaded. */
+#ops-investigate .roam-replay.r3d .rstage{top:50%}
+#ops-investigate .rtravel3{transform-style:preserve-3d}

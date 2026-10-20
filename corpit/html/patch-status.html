@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<!-- Intune health (DEV). Everything the hub can read from Intune and the Entra
+     device records beside it, laid out for the help desk: what needs attention,
+     every device, updates, compliance, enrollment, housekeeping. Read only except the update-ring
+     editor (super-admins, audited); every other action opens the record in Intune or Entra. Layout and tokens follow the
+     Zscaler Command Center NOC skin (zscaler-noc.css) so the page can fold into it
+     later. Access: super-admins + SaaS-ITH-HD (tier2), enforced by /api/patch-status. -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intune Health — IT Command</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<script src="/it-theme-toggle.js"></script>
+<link rel="stylesheet" href="/patch-status.css?v=9a1d72e8fb6c">
+<script src="/rbac-client.js"></script>
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/patch-status-portal.css?v=0c15b61ff3f6">
+<link rel="stylesheet" href="/workspace-whats-new.css?v=20261018-six-tours4">
+<link rel="stylesheet" href="/patch-status-welcome.css?v=e292a1d91413">
+</head>
+<body data-dp="patch-status">
+
+<aside class="rail" id="ps-rail">
+  <div class="brand">
+    <div class="logo">I</div>
+    <div><h1>CorpIT</h1><p>Intune health</p></div>
+  </div>
+  <nav class="nav" id="nav" aria-label="Intune health sections">
+    <div class="noc-nav" aria-label="Operational navigation">
+      <div class="noc-nav-h">Monitor</div>
+      <button type="button" data-go="overview" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span>Overview</span></button>
+      <button type="button" data-go="devices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="11.5" rx="2"/><path d="M8.5 20h7M12 16v4"/></svg><span>Devices</span></button>
+      <div class="noc-nav-h">Health</div>
+      <button type="button" data-go="updates"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 00-14.3-4.9L4 8"/><path d="M4 3.5V8h4.5"/><path d="M4 13a8 8 0 0014.3 4.9L20 16"/><path d="M20 20.5V16h-4.5"/></svg><span>Windows updates</span></button>
+      <button type="button" data-go="security"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6L12 3z"/><path d="M8.8 12.2l2.2 2.2 4.3-4.6"/></svg><span>Compliance &amp; security</span></button>
+      <button type="button" data-go="enrollment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M12 8v7M8.5 11.5h7"/></svg><span>Enrollment &amp; Autopilot</span></button>
+      <button type="button" data-go="apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg><span>Apps</span></button>
+      <div class="noc-nav-h">Maintain</div>
+      <button type="button" data-go="housekeeping"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v5M14 11v5"/></svg><span>Housekeeping</span></button>
+      <button type="button" data-go="repair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.5 2.5-2.3-.5-.5-2.3z"/></svg><span>Repair</span></button>
+      <div class="noc-nav-h">Migration</div>
+      <button type="button" data-go="migration"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h11m-4-4 4 4-4 4M20 17H9m4-4-4 4 4 4"/></svg><span>GPO migration</span></button>
+      <div class="noc-nav-h">Reference</div>
+      <button type="button" data-go="sources"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4V20a.5.5 0 01-.5.5h-10.5A.5.5 0 016.5 20V4a.5.5 0 01.5-.5z"/><path d="M14 3.5V8h4M9.5 12.5h5M9.5 16h5"/></svg><span>Sources &amp; limits</span></button>
+    </div>
+  </nav>
+  <div class="railfoot"><span class="rf-ver">Intune health · dev build 10</span></div>
+</aside>
+
+<div class="shell">
+  <header class="top">
+    <button type="button" id="noc-menu" aria-label="Open navigation" aria-expanded="false" aria-controls="ps-rail"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="crumb">
+      <svg class="chome" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>
+      <span class="cgrp">Endpoints</span>
+      <svg class="csep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      <b id="crumb">Intune health</b>
+    </div>
+    <div class="topright"><span class="noc-mode">DEV console</span>
+      <div id="it-topbar" class="ittb-anchor"></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Hide first, ask second: nothing below the gate renders or fetches until
+         /api/rbac/me answers that this person is allowed. -->
+    <section class="noc-panel ps-gate" id="ps-gate" role="status" aria-live="polite">
+      <h3 id="ps-gate-h">Checking access…</h3>
+      <p id="ps-gate-p">Confirming your access before any device data loads.</p>
+      <div id="ps-gate-a"></div>
+    </section>
+
+    <div class="noc-workspace" id="ps-work" hidden>
+      <div class="noc-page-head">
+        <div><h2 id="ps-title">Intune health</h2><p id="ps-sub">What needs a technician today, across every device Intune manages.</p></div>
+        <div class="noc-actions">
+          <span class="noc-live" id="ps-live">Waiting for the first read</span>
+          <button type="button" id="ps-refresh">Refresh</button>
+          <button type="button" class="cwn-trigger" id="workspace-whats-new-link" aria-haspopup="dialog" aria-controls="workspace-whats-new" hidden>How to use</button>
+          <button type="button" id="ps-help-btn" aria-expanded="false" aria-controls="ps-help">How to read this</button>
+          <button type="button" id="ps-export">Export CSV</button>
+        </div>
+      </div>
+      <div class="noc-panel noc-help-copy" id="ps-help" hidden>
+        <h3>Every number is a device's last report</h3>
+        <p>Intune only knows what a device said at its last check-in. A device that has not checked in may already be fixed; open it and look at <b>Last check-in</b> before acting.</p>
+        <p><b>Needs attention</b> lists what to work, most serious first. Each item opens the list of devices behind it. Click a device name for everything Intune holds on it, its Defender state and discovered apps.</p>
+        <p><b>Housekeeping</b> finds records to clean up: devices that stopped checking in, duplicate records for one serial number, and Entra device records with no Intune record. Nothing on this page deletes or retires a device; each row opens the record in Intune or Entra, where the action is taken and audited.</p>
+        <p><b>Update rings</b> and <b>compliance policies</b> are read from Intune on every refresh: which ring each Windows PC is in, what it last reported for that ring, and which policy and setting a non-compliant device fails. <b>Apps</b> lists the apps Intune deploys with failed installs; click one for the devices and the error code. <b>Enrollment &amp; Autopilot</b> compares the Autopilot hardware list with Intune by serial number.</p>
+        <p><b>GPO migration:</b> the shared register stores owners, stages, existing profile links, pilot groups and review evidence in CorpIT. It does not create policies or change assignments, group membership or GPOs.</p>
+        <p><b>In-page changes:</b> super-admins can review and save update-ring edits in Intune, or review and run the pinned enrollment repair through ManageEngine on up to five eligible PCs. The hub audits both actions. Other administrative changes open the appropriate portal.</p>
+        <p><b>Ring target dates</b> estimate timing from the baseline release date and ring settings. Actual enforcement depends on the device discovering the update and reaching a pending restart; those times are not read here.</p>
+        <p>Patch status is Windows only: <b>Current</b> is at or past the baseline update, <b>Pending</b> is behind it and checked in within 7 days, <b>Not checking in</b> is behind with no check-in for over 7 days. ManageEngine patching runs alongside Intune; this page cannot tell which tool installed an update.</p>
+      </div>
+      <div class="noc-note ps-warn" id="ps-stale" hidden></div>
+      <div id="ps-body"></div>
+      <div class="noc-footer"><span id="ps-stamp">No completed read yet</span><span>DEV console · Intune via Microsoft Graph · reads, shared planning records, super-admin ring edits and ManageEngine repair</span></div>
+    </div>
+  </main>
+</div>
+
+<div class="ps-scrim" id="ps-scrim" hidden></div>
+<aside class="ps-drawer" id="ps-drawer" role="dialog" aria-modal="true" aria-labelledby="ps-dr-h" hidden></aside>
+
+<script src="/it-topbar.js" defer></script>
+<script src="/gpo-migration-ui.js?v=ded0eb307dad" defer></script>
+<script src="/patch-status.js?v=f3683cfcc410" defer></script>
+<!-- Shared screenshot-led welcome; its animation never changes the workspace data. -->
+<script type="application/json" id="workspace-whats-new-content">{"title": "How to use Intune Health", "description": "Learn what the readings mean, where to investigate, and how to choose the next step. Follow eight guided topics or jump to the section you need.", "autoHashes": ["", "#overview"], "guide": true, "training": true, "seenKey": "corpit:intune:whats-new:2026-10-18-v1", "steps": [{"title": "1. Start with the evidence", "label": "Overview", "description": "Overview is the starting queue. It helps you decide what to investigate first; its counts describe devices’ last reports.", "image": "/assets/workspace-tours/intune-attention.webp?v=20261018-intune-tour1", "focus": [[1.421, 6.147, 97.056, 74.156], [1.523, 84.54, 25.178, 8.475]], "actions": ["Check the read time. Use Sources & limits when a reading is unavailable, incomplete or older than expected.", "Start in Needs attention. Select a group to open the relevant investigation; expand the remaining groups when needed.", "Before acting on a device, check its Last check-in. A successful refresh does not make an offline device’s report current."], "meaning": "A device can appear in several attention groups, so do not add those totals together. An unavailable reading means unknown, not zero problems.", "alt": "Real DEV Needs attention groups and the control for showing more groups."}, {"title": "2. Find and inspect a device", "label": "Devices", "description": "Devices connects a fleet-wide concern to one device’s record, user, last check-in and supporting evidence.", "image": "/assets/workspace-tours/train-devices.webp?v=20261018-training1", "focus": [[1.2, 32.011, 97.5, 28.098]], "actions": ["Open Devices. Search by device name, user, serial, model or build; combine Platform, Issue and Update status filters.", "Read the active filter chips. Remove one chip or use Reset filters when the list is unexpectedly empty.", "Select a device name. Review its last check-in, primary user, compliance, Defender, hardware and discovered apps together."], "meaning": "Sorting changes the order; paging changes what is displayed. Export all matches includes every filtered device, including the pages you have not opened.", "alt": "Real DEV device search, combined filter controls and sortable column headings, without individual records."}, {"title": "3. Work the Windows patch backlog", "label": "Windows updates", "description": "Windows updates compares reported builds with the page’s baseline. It separates active patch work from stale device reports.", "image": "/assets/workspace-tours/intune-updates.webp?v=20261018-intune-tour1", "focus": [[6.611, 61.021, 58.345, 27.378], [8.034, 89.791, 55.677, 9.513]], "actions": ["Start with Active patch backlog: below baseline, with a check-in within 7 days. Use Open filtered list to investigate individual devices.", "For Behind with stale check-ins, confirm contact and ownership before assuming the displayed build is still current.", "Review a device’s build and ring evidence. If there is no Intune ring, investigate its update management before deciding what to change."], "meaning": "Ring target dates are estimates, not device enforcement deadlines. A current build does not tell this page whether Intune or ManageEngine installed it.", "alt": "Real DEV Windows update measures, active backlog explanation and sortable controls."}, {"title": "4. Trace a compliance or security issue", "label": "Compliance & security", "description": "This section separates policy compliance, encryption, Defender and other security evidence so you can identify the reported failure.", "image": "/assets/workspace-tours/train-security.webp?v=20261018-training1", "focus": [[1.2, 18.254, 97.5, 49.07]], "actions": ["Review the compliance state, including In grace period. Open the affected device rather than relying on the overall percentage.", "Use Compliance policies and Settings devices fail to identify the policy or setting behind the result.", "Check the device’s encryption and Defender evidence, along with when it last checked in, before choosing a remediation."], "meaning": "Compliant, encrypted, Defender clean and on the current update answer different questions. One green measure does not establish that the others are healthy.", "alt": "Real DEV compliance, encryption and Defender measures and compliance table headings, without individual records."}, {"title": "5. Diagnose an app installation", "label": "Apps", "description": "Apps shows Intune deployment results. Open an application to see the non-installed report records and their recorded errors.", "image": "/assets/workspace-tours/train-apps.webp?v=20261018-training1", "focus": [[1.2, 32.887, 97.5, 34.761]], "actions": ["Start with Failed installs. Search by application, publisher or platform; use All apps when the application is not in that list.", "Select an application. Check State, Error, Version and When for the device involved; open its device record when a match is available.", "Compare the snapshot summary with the detail explanation. Export devices when you need the full detail list for investigation."], "meaning": "Detail counts are report records and can include several device/user contexts for one device. Use the stated distinct device count; a detail-row total can differ from the summary.", "alt": "Real DEV app summary, Failed installs and All apps controls, search and sortable headings."}, {"title": "6. Check enrollment before considering repair", "label": "Enrollment & Autopilot", "description": "Enrollment & Autopilot compares Entra, Intune and Autopilot records. A registration and an enrollment are different pieces of evidence.", "image": "/assets/workspace-tours/train-enrollment.webp?v=20261018-training1", "focus": [[1.2, 39.741, 97.5, 21.0]], "actions": ["Review Active Windows PCs with no Intune record. Confirm the device identity and the source read and sign-in times.", "Compare Autopilot registration, profile and deployment evidence with the actual Intune enrollment record.", "If repair is being considered, open Repair to review its AD and ManageEngine evidence. Confirm the exact PC and authorization before any run."], "meaning": "Enrollment uses Entra records; Repair combines AD, ManageEngine and Entra, so their totals can differ. Super-admin repair execution changes enrollment and requires a separate review.", "alt": "Real DEV enrollment portal links, active missing-device scope explanation and table headings, without device rows."}, {"title": "7. Review records before cleanup", "label": "Housekeeping", "description": "Housekeeping identifies records that need review. Stale contact, duplicate records and departed owners each need a different check.", "image": "/assets/workspace-tours/train-housekeeping.webp?v=20261018-training1", "focus": [[1.2, 37.478, 97.5, 34.435]], "actions": ["Choose the no-check-in age you want to investigate. Check the source date and the device’s last contact before deciding it is unused.", "For duplicate records, compare the serial, enrollment and most recent activity. Confirm the correct record and current owner.", "Review departed-user and Entra-only records separately. Open the appropriate Intune or Entra record for any authorized administrative action."], "meaning": "This page does not delete or retire records. An existing Intune cleanup rule may separately remove old records; its timing is shown here. A quiet laptop may still be in use.", "alt": "Real DEV housekeeping explanation, check-in age distribution, age filters and table headings, without device rows."}, {"title": "8. Plan GPO migration with evidence", "label": "GPO migration", "description": "The super-admin GPO migration area shares planning records with the AD assessment and links them to existing Intune profiles and pilot evidence.", "image": "/assets/workspace-tours/intune-migration.webp?v=20261018-intune-tour1", "focus": [[3.133, 0.25, 26.642, 9.0], [3.325, 39.0, 93.054, 8.75], [4.092, 56.0, 91.712, 28.25]], "actions": ["Check the AD snapshot age and open the GPO’s AD plan. Confirm its scope and settings before treating a profile as a replacement.", "Record an owner and review track. Link existing Intune profiles and an existing pilot group; add success criteria and validation references.", "Read linked evidence. Review direct membership, device matches, check-ins and compliance, including the stated exclusions and unknowns."], "meaning": "A linked profile, recent check-in, compliant device or recorded stage does not prove settings applied. Saving changes CorpIT planning metadata only; it does not deploy policies or retire GPOs.", "alt": "Real DEV shared migration register introduction, source-age warning, AD assessment link and filters."}]}</script>
+<dialog id="workspace-whats-new" class="cwn" data-workspace-tour="intune" aria-labelledby="cwn-title" aria-describedby="cwn-description">
+  <button class="cwn-close" type="button" data-cwn-close aria-label="Close tour"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>
+  <div class="cwn-body">
+    <div class="cwn-screen">
+      <p class="cwn-progress"><span class="cwn-emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/><path d="M20 2v4M18 4h4"/></svg></span><span data-cwn-progress aria-live="polite" aria-atomic="true">Training guide</span><label class="ps-tour-topic">Jump to<select data-cwn-topic aria-label="Choose a training topic"><option value="-1">Introduction</option><option value="0">1. Start with the evidence</option><option value="1">2. Find and inspect a device</option><option value="2">3. Work the Windows patch backlog</option><option value="3">4. Trace a compliance or security issue</option><option value="4">5. Diagnose an app installation</option><option value="5">6. Check enrollment before considering repair</option><option value="6">7. Review records before cleanup</option><option value="7">8. Plan GPO migration with evidence</option></select></label></p>
+      <h2 class="cwn-title" id="cwn-title" tabindex="-1">How to use Intune Health</h2>
+      <p class="cwn-description" id="cwn-description">Learn what the readings mean, where to investigate, and how to choose the next step. Follow eight guided topics or jump to the section you need.</p>
+      <div class="cwn-stage" aria-hidden="true"><div class="cwn-mini"><img src="/assets/workspace-tours/intune-attention.webp?v=20261018-intune-tour1" alt="" width="1200" height="460"><span>Review</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/workspace-tours/intune-updates.webp?v=20261018-intune-tour1" alt="" width="1200" height="460"><span>Investigate</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/workspace-tours/intune-migration.webp?v=20261018-intune-tour1" alt="" width="1200" height="460"><span>Plan</span><i class="cwn-mini-sheen"></i></div><div class="cwn-ai-flow" aria-hidden="true"><i class="cwn-ai-orbit"></i><div class="cwn-ai-node"><b>01</b><span>Review</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>02</b><span>Investigate</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>03</b><span>Plan</span></div></div></div>
+      <p class="cwn-welcome-note">Eight guided topics. Follow along or jump to a section.<br>Reopen anytime from <strong>How to use</strong>.</p>
+      <section class="ps-tour-lesson" data-cwn-lesson hidden><h3>What to do</h3><ol data-cwn-actions></ol><div class="ps-tour-meaning"><h3>What this means</h3><p data-cwn-meaning></p></div></section>
+      <figure class="cwn-preview" hidden>
+        <div class="cwn-image-wrap"><p class="ps-tour-image-status" data-cwn-image-status role="status" aria-live="polite" aria-atomic="true" hidden></p><div class="cwn-shot"><img alt="" width="1200" height="460"><div class="cwn-focuses" aria-hidden="true"></div></div></div>
+        <figcaption>Real DEV screenshots. Counts are a snapshot; available tools follow your access.</figcaption>
+      </figure>
+    </div>
+  </div>
+  <footer class="cwn-footer">
+    <div class="cwn-track" aria-hidden="true" hidden><span></span><span></span><span></span><i class="cwn-indicator"></i></div>
+    <button class="btn btn-ghost cwn-button" type="button" data-cwn-later>Maybe later</button>
+    <div class="cwn-actions">
+      <button class="btn btn-ghost cwn-button" type="button" data-cwn-back hidden>Back</button>
+      <button class="btn btn-primary cwn-button cwn-next" type="button" data-cwn-next autofocus><span>Show me how</span><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+    </div>
+  </footer>
+</dialog>
+<script src="/patch-status-welcome.js?v=20261019-account-guides1" defer></script>
+</body>
+</html>

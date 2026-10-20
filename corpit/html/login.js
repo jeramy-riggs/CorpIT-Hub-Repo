@@ -41,6 +41,27 @@
   var _qs = new URLSearchParams(location.search);
   var _returnTarget = sanitizeReturn(_qs.get('return'));
 
+  /* [CORPIT-RETURN-HASH] 2026-10-14. A deep link such as /identity-diag.html#projects
+   * lost its #view at sign-in: the fragment never reaches the server, so ?return=
+   * and every hop after it carry path + query only, and the visitor landed on the
+   * page's default view. The browser does keep the fragment across nginx's 302, so
+   * it is on THIS page's URL. Hold it in this tab's sessionStorage keyed to the
+   * return path; auth-complete.js (and showRedirectAndGo below) put it back.
+   * Only a plain view name is kept -- no '=' or '&' -- so a token-shaped fragment
+   * is never carried, and the clear-the-hash block further down still runs. */
+  var RETURN_HASH_KEY = 'it_return_hash';
+  var RETURN_HASH_RE = /^#[A-Za-z0-9_\-\/.:]{1,100}$/;
+  var _returnHash = (_returnTarget && _returnTarget.charAt(0) === '/' &&
+    RETURN_HASH_RE.test(window.location.hash)) ? window.location.hash : '';
+  try {
+    if (_returnHash) {
+      sessionStorage.setItem(RETURN_HASH_KEY,
+        JSON.stringify({ path: _returnTarget, hash: _returnHash, at: Date.now() }));
+    } else if (_returnTarget) {
+      sessionStorage.removeItem(RETURN_HASH_KEY);
+    }
+  } catch (e) { /* storage blocked: the page still opens, on its default view */ }
+
   /* -- status line ---------------------------------------------------------- */
   function showStatus(msg, type) {
     var el = $('status-msg');
@@ -112,8 +133,9 @@
     var f = $('login-form'), r = $('redirect-msg');
     if (f) f.style.display = 'none';
     if (r) r.style.display = 'block';
+    try { sessionStorage.removeItem(RETURN_HASH_KEY); } catch (e) {}
     setTimeout(function () {
-      window.location.replace(_returnTarget || POST_LOGIN_URL);
+      window.location.replace(_returnTarget ? _returnTarget + _returnHash : POST_LOGIN_URL);
     }, 600);
   }
 
@@ -466,28 +488,18 @@
             return m.ok ? m.json() : null;
           })
           .then(function (j) {
-            if (j && j.token) {
-              /* The HttpOnly cookie is fresh; the sessionStorage mirror still holds
-               * the OLD token, which rbac-client.js attaches as the Bearer on every
-               * /api/ call, and rbac-middleware prefers a bad bearer over a good
-               * cookie. Leaving it stale 401s every XHR against a live session. */
+            if (j && j.ok) {
+              /* Renewal refreshes the HttpOnly cookie. Clear any old SSO bearer
+               * mirror so later API calls keep using that cookie. */
               try {
                 var raw = JSON.parse(sessionStorage.getItem('sso_user') || '{}');
-                raw.idToken = j.token;
+                raw.idToken = '';
+                raw.cookieSession = true;
                 if (j.email) raw.email = j.email;
                 if (j.name)  raw.name  = j.name;
                 sessionStorage.setItem('sso_user', JSON.stringify(raw));
               } catch (e) {}
-              /* CORPIT-REMINT-CROSSTAB (2026-09-04): tell the OTHER tabs. sessionStorage
-               * is per-tab, so a tab that was already open keeps the PREVIOUS token as
-               * its Bearer while the cookie has moved on - and rbac-middleware prefers a
-               * bad bearer over a good cookie. When the old token's exp passes, that
-               * tab's next background XHR 401s and rbac-client.js's intercept sends it
-               * to /login.html?expired=1 - telling a user with a live session that it
-               * expired. it-session-watch.js already listens for this exact localStorage
-               * key and re-syncs its bearer from GET /api/auth/token; until now the key
-               * was written ONLY by the watcher's own renewal, so a re-mint performed
-               * here was invisible to every open tab. Same key, same contract. */
+              /* Notify sibling tabs that their cookie was renewed. */
               try { localStorage.setItem('itcmd_sess_renewed', String(Date.now())); } catch (e) {}
             }
           })

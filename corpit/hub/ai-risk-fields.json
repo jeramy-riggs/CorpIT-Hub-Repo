@@ -1,0 +1,431 @@
+[
+  {
+    "key": "dept",
+    "label": "Department",
+    "required": 1,
+    "allowed": null,
+    "section": "Identity & ownership",
+    "kind": "text"
+  },
+  {
+    "key": "name",
+    "label": "Name of AI/ML use or system",
+    "required": 1,
+    "allowed": null,
+    "section": "Identity & ownership",
+    "kind": "text"
+  },
+  {
+    "key": "what",
+    "label": "What it does / business process it supports",
+    "required": 1,
+    "allowed": null,
+    "section": "Identity & ownership",
+    "kind": "long"
+  },
+  {
+    "key": "cat",
+    "label": "Category",
+    "required": 1,
+    "allowed": [
+      "Built in-house (API/agent/automation/app)",
+      "Embedded AI feature in SaaS",
+      "Standalone AI tool/platform",
+      "Dev tooling (coding assistant / CI-CD / IDE)",
+      "Other"
+    ],
+    "section": "Identity & ownership",
+    "kind": "select"
+  },
+  {
+    "key": "status",
+    "label": "Status",
+    "required": 1,
+    "allowed": [
+      "Production",
+      "Pilot / POC",
+      "In development",
+      "Retired"
+    ],
+    "section": "Identity & ownership",
+    "kind": "select"
+  },
+  {
+    "key": "golive",
+    "label": "Go-live date (actual or planned)",
+    "required": 0,
+    "allowed": null,
+    "section": "Identity & ownership",
+    "kind": "date"
+  },
+  {
+    "key": "bowner",
+    "label": "Business owner",
+    "required": 1,
+    "allowed": null,
+    "section": "Identity & ownership",
+    "kind": "text"
+  },
+  {
+    "key": "towner",
+    "label": "Technical owner / custodian",
+    "required": 1,
+    "allowed": null,
+    "section": "Identity & ownership",
+    "kind": "text"
+  },
+  {
+    "key": "vendor",
+    "label": "AI vendor / platform",
+    "required": 1,
+    "allowed": null,
+    "section": "Platform & access",
+    "kind": "text"
+  },
+  {
+    "key": "model",
+    "label": "Model and version",
+    "required": 0,
+    "allowed": null,
+    "section": "Platform & access",
+    "kind": "text"
+  },
+  {
+    "key": "access",
+    "label": "Access method",
+    "required": 1,
+    "allowed": [
+      "API",
+      "MCP",
+      "Embedded SaaS feature",
+      "SDK / library",
+      "Browser or desktop app",
+      "In-house hosted model",
+      "Other"
+    ],
+    "section": "Platform & access",
+    "kind": "select"
+  },
+  {
+    "key": "agentic",
+    "label": "Agentic? (multi-step actions without per-step human approval)",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Platform & access",
+    "kind": "select"
+  },
+  {
+    "key": "agtools",
+    "label": "If agentic: tools and permissions it holds",
+    "required": 0,
+    "allowed": null,
+    "section": "Platform & access",
+    "kind": "long"
+  },
+  {
+    "key": "host",
+    "label": "Hosting / runtime",
+    "required": 0,
+    "allowed": null,
+    "section": "Platform & access",
+    "kind": "text"
+  },
+  {
+    "key": "systems",
+    "label": "Systems and data sources connected",
+    "required": 0,
+    "allowed": null,
+    "section": "Platform & access",
+    "kind": "long"
+  },
+  {
+    "key": "sso",
+    "label": "Okta / SSO used?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Partial",
+      "N/A"
+    ],
+    "section": "Platform & access",
+    "kind": "select"
+  },
+  {
+    "key": "keys",
+    "label": "Service account / API key management",
+    "required": 0,
+    "allowed": null,
+    "section": "Platform & access",
+    "kind": "long"
+  },
+  {
+    "key": "instance",
+    "label": "Instance type",
+    "required": 1,
+    "allowed": [
+      "Private / enterprise",
+      "Public / consumer",
+      "Unsure"
+    ],
+    "section": "Platform & access",
+    "kind": "select"
+  },
+  {
+    "key": "npi",
+    "label": "Processes NPI?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Data",
+    "kind": "select"
+  },
+  {
+    "key": "pii",
+    "label": "Processes other PII?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Data",
+    "kind": "select"
+  },
+  {
+    "key": "ip",
+    "label": "Processes company IP / confidential?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Data",
+    "kind": "select"
+  },
+  {
+    "key": "client",
+    "label": "Processes client data (incl. loan-level data, client O365 content)?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Data",
+    "kind": "select"
+  },
+  {
+    "key": "clients",
+    "label": "If client data: which client(s)?",
+    "required": 0,
+    "allowed": null,
+    "section": "Data",
+    "kind": "text"
+  },
+  {
+    "key": "consumer",
+    "label": "Processes consumer (SmartSale) data?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Data",
+    "kind": "select"
+  },
+  {
+    "key": "third",
+    "label": "Data sent to or retained by a third party?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Third party & monitoring",
+    "kind": "select"
+  },
+  {
+    "key": "training",
+    "label": "Vendor training / retention status",
+    "required": 0,
+    "allowed": [
+      "Contractually prohibited",
+      "Opt-out configured",
+      "Not prohibited",
+      "Unknown"
+    ],
+    "section": "Third party & monitoring",
+    "kind": "select"
+  },
+  {
+    "key": "siem",
+    "label": "Logs sent to SIEM?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Partial",
+      "Unknown"
+    ],
+    "section": "Third party & monitoring",
+    "kind": "select"
+  },
+  {
+    "key": "mon",
+    "label": "Other monitoring",
+    "required": 0,
+    "allowed": null,
+    "section": "Third party & monitoring",
+    "kind": "long"
+  },
+  {
+    "key": "aud",
+    "label": "Users / audience",
+    "required": 1,
+    "allowed": [
+      "Internal staff",
+      "Clients / customers",
+      "Buyers / sellers / consumers",
+      "Automated - no users",
+      "Mixed"
+    ],
+    "section": "Users & oversight",
+    "kind": "select"
+  },
+  {
+    "key": "ext",
+    "label": "Does any output reach clients, buyers, sellers, or consumers?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Users & oversight",
+    "kind": "select"
+  },
+  {
+    "key": "oversight",
+    "label": "Human oversight",
+    "required": 1,
+    "allowed": [
+      "Human reviews before action",
+      "Human reviews after action",
+      "Fully automated",
+      "N/A"
+    ],
+    "section": "Users & oversight",
+    "kind": "select"
+  },
+  {
+    "key": "contractors",
+    "label": "Contractors / vendors involved in build or operation",
+    "required": 0,
+    "allowed": null,
+    "section": "Users & oversight",
+    "kind": "text"
+  },
+  {
+    "key": "oss",
+    "label": "Restrictive open-source components used or trained on?",
+    "required": 0,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Users & oversight",
+    "kind": "select"
+  },
+  {
+    "key": "intake",
+    "label": "Intake form submitted?",
+    "required": 1,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "Governance",
+    "kind": "select"
+  },
+  {
+    "key": "notes",
+    "label": "Notes / open issues",
+    "required": 0,
+    "allowed": null,
+    "section": "Governance",
+    "kind": "long"
+  },
+  {
+    "key": "window",
+    "label": "Reported during disclosure window?",
+    "required": 0,
+    "allowed": [
+      "Yes",
+      "No",
+      "Unsure"
+    ],
+    "section": "InfoSec / Legal review",
+    "kind": "select"
+  },
+  {
+    "key": "tier",
+    "label": "Risk tier (InfoSec / Legal)",
+    "required": 0,
+    "allowed": [
+      "Low",
+      "Medium",
+      "High"
+    ],
+    "section": "InfoSec / Legal review",
+    "kind": "select"
+  },
+  {
+    "key": "capprov",
+    "label": "Client approval required?",
+    "required": 0,
+    "allowed": [
+      "Yes",
+      "No",
+      "TBD"
+    ],
+    "section": "InfoSec / Legal review",
+    "kind": "select"
+  },
+  {
+    "key": "revby",
+    "label": "Reviewed by",
+    "required": 0,
+    "allowed": null,
+    "section": "InfoSec / Legal review",
+    "kind": "text"
+  },
+  {
+    "key": "revdate",
+    "label": "Review date",
+    "required": 0,
+    "allowed": null,
+    "section": "InfoSec / Legal review",
+    "kind": "date"
+  },
+  {
+    "key": "followup",
+    "label": "InfoSec follow-up / gaps",
+    "required": 0,
+    "allowed": null,
+    "section": "InfoSec / Legal review",
+    "kind": "long"
+  }
+]

@@ -1,0 +1,210 @@
+/* Intune health (patch-status): AI Governance portal skin. Presentation only; loads last.
+   Same facelift as the Zscaler Command Center (zscaler-portal.css): governance banner, Nunito,
+   dark rail and top bar in both themes. Layout is untouched. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+:root, :root[data-theme=dark] {
+  --bg: #071520; --bg2: #071520; --panel: #142533; --panel2: #10202d; --rail-bg: #131823;
+  --tx: #ebf1f6; --tx2: #a4b5c5; --tx3: #91a3b5;
+  --line: #2a3d4d; --line2: #37505f; --line3: #21384a;
+  --cy: #7dc9e7; --ac-ink: #7dc9e7; --ac-tint: #7dc9e724; --brand: #7dc9e7; --mu-bg: #10202d;
+  --gr: #9bd64a; --am: #f0d08b; --rd: #ffa1ac;
+  --gr-dot: #78be20; --am-dot: #e6b14d; --rd-dot: #ff7f8c;
+  --btn-pri: #3d7924; --btn-pri-tx: #fff;
+  --hover-1: #1b3042; --row-hover: #183044;
+  --top-bg: #161c28; --nav-on-tx: #fff;
+  --ui: "Governance Nunito", "Nunito", "Segoe UI", sans-serif;
+  --r: 13px; --r2: 9px; --rail: 224px;
+  --zp-ease: cubic-bezier(.23, 1, .32, 1);
+  --zp-gutter: 22px; --zp-lift: 28px;
+  --zp-edge: #1f3445; --zp-overlay: #1a2f40;
+  --zp-elev-1: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --zp-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+}
+:root[data-theme=light] {
+  --bg: #eff1f3; --bg2: #eff1f3; --panel: #fff; --panel2: #f6f8fa; --rail-bg: #131823;
+  --tx: #17212e; --tx2: #5d6b7e; --tx3: #5f6d80;
+  --line: #dfe3e8; --line2: #cdd4dc; --line3: #e9edf1;
+  --cy: #147299; --ac-ink: #147299; --ac-tint: #1472991a; --brand: #147299; --mu-bg: #f6f8fa;
+  --gr: #3d7924; --am: #8b641f; --rd: #b33440;
+  --gr-dot: #4f8f2c; --am-dot: #d39a2c; --rd-dot: #c94a55;
+  --btn-pri: #3d7924; --btn-pri-tx: #fff;
+  --hover-1: #eaf3f7; --row-hover: #f6f8fa;
+  --top-bg: #161c28; --nav-on-tx: #17212e;
+  --zp-edge: #e4e8ed; --zp-overlay: #fff;
+  --zp-elev-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --zp-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+}
+body { background: var(--bg); font-family: var(--ui); }
+input, select, textarea, button { font-family: var(--ui); }
+
+/* Rail: the governance sidebar. Tokens are re-pointed so it stays dark in light mode. */
+.rail {
+  --tx: #fff; --tx2: #b8c2cf; --tx3: #96a2b3; --line: #29313d; --line2: #343d4b; --line3: #29313d;
+  --panel: #1b2230; --panel2: #202936; --hover-1: #202936; --cy: #78be20; --ac-ink: #a5d877;
+  width: var(--rail); min-width: var(--rail); background: #131823; border-right-color: #29313d; color: #b8c2cf;
+}
+.rail .brand { min-height: 66px; padding: 11px 19px; gap: 10px; border-bottom: 1px solid #29313d; }
+.rail .brand .logo {
+  width: 35px; height: 37px; border-radius: 9px; font-size: 17px; font-weight: 850; color: #fff;
+  background: linear-gradient(140deg, #3d7924, #78be20); box-shadow: inset 0 1px 0 #ffffff33;
+}
+.rail .brand h1 { color: #fff; font-size: 16px; font-weight: 850; letter-spacing: -.3px; }
+.rail .brand p { color: #a2adbb; font-size: 10px; }
+.rail .nav { padding: 12px 9px 16px; }
+.noc-nav { gap: 3px; }
+.noc-nav-h { color: #96a2b3; font-weight: 800; letter-spacing: .09em; }
+.noc-nav button {
+  min-height: 36px; padding: 8px 10px; border-radius: 7px; color: #b8c2cf; font-weight: 650;
+  transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--zp-ease);
+}
+.noc-nav button[aria-current=page] { color: #fff; background: #29323c; box-shadow: inset 3px 0 #78be20; }
+.noc-nav button[aria-current=page] svg { color: #a5d877; }
+.railfoot { border-top-color: #29313d; color: #b3becc; }
+.railfoot .rf-ver { color: #96a2b3; }
+
+/* Top bar */
+.top {
+  --tx: #e6edf7; --tx2: #c1cad6; --tx3: #9aa6b5; --panel: #202936; --panel2: #202936;
+  --line: #303746; --line2: #3c4556; --hover-1: #283645; --cy: #7dc9e7;
+  min-height: 66px; background: #161c28; border-bottom-color: #303746; color: #e6edf7;
+}
+.top .crumb { color: #c1cad6; }
+.top .crumb b { color: #fff; font-weight: 800; }
+.top .noc-mode { color: #e6dcaa; border-color: #6b6340; background: #3a352633; font-weight: 750; }
+.top #it-topbar .ittb {
+  --ittb-fg: #e6edf7; --ittb-muted: #b7c5d7; --ittb-surface: #263241;
+  --ittb-panel: #142533; --ittb-panel-2: #203645; --ittb-line: #43546a;
+  --ittb-av-bg: #294b7c; font-family: inherit;
+}
+#noc-menu { background: #202936; border-color: #3c4556; color: #fff; }
+
+/* Banner page heading */
+.wrap { padding: 0 var(--zp-gutter) 38px; }
+.noc-workspace > .noc-page-head {
+  --tx: #fff; --tx2: #e0e8ef; --tx3: #c3cfdb; --panel: #172c3cbb; --panel2: #172c3cbb;
+  --line: #91a8b877; --line2: #b3c5d299; --ac-ink: #c0e39a; --cy: #c0e39a;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px 24px;
+  min-height: calc(151px + var(--zp-lift)); margin: 0 calc(-1 * var(--zp-gutter)) 0;
+  padding: 25px 28px calc(25px + var(--zp-lift));
+  border-bottom: 3px solid #78be20; color: #fff;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+.noc-page-head h2 { color: #fff; font-size: 29px; font-weight: 850; letter-spacing: -.7px; line-height: 1.15; }
+.noc-page-head p { color: #e0e8ef; font-size: 12px; max-width: 750px; }
+.noc-page-head .noc-live { color: #e0e8ef; }
+.noc-workspace .noc-page-head button { background: #172c3cbb; border-color: #91a8b877; color: #fff; }
+
+/* Depth: the first visible block under the heading rides up onto the banner.
+   A row of loose buttons (ps-actions-strip, the repair source line) stays below it instead. */
+.noc-page-head + .noc-help-copy:not([hidden]),
+.noc-page-head + .noc-help-copy[hidden] + .noc-note:not([hidden]),
+.noc-page-head + .noc-help-copy[hidden] + .noc-note[hidden] + #ps-body:not(:empty):not(:has(> :first-child:is(.ps-actions-strip, .ps-rp-src))) {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--zp-lift));
+}
+.noc-workspace:has(> .noc-help-copy[hidden] + .noc-note[hidden] + #ps-body > :first-child:is(.ps-actions-strip, .ps-rp-src)) > .noc-page-head {
+  min-height: 151px; padding-bottom: 25px; margin-bottom: 18px;
+}
+.noc-help-copy:not([hidden]) { margin-bottom: 14px; }
+#ps-body > :first-child { margin-top: 0; }
+#ps-body > .noc-note:first-child, .noc-page-head ~ .noc-note:not([hidden]) { box-shadow: var(--zp-elev-1); }
+
+/* Surfaces */
+.noc-panel, .noc-note, .ps-rp-src > span, .ps-empty { border-radius: 13px; border-color: var(--zp-edge); }
+.noc-panel, .ps-rp-src > span { box-shadow: var(--zp-elev-1); }
+.noc-panel { padding: 16px 18px; }
+.noc-evidence, .noc-help-copy { background: var(--zp-overlay); box-shadow: var(--zp-elev-2); }
+.noc-workspace h3, .ps-gate h3, .ps-drawer h4 { font-weight: 700; }
+.noc-workspace p, .noc-small { font-weight: 500; }
+.noc-source-strip b, .noc-issue strong, .ps-os-h strong, .ps-meter-item strong { font-weight: 800; }
+.noc-dial strong, .ps-rp-kpi strong, .ps-trend-cell strong { font-weight: 850; letter-spacing: -1px; }
+.noc-table th {
+  background: var(--panel2); color: var(--tx2); font-size: 10px; font-weight: 800; letter-spacing: .5px;
+}
+.noc-table td { font-size: 12px; }
+.ps-chip, .ps-re-tag { font-weight: 700; }
+
+/* Source strip: one surface, healthy sources recede, degraded ones carry a rule and tint. */
+.noc-source-strip:not(.ps-rp-src) {
+  gap: 0; background: var(--panel); border: 1px solid var(--zp-edge); border-radius: 13px;
+  box-shadow: var(--zp-elev-1); overflow: hidden;
+}
+.noc-workspace .noc-source-strip:not(.ps-rp-src) button {
+  border: 0; border-left: 1px solid var(--zp-edge); border-radius: 0;
+  box-shadow: var(--zp-rule, 0 0 #0000); background: var(--zp-tint, transparent); padding: 12px 15px; gap: 3px;
+}
+.noc-workspace .noc-source-strip:not(.ps-rp-src) button:first-child { border-left: 0; }
+.noc-source-strip button:focus-visible { outline-offset: -3px; }
+.noc-source-strip b { font-size: 10.5px; letter-spacing: .09em; color: var(--tx2); }
+.noc-source-strip span:not(.noc-small) { font-size: 13px; font-weight: 750; }
+.noc-source-strip button:has(.noc-tone-warn, .noc-tone-stale, .noc-tone-partial) {
+  --zp-tint: color-mix(in srgb, var(--am) 8%, var(--panel)); --zp-rule: inset 3px 0 var(--am);
+}
+.noc-source-strip button:has(.noc-tone-bad, .noc-tone-error, .noc-tone-denied, .noc-tone-auth) {
+  --zp-tint: color-mix(in srgb, var(--rd) 9%, var(--panel)); --zp-rule: inset 3px 0 var(--rd);
+}
+
+/* A dial with no reading draws a dotted track and a quiet value instead of a full-weight gauge. */
+.noc-dial:not(:has(path + path)) path { stroke-dasharray: .1 4.2; stroke-width: 7; }
+.noc-dial:not(:has(path + path)) strong { color: var(--tx3); font-size: 18px; font-weight: 700; letter-spacing: 0; }
+
+/* Controls */
+.noc-workspace button, .noc-workspace a.ps-btn, .ps-gate button, .ps-gate a, .ps-drawer button, .ps-drawer a.ps-btn {
+  border-radius: 7px; font-weight: 750;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 160ms var(--zp-ease);
+}
+.noc-workspace .ps-link, .ps-drawer .ps-link { font-weight: 650; border-radius: 3px; }
+.noc-workspace input, .noc-workspace select, .ps-drawer input, .ps-drawer select { border-radius: 7px; }
+.ps-seg { border-radius: 7px; }
+.noc-workspace .ps-seg button { border-radius: 0; }
+.noc-workspace button:focus-visible, .noc-workspace a:focus-visible, .noc-nav button:focus-visible,
+.noc-workspace input:focus-visible, .noc-workspace select:focus-visible, .ps-gate button:focus-visible,
+.ps-drawer button:focus-visible, .ps-drawer a:focus-visible, .ps-drawer input:focus-visible, .ps-drawer select:focus-visible {
+  outline: 2px solid var(--ac-ink); outline-offset: 3px;
+}
+.noc-nav button:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .noc-nav button:active { transform: none; } }
+@media (hover: hover) and (pointer: fine) {
+  .noc-nav button:hover { background: #202936; color: #fff; }
+  .noc-workspace button:not(:disabled):hover, .noc-workspace a.ps-btn:hover, .ps-gate button:hover,
+  .ps-drawer button:not(:disabled):hover, .ps-drawer a.ps-btn:hover { border-color: var(--ac-ink); }
+  .noc-workspace .noc-page-head button:not(:disabled):hover { background: #172c3c; border-color: #c0e39a; }
+  .noc-workspace .noc-source-strip:not(.ps-rp-src) button:not(:disabled):hover { background: var(--hover-1); }
+  .noc-workspace .ps-seg button:not(:disabled):hover { border-color: var(--line); }
+  .noc-workspace .ps-seg button + button:not(:disabled):hover { border-left-color: var(--line); }
+}
+[data-theme=dark] .noc-note { border-color: #74683b; }
+
+/* Drawer: an overlay surface */
+.ps-drawer { background: var(--bg); border-left-color: var(--zp-edge); box-shadow: var(--zp-elev-2), -18px 0 40px #00000038; }
+.ps-dr-head, .ps-dr-foot { background: var(--panel); border-color: var(--zp-edge); }
+.ps-dr-head h3 { font-weight: 850; letter-spacing: -.4px; }
+
+@media (max-width: 1200px) and (min-width: 901px) { .noc-page-head h2 { font-size: 26px; } }
+@media (max-width: 900px) {
+  :root, :root[data-theme] { --zp-gutter: 12px; --zp-lift: 18px; }
+  .noc-source-strip:not(.ps-rp-src) { gap: 6px; background: none; border: 0; box-shadow: none; overflow: visible; }
+  .noc-workspace .noc-source-strip:not(.ps-rp-src) button, .noc-workspace .noc-source-strip:not(.ps-rp-src) button:first-child {
+    border: 1px solid var(--zp-edge); border-radius: 11px; background: var(--zp-tint, var(--panel));
+    box-shadow: var(--zp-rule, 0 0 #0000), var(--zp-elev-1);
+  }
+  .rail { inset: 66px auto 0 0; height: calc(100dvh - 66px); }
+  .noc-workspace > .noc-page-head { padding: 22px 18px calc(22px + var(--zp-lift)); min-height: calc(130px + var(--zp-lift)); }
+  .noc-workspace:has(> .noc-help-copy[hidden] + .noc-note[hidden] + #ps-body > :first-child:is(.ps-actions-strip, .ps-rp-src)) > .noc-page-head {
+    min-height: 130px; padding-bottom: 22px;
+  }
+}
+@media print {
+  :root, :root[data-theme] { --zp-elev-1: 0 0 #0000; --zp-elev-2: 0 0 #0000; }
+  .noc-workspace > .noc-page-head {
+    background: none; box-shadow: none; color: #17212e; margin: 0 0 20px; padding: 0 0 15px; min-height: 0; border-bottom: 2px solid #3d7924;
+  }
+  .noc-page-head h2, .noc-page-head p { color: #17212e; }
+}

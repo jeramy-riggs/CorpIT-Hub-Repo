@@ -228,6 +228,21 @@ svg{display:block}
 .stat-tx{min-width:0}
 .stat-n{font-size:30px;font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--ink);font-variant-numeric:tabular-nums}
 .stat-l{margin-top:6px;font-size:14.5px;color:var(--muted);white-space:nowrap}
+/* DARKTRACE-EMAIL 2026-10-14: seven tiles (four platform + three Darktrace /EMAIL) share the strip. */
+.stats{grid-template-columns:repeat(7,minmax(0,1fr))}
+.stat{gap:10px;padding:0 10px 0 16px}
+.stat:first-child{padding-left:18px}
+.stat-ic{width:38px;height:38px;border-radius:11px}
+.stat-ic svg{width:19px;height:19px}
+.stat-n{font-size:25px}
+.stat-l{margin-top:5px;font-size:13px;line-height:1.2;white-space:normal}
+.stat:not([href]){cursor:default}
+@media (max-width:1240px){
+  .stats{grid-template-columns:repeat(4,minmax(0,1fr));height:auto}
+  .stat{padding:14px 10px 14px 16px}
+  .stat:nth-child(n+5){box-shadow:inset 1px 0 0 var(--line-2),inset 0 1px 0 var(--line-2)}
+  .stat:nth-child(5){box-shadow:inset 0 1px 0 var(--line-2)}
+}
 .t-blue{background:var(--blue-tint);color:var(--hub-blue)}
 .t-green{background:var(--green-tint);color:var(--green)}
 .t-purple{background:var(--purple-tint);color:var(--purple)}
@@ -771,6 +786,9 @@ select.rp-in{height:42px;appearance:auto;-webkit-appearance:auto;cursor:pointer}
   .hero-sub{font-size:16px}
   .hero{height:266px}
 }
+@media (max-width:960px) and (min-width:721px){
+  .stat:nth-child(2n+4){box-shadow:inset 1px 0 0 var(--line-2),inset 0 1px 0 var(--line-2)}
+}
 @media (max-width:720px){
   .wrap{width:min(1462px, 100% - 32px)}
   .ql-grid{grid-template-columns:1fr}
@@ -794,6 +812,9 @@ select.rp-in{height:42px;appearance:auto;-webkit-appearance:auto;cursor:pointer}
   *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
 </style>
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/landing-portal.css?v=fac8fdf010fa">
+<link rel="stylesheet" href="/home-whats-new.css?v=9542bcf036c3">
 </head>
 <body>
 
@@ -807,7 +828,7 @@ select.rp-in{height:42px;appearance:auto;-webkit-appearance:auto;cursor:pointer}
     <a class="nav-i is-active" href="/landing.html" aria-current="page">Overview</a>
     <a class="nav-i" href="/tools.html">Tools</a>
     <a class="nav-i" href="/service-desk-portal.html">Service Desk</a>
-    <a class="nav-i" href="https://itam.nrpi.local/it-command-quickstart.html" target="_blank" rel="noopener noreferrer">Knowledge</a>
+    <a class="nav-i" href="/it-command-quickstart.html">Knowledge</a>
   </nav>
 
   <div class="hdr-r">
@@ -870,7 +891,53 @@ select.rp-in{height:42px;appearance:auto;-webkit-appearance:auto;cursor:pointer}
         <span class="stat-l">Incidents · 30 days</span>
       </span>
     </a>
+    <!-- DARKTRACE-EMAIL 2026-10-14: Darktrace /EMAIL, 7 days, from the hub's 30-min pull (SaaS-ITH-HD). -->
+    <a class="stat" id="m-dt-held" target="_blank" rel="noopener noreferrer">
+      <span class="stat-ic t-amber" aria-hidden="true"><span data-icon="mail"></span></span>
+      <span class="stat-tx">
+        <span class="stat-n" id="m-dt-held-n">—</span>
+        <span class="stat-l">Held mail · 7 days</span>
+      </span>
+    </a>
+    <a class="stat" id="m-dt-crit" target="_blank" rel="noopener noreferrer">
+      <span class="stat-ic t-red" aria-hidden="true"><span data-icon="shield-alert"></span></span>
+      <span class="stat-tx">
+        <span class="stat-n" id="m-dt-crit-n">—</span>
+        <span class="stat-l">Critical mail · 7 days</span>
+      </span>
+    </a>
+    <a class="stat" id="m-dt-thr" target="_blank" rel="noopener noreferrer">
+      <span class="stat-ic t-orange" aria-hidden="true"><span data-icon="shield"></span></span>
+      <span class="stat-tx">
+        <span class="stat-n" id="m-dt-thr-n">—</span>
+        <span class="stat-l">Mail threats · 7 days</span>
+      </span>
+    </a>
   </section>
+
+
+  <!-- DEV home showcase: existing workspace screenshots and explicit replay links. -->
+  <section class="hw-new hwt" id="home-whats-new" data-hw-pending aria-labelledby="hw-heading" aria-roledescription="workspace showcase">
+ <header class="hwt-header"><div><h2 id="hw-heading">What’s new, in motion.</h2><p>New views. Same command center.</p></div><button class="hw-dismiss" id="home-whats-new-dismiss" type="button" aria-label="Dismiss what’s new">Dismiss <span aria-hidden="true">×</span></button></header>
+ <div class="hwt-stage"><div class="hwt-horizon" aria-hidden="true"></div><article class="hwt-scene" id="hwt-scene-inventory"  data-workspace="inventory" data-rbac-page="it-inventory" data-rbac-level="read" data-rbac-action="hide" hidden aria-labelledby="hwt-title-inventory">
+ <div class="hwt-copy"><p class="hwt-app"><svg class="hwt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Inventory</p><h3 id="hwt-title-inventory">Know your fleet.</h3><p class="hwt-description">A clearer view of priorities, source evidence and Device 360.</p><div class="hwt-links"><a class="hwt-open" href="/IT_Inventory_App.html" aria-label="Open Inventory">Open workspace <span aria-hidden="true">↗</span></a><a class="hwt-guide" href="/IT_Inventory_App.html?tour=inventory" aria-label="How to use Inventory">How to use</a></div></div>
+ <div class="hwt-art" aria-hidden="true"><div class="hwt-orbit"></div><div class="hwt-camera"><div class="hwt-frame hwt-frame-back"><img src="/assets/inventory-whats-new/device360.webp?v=20261018-motion1" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-main"><img src="/assets/inventory-whats-new/attention.webp?v=20261018-motion1" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-side"><img src="/assets/inventory-whats-new/browse.webp?v=20261018-motion1" alt="" width="1200" height="460"><span class="hwt-glint"></span></div></div><span class="hwt-caption">Interface preview · sample data</span></div></article><article class="hwt-scene" id="hwt-scene-identity"  data-workspace="identity" data-rbac-page="identity-diag" data-rbac-level="read" data-rbac-action="hide" hidden aria-labelledby="hwt-title-identity">
+ <div class="hwt-copy"><p class="hwt-app"><svg class="hwt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 5h4M19 3v4M17 12h4M17 16h4"/></svg>People &amp; Devices</p><h3 id="hwt-title-identity">Start with the person.</h3><p class="hwt-description">One support workspace for identity, devices and the evidence behind them.</p><div class="hwt-links"><a class="hwt-open" href="/identity-diag.html#overview" aria-label="Open People &amp; Devices">Open workspace <span aria-hidden="true">↗</span></a><a class="hwt-guide" href="/identity-diag.html?tour=identity#overview" aria-label="How to use People &amp; Devices">How to use</a></div></div>
+ <div class="hwt-art" aria-hidden="true"><div class="hwt-orbit"></div><div class="hwt-camera"><div class="hwt-frame hwt-frame-back"><img src="/assets/identity-whats-new-motion/explore-workspace.webp?v=20261018-motion1" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-main"><img src="/assets/identity-whats-new-motion/find-person.webp?v=20261018-motion1" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-side"><img src="/assets/identity-whats-new-motion/choose-task.webp?v=20261018-motion1" alt="" width="1200" height="460"><span class="hwt-glint"></span></div></div><span class="hwt-caption">Interface preview · sample data</span></div></article><article class="hwt-scene" id="hwt-scene-network"  data-workspace="network" data-rbac-page="network-diag" data-rbac-level="read" data-rbac-action="hide" hidden aria-labelledby="hwt-title-network">
+ <div class="hwt-copy"><p class="hwt-app"><svg class="hwt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="15" width="18" height="5" rx="1.5"/><path d="M7 9v6M17 9v6M6 6.5h2M6 17.5h2"/></svg>Network Operations</p><h3 id="hwt-title-network">Follow the connection.</h3><p class="hwt-description">From fleet priorities to a switch port, then into the device’s path.</p><div class="hwt-links"><a class="hwt-open" href="/network-health.html" aria-label="Open Network Operations">Open workspace <span aria-hidden="true">↗</span></a><a class="hwt-guide" href="/network-health.html?tour=network" aria-label="How to use Network Operations">How to use</a></div></div>
+ <div class="hwt-art" aria-hidden="true"><div class="hwt-orbit"></div><div class="hwt-camera"><div class="hwt-frame hwt-frame-back"><img src="/assets/workspace-tours/network-investigate.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-main"><img src="/assets/workspace-tours/network-overview.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-side"><img src="/assets/workspace-tours/network-switches.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div></div><span class="hwt-caption">Interface preview · sample data</span></div></article><article class="hwt-scene" id="hwt-scene-cert"  data-workspace="cert" data-rbac-page="cert-watchtower" data-rbac-level="read" data-rbac-action="hide" hidden aria-labelledby="hwt-title-cert">
+ <div class="hwt-copy"><p class="hwt-app"><svg class="hwt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></svg>Cert Watchtower</p><h3 id="hwt-title-cert">Stay ahead of expiry.</h3><p class="hwt-description">See what needs attention, organize renewals and check coverage.</p><div class="hwt-links"><a class="hwt-open" href="/cert-watchtower.html#ops/triage" aria-label="Open Cert Watchtower">Open workspace <span aria-hidden="true">↗</span></a><a class="hwt-guide" href="/cert-watchtower.html?tour=cert#ops/triage" aria-label="How to use Cert Watchtower">How to use</a></div></div>
+ <div class="hwt-art" aria-hidden="true"><div class="hwt-orbit"></div><div class="hwt-camera"><div class="hwt-frame hwt-frame-back"><img src="/assets/workspace-tours/cert-coverage.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-main"><img src="/assets/workspace-tours/cert-triage.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-side"><img src="/assets/workspace-tours/cert-renewals.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div></div><span class="hwt-caption">Interface preview · sample data</span></div></article><article class="hwt-scene" id="hwt-scene-ai"  data-workspace="ai" data-rbac-page="ai-governance" data-rbac-level="read" data-rbac-action="hide" hidden aria-labelledby="hwt-title-ai">
+ <div class="hwt-copy"><p class="hwt-app"><svg class="hwt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z"/><path d="M20 2v4M18 4h4"/></svg>AI Governance</p><h3 id="hwt-title-ai">Bring AI into focus.</h3><p class="hwt-description">Connect applications, ownership, purpose and the evidence for each review.</p><div class="hwt-links"><a class="hwt-open" href="/ai-governance.html#dashboard" aria-label="Open AI Governance">Open workspace <span aria-hidden="true">↗</span></a><a class="hwt-guide" href="/ai-governance.html?tour=ai#dashboard" aria-label="How to use AI Governance">How to use</a></div></div>
+ <div class="hwt-art" aria-hidden="true"><div class="hwt-orbit"></div><div class="hwt-camera"><div class="hwt-frame hwt-frame-back"><img src="/assets/workspace-tours/ai-purpose.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-main"><img src="/assets/workspace-tours/ai-queue.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-side"><img src="/assets/workspace-tours/ai-usage.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div></div><span class="hwt-caption">Interface preview · sample data</span></div></article><article class="hwt-scene" id="hwt-scene-migration"  data-workspace="migration" data-rbac-page="okta-entra-migration" data-rbac-level="read" data-rbac-action="hide" hidden aria-labelledby="hwt-title-migration">
+ <div class="hwt-copy"><p class="hwt-app"><svg class="hwt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 6h6a6 6 0 0 1 0 12H7M10 15l-3 3 3 3M14 3l3 3-3 3"/></svg>Migration Planning</p><h3 id="hwt-title-migration">Make the next move clear.</h3><p class="hwt-description">See the application portfolio, organize waves and prepare the pilot evidence.</p><div class="hwt-links"><a class="hwt-open" href="/okta-entra-migration.html#planning" aria-label="Open Migration Planning">Open workspace <span aria-hidden="true">↗</span></a><a class="hwt-guide" href="/okta-entra-migration.html?tour=migration#planning" aria-label="How to use Migration Planning">How to use</a></div></div>
+ <div class="hwt-art" aria-hidden="true"><div class="hwt-orbit"></div><div class="hwt-camera"><div class="hwt-frame hwt-frame-back"><img src="/assets/workspace-tours/migration-readiness.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-main"><img src="/assets/workspace-tours/migration-portfolio.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-side"><img src="/assets/workspace-tours/migration-waves.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span class="hwt-glint"></span></div></div><span class="hwt-caption">Interface preview · sample data</span></div></article><article class="hwt-scene" id="hwt-scene-intune"  data-workspace="intune" hidden aria-labelledby="hwt-title-intune">
+ <div class="hwt-copy"><p class="hwt-app"><svg class="hwt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4m-4-10 3 3 5-5"/></svg>Intune Health</p><h3 id="hwt-title-intune">See what needs attention.</h3><p class="hwt-description">Read endpoint health, work the patch backlog and track GPO migration readiness.</p><div class="hwt-links"><a class="hwt-open" href="/patch-status.html" aria-label="Open Intune Health">Open workspace <span aria-hidden="true">↗</span></a><a class="hwt-guide" href="/patch-status.html?tour=intune" aria-label="How to use Intune Health">How to use</a></div></div>
+ <div class="hwt-art" aria-hidden="true"><div class="hwt-orbit"></div><div class="hwt-camera"><div class="hwt-frame hwt-frame-back"><img src="/assets/workspace-tours/intune-migration.webp?v=20261018-intune-tour1" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-main"><img src="/assets/workspace-tours/intune-attention.webp?v=20261018-intune-tour1" alt="" width="1200" height="460"><span class="hwt-glint"></span></div><div class="hwt-frame hwt-frame-side"><img src="/assets/workspace-tours/intune-updates.webp?v=20261018-intune-tour1" alt="" width="1200" height="460"><span class="hwt-glint"></span></div></div><span class="hwt-caption">Interface preview · sample data</span></div></article></div>
+ <div class="hwt-controls"><div class="hwt-transport"><button type="button" data-hwt-prev aria-label="Previous workspace"><span aria-hidden="true">←</span></button><button type="button" class="hwt-play" data-hwt-play aria-label="Play trailer"><span data-hwt-play-icon aria-hidden="true">▶</span><span data-hwt-play-label>Play trailer</span></button><button type="button" data-hwt-next aria-label="Next workspace"><span aria-hidden="true">→</span></button><button type="button" data-hwt-replay aria-label="Replay trailer"><span aria-hidden="true">↻</span></button></div><p class="hwt-position" data-hwt-position>Explore the new workspaces</p><span class="hwt-motion-note" data-hwt-motion-note>A short look at what’s new</span></div>
+ <nav class="hwt-chapters" aria-label="Choose a featured workspace"><button type="button" data-hwt-chapter="inventory" aria-controls="hwt-scene-inventory" aria-pressed="false" hidden><span class="hwt-chapter-index" aria-hidden="true">01</span>Inventory<span class="hwt-chapter-line" aria-hidden="true"><i></i></span></button><button type="button" data-hwt-chapter="identity" aria-controls="hwt-scene-identity" aria-pressed="false" hidden><span class="hwt-chapter-index" aria-hidden="true">02</span>People &amp; Devices<span class="hwt-chapter-line" aria-hidden="true"><i></i></span></button><button type="button" data-hwt-chapter="network" aria-controls="hwt-scene-network" aria-pressed="false" hidden><span class="hwt-chapter-index" aria-hidden="true">03</span>Network Operations<span class="hwt-chapter-line" aria-hidden="true"><i></i></span></button><button type="button" data-hwt-chapter="cert" aria-controls="hwt-scene-cert" aria-pressed="false" hidden><span class="hwt-chapter-index" aria-hidden="true">04</span>Cert Watchtower<span class="hwt-chapter-line" aria-hidden="true"><i></i></span></button><button type="button" data-hwt-chapter="ai" aria-controls="hwt-scene-ai" aria-pressed="false" hidden><span class="hwt-chapter-index" aria-hidden="true">05</span>AI Governance<span class="hwt-chapter-line" aria-hidden="true"><i></i></span></button><button type="button" data-hwt-chapter="migration" aria-controls="hwt-scene-migration" aria-pressed="false" hidden><span class="hwt-chapter-index" aria-hidden="true">06</span>Migration Planning<span class="hwt-chapter-line" aria-hidden="true"><i></i></span></button><button type="button" data-hwt-chapter="intune" aria-controls="hwt-scene-intune" aria-pressed="false" hidden><span class="hwt-chapter-index" aria-hidden="true">07</span>Intune Health<span class="hwt-chapter-line" aria-hidden="true"><i></i></span></button></nav>
+ <p class="hwt-message" data-hwt-message role="status" aria-live="polite" aria-atomic="true"></p>
+</section>
 
   <div class="workday">
     <div>
@@ -878,6 +945,8 @@ select.rp-in{height:42px;appearance:auto;-webkit-appearance:auto;cursor:pointer}
       <p>Key items and tools to keep operations running smoothly.</p>
     </div>
     <div class="wd-actions">
+      <button class="btn hw-restore" id="home-whats-new-restore" type="button" aria-label="Show what’s new" aria-controls="home-whats-new" aria-expanded="true" hidden><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/></svg>What’s new</button>
+      <span class="vh" id="home-whats-new-status" role="status" aria-live="polite" aria-atomic="true"></span>
       <button type="button" class="btn" id="act-lookup">
         <span data-icon="user-search" aria-hidden="true"></span>Look up user
       </button>
@@ -1001,7 +1070,7 @@ select.rp-in{height:42px;appearance:auto;-webkit-appearance:auto;cursor:pointer}
 
 </main>
 
-<div class="scrim" id="cmd-scrim" role="presentation">
+<div class="scrim" id="cmd-scrim" role="presentation" inert aria-hidden="true">
   <div class="cmd" role="dialog" aria-modal="true" aria-labelledby="cmd-label" id="cmd">
     <h2 class="vh" id="cmd-label">Search tools, people and tickets</h2>
     <div class="cmd-top">
@@ -1020,7 +1089,7 @@ select.rp-in{height:42px;appearance:auto;-webkit-appearance:auto;cursor:pointer}
   </div>
 </div>
 
-<div class="scrim" id="rp-scrim" role="presentation">
+<div class="scrim" id="rp-scrim" role="presentation" inert aria-hidden="true">
   <div class="dlg rp" id="rp-dlg" role="dialog" aria-modal="true" aria-labelledby="rp-title">
     <div class="dlg-top">
       <div>
@@ -1093,6 +1162,7 @@ const ICONS = {
   headset:          '<path d="M3 11v3a1 1 0 0 0 1 1h3v-5H4a1 1 0 0 0-1 1Z"/><path d="M21 11v3a1 1 0 0 1-1 1h-3v-5h3a1 1 0 0 1 1 1Z"/><path d="M9 18v1a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1"/><path d="M4 14v1a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6v-1"/><path d="M3 11a9 9 0 0 1 18 0"/>',
   'external-link':  '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/>',
   pencil:           '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  mail:             '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
   sliders:          '<line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>',
 };
 /* The weather route emits coarse condition keys, and three of them never matched
@@ -1169,26 +1239,234 @@ const DEFAULT_CATS = [
   {key:'desk', label:'Service Desk'}, {key:'res', label:'Resources'},
 ];
 const DEFAULT_TILES = [
-  {id:'it-inventory',        name:'Asset Inventory',       cat:'dev',  icon:'monitor',       tone:'t-green',  href:'/IT_Inventory_App.html',       purpose:'Track hardware, warranties, Intune endpoints & patch health.', favorite:true, quick:true},
-  {id:'identity-diag',       name:'Identity Diagnostics',  cat:'iam',  icon:'search',        tone:'t-blue',   href:'/identity-diag.html',          purpose:'Diagnose AD lockouts, password issues & group access.', favorite:true, quick:true},
-  {id:'ad-management',       name:'AD Management',         cat:'iam',  icon:'user-cog',      tone:'t-blue',   href:'/ad-management.html',          purpose:'Clean up stale accounts, groups & computers; GPO audit for super-admins.'},
-  {id:'user-projects',       name:'User Projects',         cat:'iam',  icon:'user',          tone:'t-blue',   href:'/identity-diag.html#projects', purpose:'Grant time-bound AD group access for POCs.'},
-  {id:'access-portal',       name:'Access Portal',         cat:'iam',  icon:'ticket',        tone:'t-blue',   href:'https://accessportal.itam.nrpi.local/', purpose:'Submit access, AI-tool and security-exception requests.'},
-  {id:'app-migration',       name:'App Migration',         cat:'apps', icon:'grid',          tone:'t-purple', href:'/app-migration.html',          purpose:'Move SSO apps from Okta to Entra & confirm matches.'},
-  {id:'okta',                name:'Okta Dashboard',        cat:'apps', icon:'globe',         tone:'t-purple', href:'/okta-dashboard.html',         purpose:'SSO usage, account health & security events.'},
-  {id:'ai-usage-credits',    name:'AI Usage & Credits',    cat:'apps', icon:'activity',      tone:'t-purple', href:'https://reporting.nrpi.local/ai-usage-credits.html', purpose:'Track shared AI service usage, credit balances & per-user spend.'},
-  {id:'cert-watchtower',     name:'Cert Watchtower',       cat:'sec',  icon:'shield',        tone:'t-amber',  href:'/cert-watchtower.html',        purpose:'Monitor TLS & Windows cert expiry with alerts.'},
-  {id:'signin-watch',        name:'Sign-In Watch',         cat:'sec',  icon:'shield-alert',  tone:'t-rose',   href:'/signin-watch.html',           purpose:'Monitor sign-ins for watched accounts & alert on untrusted networks.'},
-  {id:'security-center',     name:'M365 Control Center',   cat:'sec',  icon:'activity',      tone:'t-rose',   href:'/tenant-sentinel.html',        purpose:'Security score, findings & fix tracking.'},
-  {id:'sharepoint-gov',      name:'SharePoint Governance', cat:'data', icon:'grid',          tone:'t-amber',  href:'/sharepoint-governance-dashboard.html', purpose:'Audit site lifecycle, external sharing & tenant storage.'},
-  {id:'network-diag',        name:'Network Health',        cat:'net',  icon:'radio',         tone:'t-green',  href:'/network-health.html',         purpose:'Switch, firewall and Wi-Fi health, plus ports and devices needing attention.'},
-  {id:'device-trace',        name:'Device Trace',          cat:'net',  icon:'search',        tone:'t-green',  href:'/device-trace.html',           purpose:'Look up any IP, MAC or user to see its switch port, Wi-Fi and firewall path.', favorite:true},
-  {id:'network-switches',    name:'Switches',              cat:'net',  icon:'server',        tone:'t-blue',   href:'/network-switches.html',       purpose:'Every switch: model, serial, IOS version, uptime and port utilization.'},
-  {id:'zscaler-diag',        name:'Zscaler Command Center',cat:'net',  icon:'cloud',         tone:'t-blue',   href:'/zscaler-command-center.html', purpose:'Live visibility into users, web activity, DLP & policy.'},
-  {id:'server-health',       name:'Server Health',         cat:'net',  icon:'server',        tone:'t-purple', href:'/server-health.html',          purpose:'Infrastructure stats, forecasts & maintenance.', favorite:true},
-  {id:'service-desk-portal', name:'Service Desk Portal',   cat:'desk', icon:'headset',       tone:'t-blue',   href:'/service-desk-portal.html',    purpose:'Submit and track IT service desk tickets.', favorite:true, quick:true},
-  {id:'report-bug',          name:'Report a Bug',          cat:'desk', icon:'x',             tone:'t-rose',   href:'/report-bug.html',             purpose:'Flag something broken; get emailed when it is fixed.'},
-  {id:'quickstart',          name:'IT Quick Start',        cat:'res',  icon:'grid',          tone:'t-amber',  href:ITAM + '/it-command-quickstart.html', purpose:'What each tool does & when to use it.', favorite:true},
+  {
+    "id": "l1",
+    "name": "Asset Inventory",
+    "cat": "dev",
+    "icon": "monitor",
+    "tone": "t-teal",
+    "href": "/IT_Inventory_App.html",
+    "purpose": "Track hardware, warranties, Intune endpoints & patch health.",
+    "newTab": false,
+    "favorite": true,
+    "quick": true
+  },
+  {
+    "id": "l23",
+    "name": "Intune Health",
+    "cat": "dev",
+    "icon": "monitor",
+    "tone": "t-teal",
+    "href": "/patch-status.html",
+    "purpose": "Review Windows updates, Defender, reboot needs, app failures and Intune device health.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l2",
+    "name": "People & Devices",
+    "cat": "iam",
+    "icon": "user-search",
+    "tone": "t-teal",
+    "href": "/identity-diag.html",
+    "purpose": "Support people, assigned devices, sign-ins, access and network context.",
+    "newTab": false,
+    "favorite": true,
+    "quick": true
+  },
+  {
+    "id": "l3",
+    "name": "AD Management",
+    "cat": "iam",
+    "icon": "user-cog",
+    "tone": "t-blue",
+    "href": "/ad-management.html",
+    "purpose": "Clean up stale accounts, groups & computers; GPO audit for super-admins.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l5",
+    "name": "Access Portal",
+    "cat": "iam",
+    "icon": "ticket",
+    "tone": "t-blue",
+    "href": "https://dev-accessportal.nrpi.local/",
+    "purpose": "Submit access, AI-tool and security-exception requests.",
+    "newTab": true,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l7",
+    "name": "Okta Dashboard",
+    "cat": "apps",
+    "icon": "globe",
+    "tone": "t-purple",
+    "href": "/okta-dashboard.html",
+    "purpose": "Account status, MFA enrolment and the Okta application inventory.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l8",
+    "name": "AI Usage & Credits",
+    "cat": "apps",
+    "icon": "activity",
+    "tone": "t-purple",
+    "href": "https://dev-reporting.nrpi.local/ai-usage-credits.html",
+    "purpose": "Track shared AI service usage, credit balances & per-user spend.",
+    "newTab": true,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l21",
+    "name": "Okta\u2013Entra Migration",
+    "cat": "apps",
+    "icon": "grid",
+    "tone": "t-purple",
+    "href": "/okta-entra-migration.html",
+    "purpose": "Move application SSO from Okta to Entra; review optional Conditional Access work separately.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l22",
+    "name": "AI Governance",
+    "cat": "apps",
+    "icon": "shield",
+    "tone": "t-purple",
+    "href": "/ai-governance.html",
+    "purpose": "Review AI inventory, usage, ownership, access, risks and governance work.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l9",
+    "name": "Cert Watchtower",
+    "cat": "sec",
+    "icon": "shield",
+    "tone": "t-amber",
+    "href": "/cert-watchtower.html",
+    "purpose": "Monitor TLS & Windows cert expiry with alerts.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l10",
+    "name": "Sign-In Watch",
+    "cat": "sec",
+    "icon": "shield-alert",
+    "tone": "t-red",
+    "href": "/signin-watch.html",
+    "purpose": "Monitor sign-ins for watched accounts & alert on untrusted networks.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l11",
+    "name": "M365 Control Center",
+    "cat": "sec",
+    "icon": "activity",
+    "tone": "t-red",
+    "href": "/tenant-sentinel.html",
+    "purpose": "Security score, findings & fix tracking.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l12",
+    "name": "SharePoint Governance",
+    "cat": "data",
+    "icon": "grid",
+    "tone": "t-purple",
+    "href": "/sharepoint-governance-dashboard.html",
+    "purpose": "Audit site lifecycle, external sharing & tenant storage.",
+    "newTab": false,
+    "favorite": false,
+    "quick": true
+  },
+  {
+    "id": "l13",
+    "name": "Network Operations",
+    "cat": "net",
+    "icon": "radio",
+    "tone": "t-green",
+    "href": "/network-health.html",
+    "purpose": "Investigate network health, switches, ports and device connectivity.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l16",
+    "name": "Zscaler Command Center",
+    "cat": "net",
+    "icon": "cloud",
+    "tone": "t-blue",
+    "href": "/zscaler-command-center.html",
+    "purpose": "Live visibility into users, web activity, DLP & policy.",
+    "newTab": false,
+    "favorite": false,
+    "quick": true
+  },
+  {
+    "id": "l17",
+    "name": "Server Health",
+    "cat": "net",
+    "icon": "server",
+    "tone": "t-purple",
+    "href": "https://dev-subadmin.nrpi.local/operations",
+    "purpose": "Unified infrastructure health, findings & maintenance.",
+    "newTab": true,
+    "favorite": true,
+    "quick": false
+  },
+  {
+    "id": "l18",
+    "name": "Service Desk Portal",
+    "cat": "desk",
+    "icon": "headset",
+    "tone": "t-blue",
+    "href": "/service-desk-portal.html",
+    "purpose": "Submit and track IT service desk tickets.",
+    "newTab": false,
+    "favorite": true,
+    "quick": false
+  },
+  {
+    "id": "l19",
+    "name": "Report a Bug",
+    "cat": "desk",
+    "icon": "x",
+    "tone": "t-red",
+    "href": "/report-bug.html",
+    "purpose": "Flag something broken in any CorpIT Hub app.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l20",
+    "name": "IT Quick Start",
+    "cat": "res",
+    "icon": "grid",
+    "tone": "t-amber",
+    "href": "/it-command-quickstart.html",
+    "purpose": "What each tool does & when to use it.",
+    "newTab": false,
+    "favorite": true,
+    "quick": false
+  }
 ];
 let CATS = DEFAULT_CATS, TILES = DEFAULT_TILES, CATALOG_MEASURED = false;
 
@@ -1231,8 +1509,8 @@ function loadCatalog() {
    artwork, extracted at 1x and keyed by tool path. A flagged tool with no
    artwork gets the tinted variant instead of another tool's picture. */
 const TILE_ART = {
-  '/network-health.html':   { name:'Network Health',       sub:'Connectivity & availability', icon:'radio',       tone:'t-blue',   art:'/assets/hub/tile-network-health.png' },
-  '/identity-diag.html':    { name:'Identity Diagnostics', sub:'Access & sign-in issues',     icon:'user-search', tone:'t-green',  art:'/assets/hub/tile-identity-diagnostics.png' },
+  '/network-health.html':   { name:'Network Operations',   sub:'Health, switches & investigation', icon:'radio',       tone:'t-blue',   art:'/assets/hub/tile-network-health.png' },
+  '/identity-diag.html':    { name:'People & Devices',     sub:'People, devices & access',     icon:'user-search', tone:'t-green',  art:'/assets/hub/tile-identity-diagnostics.png' },
   '/IT_Inventory_App.html': { name:'Asset Inventory',      sub:'Devices & encryption',        icon:'monitor',     tone:'t-purple', art:'/assets/hub/tile-asset-inventory.png' },
   '/server-health.html':    { name:'Server Health',        sub:'Infrastructure overview',     icon:'server',      tone:'t-blue',   art:'/assets/hub/tile-server-health.png' },
 };
@@ -1514,6 +1792,41 @@ function loadMetrics() {
      openTotal counts every open incident regardless of age: on 2026-09-08 it
      read 11 against a windowOpen of 0, all eleven last updated May–July. */
   inc.then(r => wireIncidentsLink(r, setNum($('m-inc-n'), r, d => d.windowOpen, 'security incidents')));
+  loadDarktraceMetrics();
+}
+
+/* ── Darktrace /EMAIL tiles (DARKTRACE-EMAIL 2026-10-14) ───────────────────
+   Counts over the last 7 days from the hub's 30-minute pull; the API answers
+   only SaaS-ITH-HD, so anyone else gets the usual "no access" dash. A tile
+   links to the Darktrace /EMAIL console only once the API has named it. */
+const DT_TILES = [
+  ['m-dt-held', d => d.held,     'held mail',              'Held mail'],
+  ['m-dt-crit', d => d.critical, 'critical email threats', 'Critical mail'],
+  ['m-dt-thr',  d => d.threats,  'email threats',          'Mail threats'],
+];
+function loadDarktraceMetrics() {
+  get('/api/sentinel/darktrace-email/kpis').then(r => {
+    const d = (r.ok && r.data) || {};
+    DT_TILES.forEach(([id, pick, what, label]) => {
+      const a = $(id), el = $(id + '-n');
+      if (r.ok && !d.as_of) {
+        el.textContent = '—';
+        a.title = 'Darktrace email has not been pulled yet.';
+        return;
+      }
+      const shown = setNum(el, r, pick, what);
+      if (shown === null) return;
+      const when = new Date(d.as_of);
+      const asOf = isNaN(when) ? '' : ' as of ' + when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const partial = d.state === 'partial' ? ' The last pull was partial.' : '';
+      if (d.console_url && /^https:\/\//.test(d.console_url)) {
+        a.href = d.console_url;
+        a.title = label + ', last 7 days: ' + nf(shown) + asOf + '.' + partial + ' Opens Darktrace /EMAIL in a new tab.';
+      } else {
+        a.title = label + ', last 7 days: ' + nf(shown) + asOf + '.' + partial;
+      }
+    });
+  });
 }
 
 /* ── priority queue ────────────────────────────────────────────────────── */
@@ -1817,6 +2130,8 @@ const cmdScrim = $('cmd-scrim'), cmdBox = $('cmd'), cmdIn = $('cmd-in'), cmdBody
 function cmdOpen() {
   CMD.lastFocus = document.activeElement;
   CMD.open = true;
+  cmdScrim.inert = false;
+  cmdScrim.setAttribute('aria-hidden', 'false');
   cmdScrim.classList.add('on');
   cmdIn.value = '';
   CMD.q = '';
@@ -1827,7 +2142,10 @@ function cmdClose() {
   if (!CMD.open) return;
   CMD.open = false;
   cmdScrim.classList.remove('on');
-  if (CMD.lastFocus && CMD.lastFocus.focus) CMD.lastFocus.focus();
+  if (CMD.lastFocus && document.contains(CMD.lastFocus) && CMD.lastFocus.focus) CMD.lastFocus.focus();
+  else cmdIn.blur();
+  cmdScrim.inert = true;
+  cmdScrim.setAttribute('aria-hidden', 'true');
 }
 function cmdSearch(q) {
   CMD.q = q;
@@ -2070,9 +2388,12 @@ const RP = (() => {
     $('rp-actions').classList.remove('show'); $('rp-actions').innerHTML = '';
     $('rp-uc').innerHTML = '';
     clearMsg();
+    scrim.inert = false;
+    scrim.setAttribute('aria-hidden', 'false');
     scrim.classList.add('on');
     if (mode === 'cab') renderActions();
     setTimeout(() => {
+      if (!scrim.classList.contains('on')) return;
       const f = (mode === 'cab' && $('rp-cab-title')) ? $('rp-cab-title') : $('rp-srch');
       f.focus();
     }, 70);
@@ -2081,6 +2402,8 @@ const RP = (() => {
     if (!scrim.classList.contains('on')) return;
     scrim.classList.remove('on');
     if (lastFocus && document.contains(lastFocus) && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+    scrim.inert = true;
+    scrim.setAttribute('aria-hidden', 'true');
     lastFocus = null;
   }
   const isOpen = () => scrim.classList.contains('on');
@@ -2188,6 +2511,7 @@ const RP = (() => {
       '<div class="uc-grid">' +
         skel('uc-ad', 'Active Directory') + skel('uc-okta', 'Okta &amp; Zscaler') +
         skel('uc-dev', 'Devices') + skel('uc-tix', 'Open tickets') +
+        skel('uc-mail', 'Email security') +
       '</div><div class="uc-foot">' +
         '<button type="button" class="uc-fb" data-sw="unlock"' + ADMIN_ATTR + '>Unlock account</button>' +
         '<button type="button" class="uc-fb" data-sw="reset"' + ADMIN_ATTR + '>Reset password</button>' +
@@ -2207,6 +2531,33 @@ const RP = (() => {
     } else {
       done($('uc-tix'), '<h4>Open tickets</h4>' + ucNote('No email on record'));
     }
+    if (sel.email) {
+      kget('/api/sentinel/darktrace-email/user?email=' + encodeURIComponent(sel.email))
+        .then(renderMail).catch(e => renderMail({ __err: why(e) }));
+    } else {
+      done($('uc-mail'), '<h4>Email security</h4>' + ucNote('No email on record'));
+    }
+  }
+
+  /* DARKTRACE-EMAIL 2026-10-14: held / junked mail to this person in the last
+     7 days, and whether Darktrace lists the mailbox as anomalous. */
+  function renderMail(d) {
+    const el = $('uc-mail');
+    if (!el) return;
+    if (d.__err) { done(el, '<h4>Email security</h4>' + ucNote(d.__err)); return; }
+    if (!d.as_of) { done(el, '<h4>Email security</h4>' + ucNote('Darktrace has not been pulled yet')); return; }
+    const an = d.anomaly, recent = d.recent || [];
+    done(el, '<h4><span>Email security</span>' + (an ? pill('anomaly', 'warn') : pill('Darktrace', 'idle')) + '</h4>' +
+      ucRow('Held · 7 days', d.held, d.held ? 'warn' : null) +
+      ucRow('Junked · 7 days', d.junk) +
+      ucRow('Anomaly list', an ? 'listed' : 'not listed', an ? 'warn' : null) +
+      (an ? ucRow('Emails (period / last week)', esc(String(an.n_last_period) + ' / ' + String(an.n_last_week))) : '') +
+      recent.slice(0, 4).map((x, i) =>
+        '<span class="uc-dev' + (i === 0 ? ' first' : '') + '">' +
+        '<span class="dt">' + esc(x.rcpt_status) + '</span>' +
+        '<span class="dn" title="' + esc(x.from_email || '') + '">' + esc(x.subject || '(no subject)') + '</span></span>').join('') +
+      ucNote((recent.length > 4 ? '+' + (recent.length - 4) + ' more · ' : '') +
+             'Darktrace pull ' + (ago(d.as_of) || 'time unknown')));
   }
 
   function renderAD(d) {
@@ -2671,5 +3022,6 @@ boot('recent-activity', loadRecent);
 </script>
 <script src="/it-session-watch.js?v=20260904" defer></script>
 <script src="/it-version.js" data-app-key="corpit-platform" defer></script>
+<script src="/home-whats-new.js?v=5030acb577bf" defer></script>
 </body>
 </html>

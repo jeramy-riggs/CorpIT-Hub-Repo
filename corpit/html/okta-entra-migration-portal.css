@@ -1,0 +1,200 @@
+/* Okta to Entra migration: AI Governance portal skin. Presentation only; loads after the inline Fluent sheet.
+   Shares the governance banner and Nunito face with SharePoint, Zscaler, Identity, the IT Asset Console and
+   AD Management. The page is light-only by design (no theme toggle), so this is too: the header and nav rail
+   are dark governance chrome, the canvas stays light. Nearly everything is a token re-point on body.light,
+   which outranks the inline :root block through inheritance; the rest is the banner, the lifted status line,
+   depth, and press feedback. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+
+/* ── Tokens ── */
+body.light {
+  --brand: #3d7924; --brand-hover: #346a1f; --brand-pressed: #2a5618;
+  --link: #147299; --brand-fg-link: #147299;
+  --brand-bg-2: #edf4e8; --brand-stroke-2: #b7d3a3;
+  --header-bg: #131823; --accent: #3d7924;
+  --bg-1: #fff; --bg-2: #eff1f3; --bg-3: #f4f6f8; --bg-4: #e9edf1;
+  --bg-1-hover: #f4f6f8; --bg-1-pressed: #e4e8ed; --bg-1-selected: #e9edf1;
+  --stroke-1: #cdd4dc; --stroke-2: #e1e6eb; --stroke-3: #edf0f3;
+  --stroke-strong: #5d6b7e; --stroke-accessible: #5d6b7e; --stroke-focus-2: #17212e;
+  --fg-1: #17212e; --fg-2: #3b4757; --fg-3: #5d6b7e; --fg-4: #6a7789;
+  --ok-bg: #eef6e8; --ok-fg: #3d7924; --ok-stroke: #b7d3a3;
+  --err-bg: #fbf0f1; --err-fg: #b33440; --err-stroke: #eab3b9; --err-hover: #9c2b36; --err-pressed: #82232d;
+  --neu-bg: #f1f3f6; --neu-fg: #3b4757; --neu-stroke: #d3dae2;
+  --r-2: 3px; --r-4: 7px; --r-6: 9px; --r-8: 13px;
+  --shadow-8: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --shadow-16: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --font: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --oem-ease: cubic-bezier(.23, 1, .32, 1);
+  --oem-lift: 26px;
+  --oem-info-bg: #eaf4f8; --oem-info-stroke: #b5d8e6; --oem-info-fg: #147299;
+}
+body.light ::selection { background: #3d792433; }
+body.light .t-title1, body.light .t-title2, body.light .t-title3 { font-weight: 850; letter-spacing: -.5px; }
+
+/* ── Header: dark governance chrome ── */
+body.light .hdr { background: #131823; border-bottom: 1px solid #29313d; }
+body.light .hdr .brand { font-weight: 850; letter-spacing: -.2px; }
+body.light .hdr .hbtn { color: #c1cad6; }
+body.light .hdr .badge { background: #a5d877; color: #0b1a05; font-weight: 800; }
+body.light .srch input { border-color: #3c4556; background: #1a212d; color: #e6edf7; }
+body.light .srch input::placeholder { color: #9aa6b5; }
+body.light .srch input:focus { border-color: #a5d877; box-shadow: 0 0 0 3px #a5d8772b; }
+body.light .ittb.ittb .ittb-av { color: #3d7924; }
+body.light .ittb.ittb .ittb-menu { --ittb-accent: #147299; }
+body.light .hdr2 { background: #1a212d; border-bottom-color: #29313d; color: #e6edf7; }
+
+/* ── Nav rail: the governance rail. Tokens re-pointed so the count pills, drawer search and focus stay legible. ── */
+body.light .rail {
+  --fg-1: #e6edf7; --fg-2: #c1cad6; --fg-3: #9aa6b5;
+  --bg-1: #1a212d; --bg-3: #1d2431; --bg-4: #232c3a;
+  --stroke-1: #3c4556; --stroke-2: #29313d; --stroke-3: #29313d; --stroke-focus-2: #a5d877;
+  --neu-bg: #202936; --neu-fg: #c1cad6; --neu-stroke: #3c4556;
+  background: #131823; border-right-color: #29313d; color: #c1cad6;
+}
+body.light .rail a, body.light .rail .grp { color: #c1cad6; font-weight: 650; }
+body.light .rail a[aria-current="page"] {
+  color: #fff; font-weight: 800; background: #78be201c; border-left-color: #78be20;
+}
+body.light .rail .grphdr {
+  padding: 14px 16px 4px; font-size: 10.5px; line-height: 14px; font-weight: 800;
+  letter-spacing: .06em; text-transform: uppercase; color: #8f9bab;
+}
+/* The icon rail (768-1023, or collapsed at >=1024) has no room for a section label. */
+@media (min-width: 768px) and (max-width: 1023px) { body.light .rail .grphdr { display: none; } }
+body.light .rail[data-collapsed="1"] .grphdr { display: none; }
+body.light .rail .cnt { font-weight: 800; font-variant-numeric: tabular-nums; border-radius: 9px; }
+body.light .rail :focus-visible { box-shadow: none; outline-color: #a5d877; outline-offset: -2px; }
+
+/* ── Banner: main#main becomes a one-column grid so a ::before can span the crumb and page-header rows and
+   grow with them (wrapped crumbs, long descriptions, a wrapped command bar). Each child keeps its own row. ── */
+body.light main#main {
+  --oem-pt: 16px; --oem-px: 16px;
+  display: grid; grid-template-columns: minmax(0, 1fr); align-content: start;
+  flex: 1 1 0%; /* a grid's content size is 0 here, so take the free space directly as the block layout did */
+}
+/* Every child is pinned to the one column: the ::before claims rows 1-2, and an unpinned row-1/2 child
+   would otherwise be auto-placed into a new implicit column beside it. */
+body.light main#main > * { grid-column: 1; }
+body.light main#main > .crumbrow { grid-row: 1; }
+body.light main#main > .pagehdr { grid-row: 2; }
+body.light main#main > .statusline { grid-row: 3; }
+body.light main#main > .pivots { grid-row: 4; }
+body.light main#main > .content { grid-row: 5; }
+body.light main#main::before {
+  content: ""; grid-row: 1 / 3; grid-column: 1;
+  margin: calc(-1 * var(--oem-pt)) calc(-1 * var(--oem-px)) 0;
+  border-bottom: 3px solid #78be20;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+  pointer-events: none;
+}
+body.light main#main > :is(.crumbrow, .pagehdr) { position: relative; z-index: 1; }
+body.light .crumb li { color: #d5dee7; }
+body.light .crumb a { color: #a9dcf0; }
+body.light .crumb [aria-current="page"] { color: #fff; font-weight: 800; }
+body.light .crumb .sep { color: #a8b6c4; }
+body.light main#main > .pagehdr {
+  margin: 8px 0 0; padding: 18px 0 calc(var(--oem-lift) + 22px); align-items: flex-end;
+}
+body.light main#main:has(> .statusline:empty) > .pagehdr { padding-bottom: 22px; }
+body.light .pagehdr h1 {
+  color: #fff; font-weight: 850; letter-spacing: -.7px; text-shadow: 0 1px 12px #060e1866;
+}
+body.light .pagehdr .pagedesc { color: #d5dee7; }
+body.light .pagehdr :focus-visible { outline-color: #a5d877; box-shadow: none; }
+/* Commands sitting on the banner. */
+body.light .pagehdr .btn-subtle { color: #e6edf7; }
+body.light .pagehdr .btn-subtle:hover { background: #ffffff1f; }
+body.light .pagehdr .btn-subtle:active { background: #ffffff2b; }
+body.light .pagehdr .btn-secondary { background: #ffffff14; border-color: #ffffff47; color: #fff; }
+body.light .pagehdr .btn-secondary:hover { background: #ffffff24; }
+body.light .pagehdr .btn-primary { border-color: #78be2099; }
+body.light .pagehdr .btn:is(:disabled, [aria-disabled="true"]) { background: #ffffff10; color: #ffffff80; border-color: #ffffff26; }
+/* Technician / Advanced switch on the banner. */
+body.light .crumbrow .seg { background: #0b141ecc; border-color: #ffffff40; }
+body.light .crumbrow .seg label { color: #d5dee7; font-weight: 700; }
+body.light .crumbrow .seg label:has(input:checked) { background: #3d7924; color: #fff; font-weight: 800; }
+body.light .crumbrow .seg label:has(input:focus-visible) { outline: 2px solid #a5d877; outline-offset: -2px; }
+
+/* Depth: the status line is the raised bar sitting on the banner edge. */
+body.light main#main > .statusline {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--oem-lift)); margin-bottom: 16px;
+  min-height: 52px; padding: 10px 16px;
+  background: var(--bg-1); border: 1px solid var(--stroke-2); border-radius: var(--r-8);
+  box-shadow: var(--shadow-8); font-size: 13px; line-height: 18px; font-weight: 600;
+}
+
+/* ── Surfaces ── */
+body.light .card { border-color: var(--stroke-2); border-radius: var(--r-8); box-shadow: var(--shadow-8); }
+body.light .card > .card-hd :is(h2, h3) { font-weight: 800; letter-spacing: -.2px; }
+body.light .grid thead th {
+  font-size: 11px; line-height: 16px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--fg-3); background: var(--bg-3);
+}
+/* Row titles are <th scope=row>: they read as cells, not as a header stripe. */
+body.light .grid tbody th { background: transparent; }
+body.light .grid tbody tr[aria-selected="true"] { box-shadow: inset 3px 0 0 #3d7924; }
+body.light .pivot { font-weight: 650; }
+body.light .pivot[aria-selected="true"] { font-weight: 800; }
+body.light .pill { border-radius: 6px; font-weight: 700; }
+body.light .mbar { border-radius: var(--r-8); }
+body.light .mbar-info { background: var(--oem-info-bg); border-color: var(--oem-info-stroke); }
+body.light .mbar-info .ic { color: var(--oem-info-fg); }
+body.light .callout { border-radius: var(--r-4); }
+body.light .toast { box-shadow: var(--shadow-16); }
+body.light .pop { box-shadow: var(--shadow-16); }
+body.light .blade { box-shadow: var(--shadow-16); border-left-color: var(--stroke-2); }
+body.light .blade-hd h2 { font-weight: 850; letter-spacing: -.3px; }
+body.light .radiobox { border-radius: var(--r-4); }
+body.light .btn { font-weight: 700; }
+body.light .field :is(input, select, textarea):focus {
+  border-color: #147299; border-bottom-width: 1px; box-shadow: 0 0 0 3px #1472992b;
+}
+
+/* ── Motion (Emil): press feedback on pressables, exact properties, one strong ease-out. ── */
+body.light :is(.btn, .hbtn, .pivot, .seg label, .rail a, .rail .grp, .radiobox, .lnk) {
+  transition: background-color 160ms var(--oem-ease), border-color 160ms var(--oem-ease),
+    color 160ms var(--oem-ease), transform 160ms var(--oem-ease);
+}
+body.light :is(.btn, .hbtn, .seg label):active:not(:disabled, [aria-disabled="true"]) { transform: scale(.97); }
+body.light :is(.pivot, .rail a, .rail .grp):active { transform: scale(.985); }
+body.light .radiobox:active { transform: scale(.985); }
+@media (hover: hover) and (pointer: fine) {
+  body.light .rail a:not([aria-current="page"]):hover, body.light .rail .grp:hover { color: #fff; }
+  body.light .hdr .hbtn:hover { background: #202936; color: #fff; }
+  body.light .card.click:hover, body.light .grid tbody tr.click:hover { background: #f7f9fa; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.light :is(.btn, .hbtn, .seg label, .pivot, .rail a, .rail .grp, .radiobox):active { transform: none; }
+}
+
+/* ── Responsive: main#main padding per the shell's breakpoints, mirrored so the banner bleeds edge to edge. ── */
+@media (min-width: 1024px) {
+  body.light main#main { --oem-pt: 20px; --oem-px: 24px; }
+}
+@media (max-width: 767px) {
+  body.light { --oem-lift: 18px; }
+  body.light main#main { --oem-pt: 12px; --oem-px: 16px; }
+  body.light main#main > .pagehdr { padding-top: 12px; }
+  body.light .pagehdr h1 { font-size: 26px; line-height: 32px; }
+  /* The shell budgets the header for 400px and was 390px wide at 375; Nunito's brand adds 4px more.
+     A tighter gap and a 17px brand bring it to 375 without truncating the name. */
+  body.light .hdr { gap: 2px; padding: 0 6px; }
+  body.light .hdr .brand { font-size: 17px; padding: 4px 6px; flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
+}
+@media print {
+  body.light main#main { display: block; }
+  body.light main#main::before { display: none; }
+  body.light main#main > .pagehdr { padding: 0 0 12px; border-bottom: 2px solid #3d7924; margin-bottom: 14px; }
+  body.light .pagehdr h1 { color: #17212e; text-shadow: none; }
+  body.light .pagehdr .pagedesc { color: #5d6b7e; }
+  body.light main#main > .statusline { margin-top: 0; box-shadow: none; }
+  body.light .crumb a, body.light .crumb [aria-current="page"] { color: #17212e; }
+}

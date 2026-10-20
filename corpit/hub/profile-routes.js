@@ -45,6 +45,7 @@ const pool = mysql.createPool({
   connectionLimit: 5,
 });
 const rbac = createRbac(pool);
+const requireServiceDeskRead = rbac.requirePage('service-desk-portal', 'read');
 
 const LANDING_JSON   = process.env.LANDING_JSON || '/var/www/html/landing/landing.json';
 const WEB_ROOT       = process.env.WEB_ROOT || '/var/www/html';
@@ -265,6 +266,9 @@ router.use((req, res, next) => {
     code: 'VIEW_AS_READ_ONLY', viewingAs: target,
   });
 });
+
+// Inherits blanket authentication/CSRF and the borrowed-view write guard.
+require('./guide-preferences').register(router, { pool, who, needUser });
 
 router.get('/prefs', async (req, res) => {
   if (!needUser(req, res)) return;
@@ -661,13 +665,19 @@ router.get('/me', async (req, res) => {
     if (isSuperAdmin || isActive) {
       try { pages = await rbac.computeEffectivePages(email, roles, isSuperAdmin); } catch (e) { console.warn('[profile] computeEffectivePages', e.message); }
     }
+    let viewerPages = pages;
+    if (!isSelf) {
+      try { viewerPages = await rbac.computeEffectivePages(self, req.user.roles || [], !!req.user.isSuperAdmin); }
+      catch (e) { console.warn('[profile] viewer page access', e.message); viewerPages = {}; }
+    }
+    const canSearchAllTickets = ['read', 'admin'].includes(viewerPages['service-desk-portal']);
     const { prefs, updatedAt } = await readPrefs(email);
     const [[ev]] = await pool.query('SELECT COUNT(*) AS n, MIN(created_at) AS first_at FROM profile_events WHERE email=?', [email]);
     if (!isSelf) rbac.audit(req, 'profile_view_as', email, 'my-profile', { via: v.viewingAs && v.viewingAs.via });
     res.json({
       email, displayName: (isSelf ? req.user.displayName : null) || (entra && entra.display_name) || email,
       isSuperAdmin, superAdminSource: isSelf ? (req.user.superAdminSource || null) : superAdminSourceFor(envSA, roles),
-      roles, roleRows, pages,
+      roles, roleRows, pages, canSearchAllTickets,
       // The 'Back to AI Reporting' link is the VIEWER's own nav, so it is
       // decided by who() (self) and not by the subject under View-As.
       canReturnToReporting: reportingReturnAllows(self),
@@ -895,7 +905,10 @@ router.get('/work/assigned', async (req, res) => {
   }
 });
 
-router.get('/work/tickets/search', async (req, res) => {
+router.get('/work/tickets/search', (req, res, next) => {
+  if (req.query.scope === 'all') return requireServiceDeskRead(req, res, next);
+  next();
+}, async (req, res) => {
   if (!needUser(req, res)) return;
   const q = str(req.query.q, 120);
   if (!q || q.length < 2) return res.status(400).json({ error: 'q must be at least 2 characters' });

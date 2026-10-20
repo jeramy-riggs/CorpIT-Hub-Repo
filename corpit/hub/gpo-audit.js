@@ -8,6 +8,7 @@
  *   GET    /api/gpo/health                       — module health + DB ping
  *   POST   /api/gpo/upload                       — accept XML, parse, persist (multipart)
  *   GET    /api/gpo/uploads                      — upload history
+ *   GET    /api/gpo/diff?from=&to=                — compare completed snapshots (read-only)
  *   GET    /api/gpo/inventory                    — list GPOs in the active upload
  *   GET    /api/gpo/gpo/:guid                    — single GPO detail (links, settings sample)
  *   GET    /api/gpo/findings                     — findings from the active upload (filterable)
@@ -30,6 +31,8 @@ const path = require('path');
 const { parseGpoReport } = require('./gpo-parser');
 const { analyze } = require('./gpo-conflict-engine');
 const { buildRecommendations } = require('./gpo-recommendations');
+const { createReadinessService } = require('./gpo-readiness');
+const { snapshotId, compareSnapshots } = require('./gpo-snapshot-diff');
 
 // ── BOM-aware XML reader ─────────────────────────────────────────────
 // PowerShell's Get-GPOReport -ReportType Xml writes UTF-16 LE by default.
@@ -80,6 +83,8 @@ const pool = mysql.createPool({
   connectionLimit: 5,
   queueLimit: 0
 });
+
+const readinessService = createReadinessService({ pool, getActiveUploadId });
 
 // ── Upload handling ───────────────────────────────────────────────────
 const UPLOAD_DIR = path.join(__dirname, 'tmp-uploads');
@@ -284,6 +289,23 @@ router.get('/uploads', rbac.requireSuperAdmin, async (req, res) => {
   } catch (e) { return serverErr(res, e); }
 });
 
+// Read-only comparison of any two completed snapshots, without activation.
+router.get('/diff', rbac.requireSuperAdmin, async (req, res) => {
+  const from = snapshotId(req.query.from), to = snapshotId(req.query.to);
+  if (from === null || to === null) return badReq(res, 'from and to must be positive snapshot IDs');
+  if (from === to) return badReq(res, 'Choose two different snapshots');
+  let conn;
+  try {
+    conn = await pool.getConnection();
+    return res.json({ ok: true, data: await compareSnapshots(conn, from, to) });
+  } catch (e) {
+    if (e.status === 404 || e.status === 409) {
+      return res.status(e.status).json({ ok: false, error: { code: e.code, message: e.message } });
+    }
+    return serverErr(res, e, 'DIFF_FAIL');
+  } finally { if (conn) conn.release(); }
+});
+
 // ═══════════════════════════════════════════════════════════════════════
 // GET /api/gpo/inventory
 // ═══════════════════════════════════════════════════════════════════════
@@ -431,6 +453,12 @@ router.get('/wmi-filters', rbac.requireSuperAdmin, async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════
 // POST /api/gpo/uploads/:id/activate
 // ═══════════════════════════════════════════════════════════════════════
+// Complete snapshot-only readiness estimate; never contacts AD or Microsoft Graph.
+router.get('/intune-readiness', rbac.requireSuperAdmin, async (req, res) => {
+  try { res.json(await readinessService.read()); }
+  catch (e) { return serverErr(res, e, 'READINESS_FAIL'); }
+});
+
 router.post('/uploads/:id/activate', rbac.requireSuperAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -1076,7 +1104,7 @@ router.post('/intune/analyze', rbac.requireSuperAdmin, requireAuth, async (req, 
       return {
         name: m.settingName || m.adminTemplateSettingName || m.parentId || '(setting)',
         category: m.settingCategory || m.parentSettingCategory || '',
-        supported: (m.isMdmSupported === true) || /supported/i.test(String(status)),
+        supported: (m.isMdmSupported === true) || /^supported$/i.test(String(status)),
         status: String(status),
         csp: m.mdmCSPName || ''
       };

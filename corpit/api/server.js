@@ -78,14 +78,20 @@ app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
 //
 // max stays 500 — it now means 500/min PER CALLER, not 500/min for everyone.
 const _rlCrypto = require('crypto');
+function rateLimitIpKey(req) {
+  const xri = req.headers['x-real-ip'];
+  if (xri) return 'i:' + String(xri).split(',')[0].trim();
+  return 'i:' + (req.ip || 'unknown');
+}
 function rateLimitKey(req) {
+  // Check-in has its own bearer credential, not a user session. Never let an
+  // arbitrary it_session cookie give an anonymous caller a fresh quota.
+  if (req.path === '/api/agents/checkin' || req.path === '/api/health') return rateLimitIpKey(req);
   const m = (req.headers.cookie || '').match(/(?:^|;\s*)it_session=([^;]*)/);
   if (m && m[1]) {
     return 'u:' + _rlCrypto.createHash('sha256').update(m[1]).digest('hex').slice(0, 32);
   }
-  const xri = req.headers['x-real-ip'];
-  if (xri) return 'i:' + String(xri).split(',')[0].trim();
-  return 'i:' + (req.ip || 'unknown');
+  return rateLimitIpKey(req);
 }
 app.use(rateLimit({
   windowMs: 60_000,
@@ -528,10 +534,12 @@ function appToDb(body, colMap) {
   return out;
 }
 
+const inventoryRead = rbac.requirePage('it-inventory', 'read');
+
 for (const [routeName, cfg] of Object.entries(TABLES)) {
   const { table, columns } = cfg;
 
-  app.get(`/api/${routeName}`, async (req, res) => {
+  app.get(`/api/${routeName}`, inventoryRead, async (req, res) => {
     try {
       // ROW-CAP (2026-09-03): the page fetches every table with a bare GET, so what
       // this route returns IS "the fleet" to every badge, stat card, dollar total and
@@ -559,7 +567,7 @@ for (const [routeName, cfg] of Object.entries(TABLES)) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  app.get(`/api/${routeName}/:id`, async (req, res) => {
+  app.get(`/api/${routeName}/:id`, inventoryRead, async (req, res) => {
     try {
       const [rows] = await pool.query(`SELECT * FROM ${table} WHERE id = ?`, [req.params.id]);
       if (!rows.length) return res.status(404).json({ error: 'Not found' });
@@ -730,7 +738,7 @@ for (const [routeName, cfg] of Object.entries(TABLES)) {
   });
 }
 
-app.get('/api/dashboard', async (req, res) => {
+app.get('/api/dashboard', inventoryRead, async (req, res) => {
   try {
     const [[empRow]]     = await pool.query('SELECT COUNT(*) as c FROM active_employees');
     const [[termsRow]]   = await pool.query('SELECT COUNT(*) as c FROM terminated_employees');
@@ -754,7 +762,7 @@ app.get('/api/dashboard', async (req, res) => {
 });
 
 // Dedicated filtered routes for device categories
-app.get('/api/tablets', async (req, res) => {
+app.get('/api/tablets', inventoryRead, async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM intune_devices WHERE device_category='tablet' AND is_historical=0 ORDER BY id DESC");
     const cols = TABLES.intune.columns;
@@ -762,7 +770,7 @@ app.get('/api/tablets', async (req, res) => {
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-app.get('/api/tablets-historical', async (req, res) => {
+app.get('/api/tablets-historical', inventoryRead, async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM intune_devices WHERE device_category='tablet' AND is_historical=1 ORDER BY id DESC");
     const cols = TABLES.intune.columns;
@@ -770,7 +778,7 @@ app.get('/api/tablets-historical', async (req, res) => {
   } catch(e) { res.status(500).json({error:e.message}); }
 });
 
-app.get('/api/mobile-historical', async (req, res) => {
+app.get('/api/mobile-historical', inventoryRead, async (req, res) => {
   try {
     const [rows] = await pool.query("SELECT * FROM intune_devices WHERE device_category='iphone' AND is_historical=1 ORDER BY id DESC");
     const cols = TABLES.intune.columns;

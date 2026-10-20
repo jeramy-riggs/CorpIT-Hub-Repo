@@ -2018,8 +2018,14 @@ ul.plain li { margin-bottom: 4px; }
 <script src="/it-topbar.js" defer></script>
 <script src="/it-version.js" defer data-app-key="okta-entra-migration"
         data-version="3.0.0" data-label="Okta to Entra migration"></script>
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/okta-entra-migration-portal.css?v=10ff0870ca97">
+<link rel="stylesheet" href="/operations-polish.css?v=28493dbcc646">
+<script src="/operations-polish.js?v=da7e6ad64b46"></script>
+<link rel="stylesheet" href="/workspace-whats-new.css?v=20261018-migration-guide1">
+<link rel="stylesheet" href="/migration-planning-welcome.css?v=84857e7d95d2">
 </head>
-<body class="light" data-mode="technician" data-density="comfortable">
+<body data-op-page="okta-entra-migration" class="light" data-mode="technician" data-density="comfortable">
 <a class="skip" href="#main">Skip to main content</a>
 
 <svg hidden aria-hidden="true" id="sprite" xmlns="http://www.w3.org/2000/svg">
@@ -2085,7 +2091,8 @@ ul.plain li { margin-bottom: 4px; }
   <button type="button" class="hbtn" id="gear" aria-label="Settings" aria-haspopup="dialog"
           aria-expanded="false" data-act="shell.gear"><svg class="ic" aria-hidden="true"><use href="#i-settings"></use></svg></button>
   <a class="hbtn" id="hlp" href="#help" aria-label="Help and runbooks"><svg class="ic" aria-hidden="true"><use href="#i-help"></use></svg></a>
-  <div class="ittb-anchor"><div id="it-topbar"></div></div>
+  <button type="button" class="hbtn cwn-trigger" id="workspace-whats-new-link" aria-haspopup="dialog" aria-controls="workspace-whats-new" data-rbac-page="okta-entra-migration" data-rbac-level="read" data-rbac-action="hide">How to use</button>
+<div class="ittb-anchor"><div id="it-topbar"></div></div>
 </header>
 
 <div class="hdr2" id="hdr2"></div>
@@ -2922,7 +2929,10 @@ ui.timeline = function (items) {
     var li = oem.el('<li class="' + A(it.tone || '') + '">' +
       '<p class="tl-m">' + oem.timeHtml(it.at) + (it.actor ? ' - ' + E(it.actor) : '') + '</p>' +
       '<p>' + E(it.text) + '</p></li>');
-    if (it.details) { li.appendChild(ui.kv(it.details)); }
+    if (it.details) {
+      if (Array.isArray(it.details)) { li.appendChild(ui.kv(it.details)); }
+      else { var detail = document.createElement('p'); detail.textContent = String(it.details); li.appendChild(detail); }
+    }
     ol.appendChild(li);
   });
   return ol;
@@ -3200,6 +3210,7 @@ function pend(text) {
 
 
 var ROUTES = [
+  { re: /^planning(?:\/(portfolio|waves|review|compare|runbook))?(?:\/([^/]+))?$/, page: 'planning', owner: 'planning', modes: 'both', keys: ['tab','item'], rail: 'planning' },
   { re: /^overview$/,                    page: 'overview',        owner: 'ov',   modes: 'both', rail: 'overview' },
   { re: /^overview\/progress$/,          page: 'overview/progress', owner: 'ov', modes: 'A',    rail: 'overview' },
   /* The stages are enumerated so an unknown one falls through to FND 2.4. */
@@ -3348,6 +3359,7 @@ var RAIL = [
     { key: 'mine', label: 'My task', href: '#mine', icon: 'i-clipboard', count: 'mine' },
     { key: 'apps', label: 'Applications', href: '#apps', icon: 'i-grid', count: 'apps' },
     { key: 'queue', label: 'Work queue', href: '#queue', icon: 'i-list', count: 'queue' },
+    { key: 'planning', label: 'Migration planning', href: '#planning', icon: 'i-clipboard' },
     { key: 'refresh', label: 'Refresh center', href: '#refresh', icon: 'i-refresh', count: 'refresh' }
   ] },
   { group: 'security', label: 'Security & MFA', icon: 'i-shield', count: 'security', items: [
@@ -3622,6 +3634,9 @@ shell.paintStatus = function (status) {
 
 var current = null;
 
+// Section reads can finish after navigation; only the current context may paint.
+shell.isCurrent = function (ctx) { return !!ctx && current === ctx; };
+
 function pageSkeleton() {
   var c = document.getElementById('content');
   oem.clear(c);
@@ -3784,7 +3799,7 @@ shell.route = function () {
 
   var mine = ++seq;
   var slow = setTimeout(function () {
-    if (mine !== seq) { return; }
+    if (mine !== seq || current !== ctx) { return; }
     /* A section may name what is loading (34-overview 6, 35-refresh 6); the page
        title is the fallback so every route still announces something. */
     var where = null;
@@ -3795,7 +3810,7 @@ shell.route = function () {
 
   Promise.resolve(owner.render(ctx)).then(function (desc) {
     clearTimeout(slow);
-    if (mine !== seq) { return; }
+    if (mine !== seq || current !== ctx) { return; }
     current.onLeave = desc && desc.onLeave;
     var d = desc || {};
     if (shell.pendingBar && d.content) {
@@ -3810,6 +3825,7 @@ shell.route = function () {
 };
 
 var TITLES = {
+  'planning': 'Migration planning',
   'overview': 'Overview', 'overview/progress': 'Progress',
   'overview/progress/stage': 'Progress', 'next': 'Overview',
   'apps': 'Applications', 'apps/match': 'Applications', 'apps/staged': 'Applications',
@@ -6099,6 +6115,7 @@ function load(ctx) {
 }
 
 function repaint(opts) {
+  if (!shell.isCurrent(MT.ctx)) { return; }
   var o = opts || {};
   var c = document.getElementById('content');
   if (!c) { return; }
@@ -6445,8 +6462,7 @@ var QSORTS = [
   { value: 'title', label: 'Title A to Z' }
 ];
 
-var QDESC = 'Every open piece of Okta to Entra work across applications, security, ' +
-            'and dependencies.';
+var QDESC = 'SSO application migration can be completed on its own. CA and MFA migrations are optional separate tracks; only prerequisites actually needed for the application’s SSO apply.';
 
 var QVERIFY_LABEL = {
   authentication: 'Authentication', assignments: 'Assignments', claims: 'Claims',
@@ -6684,6 +6700,20 @@ function qWorkPath() {
   return p;
 }
 
+/* UAT retest 10-18: the "All work" count is the unfiltered total. A filtered or
+   saved-view load used to set it from its own (filtered) total, so landing on
+   #queue/applications/needs_review showed All work 210 of 351. The work route
+   counts before it applies the limit, so limit=1 is enough for the total. */
+var QALL_PATH = '/api/oem/work?includeExcluded=1&includeGone=1&limit=1';
+function qLoadAllTotal() {
+  var hit = oem.store.get(QALL_PATH);
+  if (hit) { return Promise.resolve({ ok: true, body: hit }); }
+  return oem.api(QALL_PATH).then(function (r) {
+    if (r.ok && r.body) { oem.store.set(QALL_PATH, r.body, 60000); }
+    return r;
+  });
+}
+
 function qLoadWork() {
   var path = qWorkPath();
   var hit = oem.store.get(path);
@@ -6726,8 +6756,11 @@ function qLoadList() {
   var saved = Q.view !== 'all' && QSAVED.indexOf(Q.view) >= 0;
   var pFilters = qLoadFilters(saved ? Q.view : 'assigned_to_me');
   var pRows = saved ? pFilters : qLoadWork();
-  return Promise.all([pFilters, pRows]).then(function (res) {
-    var fr = res[0], rr = res[1];
+  var unfiltered = !saved && qWorkPath() === '/api/oem/work?includeExcluded=1&includeGone=1&limit=3000';
+  var pAll = unfiltered ? null : qLoadAllTotal();
+  return Promise.all([pFilters, pRows, pAll]).then(function (res) {
+    var fr = res[0], rr = res[1], ar = res[2];
+    if (ar && ar.ok && ar.body && typeof ar.body.total === 'number') { Q.allTotal = ar.body.total; }
     Q.loading = false;
     if (fr.ok && fr.body) {
       Q.counts = qCounts(fr.body);
@@ -6750,7 +6783,7 @@ function qLoadList() {
       /* Only the limit truncates. A total that counts differently from the rows it
          returns (excluded, gone) is not the same thing, and saying so would be wrong. */
       Q.truncated = Q.rows.length >= 3000;
-      Q.allTotal = Q.total;
+      if (unfiltered) { Q.allTotal = Q.total; }
     }
   });
 }
@@ -6960,7 +6993,7 @@ function qGridNode(rows) {
       oem.clear(th0);
       th0.appendChild(ui.checkbox({ name: 'qall', checked: on > 0 && on === keys.length,
                                     indeterminate: on > 0 && on < keys.length,
-                                    act: 'wq.selAll', ariaLabel: 'Select all work items' }));
+                                    act: 'wq.selAll', ariaLabel: 'Select all work items on this page' }));
     }
   }
   return node;
@@ -7002,6 +7035,9 @@ function qListBody() {
   if (bulk) { wrap.appendChild(bulk); }
   var rows = qVisible();
   var shown = qPageRows(rows);
+  if (rows.length > Q.size) {
+    wrap.appendChild(ui.pagination({from:Q.page*Q.size+1,to:Q.page*Q.size+shown.length,total:rows.length,hasPrev:Q.page>0,hasNext:(Q.page+1)*Q.size<rows.length,prevAct:'wq.prev',nextAct:'wq.next'}));
+  }
   wrap.appendChild(qGridNode(shown));
   if (rows.length > Q.size) {
     wrap.appendChild(ui.pagination({
@@ -7038,7 +7074,8 @@ function qStatus() {
                                : Q.rows.length;
   var text = qActiveFilters()
     ? shown + ' of ' + total + ' work items match these filters.'
-    : total + ' work item(s) in this view.';
+    : total + ' work item' + (total === 1 ? '' : 's') + ' in this view.';
+  if (shown > Q.size) { text += ' Showing ' + (Q.page*Q.size+1) + '–' + Math.min((Q.page+1)*Q.size,shown) + '.'; }
   return {
     tone: 'info', text: text,
     detail: Q.generation === undefined ? null : 'Data generation ' + Q.generation,
@@ -7090,10 +7127,7 @@ var QHELP_SAVED = {
    8. Export (spec 4.1: the list you are looking at, as CSV)
    ========================================================================== */
 
-function qCsvCell(v) {
-  var s = v === null || v === undefined ? '' : String(v);
-  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-}
+function qCsvCell(v) { return OpsPolish.csvCell(v); }
 
 function qExport(rows, name) {
   var head = ['key', 'title', 'area', 'status', 'owner', 'whatHappensNext', 'updatedAt'];
@@ -7102,7 +7136,7 @@ function qExport(rows, name) {
     lines.push([r.key, r.title, r.area, r.stateLabel || r.state || 'unknown',
                 r.assignee || '', qNextText(r), r.updatedAt || ''].map(qCsvCell).join(','));
   });
-  var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  var blob = new Blob(['\ufeff'+lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
@@ -7119,6 +7153,7 @@ function qExport(rows, name) {
    ========================================================================== */
 
 function qRepaint(keepFocus) {
+  if (!shell.isCurrent(Q.ctx)) { return; }
   var c = document.getElementById('content');
   if (!c) { return; }
   var active = document.activeElement;
@@ -7127,6 +7162,14 @@ function qRepaint(keepFocus) {
   oem.clear(c);
   c.appendChild(qListBody());
   shell.paintStatus(qStatus());
+  /* The pivot strip is painted only by a full route render; repaint it so the
+     counts follow a reload (Clear filters, Area/Status). Skipped while a tab has focus. */
+  var pv = document.querySelector('main#main .pivots');
+  if (pv && !pv.contains(document.activeElement)) {
+    var built = oem.ui.pivot(qPivots());
+    oem.clear(pv);
+    while (built.firstChild) { pv.appendChild(built.firstChild); }
+  }
   if (name) {
     var again = document.querySelector('[name="' + name + '"]');
     if (again) {
@@ -7179,6 +7222,17 @@ function qReplace(hash) {
   try {
     if (window.history && history.replaceState) { history.replaceState(null, '', hash); }
   } catch (e) { /* file:// and sandboxed frames refuse replaceState */ }
+}
+
+/* UAT MIG-03 (10-18): Area and Status live in the hash. A filter change that left
+   the old hash behind was read back by the next shell.route() -> qParseList, which
+   put the cleared filters back. replaceState fires no hashchange, so this keeps
+   spec 5.4 (a filter change never re-navigates). Owner and search are not in the hash. */
+function qSyncHash() {
+  if (Q.view !== 'all') { return; }
+  var h = Q.cat ? '#queue/' + encodeURIComponent(Q.cat) + (Q.state ? '/' + encodeURIComponent(Q.state) : '')
+        : Q.state ? '#queue/all/' + encodeURIComponent(Q.state) : '#queue';
+  if (location.hash !== h) { qReplace(h); }
 }
 
 function qParseItem(ctx) {
@@ -7251,7 +7305,7 @@ wq.render = function (ctx) {
 var qSearchTimer = null;
 
 function qSearchInput(value) {
-  Q.q = value;
+  Q.q = value.trim();
   Q.page = 0;
   if (qSearchTimer) { clearTimeout(qSearchTimer); }
   qSearchTimer = setTimeout(function () {
@@ -7266,6 +7320,7 @@ function qSearchInput(value) {
 function qSetSelect(field, value) {
   Q[field] = value;
   Q.page = 0;
+  if (field === 'cat' || field === 'state') { qSyncHash(); }
   if (Q.view === 'all' && (field === 'cat' || field === 'state' || field === 'owner')) {
     qReload(false);
   } else {
@@ -7284,7 +7339,9 @@ Object.assign(oem.acts, {
   'wq.sort': function (el) { Q.sort = el.value; Q.page = 0; qRepaint(false); },
   'wq.filters': function () { Q.filtersOpen = !Q.filtersOpen; qRepaint(false); },
   'wq.clear': function () {
+    if(qSearchTimer){clearTimeout(qSearchTimer);qSearchTimer=null;}
     Q.q = ''; Q.cat = ''; Q.state = ''; Q.owner = ''; Q.page = 0;
+    qSyncHash();
     if (Q.view === 'all') { qReload(false); } else { qRepaint(false); }
   },
   'wq.sel': function (el) {
@@ -7533,6 +7590,7 @@ function qBladeDesc() {
 
 /* Re-render the blade in place: a pivot change must not re-navigate. */
 function qBladeRepaint() {
+  if (!shell.isCurrent(Q.ctx)) { return; }
   var box = document.getElementById('blade');
   if (!box || box.hidden) { return; }
   var active = document.activeElement;
@@ -7777,6 +7835,26 @@ function qValidateOp(row, gate) {
   return qOpBox('Validation', body);
 }
 
+function qMatchEvidenceText(e) {
+  if (typeof e === 'string') { return e; }
+  if (!e || typeof e !== 'object') { return ''; }
+  var labels = {
+    launcher_app_id: 'Entra My Apps application ID matches',
+    audience_equals_identifier_uri: 'Okta audience matches Entra identifier URI',
+    acs_equals_reply_url: 'Okta ACS URL matches Entra reply URL',
+    acs_host_equals_reply_host: 'Okta ACS host matches Entra reply host',
+    redirect_host_equals_reply_host: 'Redirect host matches Entra reply host',
+    tenant_hint_in_reply_host: 'Tenant hint found in Entra reply host',
+    tenant_hint_in_identifier_uri: 'Tenant hint found in Entra identifier URI',
+    name_similarity: 'Application name similarity'
+  };
+  var method = typeof e.method === 'string' ? e.method : '';
+  var label = typeof e.text === 'string' ? e.text
+    : (Object.prototype.hasOwnProperty.call(labels, method) ? labels[method] : method.replace(/_/g, ' '));
+  var detail = typeof e.detail === 'string' ? e.detail : '';
+  return label + (detail ? (label ? ': ' : '') + detail : '');
+}
+
 function qMatchOp(row, gate) {
   var f = qFacts();
   var m = f.match;
@@ -7812,7 +7890,8 @@ function qMatchOp(row, gate) {
     }
     li.appendChild(head);
     (c.evidence || []).forEach(function (e) {
-      li.appendChild(oem.el('<p class="t-caption1 fg-2">' + oem.esc(e) + '</p>'));
+      var text = qMatchEvidenceText(e);
+      if (text) { li.appendChild(oem.el('<p class="t-caption1 fg-2">' + oem.esc(text) + '</p>')); }
     });
     var acts = oem.el('<div class="qc-a"></div>');
     acts.appendChild(ui.button({ label: 'This is the one', variant: 'subtle',
@@ -10086,6 +10165,7 @@ function apListBody(ctx) {
 }
 
 function apRepaint(keepFocus) {
+  if (!shell.isCurrent(AP.ctx)) { return; }
   var c = document.getElementById('content');
   if (!c) { return; }
   var active = document.activeElement;
@@ -15853,6 +15933,7 @@ function wsRes() {
 /* The whole content region is rebuilt from W; no partial DOM surgery, so a
    repaint after a write always agrees with the state (spec 6). */
 function wsRepaint(keepFocus) {
+  if (!shell.isCurrent(W.ctx)) { return; }
   var c = document.getElementById('content');
   if (!c) { return; }
   var active = document.activeElement;
@@ -18644,6 +18725,7 @@ function ovStartLoads() {
 }
 
 function ovRepaint() {
+  if (!shell.isCurrent(O.ctx)) { return; }
   var c = document.getElementById('content');
   if (!c) { return; }
   oem.clear(c);
@@ -20289,6 +20371,7 @@ function rfStartLoads() {
 }
 
 function rfRepaint() {
+  if (!shell.isCurrent(R.ctx)) { return; }
   var c = document.getElementById('content');
   if (!c) { return; }
   oem.clear(c);
@@ -25506,6 +25589,7 @@ function secPaintBlade() {
 /* --------------------------------------------------------- 22. the repaints */
 
 function secRepaint(keepFocus) {
+  if (!shell.isCurrent(S.ctx)) { return; }
   var c = document.getElementById('content');
   if (!c) { return; }
   var active = document.activeElement;
@@ -28631,6 +28715,7 @@ function caPaintCommands() {
 }
 
 function caRepaint(keepFocus) {
+  if (!shell.isCurrent(C.ctx)) { return; }
   var c = document.getElementById('content');
   if (!c) { return; }
   var active = document.activeElement;
@@ -30979,6 +31064,7 @@ function evStartLoads() {
 }
 
 function evRepaint() {
+  if (!shell.isCurrent(EVS.ctx)) { return; }
   var c = document.getElementById('content');
   if (!c) { return; }
   oem.clear(c);
@@ -31914,6 +32000,7 @@ function hpCommands() {
 }
 
 function hpRepaint() {
+  if (!shell.isCurrent(H.ctx)) { return; }
   var c = document.getElementById('content');
   if (!c) { return; }
   oem.clear(c);
@@ -32021,6 +32108,223 @@ setTimeout(function () {
     return { key: p.key, title: p.label };
   }));
 }, 0);
+/* == 85-migration-planning.js == */
+/* Planning only. The sole API read uses the existing work inventory. No tenant writes. */
+var mp = oem.sections.planning = {};
+var MP_CHECKS = [
+  ['ownership','Owner, business purpose and acceptance criteria recorded'],
+  ['identity','Users, groups, claims and assignment scope reviewed'],
+  ['configuration','Protocol, destination, certificates and application settings reviewed'],
+  ['provisioning','Provisioning, lifecycle and service-account dependencies reviewed'],
+  ['security','Optional CA / MFA migration review — separate from SSO',true],
+  ['pilot','Pilot users, test results and sign-in evidence recorded'],
+  ['rollback','Rollback steps, recovery owner and vendor contacts recorded'],
+  ['approval','Change window, communication and required approvals recorded']
+];
+var MP_WAVES = ['Backlog','Pilot','Wave 1','Wave 2','Hold'];
+var MP_TABS = ['portfolio','waves','review','compare','runbook'];
+var MP = {ctx:null,rows:[],readAt:null,total:null,error:null,loading:false,seq:0,scope:null,draft:null,pending:null,
+  q:'',area:'',gap:'',wave:'',sort:'gaps',page:0,size:25,selected:new Set(),item:null,storageError:null,pendingImport:null,undo:null};
+function mpEmptyDraft() { return {schema:'corpit.migration-planning.v1',environment:'DEV',project:{name:'Okta to Entra migration',owner:'',targetDate:'',notes:'',scope:'sso'},items:{},baseline:null}; }
+function mpRowsForScope(rows) {return MP.draft&&MP.draft.project.scope==='all'?rows:rows.filter(function(r){return r.area==='applications';});}
+function mpScopeRows() {return mpRowsForScope(MP.rows);}
+function mpCheckProgress(plan) {var checks=MP_CHECKS.filter(function(c){return !c[2];});return {recorded:checks.filter(function(c){return plan.checks[c[0]]===true;}).length,total:checks.length,optionalSecurityReviewed:plan.checks.security===true};}
+function mpSecurityReference(key,row) {return row?['policies','mfa'].includes(row.area):/^(policy|mapping|mfa):/.test(key);}
+function mpText(v,max) { return typeof v==='string'?v.slice(0,max||2000):''; }
+function mpSafeKey(v) { return typeof v==='string' && v.length>0 && v.length<=300 && !['__proto__','constructor','prototype'].includes(v); }
+function mpNorm(raw) {
+  var s=raw.summary||{};
+  return {key:String(raw.key),title:String(raw.title||raw.key),area:String(raw.category||'other'),areaLabel:String(raw.categoryLabel||raw.category||'Other'),
+    state:raw.state||'unknown',sourceOwner:raw.assignee||'',destination:s.entraName||s.entraId||'',
+    users:typeof s.users==='number'&&Number.isFinite(s.users)&&s.users>=0?s.users:null,
+    protocol:s.protocolLabel||s.protocol||s.signOnMode||'',sourceStatus:raw.sourceStatus||'',seen:raw.seen!==false,disposition:raw.disposition||''};
+}
+function mpGaps(row) {
+  var out=[];
+  if (!row.sourceOwner) out.push('Source owner missing');
+  if (row.area==='applications'&&!row.destination) out.push('Destination not recorded');
+  if (row.state==='blocked') out.push('Source work is blocked');
+  if (!row.seen) out.push('Not seen in returned source inventory');
+  if (/inactive|deactivated/i.test(row.sourceStatus)) out.push('Inactive source — confirm intent');
+  if (row.area==='applications'&&row.users===null) out.push('Assignment count unknown');
+  return out;
+}
+function mpPlan(key) { return MP.draft.items[key]||{wave:0,owner:'',date:'',notes:'',dependencies:[],checks:{}}; }
+function mpDependencyIssues(key,items,rows) {
+  var p=items[key]||{},byKey=new Map(rows.map(function(r){return[r.key,r];}));
+  return (p.dependencies||[]).map(function(dep){
+    var row=byKey.get(dep),d=items[dep]||{wave:0};
+    if((byKey.get(key)||{}).area==='applications'&&mpSecurityReference(dep,row))return null;
+    if (!row) return dep+': not in loaded inventory';
+    if (row.state==='blocked') return row.title+': blocked in source';
+    if (d.wave===0||d.wave===4) return row.title+': in '+MP_WAVES[d.wave];
+    if (p.wave>0&&p.wave<4&&d.wave>p.wave) return row.title+': planned in a later wave';
+    if (p.date&&d.date&&d.date>p.date) return row.title+': planned after this item';
+    return null;
+  }).filter(Boolean);
+}
+function mpWouldCycle(items,key,dep) {
+  var seen=new Set();
+  function visit(id){if(id===key)return true;if(seen.has(id))return false;seen.add(id);return ((items[id]||{}).dependencies||[]).some(visit);}
+  return visit(dep);
+}
+function mpCompare(before,after) {
+  var old=new Map(before.map(function(r){return[r.key,r];})),now=new Map(after.map(function(r){return[r.key,r];}));
+  var fields=['title','area','state','sourceOwner','destination','users','protocol','sourceStatus','seen','disposition'];
+  return {added:after.filter(function(r){return!old.has(r.key);}),removed:before.filter(function(r){return!now.has(r.key);}),changed:after.filter(function(r){return old.has(r.key)&&fields.some(function(f){return old.get(r.key)[f]!==r[f];});}).map(function(r){return{row:r,fields:fields.filter(function(f){return old.get(r.key)[f]!==r[f];}).map(function(f){return{field:f,before:old.get(r.key)[f],after:r[f]};})};})};
+}
+function mpValidDate(value){if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;var d=new Date(value+'T00:00:00Z');return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===value;}
+function mpValidateDraft(value) {
+  if (!value||value.schema!=='corpit.migration-planning.v1'||value.environment!=='DEV'||!value.items||Array.isArray(value.items)||typeof value.items!=='object') throw Error('Choose a DEV migration planning v1 JSON file.');
+  if(Object.keys(value.items).length>3000)throw Error('Draft has more than 3,000 planning items.');
+  var out=mpEmptyDraft(),p=value.project||{};
+  if(p.scope!==undefined&&!['sso','all'].includes(p.scope))throw Error('Invalid planning scope.');
+  out.project.scope=p.scope||'sso';
+  if(p.targetDate&&!mpValidDate(p.targetDate))throw Error('Invalid project target date.');
+  ['name','owner','targetDate','notes'].forEach(function(k){out.project[k]=mpText(p[k],k==='notes'?4000:300);});
+  Object.keys(value.items).forEach(function(key){
+    if(!mpSafeKey(key))throw Error('Draft contains an invalid item key.');
+    var v=value.items[key];if(!v||!Number.isInteger(v.wave)||v.wave<0||v.wave>4)throw Error('Draft contains an invalid wave.');
+    if(v.date&&!mpValidDate(v.date))throw Error('Draft contains an invalid planning date.');
+    if(!Array.isArray(v.dependencies)||v.dependencies.length>100||!v.dependencies.every(mpSafeKey))throw Error('Invalid dependency list.');
+    var checks={};MP_CHECKS.forEach(function(c){checks[c[0]]=v.checks&&v.checks[c[0]]===true;});
+    Object.defineProperty(out.items,key,{enumerable:true,writable:true,configurable:true,value:{wave:v.wave,owner:mpText(v.owner,300),date:mpText(v.date,10),notes:mpText(v.notes,4000),dependencies:[...new Set(v.dependencies)],checks:checks}});
+  });
+  Object.keys(out.items).forEach(function(k){if(out.items[k].dependencies.some(function(d){return mpWouldCycle(out.items,k,d);}))throw Error('Draft contains a dependency cycle.');});
+  if(value.baseline){
+    if(!Array.isArray(value.baseline.rows)||value.baseline.rows.length>3000)throw Error('Invalid baseline inventory.');
+    var seen=new Set();var rows=value.baseline.rows.map(function(r){
+      if(!r||!mpSafeKey(r.key)||seen.has(r.key))throw Error('Invalid baseline item.');seen.add(r.key);
+      var x={};['key','title','area','areaLabel','state','sourceOwner','destination','protocol','sourceStatus','disposition'].forEach(function(k){x[k]=mpText(r[k],1000);});x.users=typeof r.users==='number'&&Number.isFinite(r.users)&&r.users>=0?r.users:null;x.seen=r.seen!==false;return x;
+    });out.baseline={at:mpText(value.baseline.at,100),rows:rows};
+  }
+  return out;
+}
+function mpCsvCell(v) {var s=String(v===null||v===undefined?'':v);if(/^[\s\uFEFF]*[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
+function mpAccount() { return (oem.me&&oem.me.me&&oem.me.me.email)||(oem.me&&oem.me.email)||null; }
+function mpStorageKey() { var account=mpAccount();return account?'oem-planning-v1:'+location.host+':'+encodeURIComponent(account):null; }
+function mpOpenDraft() {
+  var key=mpStorageKey();if(MP.scope===key&&MP.draft)return;
+  MP.seq++;MP.pending=null;MP.scope=key;MP.draft=mpEmptyDraft();MP.rows=[];MP.readAt=null;MP.selected.clear();MP.pendingImport=null;MP.undo=null;MP.storageError=null;
+  try {var saved=key?localStorage.getItem(key):null;if(saved)MP.draft=mpValidateDraft(JSON.parse(saved));if(!key)MP.storageError='Account identity unavailable; export your draft to keep it.';}
+  catch(e){MP.storageError='Saved draft could not be opened: '+e.message+'. Export any new work to keep it.';}
+}
+function mpSave() {
+  try {if(!MP.scope)throw Error('Account storage unavailable');localStorage.setItem(MP.scope,JSON.stringify(MP.draft));MP.storageError=null;}
+  catch(e){MP.storageError='Browser storage unavailable. Changes are in memory; download the draft to keep them.';}
+  var n=document.getElementById('mp-save-status');if(n)n.textContent=MP.storageError||'Planning draft saved in this browser for your account. Not shared with the team.';
+}
+function mpEdit(key,field,value) {var p=MP.draft.items[key];if(!p){p={wave:0,owner:'',date:'',notes:'',dependencies:[],checks:{}};MP.draft.items[key]=p;}p[field]=value;mpSave();}
+function mpRead(force) {
+  if(MP.readAt&&!force&&Date.now()-Date.parse(MP.readAt)<60000)return Promise.resolve();
+  if(MP.pending)return MP.pending;
+  var request=++MP.seq;MP.loading=true;
+  MP.pending=oem.api('/api/oem/work?includeExcluded=1&includeGone=1&limit=3000').then(function(r){
+    if(request!==MP.seq)return;
+    MP.loading=false;
+    if(!r.ok){MP.error=oem.errText(r).text||'Could not read saved work inventory.';return;}
+    var b=r.body||{},rows=b.items||b.work;
+    if(!Array.isArray(rows)||rows.some(function(x){return !x||!mpSafeKey(x.key);})||new Set(rows.map(function(x){return x.key;})).size!==rows.length) {MP.error='Work inventory returned an unexpected format. Retry Refresh saved data.';return;}
+    MP.rows=rows.map(mpNorm);MP.total=typeof b.total==='number'?b.total:null;MP.readAt=new Date().toISOString();MP.error=null;
+    var keys=new Set(MP.rows.map(function(x){return x.key;}));MP.selected.forEach(function(k){if(!keys.has(k))MP.selected.delete(k);});
+  }).finally(function(){if(request===MP.seq)MP.pending=null;});
+  return MP.pending;
+}
+function mpCurrent(){return MP.ctx&&shell.isCurrent(MP.ctx);}
+function mpRepaint(){if(!mpCurrent())return;oem.route();}
+function mpDownload(name,text,type){var url=URL.createObjectURL(new Blob([text],{type:type}));var a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);}
+function mpExportDraft(){var out=JSON.parse(JSON.stringify(MP.draft));out.exportedAt=new Date().toISOString();out.source={origin:location.origin,readAt:MP.readAt,planningScope:MP.draft.project.scope,loadedItems:mpScopeRows().length,loadedInventoryItems:MP.rows.length,reportedTotal:MP.total,limit:3000,rows:mpScopeRows()};mpDownload('okta-entra-planning-draft.json',JSON.stringify(out,null,2),'application/json');}
+function mpVisible(){var rows=mpScopeRows().filter(function(r){var p=mpPlan(r.key);return(!MP.q||[r.key,r.title,r.destination,r.sourceOwner,p.owner].join(' ').toLowerCase().includes(MP.q.toLowerCase()))&&(!MP.area||r.area===MP.area)&&(!MP.gap||mpGaps(r).length>0)&&(!MP.wave||String(p.wave)===MP.wave);});rows.sort(function(a,b){return MP.sort==='name'?a.title.localeCompare(b.title):MP.sort==='users'?(b.users===null?-1:b.users)-(a.users===null?-1:a.users):mpGaps(b).length-mpGaps(a).length||a.title.localeCompare(b.title);});return rows;}
+function mpExportCsv(all){var cols=['Key','Title','Area','Source status','Source owner','Destination','Known app assignments','Planning wave','Planning owner','Planning date','Review gaps','Dependency issues','SSO advisory review notes documented','Optional CA / MFA review (not an SSO gate)','Planning notes'];var rows=(all===true?mpScopeRows():mpVisible()).map(function(r){var p=mpPlan(r.key);return[r.key,r.title,r.areaLabel,r.state,r.sourceOwner,r.destination,r.users,MP_WAVES[p.wave],p.owner,p.date,mpGaps(r).join('; '),mpDependencyIssues(r.key,MP.draft.items,MP.rows).join('; '),mpCheckProgress(p).recorded+'/'+mpCheckProgress(p).total,mpCheckProgress(p).optionalSecurityReviewed?'Recorded (optional)':'Not needed for SSO',p.notes];});mpDownload(all===true?'okta-entra-planning-all.csv':'okta-entra-planning-filtered.csv','\uFEFF'+[cols,...rows].map(function(r){return r.map(mpCsvCell).join(',');}).join('\r\n'),'text/csv;charset=utf-8');}
+function mpButton(label,act,data){return ui.button({label:label,act:'mp.'+act,data:data});}
+function mpCard(title,body){return ui.card({header:title,body:body});}
+function mpParagraph(text){return oem.el('<p>'+oem.esc(text)+'</p>');}
+function mpHref(r){return oem.mode==='advanced'?'#work/'+r.key:'#mine/'+r.key;}
+function mpFilters(){
+  var box=oem.el('<div class="qf-panel"></div>');
+  var scope=ui.field({type:'select',name:'mpScope',label:'Migration scope',value:MP.draft.project.scope,options:[{value:'sso',label:'SSO applications only — CA optional'},{value:'all',label:'All work — separate SSO, CA and MFA tracks'}]});scope.querySelector('select').addEventListener('change',function(e){MP.draft.project.scope=e.target.value;MP.area='';MP.page=0;MP.selected.clear();mpSave();mpRepaint();});box.appendChild(scope);
+  var search=ui.field({type:'search',name:'mpSearch',label:'Search planning inventory',value:MP.q});search.querySelector('input').addEventListener('input',function(e){MP.q=e.target.value;MP.page=0;mpPaintRows();});box.appendChild(search);
+  var areas=[{value:'',label:'All areas'}];[...new Set(mpScopeRows().map(function(r){return r.area;}))].sort().forEach(function(k){areas.push({value:k,label:(MP.rows.find(function(r){return r.area===k;})||{}).areaLabel||k});});
+  [['mpArea','Area',MP.area,areas,'area'],['mpGap','Review gaps',MP.gap,[{value:'',label:'All items'},{value:'gaps',label:'Items with review gaps'}],'gap'],['mpWave','Planning wave',MP.wave,[{value:'',label:'All waves'}].concat(MP_WAVES.map(function(w,i){return{value:String(i),label:w};})),'wave'],['mpSort','Sort by',MP.sort,[{value:'gaps',label:'Most review gaps'},{value:'name',label:'Name A to Z'},{value:'users',label:'Most known app assignments'}],'sort']].forEach(function(f){var node=ui.field({type:'select',name:f[0],label:f[1],value:f[2],options:f[3]});node.querySelector('select').addEventListener('change',function(e){MP[f[4]]=e.target.value;MP.page=0;mpPaintRows();});box.appendChild(node);});
+  return box;
+}
+function mpPaintRows(root){
+  if(!mpCurrent())return;var host=(root||document).querySelector('#mp-grid');if(!host)return;oem.clear(host);
+  var rows=mpVisible();MP.page=Math.max(0,Math.min(MP.page,Math.ceil(rows.length/MP.size)-1));
+  var start=MP.page*MP.size,end=Math.min(rows.length,start+MP.size);
+  host.appendChild(mpParagraph('Showing '+(rows.length?start+1:0)+'–'+end+' of '+rows.length+' matching items. CSV exports all matching items. '+MP.selected.size+' selected across pages.'));
+  var cols=[{key:'select',label:'Select',el:function(r){return ui.checkbox({name:'mp-'+r.key,ariaLabel:'Select '+r.title,checked:MP.selected.has(r.key),act:'mp.select',data:{key:r.key}});}},{key:'title',label:'Work item',el:function(r){return ui.link({label:r.title,href:mpHref(r)});}},{key:'state',label:'Source state',cell:function(r){return oem.esc(r.state)+'<br><span class="t-caption1">'+oem.esc(r.areaLabel)+'</span>';}},{key:'gap',label:'Review evidence',cell:function(r){return oem.esc(mpGaps(r).join('; ')||'No listed metadata gaps — review notes are advisory');}},{key:'wave',label:'Planning wave',cell:function(r){return oem.esc(MP_WAVES[mpPlan(r.key).wave]);}},{key:'action',label:'Plan',el:function(r){return ui.link({label:'Review plan',href:'#planning/review/'+encodeURIComponent(r.key)});}}];
+  host.appendChild(ui.grid({caption:'Migration planning inventory',cols:cols,rows:rows.slice(start,end),empty:'No planning items match these filters.'}));
+  var controls=oem.el('<div class="acts"></div>');var prev=mpButton('Previous planning page','page',{direction:'prev'}),next=mpButton('Next planning page','page',{direction:'next'});prev.disabled=MP.page===0;next.disabled=end>=rows.length;controls.appendChild(prev);controls.appendChild(next);controls.appendChild(mpButton('Select this page','selectPage'));controls.appendChild(mpButton('Clear selection','clearSelection'));host.appendChild(controls);
+}
+function mpPortfolio(){
+  var root=oem.el('<div></div>'),gaps=mpScopeRows().filter(function(r){return mpGaps(r).length;}).length,apps=mpScopeRows().filter(function(r){return r.area==='applications';}),known=apps.filter(function(r){return r.users!==null;});
+  root.appendChild(ui.grid({caption:'Planning coverage',cols:[{key:'work',label:'Work items'},{key:'gaps',label:'Metadata gaps'},{key:'apps',label:'Applications'},{key:'assignments',label:'Known app assignments (sum, not unique people)'},{key:'unknown',label:'Apps with unknown assignment count'}],rows:[{work:mpScopeRows().length,gaps:gaps,apps:apps.length,assignments:known.reduce(function(n,r){return n+r.users;},0),unknown:apps.length-known.length}]}));
+  root.appendChild(mpParagraph('Metadata gaps prioritize review; they do not prove that an item is safe to migrate or retire. Checklist notes are self-reported planning evidence.'));
+  root.appendChild(mpFilters());var bulk=oem.el('<div class="acts"></div>');bulk.appendChild(ui.field({type:'select',name:'mpBulkWave',label:'Move selected planning items to',options:MP_WAVES.map(function(w,i){return{value:String(i),label:w};}),value:'1'}));bulk.appendChild(mpButton('Assign selected to planning wave','assign'));root.appendChild(bulk);root.appendChild(oem.el('<div id="mp-grid"></div>'));return root;
+}
+function mpWaves(){
+  var root=oem.el('<div></div>');
+  var project=oem.el('<div></div>');[['name','Plan name'],['owner','Plan owner'],['targetDate','Target date'],['notes','Plan notes']].forEach(function(f){var node=ui.field({type:f[0]==='notes'?'textarea':f[0]==='targetDate'?'date':'text',name:'mpProject'+f[0],label:f[1],value:MP.draft.project[f[0]]});if(f[0]==='targetDate')node.querySelector('input').type='date';node.querySelector('input,textarea').addEventListener('input',function(e){MP.draft.project[f[0]]=e.target.value.slice(0,4000);mpSave();});project.appendChild(node);});var brief=oem.el('<details><summary>Edit planning brief</summary></details>');brief.appendChild(project);root.appendChild(mpCard(MP.draft.project.name||'Planning brief',brief));
+  MP_WAVES.forEach(function(w,i){var body=oem.el('<div></div>');var rows=mpScopeRows().filter(function(r){return mpPlan(r.key).wave===i;});var blockers=rows.filter(function(r){return mpDependencyIssues(r.key,MP.draft.items,MP.rows).length;});body.appendChild(mpParagraph(rows.length+' work items · '+blockers.length+' with dependency issues. Waves are proposed groupings, not migration execution status.'));
+    var disclosure=oem.el('<details><summary>Show items in this planning wave</summary></details>');disclosure.appendChild(ui.grid({caption:w+' planning summary',cols:[{key:'title',label:'Item',el:function(r){return ui.link({label:r.title,href:'#planning/review/'+encodeURIComponent(r.key)});}},{key:'owner',label:'Planning owner',cell:function(r){return oem.esc(mpPlan(r.key).owner||'Not recorded');}},{key:'date',label:'Planned date',cell:function(r){return oem.esc(mpPlan(r.key).date||'Not recorded');}},{key:'dependency',label:'Dependency review',cell:function(r){return oem.esc(mpDependencyIssues(r.key,MP.draft.items,MP.rows).join('; ')||((mpPlan(r.key).dependencies||[]).length?'No listed ordering conflicts':'No dependencies recorded'));}}],rows:rows.slice(0,100),empty:'No items in this planning wave.'}));body.appendChild(disclosure);if(rows.length>100)disclosure.appendChild(mpParagraph('Showing the first 100 here. Use Portfolio wave filters and CSV export for the complete wave.'));root.appendChild(mpCard(w,body));});return root;
+}
+function mpReview(){
+  var root=oem.el('<div></div>'),row=MP.item?mpScopeRows().find(function(r){return r.key===MP.item;}):mpScopeRows()[0];if(!row){root.appendChild(mpParagraph(MP.item?'This item is outside the current planning scope or loaded inventory. Open Portfolio review to choose an SSO app or switch to all work for the separate CA / MFA track.':'Load saved inventory before creating a per-item plan.'));root.appendChild(ui.link({label:'Open portfolio review',href:'#planning/portfolio'}));return root;}MP.item=row.key;
+  var pick=ui.field({type:'select',name:'mpReviewItem',label:'Review work item',value:row.key,options:mpScopeRows().map(function(r){return{value:r.key,label:r.title};})});pick.querySelector('select').addEventListener('change',function(e){location.hash='#planning/review/'+encodeURIComponent(e.target.value);});root.appendChild(pick);
+  var p=mpPlan(row.key);root.appendChild(mpCard('Source evidence',ui.kv([{k:'Work item',v:row.title},{k:'Source owner',v:row.sourceOwner||'Not recorded'},{k:'Source work state',v:row.state},{k:'Entra destination',v:row.destination||'Not recorded'},{k:'Known assignments',v:row.users===null?'Unknown':String(row.users)},{k:'Metadata gaps',v:mpGaps(row).join('; ')||'None of the listed metadata gaps'}])));root.appendChild(ui.link({label:'Open existing work record',href:mpHref(row)}));
+  var form=oem.el('<div></div>');[['wave','Planning wave','select'],['owner','Planning owner','text'],['date','Planned date','date'],['notes','Evidence references and rollback notes','textarea']].forEach(function(f){var node=ui.field({type:f[2],name:'mpItem'+f[0],label:f[1],value:String(p[f[0]]??''),options:f[0]==='wave'?MP_WAVES.map(function(w,i){return{value:String(i),label:w};}):undefined,hint:f[0]==='notes'?'Record references and decisions, never passwords, tokens or private keys.':undefined});var input=node.querySelector('input,textarea,select');if(f[2]==='date')input.type='date';input.addEventListener(f[2]==='select'?'change':'input',function(e){mpEdit(row.key,f[0],f[0]==='wave'?Number(e.target.value):e.target.value.slice(0,4000));if(f[0]==='wave'||f[0]==='date')mpDependencyStatus(row.key);});form.appendChild(node);});
+  var checklist=oem.el('<div></div>');MP_CHECKS.filter(function(c){return !c[2];}).forEach(function(c){checklist.appendChild(ui.checkbox({name:'mpCheck'+c[0],label:c[1],checked:p.checks[c[0]]===true,act:'mp.check',data:{key:row.key,check:c[0]}}));});form.appendChild(mpCard('SSO review notes — advisory, not migration locks',checklist));var optional=oem.el('<div></div>');MP_CHECKS.filter(function(c){return c[2];}).forEach(function(c){optional.appendChild(ui.checkbox({name:'mpCheck'+c[0],label:c[1],checked:p.checks[c[0]]===true,act:'mp.check',data:{key:row.key,check:c[0]}}));});optional.appendChild(mpParagraph('CA policy migration and MFA migration are optional, separate work. Leaving this unchecked does not block SSO migration or reduce SSO review progress. Existing authentication requirements still apply to real sign-ins.'));form.appendChild(mpCard('Optional security track — not required for SSO',optional));root.appendChild(mpCard('Per-item planning draft',form));
+  var deps=oem.el('<div></div>');deps.appendChild(ui.field({type:'select',name:'mpDependency',label:'SSO prerequisite (only if actually needed for this app)',options:[{value:'',label:'Choose a work item'}].concat(MP.rows.filter(function(r){return r.key!==row.key&&(row.area!=='applications'||!mpSecurityReference(r.key,r));}).map(function(r){return{value:r.key,label:r.title};}))}));deps.appendChild(mpButton('Add planning dependency','addDependency',{key:row.key}));deps.appendChild(oem.el('<div id="mp-dependencies"></div>'));root.appendChild(mpCard('Dependencies and ordering',deps));return root;
+}
+function mpDependencyStatus(key,root){
+  var node=(root||document).querySelector('#mp-dependencies');if(!node)return;oem.clear(node);var p=mpPlan(key),issues=mpDependencyIssues(key,MP.draft.items,MP.rows);node.appendChild(mpParagraph(issues.join('; ')||'No listed ordering conflicts. Dependencies and actual completion still need review.'));
+  p.dependencies.forEach(function(d){var r=MP.rows.find(function(x){return x.key===d;});var app=MP.rows.find(function(x){return x.key===key;});var optional=app&&app.area==='applications'&&mpSecurityReference(d,r);var line=oem.el('<div class="acts"></div>');line.appendChild(mpParagraph((r?r.title:d+' (not in current inventory)')+(optional?' — optional security reference; not an SSO dependency gate':'')));line.appendChild(mpButton('Remove planning dependency','removeDependency',{key:key,dependency:d}));node.appendChild(line);});
+}
+function mpComparison(){
+  var root=oem.el('<div></div>');root.appendChild(mpParagraph('Compare the currently loaded saved work inventory against a browser baseline. Removed means absent from the returned inventory; it does not prove deletion from Okta or Entra.'));
+  var capture=mpButton(MP.draft.baseline?'Replace planning baseline with current inventory':'Save current inventory as planning baseline','baseline');capture.disabled=!MP.readAt;root.appendChild(capture);
+  if(!MP.draft.baseline){root.appendChild(mpParagraph('No baseline saved. Capture one, then Refresh saved data on a future visit to see differences.'));return root;}
+  root.appendChild(mpParagraph('Baseline read '+MP.draft.baseline.at+' · '+mpRowsForScope(MP.draft.baseline.rows).length+' items in this scope; current read '+MP.readAt+' · '+mpScopeRows().length+' items in this scope.'));
+  var delta=mpCompare(mpRowsForScope(MP.draft.baseline.rows),mpScopeRows());[['added','New in returned inventory'],['removed','No longer in returned inventory'],['changed','Changed source metadata']].forEach(function(c){var body=oem.el('<div></div>'),rows=delta[c[0]];body.appendChild(mpParagraph(String(rows.length)+' items'));rows.slice(0,100).forEach(function(x){var r=x.row||x;body.appendChild(mpParagraph(r.title+(x.fields?' · '+x.fields.map(function(f){return f.field+': '+String(f.before??'Unknown')+' → '+String(f.after??'Unknown');}).join('; '):'')));});if(rows.length>100)body.appendChild(mpParagraph('Preview limited to 100; download comparison JSON for every change.'));root.appendChild(mpCard(c[1],body));});root.appendChild(mpButton('Download comparison JSON','comparison'));return root;
+}
+function mpRunbook(){
+  var root=oem.el('<div></div>');[['Discovery','Confirm application ownership, users, groups, service identities, protocols and downstream dependencies. Inventory unknowns remain review work.'],['Pilot preparation','Review the destination configuration, vendor requirements, provisioning, claims and recovery method with the application owner. Define representative pilot users and measurable acceptance checks.'],['Optional CA / MFA project','An SSO-only migration does not require a CA policy migration, MFA migration or security-project completion. Review those separately if wanted. Only requirements actually needed for the application’s SSO configuration and successful sign-in belong in the SSO path. Existing tenant authentication policies are not disabled.'],['Cutover review','Record the proposed window, communications, approval references and rollback owner. Test sign-in and business workflows before considering broader migration. Keep execution in the existing reviewed workflow.'],['Recovery and closure','Document how vendor and identity-provider settings would be restored and retested. Validate provisioning and effective access before any separately approved Okta retirement.']].forEach(function(s){root.appendChild(mpCard(s[0],mpParagraph(s[1])));});
+  var links=oem.el('<div class="acts"></div>');[['Microsoft: migrate applications from Okta','https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/migrate-applications-from-okta'],['Microsoft: plan Conditional Access','https://learn.microsoft.com/en-us/entra/identity/conditional-access/plan-conditional-access'],['Open existing help and runbooks','#help'],['Open security overview','#security'],['Open evidence pack','#evidence']].forEach(function(l){links.appendChild(ui.link({label:l[0],href:l[1],external:l[1].startsWith('https:')}));});root.appendChild(links);return root;
+}
+function mpContent(tab){
+  var root=oem.el('<section id="mp-root"></section>');root.appendChild(ui.mbar({tone:'info',text:(MP.draft.project.scope==='sso'?'SSO-only planning. CA and MFA migrations are optional separate tracks, not SSO requirements. ':'All work: CA / MFA and SSO are separate tracks. ')+'Drafts are private to this browser; tenant settings and shared work stay unchanged.'}));
+  root.appendChild(oem.el('<p id="mp-save-status" class="t-caption1" role="status">'+oem.esc(MP.storageError||'Planning draft saved in this browser for your account. Download JSON for backup or transfer.')+'</p>'));
+  if(MP.error)root.appendChild(ui.mbar({tone:'error',text:MP.error,detail:MP.readAt?'Showing the previous loaded inventory; refresh did not succeed.':'No inventory loaded. Retry Refresh saved data.'}));
+  if(MP.readAt)root.appendChild(mpParagraph('Saved work read '+new Date(MP.readAt).toLocaleString()+' · '+MP.rows.length+' inventory items loaded · '+mpScopeRows().length+' in the current planning scope'+(MP.total!==null?' · reported total '+MP.total:'')+(MP.rows.length>=3000?' · 3,000-item cap reached: planning and exports are incomplete.':'')));
+  if(MP.pendingImport){var preview=oem.el('<div></div>');preview.appendChild(mpParagraph('Imported draft has '+Object.keys(MP.pendingImport.items).length+' planned items. Using it replaces this browser planning draft, including its baseline; no shared work or tenant data changes. You can undo once during this visit.'));preview.appendChild(mpButton('Use imported planning draft','applyImport'));preview.appendChild(mpButton('Cancel draft import','cancelImport'));root.appendChild(mpCard('Review imported draft before using it',preview));}
+  if(MP.undo)root.appendChild(mpButton('Undo draft import','undoImport'));
+  if(tab==='portfolio')root.appendChild(mpPortfolio());else if(tab==='waves')root.appendChild(mpWaves());else if(tab==='review')root.appendChild(mpReview());else if(tab==='compare')root.appendChild(mpComparison());else root.appendChild(mpRunbook());
+  var file=oem.el('<input type="file" id="mp-import-file" accept=".json,application/json" hidden>');file.addEventListener('change',function(e){var f=e.target.files[0];if(!f)return;if(f.size>3000000){shell.toast('Choose a planning JSON file smaller than 3 MB.');return;}var scope=MP.scope;f.text().then(function(text){if(scope!==MP.scope||!mpCurrent())return;MP.pendingImport=mpValidateDraft(JSON.parse(text));mpRepaint();}).catch(function(error){shell.toast('Draft import rejected: '+error.message);});});root.appendChild(file);if(tab==='portfolio')mpPaintRows(root);if(tab==='review')mpDependencyStatus(MP.item,root);return root;
+}
+mp.render=function(ctx){mpOpenDraft();MP.ctx=ctx;var tab=MP_TABS.includes(ctx.params.tab)?ctx.params.tab:'portfolio';if(ctx.params.item){try{MP.item=decodeURIComponent(ctx.params.item);}catch(e){MP.item='__invalid_route__';}}
+  return mpRead(false).then(function(){return{title:'Migration planning',description:'Review gaps, organize waves and prepare evidence before migration execution.',rail:'planning',crumb:[{label:'Identity'},{label:'Migration',href:'#overview'},{label:'Planning'}],
+    pivots:{selected:tab,act:'mp.tab',list:MP_TABS.map(function(t){return{key:t,label:{portfolio:'Portfolio review',waves:'Migration waves',review:'Item readiness',compare:'Snapshot comparison',runbook:'Runbooks'}[t]};})},
+    commands:[{label:'Refresh saved data',act:'mp.refresh',icon:'i-refresh'},{label:'Download planning draft',act:'mp.export',icon:'i-download'},{label:tab==='portfolio'?'Export filtered CSV':'Export all planning CSV',act:tab==='portfolio'?'mp.csv':'mp.csvAll',ariaDisabled:!MP.readAt,reason:'Read saved inventory before exporting source data.'},{label:'Import planning draft',act:'mp.import'}],content:mpContent(tab),status:{text:MP.error?'Saved inventory needs attention.':mpScopeRows().length+(MP.draft.project.scope==='sso'?' SSO application items. CA / MFA completion is not required.':' work items across separate migration tracks.')}};});};
+mp.where=function(){return'the saved migration work inventory';};
+oem.acts['mp.tab']=function(el){var tab=el.getAttribute('data-pivot');location.hash='#planning/'+tab+(tab==='review'&&MP.item?'/'+encodeURIComponent(MP.item):'');};
+oem.acts['mp.refresh']=function(el){if(MP.loading)return;el.disabled=true;el.setAttribute('aria-busy','true');mpRead(true).then(mpRepaint).finally(function(){if(el.isConnected){el.disabled=false;el.removeAttribute('aria-busy');}});};
+oem.acts['mp.export']=mpExportDraft;oem.acts['mp.csv']=mpExportCsv;oem.acts['mp.csvAll']=function(){mpExportCsv(true);};
+oem.acts['mp.import']=function(){document.getElementById('mp-import-file').click();};
+oem.acts['mp.applyImport']=function(){if(!MP.pendingImport)return;MP.undo=MP.draft;MP.draft=MP.pendingImport;MP.pendingImport=null;MP.selected.clear();MP.area='';mpSave();mpRepaint();};
+oem.acts['mp.cancelImport']=function(){MP.pendingImport=null;mpRepaint();};
+oem.acts['mp.undoImport']=function(){if(!MP.undo)return;MP.draft=MP.undo;MP.undo=null;MP.selected.clear();MP.area='';mpSave();mpRepaint();};
+oem.acts['mp.page']=function(el){MP.page+=el.getAttribute('data-direction')==='next'?1:-1;mpPaintRows();};
+oem.acts['mp.select']=function(el,ev){if(ev.type!=='change')return;var key=el.getAttribute('data-key');if(el.checked)MP.selected.add(key);else MP.selected.delete(key);var n=document.querySelector('#mp-grid > p');if(n)n.textContent=MP.selected.size+' items selected across planning pages. Export filtered CSV includes all matching items.';};
+oem.acts['mp.selectPage']=function(){mpVisible().slice(MP.page*MP.size,(MP.page+1)*MP.size).forEach(function(r){MP.selected.add(r.key);});mpPaintRows();};
+oem.acts['mp.clearSelection']=function(){MP.selected.clear();mpPaintRows();};
+oem.acts['mp.assign']=function(){if(!MP.selected.size){shell.toast('Select work items before assigning a planning wave.');return;}var wave=Number(document.getElementById('f-mpBulkWave').value);MP.selected.forEach(function(k){mpEdit(k,'wave',wave);});mpPaintRows();};
+oem.acts['mp.check']=function(el,ev){if(ev.type!=='change')return;var key=el.getAttribute('data-key'),checks=Object.assign({},mpPlan(key).checks);checks[el.getAttribute('data-check')]=el.checked;mpEdit(key,'checks',checks);};
+oem.acts['mp.addDependency']=function(el){var key=el.getAttribute('data-key'),dep=document.getElementById('f-mpDependency').value;if(!dep){shell.toast('Choose a prerequisite work item.');return;}if(mpWouldCycle(MP.draft.items,key,dep)){shell.toast('That dependency would create a cycle. Choose another prerequisite.');return;}mpEdit(key,'dependencies',[...new Set(mpPlan(key).dependencies.concat(dep))]);mpDependencyStatus(key);};
+oem.acts['mp.removeDependency']=function(el){var key=el.getAttribute('data-key'),dep=el.getAttribute('data-dependency');mpEdit(key,'dependencies',mpPlan(key).dependencies.filter(function(k){return k!==dep;}));mpDependencyStatus(key);};
+oem.acts['mp.baseline']=function(){if(!MP.readAt)return;MP.draft.baseline={at:MP.readAt,rows:JSON.parse(JSON.stringify(MP.rows))};mpSave();mpRepaint();};
+oem.acts['mp.comparison']=function(){if(!MP.draft.baseline)return;mpDownload('okta-entra-planning-comparison.json',JSON.stringify({schema:'corpit.migration-comparison.v1',baselineAt:MP.draft.baseline.at,currentReadAt:MP.readAt,changes:mpCompare(mpRowsForScope(MP.draft.baseline.rows),mpScopeRows())},null,2),'application/json');};
+
 /* == 90-boot.js == */
 /* 90-boot.js -- header flyouts, search, and foundation 3.11 boot. Runs last. */
 
@@ -32479,5 +32783,34 @@ if (document.readyState === 'loading') {
 }
 })();
 </script>
+
+<!-- Shared screenshot-led welcome; its animation never changes the workspace data. -->
+<script type="application/json" id="workspace-whats-new-content">{"title": "How to use Migration Planning", "description": "Learn how to review the SSO portfolio, propose waves and prepare evidence. Follow eight guided topics or jump to the planning task you need.", "rbacPage": "okta-entra-migration", "autoHashes": ["", "#overview", "#planning"], "guide": true, "training": true, "seenKey": "corpit:migration:how-to:2026-10-18-v1", "steps": [{"title": "1. Start with scope and saved evidence", "label": "Scope & evidence", "description": "Migration planning reads the existing saved work inventory. It helps prepare a plan; its data read is separate from a fresh Okta or Entra collection.", "image": "/assets/workspace-tours/mp-train-scope.webp?v=20261018-training1", "focus": [[1.0, 26.565, 98.0, 33.478]], "actions": ["Open Migration planning. Confirm Migration scope: SSO applications only is the default; All work includes separate CA and MFA tracks.", "Read Saved work read, loaded items and reported total. Use Refresh saved data to reread the saved work inventory, not collect tenant changes.", "Check any failed-read or 3,000-item cap notice. If prior inventory remains visible after a failure, treat its evidence and exports accordingly."], "meaning": "SSO can be planned and completed on its own. CA/MFA migration is optional and never a general SSO gate; existing authentication requirements still apply to actual sign-ins.", "alt": "Real DEV SSO-only scope notice, browser draft status, saved-inventory read time and aggregate planning coverage."}, {"title": "2. Narrow the portfolio review", "label": "Portfolio review", "description": "Portfolio review combines source metadata with your planning wave. Gaps prioritize investigation; they do not determine whether migration or retirement is safe.", "image": "/assets/workspace-tours/mp-train-portfolio.webp?v=20261018-training1", "focus": [[1.0, 27.628, 98.0, 19.083]], "actions": ["Search by item, key, destination or owner. Combine Area, Review gaps and Planning wave, then choose the most useful Sort by order.", "Read the matching-item count. Change restrictive filters when an expected item is missing, and use planning-page controls to inspect further results.", "Review each item's Source state and Review evidence. Use Review plan for its draft; the work-item name opens the existing operational record."], "meaning": "Known app assignments is a sum across applications, not unique people. Unknown assignment counts remain unknown. Source owner and source state are separate from your planning owner and wave.", "alt": "Real DEV portfolio search, scope, review-gap and wave filters, selection controls and table headings, without item rows."}, {"title": "3. Propose waves with clear ownership", "label": "Migration waves", "description": "Backlog, Pilot, Wave 1, Wave 2 and Hold organize proposed work. The wave view makes ownership, dates and dependency review easier to discuss.", "image": "/assets/workspace-tours/mp-train-waves.webp?v=20261018-training1", "focus": [[1.0, 23.367, 98.0, 53.048]], "actions": ["In Portfolio review, select the intended items and check the selected count. Selections persist across pages; use Clear selection before a different bulk action.", "Choose Move selected planning items to, then Assign selected to planning wave when ready to update your local draft.", "Open Migration waves and expand a wave's items. Review planning owners, dates and dependency notes; use Edit planning brief for project context."], "meaning": "A planning wave is a proposed grouping, not an execution or completion status. Wave previews show up to 100 items; portfolio wave filters and CSV provide the full loaded scope.", "alt": "Real DEV Backlog and Pilot planning groups explaining proposed work and dependency review, with individual items collapsed."}, {"title": "4. Prepare each item's review evidence", "label": "Item readiness", "description": "Item readiness places the saved source facts beside your per-item planning draft. Keep source evidence, proposed details and self-reported review notes distinct.", "image": "/assets/workspace-tours/mp-train-readiness.webp?v=20261018-training1", "focus": [[1.0, 10.587, 98.0, 77.217]], "actions": ["Choose Review work item and inspect Source evidence. Verify its owner, destination, assignments and source state; investigate unknown or inactive source records.", "Record the planning owner, wave, date and Evidence references and rollback notes as appropriate. Keep passwords, tokens and private keys out of notes.", "Review the SSO advisory checklist against actual references: identity scope, configuration, provisioning, pilot results, rollback and required approvals. Record only what was reviewed."], "meaning": "Checklist ticks are self-reported planning notes, not migration locks, approvals or proof of successful sign-in. The optional CA/MFA review is separate and does not reduce SSO review progress.", "alt": "Real DEV blank per-item planning fields for wave, owner, date, evidence references and rollback notes."}, {"title": "5. Review actual SSO prerequisites", "label": "Dependencies", "description": "Dependencies and ordering records prerequisites genuinely needed by this application's SSO. Its warnings help review a proposal; actual completion still needs evidence.", "image": "/assets/workspace-tours/mp-train-dependencies.webp?v=20261018-training1", "focus": [[1.0, 30.611, 98.0, 37.774]], "actions": ["In Item readiness, identify the specific prerequisite and why this application's SSO needs it before adding a planning dependency.", "Review missing-inventory, blocked-source, Backlog/Hold, later-wave and later-date warnings. Reconcile the proposal with the prerequisite's owner and supporting evidence.", "Remove outdated references from the local plan. Keep optional CA/MFA migration work separate rather than creating a blanket security-project dependency."], "meaning": "No listed ordering conflicts does not mean prerequisites are complete. Cycle checks prevent circular plans; they cannot validate the application's actual configuration or readiness.", "alt": "Real DEV dependency selector, Add planning dependency control and explanation that actual completion still needs review, without recorded dependency rows."}, {"title": "6. Compare saved inventory snapshots", "label": "Snapshot comparison", "description": "Snapshot comparison compares returned source metadata with a baseline saved in your browser. It helps identify changes worth reviewing between planning sessions.", "image": "/assets/workspace-tours/mp-train-comparison.webp?v=20261018-training1", "focus": [[1.0, 20.811, 98.0, 45.104]], "actions": ["Save current inventory as planning baseline when you need a reference. If one exists, check its date before replacing it with the current inventory.", "On a later visit, Refresh saved data and compare the baseline/current read dates and scope. Review new, missing and changed source metadata.", "Inspect the changed fields and their source records. Download comparison JSON for the full changes when a preview exceeds 100 items."], "meaning": "No longer in returned inventory does not prove deletion from Okta or Entra. The comparison reflects loaded metadata in the selected scope, not changes to your planning notes or tenant settings.", "alt": "Real DEV comparison explanation, existing baseline replacement control, read dates and aggregate new-item count."}, {"title": "7. Plan the pilot and recovery evidence", "label": "Runbooks", "description": "Runbooks organizes discovery, pilot preparation, cutover review and recovery. Use it to agree on evidence, success criteria and responsibilities.", "image": "/assets/workspace-tours/mp-train-runbooks.webp?v=20261018-training1", "focus": [[1.0, 25.498, 98.0, 48.787]], "actions": ["Confirm ownership, users, groups, claims and provisioning dependencies. Check vendor requirements and the intended Entra destination.", "Choose representative pilot users and measurable success criteria. Record sign-in and business-workflow test results before proposing a broader wave.", "Record the window, communications, approval references and recovery owner. Verify rollback steps; keep execution in the existing, separately authorized workflow."], "meaning": "Planning notes do not execute or approve cutover. Validate provisioning and effective access before separately approved Okta retirement; CA/MFA migration remains optional.", "alt": "Real DEV Discovery and Pilot preparation runbook guidance, without execution controls or application records."}, {"title": "8. Back up and share the right draft", "label": "Drafts & exports", "description": "Planning drafts belong to your account in this browser. JSON supports backup or transfer; CSV communicates the selected planning scope with its evidence limits.", "image": "/assets/workspace-tours/mp-train-drafts.webp?v=20261018-training1", "focus": [[1.0, 23.209, 98.0, 23.874]], "actions": ["Check the draft save-status message. If browser storage is unavailable, changes are only in memory; Download planning draft to keep them.", "Use Export filtered CSV for all matching portfolio rows, including other pages. Other planning tabs offer Export all planning CSV for the current scope.", "For Import planning draft, choose a DEV planning JSON and review the preview. Applying replaces the local draft and baseline; Undo is available once during that visit."], "meaning": "A browser draft is not a shared team plan. Downloads contain planning/source information and need appropriate handling. Imports and exports do not change shared work, tenant settings or actual migration status.", "alt": "Real DEV planning command bar, planning tabs, SSO-only notice and browser-private save-status explanation."}]}</script>
+<dialog id="workspace-whats-new" class="cwn" data-workspace-tour="migration" aria-labelledby="cwn-title" aria-describedby="cwn-description">
+  <button class="cwn-close" type="button" data-cwn-close aria-label="Close tour"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>
+  <div class="cwn-body">
+    <div class="cwn-screen">
+      <p class="cwn-progress"><span class="cwn-emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/><path d="M20 2v4M18 4h4"/></svg></span><span data-cwn-progress aria-live="polite" aria-atomic="true">Training guide</span><label class="mp-tour-topic">Jump to<select data-cwn-topic aria-label="Choose a training topic"><option value="-1">Introduction</option><option value="0">1. Start with scope and saved evidence</option><option value="1">2. Narrow the portfolio review</option><option value="2">3. Propose waves with clear ownership</option><option value="3">4. Prepare each item's review evidence</option><option value="4">5. Review actual SSO prerequisites</option><option value="5">6. Compare saved inventory snapshots</option><option value="6">7. Plan the pilot and recovery evidence</option><option value="7">8. Back up and share the right draft</option></select></label></p>
+      <h2 class="cwn-title" id="cwn-title" tabindex="-1">How to use Migration Planning</h2>
+      <p class="cwn-description" id="cwn-description">Learn how to review the SSO portfolio, propose waves and prepare evidence. Follow eight guided topics or jump to the planning task you need.</p>
+      <div class="cwn-stage" aria-hidden="true"><div class="cwn-mini"><img src="/assets/workspace-tours/migration-portfolio.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span>Review</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/workspace-tours/migration-waves.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span>Organize</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/workspace-tours/migration-readiness.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span>Prepare</span><i class="cwn-mini-sheen"></i></div><div class="cwn-ai-flow" aria-hidden="true"><i class="cwn-ai-orbit"></i><div class="cwn-ai-node"><b>01</b><span>Review</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>02</b><span>Organize</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>03</b><span>Prepare</span></div></div></div>
+      <p class="cwn-welcome-note">Eight guided topics. Follow along or jump to a section.<br>Reopen anytime from <strong>How to use</strong>.</p>
+      <section class="mp-tour-lesson" data-cwn-lesson hidden><h3>What to do</h3><ol data-cwn-actions></ol><div class="mp-tour-meaning"><h3>What this means</h3><p data-cwn-meaning></p></div></section>
+      <figure class="cwn-preview" hidden>
+        <div class="cwn-image-wrap"><p class="mp-tour-image-status" data-cwn-image-status role="status" aria-live="polite" aria-atomic="true" hidden></p><div class="cwn-shot"><img alt="" width="1200" height="460"><div class="cwn-focuses" aria-hidden="true"></div></div></div>
+        <figcaption>Real DEV screenshots. Counts are a snapshot; available tools follow your access.</figcaption>
+      </figure>
+    </div>
+  </div>
+  <footer class="cwn-footer">
+    <div class="cwn-track" aria-hidden="true" hidden><span></span><span></span><span></span><i class="cwn-indicator"></i></div>
+    <button class="btn btn-ghost cwn-button" type="button" data-cwn-later>Maybe later</button>
+    <div class="cwn-actions">
+      <button class="btn btn-ghost cwn-button" type="button" data-cwn-back hidden>Back</button>
+      <button class="btn btn-primary cwn-button cwn-next" type="button" data-cwn-next autofocus><span>Show me how</span><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+    </div>
+  </footer>
+</dialog>
+<script src="/workspace-whats-new.js?v=20261019-account-guides1" defer></script>
 </body>
 </html>

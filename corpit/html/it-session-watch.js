@@ -327,6 +327,8 @@
   }
 
   function resyncBearer() {
+    // Cookie-only SSO tabs have no browser-readable bearer to repair.
+    if (isCookieOnlyMirror()) return Promise.resolve(false);
     return fetch(TOKEN_URL, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
@@ -708,7 +710,9 @@
     redirected = true; terminal = true; stopPoll(); stopCount();
     sessLog('redirect-to-login', tokenFacts());
     var ret = encodeURIComponent(window.location.pathname + window.location.search);
-    window.location.replace('/login.html?return=' + ret + (expired ? '&expired=1' : ''));
+    // [CORPIT-RETURN-HASH] keep the #view on the sign-in URL; login.js carries it through.
+    var h = /^#[A-Za-z0-9_\-\/.:]{1,100}$/.test(window.location.hash) ? window.location.hash : '';
+    window.location.replace('/login.html?return=' + ret + (expired ? '&expired=1' : '') + h);
   }
 
   // ---- state machine -----------------------------------------------------

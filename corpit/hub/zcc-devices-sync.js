@@ -10,6 +10,8 @@ const mysql = require('mysql2/promise');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 const VERBOSE = process.argv.includes('--verbose');
+const NO_PRUNE = process.argv.includes('--no-prune');      // upsert only, keep absent rows
+const PLAN_PRUNE = process.argv.includes('--plan-prune');  // report what prune would remove; no writes
 
 function log(msg) {
   const line = '[' + new Date().toISOString() + '] ' + msg + '\n';
@@ -171,6 +173,43 @@ async function upsert(pool, records) {
   return affected;
 }
 
+// Remove devices ZCC no longer exports. downloadDevices returns the whole fleet (see
+// fetchDevices), so a UDID missing from it is gone from ZCC. Without this the table kept
+// every device ever seen, and /zcc/summary, version drift and the Intune cross-links
+// counted them as live (116 such rows on 2026-10-15). Rows are copied to
+// zcc_devices_removed before deletion; prune is skipped while that table is missing and
+// refused when the export is too short to trust as the whole fleet.
+const PRUNE_MIN_EXPORT = 500, PRUNE_MAX_SHARE = 0.25;
+const ARCHIVE_COLS = Object.keys(FIELD_MAP).concat(['raw_json', 'first_seen_at', 'updated_at']);
+async function prune(pool, seen, planOnly) {
+  const [[arch]] = await pool.query("SELECT COUNT(*) n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'zcc_devices_removed'");
+  const [rows] = await pool.query('SELECT udid, device_state FROM zcc_devices');
+  const gone = rows.filter(r => !seen.has(r.udid));
+  const byState = {};
+  gone.forEach(r => { byState[r.device_state] = (byState[r.device_state] || 0) + 1; });
+  log('prune: ' + gone.length + ' of ' + rows.length + ' rows absent from the export ' + JSON.stringify(byState));
+  if (!gone.length) return 0;
+  if (seen.size < PRUNE_MIN_EXPORT || gone.length > rows.length * PRUNE_MAX_SHARE) {
+    log('prune REFUSED: export has ' + seen.size + ' devices, ' + gone.length + ' rows absent -- too short to trust as the whole fleet; nothing removed');
+    return 0;
+  }
+  if (!arch.n) { log('prune skipped: zcc_devices_removed table not present'); return 0; }
+  if (planOnly) { log('prune PLAN only (--plan-prune): nothing removed'); return 0; }
+  const cols = ARCHIVE_COLS.map(c => '`' + c + '`').join(',');
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    for (let i = 0; i < gone.length; i += 200) {
+      const ids = gone.slice(i, i + 200).map(r => r.udid);
+      await conn.query('REPLACE INTO zcc_devices_removed (' + cols + ', `removed_at`) SELECT ' + cols + ', CURRENT_TIMESTAMP FROM zcc_devices WHERE udid IN (?)', [ids]);
+      await conn.query('DELETE FROM zcc_devices WHERE udid IN (?)', [ids]);
+    }
+    await conn.commit();
+  } catch (e) { await conn.rollback(); throw e; } finally { conn.release(); }
+  log('prune: removed ' + gone.length + ' devices (archived in zcc_devices_removed)');
+  return gone.length;
+}
+
 async function main() {
   const t0 = Date.now();
   log('ZCC devices sync starting' + (DRY_RUN ? ' (DRY-RUN)' : ''));
@@ -195,8 +234,12 @@ async function main() {
     database: process.env.DB_NAME || 'corpit_hub',
     connectionLimit: 4
   });
+  const seen = new Set(records.map(r => r.udid));
+  if (PLAN_PRUNE) { await prune(pool, seen, true); await pool.end(); return; }
   const affected = await upsert(pool, records);
   log('upsert affectedRows total: ' + affected + ' (insert=1, update=2 per row)');
+  if (NO_PRUNE) log('prune skipped (--no-prune)');
+  else await prune(pool, seen, false);
   const [xlink] = await pool.query(
     'SELECT COUNT(*) AS zcc_total, ' +
     'SUM(CASE WHEN i.serial_number IS NOT NULL THEN 1 ELSE 0 END) AS intune_matched ' +
@@ -217,4 +260,5 @@ async function main() {
   log('ZCC sync complete in ' + dt + 's');
 }
 
-main().catch(e => { log('FATAL: ' + e.message + '\n' + (e.stack || '')); process.exit(1); });
+if (require.main === module) main().catch(e => { log('FATAL: ' + e.message + '\n' + (e.stack || '')); process.exit(1); });
+module.exports = { prune, ARCHIVE_COLS };

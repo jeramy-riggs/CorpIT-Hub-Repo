@@ -1,0 +1,598 @@
+/* IT Asset Console: AI Governance portal skin. Presentation only; loads after the inline styles and it-depth.css.
+   Shares the governance banner and Nunito face; the top bar and icon rail stay dark in both themes.
+   The page's own token names are re-pointed here, and it-depth.css keeps deciding which surfaces are raised
+   or recessed through its --dp-* tokens, which are re-pointed to the governance elevation. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+:root:not([data-theme=light]) {
+  --accent: #7dc9e7; --accent2: #a9dcf0; --accent-rgb: 125, 201, 231;
+  --bg: #071520; --panel: #142533; --panel-solid: #142533; --line: #2a3d4d; --line2: #37505f;
+  --row-line: #1f3445; --track: #0e1f2c; --track2: #0e1f2c;
+  --surface: #142533; --surface2: #182c3c; --surface3: #1a2f40;
+  --border: #2a3d4d; --border2: #37505f;
+  --text: #ebf1f6; --text2: #a4b5c5; --text3: #91a3b5;
+  --green: #9bd64a; --green-rgb: 155, 214, 74;
+  --yellow: #f0d08b; --amber: #f0d08b; --yellow-rgb: 240, 208, 139;
+  --red: #ffa1ac; --red-rgb: 255, 161, 172;
+  --blue: #7dc9e7; --teal: #6fd6c4; --purple: #c3b2f5; --orange: #f5b27c;
+  --chip: #203645; --chip2: #203645; --chip3: #1a2f40;
+  --well: #0e1f2c; --well2: #0e1f2c; --well3: #1a2f40; --well4: #142533; --well5: #0e1f2c;
+  --rail-bg: #0e1f2c; --rail-line: #1f3445;
+  --glass3: #0e1f2c; --glass4: #0e1f2c; --glass5: #142533; --glass6: #142533;
+  --glass7: #182c3c; --glass8: #ffffff06;
+  --scrim1: rgba(3, 9, 15, .72); --scrim2: rgba(3, 9, 15, .78);
+  --on-accent: #071520; --ink-bright: #f4f8fb; --link: #7dc9e7; --ink-faint: #7f93a6;
+  --ivp-edge: #1f3445; --ivp-overlay: #1a2f40;
+  --ivp-elev-1: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --ivp-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  --ivp-tint: #7dc9e71a; --ivp-tint-2: #7dc9e72e;
+  /* Theme values kept under a second name, for dropdowns opened from inside the banner. */
+  --ivp-t-text: #ebf1f6;
+}
+:root[data-theme=light] {
+  --accent: #147299; --accent2: #105c7b; --accent-rgb: 20, 114, 153;
+  --bg: #eff1f3; --panel: #fff; --panel-solid: #fff; --line: #dfe3e8; --line2: #cdd4dc;
+  --row-line: #e4e8ed; --track: #e8ecf0; --track2: #e8ecf0;
+  --surface: #fff; --surface2: #f6f8fa; --surface3: #eef1f4;
+  --border: #dfe3e8; --border2: #cdd4dc;
+  --text: #17212e; --text2: #5d6b7e; --text3: #5f6d80;
+  --green: #3d7924; --green-rgb: 61, 121, 36;
+  --yellow: #8b641f; --amber: #8b641f; --yellow-rgb: 139, 100, 31;
+  --red: #b33440; --red-rgb: 179, 52, 64;
+  --blue: #147299; --teal: #0c6659; --purple: #6d28d9; --orange: #9a3608;
+  --chip: #e8ecf0; --chip2: #e2e8ee; --chip3: #eef1f4;
+  --well: #f6f8fa; --well2: #f2f4f7; --well3: #fff; --well4: #fff; --well5: #f2f4f7;
+  --rail-bg: #f6f8fa; --rail-line: #e4e8ed;
+  --glass3: #fff; --glass4: #f6f8fa; --glass5: #fff; --glass6: #fff;
+  --glass7: #f6f8fa; --glass8: #f6f8fa;
+  --scrim1: rgba(15, 27, 45, .45); --scrim2: rgba(15, 27, 45, .5);
+  --on-accent: #fff; --ink-bright: #17212e; --link: #147299; --ink-faint: #5f6d80;
+  --ivp-edge: #e4e8ed; --ivp-overlay: #fff;
+  --ivp-elev-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --ivp-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --ivp-tint: #1472991a; --ivp-tint-2: #1472992b;
+  --ivp-t-text: #17212e;
+}
+:root, :root[data-theme] {
+  --font: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --radius: 13px; --radius2: 7px;
+  --ivp-ease: cubic-bezier(.23, 1, .32, 1);
+  --ivp-lift: 28px; --ivp-pad-y: 18px; --ivp-pad-x: 20px;
+}
+/* The inline body background is a 40px cyan grid plus a corner glow; the governance canvas is flat. */
+html, body[data-dp="IT_Inventory_App"] { background: var(--bg); }
+::selection { background: #7dc9e740; }
+
+/* it-depth.css material, re-pointed to the governance elevation: flat faces, one lit edge, a soft cast shadow. */
+:root:not([data-theme=light]) body[data-dp="IT_Inventory_App"] {
+  --dp-face: none; --dp-face-2: none; --dp-grain: none; --dp-wash: none; --dp-bar: none; --dp-rail: none;
+  --dp-sheen: inset 0 1px 0 #ffffff0b; --dp-sheen-2: inset 0 1px 0 #ffffff10;
+  --dp-relief: inset 0 1px 0 #ffffff0b; --dp-relief-2: inset 0 1px 0 #ffffff10;
+  --dp-lift-1: 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --dp-lift-2: 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  --dp-lift-3: 0 2px 4px #00000066, 0 26px 52px -18px #000000cc;
+  --dp-well: inset 0 1px 2px #00000040; --dp-well-2: inset 0 1px 3px #00000066;
+}
+:root[data-theme=light] body[data-dp="IT_Inventory_App"] {
+  --dp-face: none; --dp-face-2: none; --dp-grain: none; --dp-wash: none; --dp-bar: none; --dp-rail: none;
+  --dp-sheen: 0 0 #0000; --dp-sheen-2: 0 0 #0000; --dp-relief: 0 0 #0000; --dp-relief-2: 0 0 #0000;
+  --dp-lift-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --dp-lift-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --dp-lift-3: 0 2px 4px #10182814, 0 22px 44px -16px #10182833;
+  --dp-well: inset 0 1px 2px #1018280f; --dp-well-2: inset 0 1px 3px #1018281a;
+}
+
+/* Top bar and icon rail: the governance chrome. Tokens are re-pointed so every nested control
+   (ticker, search, flyouts, the shared it-topbar account menu) stays legible in light mode. */
+#topbar, #sidebar {
+  --surface: #202936; --surface2: #202936; --surface3: #29323c; --line: #303746; --line2: #3c4556;
+  --text: #e6edf7; --text2: #c1cad6; --text3: #9aa6b5; --ink-bright: #fff;
+  --accent: #a5d877; --accent2: #a5d877; --on-accent: #0b1a05;
+  --well: #202936; --well2: #202936; --well3: #202936; --glass3: #202936;
+  --green: #9bd64a; --yellow: #f0d08b; --red: #ffa1ac;
+  color: var(--text);
+}
+#topbar { background: #161c28; border-bottom-color: #303746; backdrop-filter: none; }
+#topbar .brand-name { color: #fff; font-weight: 850; letter-spacing: .2px; }
+#topbar .brand-dot { background: #78be20; box-shadow: 0 0 0 4px #78be202e; }
+#topbar #searchbar input { background: #202936; border-color: #3c4556; color: #fff; font-family: var(--font); }
+#topbar #searchbar input::placeholder { color: #9aa6b5; }
+#topbar #searchbar input:focus { border-color: #a5d877; box-shadow: 0 0 0 3px #a5d87726; }
+#topbar .ticker .k { font-family: var(--font); font-weight: 750; letter-spacing: .3px; }
+#topbar .ticker .v { font-family: var(--font); font-weight: 850; font-variant-numeric: tabular-nums; }
+#topbar .ittb {
+  --ittb-fg: #e6edf7; --ittb-muted: #b7c5d7; --ittb-surface: #263241;
+  --ittb-panel: #142533; --ittb-panel-2: #203645; --ittb-line: #43546a;
+  --ittb-av-bg: #294b7c; font-family: inherit;
+}
+#sidebar { background: #131823; border-right-color: #29313d; }
+#sidebar .rail-sep { background: #29313d; }
+.rail-logo { background: linear-gradient(140deg, #3d7924, #78be20); box-shadow: inset 0 1px 0 #ffffff33; }
+.rail-logo .ms { color: #0b1a05; }
+#sidebar .fly-label { font-family: var(--font); font-weight: 800; font-size: 10.5px; letter-spacing: .06em; color: #8f9bab; }
+#sidebar .nav-item, #sidebar .rail-group { color: #b8c2cf; font-weight: 650; }
+#sidebar .nav-item:hover, #sidebar .rail-group:hover { background: #202936; color: #fff; }
+body[data-dp="IT_Inventory_App"] #sidebar :is(.nav-item.active, .nav-item[aria-current="page"], .rail-group.active) {
+  background: #29323c; color: #a5d877; border-color: transparent; box-shadow: none;
+}
+body[data-dp="IT_Inventory_App"] #sidebar :is(.nav-item.active, .nav-item[aria-current="page"], .rail-group.active)::before {
+  background: #78be20; box-shadow: none; width: 3px;
+}
+#sidebar .nav-badge { background: #202936; border-color: #3c4556; color: #b8c2cf; font-family: var(--font); font-weight: 800; }
+#sidebar .nav-item.active .nav-badge, #sidebar .nav-item[aria-current="page"] .nav-badge { background: #a5d87726; border-color: #a5d87755; color: #a5d877; }
+#sidebar .flyout { background: #161c28; border-color: #3c4556; }
+
+/* Banner page headings. Every page but the dashboard uses the shared #content > .head (the dashboard hides it
+   and carries its own .head with Run diagnostics). The heading block is the banner, bled to the scroll edges. */
+#content > .head, #page-dashboard > .head {
+  position: relative; align-items: center; gap: 16px 24px; flex-wrap: wrap; min-height: 150px;
+  margin: calc(-1 * var(--ivp-pad-y)) calc(-1 * var(--ivp-pad-x)) 24px; padding: 40px var(--ivp-pad-x) 26px;
+  border-bottom: 3px solid #78be20; color: #fff;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+  --text: #fff; --text2: #e0e8ef; --text3: #c3cfdb; --accent2: #c0e39a; --line2: #b3c5d299;
+}
+:is(#content > .head, #page-dashboard > .head) h1 { color: #fff; font-size: 29px; font-weight: 850; letter-spacing: -.7px; line-height: 1.15; }
+:is(#content > .head, #page-dashboard > .head) .sub {
+  color: #e0e8ef; font-family: var(--font); font-size: 12.5px; font-weight: 600; margin-top: 6px; max-width: 760px;
+  font-variant-numeric: tabular-nums;
+}
+body[data-dp="IT_Inventory_App"] #page-dashboard > .head .btn { background: #172c3cbb; border-color: #91a8b877; color: #fff; box-shadow: none; }
+body[data-dp="IT_Inventory_App"] #page-dashboard > .head .btn:hover { background: #172c3cee; border-color: #c0e39a; }
+
+/* Depth: canvas, raised, overlay. The first row of every page sits on the banner's lower edge.
+   Pages open with a toolbar row (subtitle + actions): it becomes a raised command bar.
+   The dashboard opens with the gauge row, which is already four raised cards. */
+#content > .head, #page-dashboard > .head:has(+ .gauges) {
+  min-height: calc(150px + var(--ivp-lift)); padding-bottom: calc(26px + var(--ivp-lift)); margin-bottom: 0;
+}
+#content > .page.active > :is(.section-header, .exec-header):first-child,
+#page-dashboard > .head + .gauges {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--ivp-lift));
+}
+#content > .page.active > :is(.section-header, .exec-header):first-child {
+  min-height: 52px; padding: 10px 12px 10px 18px;
+  background: var(--surface); border: 1px solid var(--ivp-edge); border-radius: var(--radius);
+  box-shadow: var(--ivp-elev-1);
+}
+#content > .page.active > :is(.section-header, .exec-header):first-child .section-sub {
+  color: var(--text2); font-size: 12.5px; font-weight: 650;
+}
+/* .page.active animates in with a translateY; the bar stays put so it does not slide across the banner edge. */
+#content > .page.active:has(> :is(.section-header, .exec-header):first-child) { animation-name: ivp-fade; }
+@keyframes ivp-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Surfaces */
+.card, .panel, .gauge, .tile, .stat-card, .exec-kpi, .summary-chip, .cost-hero-card, .warranty-sync-bar, .legend-strip, .drill-active {
+  border-color: var(--ivp-edge);
+}
+.card, .panel, .gauge, .tile, .stat-card, .exec-kpi, .summary-chip, .cost-hero-card { border-radius: var(--radius); }
+.cost-hero-card { background: var(--surface); }
+.card-header, .panel-head, .table-footer, .modal-header, .modal-footer, .import-header { border-color: var(--ivp-edge); }
+.gauge:hover, .tile:hover, .alert:hover { background: var(--surface2); border-color: var(--line); }
+.ring .inner { background: var(--surface); }
+body[data-dp="IT_Inventory_App"] .stat-card[class]::after, body[data-dp="IT_Inventory_App"] .exec-kpi[class]::before { box-shadow: none; }
+.modal, .import-modal, .col-picker-dropdown, #toast, .flyout { background-color: var(--ivp-overlay); border-color: var(--line); }
+.modal, .import-modal { border-radius: 14px; }
+.drill-active { background: var(--ivp-tint); }
+.drill-active-label { color: var(--accent); }
+
+/* Type: governance labels are sentence-weight, not mono capitals. Numbers keep tabular figures. */
+.g-label, .tile-label, .stat-label, .exec-kpi-label, .cost-hero-label, .summary-chip span, .sheet-map-title, label {
+  font-family: var(--font); text-transform: none; letter-spacing: 0; font-size: 11.5px; font-weight: 750; color: var(--text2);
+}
+.card-title, .modal-title {
+  font-family: var(--font); text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 800; color: var(--text);
+}
+/* Panel titles are written in capitals in the markup; show them in sentence case. */
+.panel-title {
+  display: inline-block; text-transform: lowercase; letter-spacing: 0; font-size: 13px; font-weight: 800; color: var(--text);
+}
+.panel-title::first-letter { text-transform: uppercase; }
+.card-sub, .section-sub, .sub.mono, .results-count, .page-info, .warranty-sync-info, .g-sub, .stat-sub, .exec-kpi-sub {
+  font-family: var(--font); font-variant-numeric: tabular-nums;
+}
+.stat-value, .tile-val, .tile-val.mono, .exec-kpi-val, .cost-hero-val, .ring .num, .summary-chip strong, .legend-val, .bar-count, .page-btn {
+  font-family: var(--font); font-weight: 850; letter-spacing: -.4px; font-variant-numeric: tabular-nums;
+}
+.page-btn, .bar-count { font-weight: 750; letter-spacing: 0; }
+.stat-value { font-size: 25px; }
+.tile-val { font-size: 23px; }
+.exec-kpi-val { font-size: 30px; }
+th { font-family: var(--font); font-size: 10px; font-weight: 800; letter-spacing: .5px; color: var(--text2); }
+th.sort-asc::after, th.sort-desc::after { color: var(--accent); }
+td { color: var(--text2); }
+.cell-name, .m-name { color: var(--text); font-weight: 700; }
+.badge, .risk-badge, .badge-count { font-family: var(--font); font-weight: 750; border-radius: 5px; }
+.alert .sev, .alert .code { font-family: var(--font); }
+
+/* Controls: secondary buttons are quiet surfaces; the primary action is governance green. */
+.btn, .col-picker-btn, .page-btn, .filter-select, .form-input, #searchbar input { border-radius: 7px; }
+.btn, .col-picker-btn { font-weight: 750; }
+.btn { background: var(--surface2); border-color: var(--line); color: var(--text); }
+.btn:hover { background: var(--surface3); border-color: var(--accent); }
+.btn .ms { color: var(--accent); }
+.btn-ghost, .col-picker-btn, .page-btn { background: transparent; color: var(--text2); border-color: var(--line); }
+.btn-ghost:hover, .col-picker-btn:hover, .page-btn:hover { background: var(--ivp-tint); color: var(--text); border-color: var(--accent); }
+.page-btn.active { background: var(--ivp-tint-2); color: var(--text); border-color: var(--accent); }
+body[data-dp="IT_Inventory_App"] .btn-primary { background: #3d7924; border-color: #3d7924; color: #fff; }
+body[data-dp="IT_Inventory_App"] .btn-primary:hover { background: #31631c; border-color: #31631c; }
+body[data-dp="IT_Inventory_App"] .btn-primary .ms { color: inherit; }
+.btn-danger { background: transparent; border-color: rgba(var(--red-rgb), .45); color: var(--red); }
+.btn-danger:hover { background: rgba(var(--red-rgb), .12); border-color: var(--red); }
+.filter-select:hover, .form-input:hover { border-color: var(--line2); }
+.filter-select:focus, .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ivp-tint-2); }
+.col-picker-item input[type=checkbox] { accent-color: #3d7924; }
+.progress-bar-fill { background: linear-gradient(90deg, #3d7924, #78be20); }
+.skip-link { background: #3d7924; color: #fff; }
+
+.btn, .col-picker-btn, .page-btn, .nav-item, .rail-group, .gauge, .tile, .stat-card, .exec-kpi, .modal-close {
+  transition: background-color 160ms var(--ivp-ease), border-color 160ms var(--ivp-ease), color 160ms var(--ivp-ease),
+    box-shadow 160ms var(--ivp-ease), transform 160ms var(--ivp-ease);
+}
+/* Press feedback. it-depth.css sets its own :active transform at higher specificity, so these match it. */
+body[data-dp="IT_Inventory_App"] .btn:not(:disabled):active,
+body[data-dp="IT_Inventory_App"] .btn:not(.btn-primary):not(.btn-pdf):not(:disabled):active,
+body[data-dp="IT_Inventory_App"] .col-picker-btn:active,
+body[data-dp="IT_Inventory_App"] .page-btn:not(:disabled):active,
+body[data-dp="IT_Inventory_App"] .modal-close:active,
+body[data-dp="IT_Inventory_App"] #sidebar .nav-item:active,
+body[data-dp="IT_Inventory_App"] #sidebar .rail-group:active { transform: scale(.97); }
+body[data-dp="IT_Inventory_App"] .gauge:active,
+body[data-dp="IT_Inventory_App"] .tile:active,
+body[data-dp="IT_Inventory_App"] .stat-card.clickable:active,
+body[data-dp="IT_Inventory_App"] .exec-kpi[role="button"]:not(.exec-kpi-grid):active { transform: scale(.985); }
+@media (prefers-reduced-motion: reduce) {
+  body[data-dp="IT_Inventory_App"] .btn:not(:disabled):active,
+  body[data-dp="IT_Inventory_App"] .btn:not(.btn-primary):not(.btn-pdf):not(:disabled):active,
+  body[data-dp="IT_Inventory_App"] .col-picker-btn:active,
+  body[data-dp="IT_Inventory_App"] .page-btn:not(:disabled):active,
+  body[data-dp="IT_Inventory_App"] .modal-close:active,
+  body[data-dp="IT_Inventory_App"] #sidebar .nav-item:active,
+  body[data-dp="IT_Inventory_App"] #sidebar .rail-group:active,
+  body[data-dp="IT_Inventory_App"] .gauge:active,
+  body[data-dp="IT_Inventory_App"] .tile:active,
+  body[data-dp="IT_Inventory_App"] .stat-card.clickable:active,
+  body[data-dp="IT_Inventory_App"] .exec-kpi[role="button"]:not(.exec-kpi-grid):active { transform: none; }
+  #content > .page.active:has(> :is(.section-header, .exec-header):first-child) { animation: none; }
+}
+
+@media (max-width: 1200px) { :is(#content > .head, #page-dashboard > .head) h1 { font-size: 26px; } }
+@media (max-width: 900px) {
+  :root, :root[data-theme] { --ivp-lift: 18px; }
+  :is(#content > .head, #page-dashboard > .head) h1 { font-size: 24px; }
+  #content > .head, #page-dashboard > .head { min-height: 130px; }
+  #content > .head, #page-dashboard > .head:has(+ .gauges) { min-height: calc(130px + var(--ivp-lift)); }
+}
+@media print {
+  :root, :root[data-theme] { --ivp-elev-1: 0 0 #0000; --ivp-elev-2: 0 0 #0000; }
+  #content > .head, #page-dashboard > .head {
+    background: none; box-shadow: none; color: #17212e; margin: 0 0 20px; padding: 0 0 15px; min-height: 0;
+    border-bottom: 2px solid #3d7924; --text: #17212e; --text2: #41526b;
+  }
+  :is(#content > .head, #page-dashboard > .head) :is(h1, .sub) { color: #17212e; }
+  #content > .page.active > :is(.section-header, .exec-header):first-child, #page-dashboard > .head + .gauges { margin-top: 0; box-shadow: none; }
+}
+
+/* Dashboard first pass: preserve portal skin, give the work queue visual priority. */
+#topbar .ticker { animation: none; width: auto; }
+#topbar .ticker-wrap { mask-image: none; }
+#topbar .ticker .item { cursor: default !important; }
+#topbar .brand-dot { animation: none; }
+body[data-dp="IT_Inventory_App"] .page.active { animation: none; }
+#page-dashboard > .head { margin-bottom: 0; padding-bottom: 30px; min-height: 160px; }
+#page-dashboard h2 { margin: 0; color: var(--text); font-size: 15px; line-height: 1.4; font-weight: 800; letter-spacing: -.15px; }
+#page-dashboard .iv-caption { color: var(--text2); font-size: 12px; line-height: 1.5; margin: 0; }
+.iv-freshness { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin: -10px 0 20px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface2); box-shadow: var(--ivp-elev-1); }
+.iv-freshness > .ms { color: var(--text2); font-size: 22px; }
+.iv-freshness > div { flex: 1; min-width: 0; }
+.iv-freshness strong { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
+#freshness-detail { margin-top: 3px; color: var(--text2); font-size: 12px; line-height: 1.5; }
+.iv-has-warning > .ms { color: var(--yellow); }
+.iv-freshness .btn { flex-shrink: 0; }
+.iv-workspace { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(0,1fr); align-items: start; gap: 18px; margin-bottom: 26px; }
+body[data-dp="IT_Inventory_App"] #page-dashboard .panel { background: var(--surface); border: 1px solid var(--ivp-edge); background-image: none; }
+body[data-dp="IT_Inventory_App"] #page-dashboard .iv-priority { box-shadow: var(--ivp-elev-1); border-radius: 12px; }
+body[data-dp="IT_Inventory_App"] #page-dashboard .iv-compliance { box-shadow: none; border-radius: 10px; }
+#page-dashboard .panel-head { min-height: 53px; padding: 14px 18px; justify-content: space-between; }
+.iv-priority > .iv-caption { padding: 12px 18px 4px; }
+.iv-count { color: var(--text2); font-size: 12px; font-variant-numeric: tabular-nums; }
+#page-dashboard .alerts { padding: 4px 8px 8px; }
+.iv-review-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 10px; border: 0; border-top: 1px solid var(--row-line); background: transparent; color: var(--text); text-align: left; font-family: inherit; cursor: pointer; border-radius: 4px; }
+.iv-review-row:first-child { border-top-color: transparent; }
+.iv-risk-mark { width: 3px; height: 27px; border-radius: 2px; flex-shrink: 0; background: var(--text3); }
+.iv-risk-crit { background: var(--red); }
+.iv-risk-warn { background: var(--yellow); }
+.iv-risk-info { background: var(--purple); }
+.iv-review-count { min-width: 42px; font-size: 25px; letter-spacing: -.5px; font-weight: 850; font-variant-numeric: tabular-nums; }
+.iv-review-label { flex: 1; min-width: 0; font-size: 13px; font-weight: 750; }
+.iv-review-label small,.iv-inventory-name small { display: block; margin-top: 3px; font-size: 11.5px; line-height: 1.4; font-weight: 500; color: var(--text2); }
+.iv-review-action { display: inline-flex; align-items: center; gap: 4px; color: var(--text2); font-size: 12px; }
+.iv-review-action .ms { font-size: 18px; }
+.iv-empty { padding: 16px 10px; font-size: 12px; line-height: 1.5; color: var(--text2); }
+.iv-compliance-body { padding: 18px; }
+.iv-compliance-number { font-size: 35px; font-weight: 850; letter-spacing: -1px; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.15; }
+.iv-compliance-label { color: var(--text); font-weight: 750; margin: 4px 0; font-size: 13px; }
+#page-dashboard #heat { display: flex; gap: 2px; height: 12px; margin-top: 18px; border-radius: 4px; overflow: hidden; background: var(--track); }
+#page-dashboard #heat .iv-segment { aspect-ratio: auto; min-width: 2px; border-radius: 0; }
+#page-dashboard #heat span:hover { outline: none; }
+.iv-compliant { background: var(--teal); }
+.iv-grace { background: var(--yellow); }
+.iv-noncompliant { background: var(--red); }
+.iv-unknown { background: var(--text3); }
+#page-dashboard #heat-legend { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 2px 14px; margin: 12px 0; }
+.iv-bucket { display: flex; align-items: center; gap: 7px; min-height: 36px; border: 0; padding: 5px 0; background: transparent; color: var(--text2); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.iv-bucket .sw { flex-shrink: 0; width: 8px; height: 8px; border-radius: 2px; }
+.iv-bucket strong { margin-left: auto; color: var(--text); font-variant-numeric: tabular-nums; }
+.iv-bucket .ms { font-size: 16px; }
+.iv-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.iv-section-heading .iv-caption { margin-top: 4px !important; }
+#page-dashboard .tiles { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin: 0 0 24px; }
+.iv-inventory-link { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 14px 12px; border: 1px solid var(--ivp-edge); border-radius: 8px; background: var(--surface); color: var(--text); text-align: left; font-family: inherit; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,.025); }
+.iv-inventory-icon { font-size: 19px; color: var(--text2); flex-shrink: 0; }
+.iv-inventory-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 750; }
+.iv-inventory-link strong { font-size: 19px; font-weight: 850; font-variant-numeric: tabular-nums; }
+.iv-arrow { font-size: 17px; color: var(--text3); }
+body[data-dp="IT_Inventory_App"] #page-dashboard .iv-sources { box-shadow: none; border-radius: 8px; }
+.iv-sources summary { display: flex; align-items: center; gap: 10px; padding: 15px 18px; cursor: pointer; color: var(--text); font-size: 13px; font-weight: 750; list-style: none; }
+.iv-sources summary::-webkit-details-marker { display: none; }
+.iv-sources summary .ms { color: var(--text2); font-size: 18px; }
+.iv-source-summary { margin-left: auto; font-size: 12px; color: var(--text2); font-weight: 500; }
+.iv-sources[open] .iv-disclosure { transform: rotate(180deg); }
+.iv-sources > .iv-caption { padding: 0 18px 12px; }
+.iv-sources .scroll-x table { min-width: 600px; }
+.iv-sources th { text-transform: none; letter-spacing: 0; font-size: 11.5px; }
+.iv-sources td { font-size: 12px; font-variant-numeric: tabular-nums; }
+.iv-warning { color: var(--yellow); }
+.iv-danger { color: var(--red); }
+.iv-source-open { display: inline-flex; align-items: center; gap: 4px; background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.iv-source-open .ms { font-size: 16px; }
+/* Feedback for occasional pointer presses. Frequent navigation stays immediate. */
+.iv-review-row,.iv-inventory-link,.iv-bucket,.iv-source-open { transition: transform 160ms var(--ivp-ease); }
+@media (hover:hover) and (pointer:fine) {
+  .iv-review-row:hover,.iv-bucket:hover { background: var(--surface2); }
+  .iv-inventory-link:hover { background: var(--surface2); border-color: var(--line2); box-shadow: var(--ivp-elev-1); }
+  .iv-source-open:hover { background: var(--surface2); }
+  .iv-review-row:active,.iv-inventory-link:active { transform: scale(.99); }
+  .iv-source-open:active { transform: scale(.97); }
+}
+body[data-dp="IT_Inventory_App"] #toast { transition: transform 200ms var(--ivp-ease),opacity 200ms var(--ivp-ease); }
+body[data-dp="IT_Inventory_App"] :is(.bar-fill,.timeline-seg,.progress-bar-fill) { transition: none; }
+/* Suppress movement for keyboard input, and respect the OS motion preference. */
+body.iv-keyboard :is(.btn,.nav-item,.rail-group,.page-btn,.col-picker-btn,.modal-close,.iv-review-row,.iv-inventory-link,.iv-source-open) { transform: none !important; transition: none !important; }
+@media (prefers-reduced-motion:reduce) {
+  .iv-review-row,.iv-inventory-link,.iv-bucket,.iv-source-open { transition: none; transform: none !important; }
+  body[data-dp="IT_Inventory_App"] #toast { transform: none; transition: opacity 125ms var(--ivp-ease); }
+  .gauge { animation: none; }
+}
+@media (max-width:1200px) {
+  #page-dashboard .tiles { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:1000px) {
+  .iv-workspace { grid-template-columns: minmax(0,1fr); gap: 16px; }
+}
+@media (max-width:700px) {
+  .iv-freshness { flex-wrap: wrap; padding: 12px; gap: 9px; }
+  .iv-freshness > div { flex-basis: calc(100% - 40px); }
+  .iv-freshness .btn { margin-left: 30px; }
+  .iv-review-action { font-size: 0; gap: 0; }
+  .iv-review-label { font-size: 12.5px; }
+  .iv-source-summary { display: none; }
+  .iv-inventory-link { gap: 8px; padding: 12px 10px; }
+  .iv-inventory-icon,.iv-arrow { display: none; }
+}
+@media (max-width:420px) {
+  #page-dashboard .tiles { grid-template-columns: minmax(0,1fr); }
+  .iv-section-heading { align-items: flex-start; flex-wrap: wrap; }
+  #page-dashboard #heat-legend { grid-template-columns: minmax(0,1fr); }
+}
+/* Occasional disclosure: bridge newly revealed source details without moving data on refresh. */
+.iv-sources[open] > .scroll-x { opacity: 1; transform: none; transition: opacity 180ms var(--ivp-ease),transform 180ms var(--ivp-ease); }
+@starting-style { .iv-sources[open] > .scroll-x { opacity: 0; transform: translateY(4px); } }
+body.iv-keyboard .iv-sources[open] > .scroll-x { transition: none; }
+@media (prefers-reduced-motion:reduce) { .iv-sources[open] > .scroll-x { transform: none; transition: opacity 125ms var(--ivp-ease); } }
+@media (pointer:coarse) {
+  .iv-bucket,.iv-source-open { min-height: 44px; }
+}
+@media print {
+  #page-dashboard > .head { background: none; min-height: 0; padding: 0 0 15px; }
+  .iv-freshness { margin-top: 0; box-shadow: none; }
+  .iv-review-action,.iv-arrow,#view-sources { display: none; }
+}
+/* On phones the saved desktop menu opens over the page instead of squeezing its content. */
+@media (max-width:700px) {
+  #app.rail-open #sidebar { position: absolute; inset: 0 auto 0 0; z-index: 500; }
+  #app.rail-open #main { margin-left: 60px; }
+  #sidebar { transition: none; }
+}
+
+/* Reviewed ring treatment. Only the true percentage is circular; counts remain readable rows. */
+.iv-workspace { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+.iv-compliance { container-type: inline-size; }
+.iv-ring-layout { display: grid; grid-template-columns: 152px minmax(0,1fr); gap: 22px; align-items: center; }
+body[data-dp="IT_Inventory_App"] #page-dashboard #heat.iv-compliance-ring { position: relative; width: 152px; height: 152px; border-radius: 50%; margin: 4px 0; padding: 0; display: block; overflow: visible; box-shadow: 0 0 0 5px var(--track); }
+.iv-compliance-ring::before { content: ''; position: absolute; inset: 12px; border-radius: 50%; background: var(--panel-solid); box-shadow: inset 0 2px 7px rgba(0,0,0,.12); }
+.iv-compliance-ring #gauges { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; z-index: 1; }
+#page-dashboard .iv-compliance-ring .iv-compliance-number { font-size: 31px; letter-spacing: -1px; }
+#page-dashboard .iv-compliance-ring .iv-compliance-label { font-size: 12px; color: var(--text2); font-weight: 650; }
+#page-dashboard .iv-ring-layout #heat-legend { grid-template-columns: minmax(0,1fr); margin: 0; gap: 0; }
+.iv-ring-layout .iv-bucket { padding: 10px 0; border-bottom: 1px solid var(--row-line); font-size: 12px; }
+.iv-ring-layout .iv-bucket:last-child { border-bottom: 0; }
+.iv-ring-layout .iv-bucket .sw { border-radius: 50%; }
+.iv-bucket-percent { color: var(--text2); font-size: 11.5px; width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+#page-dashboard .iv-compliance-body > .iv-caption { margin-top: 19px; }
+@container (max-width: 410px) {
+  .iv-ring-layout { grid-template-columns: minmax(0,1fr); gap: 18px; }
+  body[data-dp="IT_Inventory_App"] #page-dashboard #heat.iv-compliance-ring { margin: 4px auto; }
+}
+@media(max-width:1100px) { .iv-workspace { grid-template-columns: minmax(0,1fr); } }
+
+/* Read-only ownership work: an explicit category and a bounded page of source records. */
+body[data-dp="IT_Inventory_App"] #page-dashboard .iv-offboarding { margin-bottom: 26px; box-shadow: none; }
+.iv-offboard-filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 16px 18px 8px; }
+.iv-offboard-filter { display: inline-flex; align-items: center; gap: 12px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--text2); font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; }
+.iv-offboard-filter strong { font-variant-numeric: tabular-nums; color: var(--text); font-size: 14px; }
+.iv-offboard-filter[aria-pressed="true"] { background: var(--ivp-tint); color: var(--text); border-color: var(--accent); }
+.iv-offboard-caption { display: flex; gap: 16px; justify-content: space-between; align-items: center; padding: 4px 18px 14px; }
+.iv-offboard-caption p { margin: 0; color: var(--text2); font-size: 12px; line-height: 1.5; max-width: 72ch; }
+.iv-offboard-caption button { flex-shrink: 0; }
+.iv-offboard-table table { width: 100%; table-layout: fixed; }
+.iv-offboard-table td,.iv-offboard-table th { padding: 10px 18px; overflow-wrap: anywhere; }
+.iv-offboard-table td { font-size: 12.5px; vertical-align: middle; color: var(--text); }
+.iv-offboard-table th { font-size: 11.5px; text-transform: none; letter-spacing: 0; }
+.iv-offboard-table th:last-child,.iv-offboard-table td:last-child { width: 150px; }
+.iv-offboard-table small { display: block; margin-top: 3px; color: var(--text2); font-size: 11.5px; line-height: 1.4; }
+.iv-offboard-empty { padding: 24px 18px !important; color: var(--text2) !important; text-align: center; }
+.iv-offboard-footer { padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; color: var(--text2); font-size: 12px; border-top: 1px solid var(--row-line); }
+.iv-offboard-footer > div { display: flex; gap: 6px; }
+.iv360-action { white-space: nowrap; }
+.iv360-action .ms { font-size: 16px; }
+
+/* Native modal dialog supplies focus containment, Escape, and top-layer inertness. */
+.iv360-dialog { position: fixed; inset: 0 0 0 auto; width: min(680px,100vw); height: 100dvh; max-width: 100vw; max-height: 100dvh; margin: 0; padding: 0; border: 0; border-left: 1px solid var(--line); border-radius: 0; background: var(--panel-solid); color: var(--text); box-shadow: var(--dp-lift-3); overflow: hidden; font-family: var(--font); }
+.iv360-dialog[open] { display: flex; flex-direction: column; opacity: 1; transform: none; transition: opacity 200ms var(--ivp-ease),transform 200ms var(--ivp-ease); }
+.iv360-dialog::backdrop { background: var(--scrim1); }
+@starting-style { .iv360-dialog[open] { opacity: 0; transform: translateX(12px); } }
+.iv360-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.iv360-header h2 { margin: 0; color: var(--text); font-size: 19px; font-weight: 800; letter-spacing: -.4px; }
+.iv360-header p { margin: 2px 0 0; color: var(--text2); font-size: 11.5px; overflow-wrap: anywhere; }
+.iv360-header .btn { width: 36px; height: 36px; padding: 0; flex-shrink: 0; }
+.iv360-content { padding: 16px 20px 20px; overflow-y: auto; min-height: 0; scrollbar-gutter: stable; }
+.iv360-identity { display: flex; align-items: center; gap: 12px; }
+.iv360-device-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; font-size: 24px; color: var(--accent); background: var(--well); border: 1px solid var(--line); border-radius: 9px; }
+.iv360-brand-icon { width: 48px; flex-basis: 48px; }
+.iv360-brand-icon svg { display: block; width: 32px; height: 32px; }
+.iv360-brand-icon[data-manufacturer="apple"] { color: var(--text); }
+.iv360-brand-icon[data-manufacturer="apple"] svg { width: 26px; height: 28px; }
+.iv360-brand-icon[data-manufacturer="lenovo"] svg,.iv360-brand-icon[data-manufacturer="samsung"] svg,.iv360-brand-icon[data-manufacturer="acer"] svg,.iv360-brand-icon[data-manufacturer="asus"] svg,.iv360-brand-icon[data-manufacturer="toshiba"] svg,.iv360-brand-icon[data-manufacturer="panasonic"] svg,.iv360-brand-icon[data-manufacturer="fujitsu"] svg { width: 38px; }
+.iv360-identity > div { min-width: 0; }
+.iv360-identity strong { display: block; font-size: 15px; line-height: 1.35; font-weight: 800; overflow-wrap: anywhere; }
+.iv360-identity div > span { display: block; font-size: 11.5px; margin-top: 2px; color: var(--text2); }
+.iv360-owner { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; font-size: 12px; }
+.iv360-owner > .ms { font-size: 17px; color: var(--text2); }
+.iv360-owner strong { font-weight: 650; overflow-wrap: anywhere; }
+.iv360-owner-state { padding: 2px 7px; background: var(--well); border: 1px solid var(--line); border-radius: 4px; font-size: 10.5px; margin-left: 3px; }
+.iv360-snapshot-note { font-size: 11px; color: var(--text2); line-height: 1.5; margin: 5px 0 12px; }
+.iv360-status-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); border: 1px solid var(--line); border-radius: 9px; background: var(--well); overflow: hidden; }
+.iv360-stat { min-width: 0; padding: 11px 14px; }
+.iv360-stat:nth-child(odd) { border-right: 1px solid var(--line); }
+.iv360-stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+.iv360-stat-label { display: flex; gap: 6px; align-items: center; color: var(--text2); font-size: 11px; font-weight: 650; }
+.iv360-stat-label .ms { font-size: 17px; color: var(--iv360-tone,var(--text2)); }
+.iv360-stat > strong { display: block; color: var(--iv360-tone,var(--text)); font-size: 17px; font-weight: 800; line-height: 1.25; margin: 5px 0 3px; letter-spacing: -.2px; overflow-wrap: anywhere; }
+.iv360-stat > small { display: block; color: var(--text2); font-size: 10.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.iv360-dialog [data-tone="good"] { --iv360-tone: var(--teal); }
+.iv360-dialog [data-tone="bad"] { --iv360-tone: var(--red); }
+.iv360-dialog [data-tone="warn"] { --iv360-tone: var(--yellow); }
+.iv360-dialog [data-tone="neutral"] { --iv360-tone: var(--accent); }
+.iv360-dialog [data-tone="muted"] { --iv360-tone: var(--text2); }
+.iv360-owner-state,.iv360-detail-meta { color: var(--iv360-tone,var(--text2)); }
+.iv360-compact-warning { display: flex; gap: 6px; align-items: flex-start; font-size: 11px; color: var(--yellow); margin: 8px 0 0; line-height: 1.5; }
+.iv360-compact-warning .ms { font-size: 16px; flex-shrink: 0; }
+.iv360-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px 22px; margin: 12px 0; }
+.iv360-facts > div { min-width: 0; }
+.iv360-facts dt { font-size: 11.5px; color: var(--text2); font-weight: 600; margin-bottom: 3px; }
+.iv360-facts dd { margin: 0; font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.iv360-note { color: var(--text2); font-size: 12px; line-height: 1.6; margin: 12px 0; }
+.iv360-notice { background: var(--well); border-left: 3px solid var(--yellow); padding: 12px 14px; margin: 12px 0; font-size: 12px; line-height: 1.6; color: var(--text); }
+.iv-offboarding .iv360-notice { margin: 0 18px 14px; }
+.iv360-details-heading { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 12px; font-weight: 800; margin: 14px 0 6px; }
+.iv360-details-heading span { color: var(--text2); font-size: 10.5px; font-weight: 500; }
+.iv360-disclosure { border-bottom: 1px solid var(--line); }
+.iv360-disclosure > summary { display: flex; align-items: center; gap: 9px; min-height: 44px; cursor: pointer; list-style: none; padding: 8px 0; border-radius: 3px; }
+.iv360-disclosure > summary::-webkit-details-marker { display: none; }
+.iv360-detail-icon { font-size: 17px; color: var(--text2); flex-shrink: 0; }
+.iv360-detail-title { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; }
+.iv360-detail-meta { font-size: 10.5px; text-align: right; max-width: 45%; }
+.iv360-chevron { color: var(--text2); font-size: 18px; flex-shrink: 0; }
+.iv360-disclosure[open] > summary .iv360-chevron { transform: rotate(180deg); }
+.iv360-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.iv360-disclosure-body { padding: 0 0 12px 26px; }
+.iv360-source-group > .iv360-disclosure-body { padding-left: 14px; }
+.iv360-source-group .iv360-disclosure:last-child { border-bottom: 0; }
+.iv360-health-strip { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border: 1px solid var(--line); border-radius: 7px; background: var(--well); margin: 10px 0; }
+.iv360-health-strip > div { padding: 10px; min-width: 0; }
+.iv360-health-strip > div + div { border-left: 1px solid var(--line); }
+.iv360-health-strip span { display: block; color: var(--text2); font-size: 10.5px; }
+.iv360-health-strip strong { display: block; font-size: 12px; line-height: 1.5; margin-top: 4px; overflow-wrap: anywhere; }
+.iv360-mini-list { border-top: 1px solid var(--line); margin: 14px 0; padding-top: 10px; font-size: 12px; }
+.iv360-mini-list p { line-height: 1.5; margin: 7px 0; overflow-wrap: anywhere; }
+.iv360-mini-list small { display: block; color: var(--text2); font-size: 10.5px; }
+.iv360-comparison-result { font-size: 12px; font-weight: 700; margin: 10px 0; }
+.iv360-comparison-table table { table-layout: fixed; width: 100%; border-collapse: collapse; }
+.iv360-comparison-table caption { text-align: left; font-size: 11px; color: var(--text2); padding-bottom: 8px; }
+.iv360-comparison-table th,.iv360-comparison-table td { padding: 8px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 11px; overflow-wrap: anywhere; white-space: normal; }
+.iv360-comparison-table th { color: var(--text2); font-weight: 650; text-transform: none; letter-spacing: 0; }
+.iv360-comparison-table th:first-child { width: 26%; }
+.iv360-comparison-table small { display: block; font-size: 10px; color: var(--yellow); font-weight: 500; }
+.iv360-comparison-table .iv360-difference { background: var(--well); }
+.iv360-interface-label { display: block; margin: 10px 0 5px; font-size: 11px; font-weight: 650; }
+#iv360-network-interface { display: block; width: 100%; max-width: 100%; min-width: 0; min-height: 36px; border: 1px solid var(--line); border-radius: 5px; background: var(--well); color: var(--text); font: inherit; font-size: 11.5px; padding: 7px; }
+#iv360-network-interface:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.iv360-network-detail > .iv360-disclosure-body { padding-left: 0; }
+.iv360-network-detail .iv360-network-detail > summary { padding-left: 8px; background: var(--well); margin: 6px 0; }
+.iv360-network-detail .iv360-network-detail > .iv360-disclosure-body { padding: 0 8px 12px; }
+.iv360-network-table { min-width: 0; margin: 14px 0; }
+.iv360-network-table table { width: 100%; min-width: 0; table-layout: fixed; border-collapse: collapse; }
+.iv360-network-table caption { text-align: left; color: var(--text2); font-size: 11px; font-weight: 700; padding-bottom: 8px; }
+.iv360-network-table th,.iv360-network-table td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); font-size: 11px; line-height: 1.6; white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+.iv360-network-table th { font-weight: 650; text-transform: none; letter-spacing: 0; }
+.iv360-network-table td { color: var(--text); }
+.iv360-network-detail .btn { white-space: normal; text-align: left; }
+.iv360-disclosure-body > .iv360-note:first-child { margin-top: 2px; }
+.iv360-source-record { padding: 12px 0; border-top: 1px solid var(--row-line); }
+.iv360-source-record > strong { font-size: 12.5px; }
+.iv360-preferred { font-size: 11px; color: var(--text2); margin-left: 10px; }
+.iv360-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.iv360-links a { text-decoration: none; font-size: 11px; }
+.iv360-links .ms { font-size: 16px; }
+body.iv-keyboard .iv360-dialog[open] { transition: none; }
+@media(prefers-reduced-motion:reduce) { .iv360-dialog[open] { transform: none; transition: opacity 125ms var(--ivp-ease); } }
+@media(hover:hover) and (pointer:fine) { .iv-offboard-filter:hover { background: var(--surface2); } }
+@media(max-width:620px) {
+  .iv-offboard-filters { padding: 12px 12px 8px; }
+  .iv-offboard-filter { flex: 1 1 100%; justify-content: space-between; }
+  .iv-offboard-caption { padding: 4px 12px 12px; align-items: flex-start; flex-direction: column; gap: 10px; }
+  .iv-offboard-table th,.iv-offboard-table td { padding: 10px 8px; font-size: 11.5px; }
+  .iv-offboard-table th:last-child,.iv-offboard-table td:last-child { width: 104px; }
+  .iv-offboard-table .iv360-action { font-size: 11px; padding: 0 7px; gap: 2px; }
+  .iv-offboard-table .iv360-action .ms { display: none; }
+  .iv-offboard-footer { padding: 12px; }
+  .iv360-header { padding: 12px 14px; }
+  .iv360-content { padding: 14px; }
+  .iv360-facts { gap: 12px; }
+  .iv360-stat { padding: 10px; }
+  .iv360-stat > strong { font-size: 16px; }
+  .iv360-disclosure-body { padding-left: 0; }
+  .iv360-disclosure > summary { gap: 6px; }
+  .iv360-detail-title { font-size: 11.5px; }
+  .iv360-detail-meta { font-size: 10px; }
+  .iv360-health-strip { grid-template-columns: minmax(0,1fr); }
+  .iv360-health-strip > div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .iv360-health-strip > div { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; padding: 8px 10px; }
+  .iv360-health-strip strong { margin: 0; text-align: right; }
+}
+@media(pointer:coarse) { .iv-offboard-filter,.iv360-action,.iv-offboard-footer .btn { min-height: 44px; } }
+/* At phone width, each review record keeps its action beside the device and its owner below. */
+@media(max-width:620px) {
+  .iv-offboard-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .iv-offboard-table tbody { display: block; }
+  .iv-offboard-table tbody tr { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px 12px; padding: 14px 12px; border-top: 1px solid var(--row-line); }
+  .iv-offboard-table tbody td { display: block; border: 0; padding: 0; width: auto !important; }
+  .iv-offboard-table tbody td:first-child { grid-column: 1; grid-row: 1; }
+  .iv-offboard-table tbody td:nth-child(2) { grid-column: 1; grid-row: 2; color: var(--text2); }
+  .iv-offboard-table tbody td:last-child { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+  .iv-offboard-table tbody td[colspan] { grid-column: 1 / -1; grid-row: 1; }
+}
+/* Windows summary stays visible; detailed source readings use the existing native disclosure. */
+.iv360-health-brief { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 8px 0; font-size: 11.5px; line-height: 1.5; }
+.iv360-health-brief > div { display: flex; flex-wrap: wrap; gap: 5px; }
+.iv360-health-brief dt { color: var(--text2); }
+.iv360-health-brief dd { margin: 0; font-weight: 700; color: var(--text); }
+.iv360-health-brief [data-tone="warn"] dd { color: var(--yellow); }

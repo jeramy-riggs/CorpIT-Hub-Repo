@@ -1,0 +1,1 @@
+module.exports={apps:[{name:'corpit-ai-governance-refresh',script:'/var/www/corpit-hub-api/ai-governance-refresh-worker.js',cwd:'/var/www/corpit-hub-api',instances:1,exec_mode:'fork',autorestart:true,restart_delay:5000,kill_timeout:240000,max_memory_restart:'180M',time:true}]};

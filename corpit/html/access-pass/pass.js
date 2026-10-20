@@ -495,5 +495,22 @@
     });
   }
 
-  load();
+  // SECPAGELIMIT-20261019: a person held to a few pages of this site (site-access.json
+  // page_limits) who opens any other page is sent to their home page here instead of
+  // being offered an access request for a site they already have. Same origin, a path
+  // only, and never the page that was just refused, so this cannot loop or leave the host.
+  function pageLimitHome() {
+    if (KIND !== 'site' || !window.fetch) return Promise.resolve(null);
+    return api('/api/gate/landing?exclude=' + encodeURIComponent(HOST)).then(function (r) {
+      var h = r.status === 200 && r.json ? r.json.here : null;
+      var home = h && h.page_limit && String(h.page_limit.home || '');
+      if (!home || String(h.host || '').toLowerCase() !== String(window.location.hostname).toLowerCase()) return null;
+      if (!/^\/[A-Za-z0-9_-][A-Za-z0-9._\/-]*\.html$/.test(home) || home === window.location.pathname) return null;
+      return home;
+    }, function () { return null; });
+  }
+  pageLimitHome().then(function (home) {
+    if (home) { window.location.replace(home); return; }
+    load();
+  });
 })();

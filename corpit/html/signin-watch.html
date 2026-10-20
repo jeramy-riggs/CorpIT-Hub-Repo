@@ -349,8 +349,12 @@ h1.pg{font-size:17px;font-weight:700;margin-bottom:2px;letter-spacing:-.01em;col
 .viol-scroll{max-height:calc(100vh - 260px);overflow-y:auto}
 </style>
 <link rel="stylesheet" href="/it-depth.css">
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/signin-watch-portal.css?v=a91bcfd72ddb">
+<link rel="stylesheet" href="/operations-polish.css?v=28493dbcc646">
+<script src="/operations-polish.js?v=da7e6ad64b46"></script>
 </head>
-<body data-dp="signin-watch">
+<body data-op-page="signin-watch" data-dp="signin-watch">
 
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
   <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"/></symbol>
@@ -416,6 +420,7 @@ h1.pg{font-size:17px;font-weight:700;margin-bottom:2px;letter-spacing:-.01em;col
 
 <!-- ═══════════ MONITOR MODE ═══════════ -->
 <div id="monitorMode">
+<div id="desktop-feed-status"></div>
 
 <!-- OVERVIEW -->
 <div data-view="overview" class="page active">
@@ -434,16 +439,16 @@ h1.pg{font-size:17px;font-weight:700;margin-bottom:2px;letter-spacing:-.01em;col
   <h1 class="pg">Violations</h1>
   <div class="pg-sub">Every sign-in from an untrusted network, with device and threat context.</div>
   <div class="filter-bar">
-    <input id="fSearch" placeholder="Search UPN, IP, location, app, reason…" style="flex:1;min-width:200px;padding:4px 8px;background:var(--layer2);border:1px solid var(--stroke);color:var(--text);border-radius:6px;font-size:11.5px;font-family:var(--font)" oninput="SW.loadViolations()">
-    <select id="fSource"><option value="">All sources</option><option value="okta">Okta</option><option value="entra">Entra</option></select>
-    <select id="fResult"><option value="">All results</option><option value="success">Success</option><option value="failure">Failure</option></select>
-    <select id="fHours"><option value="72">72 hours</option><option value="168">7 days</option><option value="720">30 days</option><option value="">All time</option></select>
-    <select id="fState"><option value="">All states</option><option value="1">Open</option><option value="2">Acked</option></select>
+    <input id="fSearch" aria-label="Search violations" placeholder="Search UPN, IP, location, app, reason…" style="flex:1;min-width:200px;padding:4px 8px;background:var(--layer2);border:1px solid var(--stroke);color:var(--text);border-radius:6px;font-size:11.5px;font-family:var(--font)" oninput="SW.searchViolations()">
+    <select id="fSource" aria-label="Sign-in source"><option value="">All sources</option><option value="okta">Okta</option><option value="entra">Entra</option></select>
+    <select id="fResult" aria-label="Sign-in result"><option value="">All results</option><option value="success">Success</option><option value="failure">Failure</option></select>
+    <select id="fHours" aria-label="Sign-in time window"><option value="72">72 hours</option><option value="168">7 days</option><option value="720">30 days</option><option value="">All time</option></select>
+    <select id="fState" aria-label="Acknowledgement state"><option value="">All states</option><option value="1">Open</option><option value="2">Acked</option></select>
     <button class="cb" onclick="SW.loadViolations()"><svg class="i"><use href="#ic-refresh"/></svg>Refresh</button>
     <div style="flex:1"></div>
     <button class="cb" onclick="SW.bulkAck()"><svg class="i"><use href="#ic-checkall"/></svg>Bulk ack filtered</button>
   </div>
-  <div class="vp-summary" id="violSummary"></div>
+  <div class="op-tools"><button type="button" class="op-btn" onclick="SW.resetViolations()">Reset filters</button><button type="button" class="op-btn" id="violExport" onclick="SW.exportViolations()">Export loaded CSV</button></div><div class="vp-summary" id="violSummary" role="status" aria-live="polite"></div>
   <div class="panel">
     <div class="panel-hd"><h2>Violations</h2><div class="pager" id="violPager"></div></div>
     <div class="panel-bd" id="violGrid"><div class="loading">Loading…</div></div>
@@ -668,7 +673,7 @@ const SW = (function(){
     return j;
   }
   function icon(name){ return '<svg class="i" style="width:13px;height:13px"><use href="#ic-'+name+'"/></svg>'; }
-  function fmtTime(s){ if(!s) return '—'; const d=new Date(s); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false})+' UTC'; }
+  function fmtTime(s){ if(!s) return '—'; const d=new Date(s); return d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'UTC'})+' UTC'; }
   function relTime(s){ if(!s) return '—'; const ms=Date.now()-new Date(s).getTime(); if(ms<60000) return Math.round(ms/1000)+'s ago'; if(ms<3600000) return Math.round(ms/60000)+'m ago'; if(ms<86400000) return Math.round(ms/3600000)+'h ago'; return Math.round(ms/86400000)+'d ago'; }
   /* Health ladder: ok / stale / failed / unknown. Never two rungs -- an error
      string being absent is not the same as the collector having run. 6h is the
@@ -887,8 +892,13 @@ const SW = (function(){
   // capped page as the whole result set.
   let _violMatched = null, _violCapped = false, _violServerRows = 0;
   const VIOL_PER_PAGE = 25;
+  let _violSeq=0,_violSearchTimer=null;
+  function searchViolations(){clearTimeout(_violSearchTimer);_violSeq++;$('violExport').disabled=true;_violSearchTimer=setTimeout(()=>loadViolations(),220);}
+  function resetViolations(){clearTimeout(_violSearchTimer);['fSource','fResult','fState','fSearch'].forEach(id=>$(id).value='');$('fHours').value='72';loadViolations();}
+  function exportViolations(){if($('violExport').disabled)return;OpsPolish.csv('sign-in-violations-'+new Date().toISOString().slice(0,10)+'.csv',['Time (UTC)','Source','User','IP','Result','Application','City','Country','Acknowledged'],_violations.map(r=>[r.event_time||r.created_at,r.source,r.upn,r.ip,r.result,r.app_name,r.geo_city,r.geo_country,r.acked?'Yes':'No']));}
 
   async function loadViolations(resetPage){
+    clearTimeout(_violSearchTimer);const seq=++_violSeq;$('violExport').disabled=true;
     if(resetPage!==false) _violPage = 1;
     const src=$('fSource').value, res=$('fResult').value, hrs=$('fHours').value, st=$('fState').value;
     const q=($('fSearch')?$('fSearch').value.trim().toLowerCase():'');
@@ -897,7 +907,8 @@ const SW = (function(){
     if(hrs) apiQ+='&hours='+hrs;
     if(st==='1') apiQ+='&unacked=1';
     const j = await api('GET','/violations'+apiQ);
-    if(!j.ok){$('violGrid').innerHTML='<div class="err">'+esc(j.error)+'</div>';$('violPager').innerHTML='';return;}
+    if(seq!==_violSeq)return;
+    if(!j.ok){$('violSummary').textContent='Could not load violations. Use Refresh to retry.';$('violGrid').innerHTML='<div class="err">'+esc(j.error)+'</div>';$('violPager').innerHTML='';return;}
     let rows = j.rows||[];
     _violServerRows = rows.length;
     _violMatched = (typeof j.matched === 'number') ? j.matched : null;
@@ -909,6 +920,7 @@ const SW = (function(){
       return [r.upn,r.ip,r.geo_city,r.geo_country,r.app_name,r.client_app,r.failure_reason,r.geo_asn,r.geo_isp,tc.isp,tc.as_org].filter(Boolean).some(v=>String(v).toLowerCase().includes(q));
     });
     _violations = rows;
+    $('violExport').disabled=!rows.length;
     renderViolPage();
   }
 
@@ -925,7 +937,7 @@ const SW = (function(){
         (succ?' <b class="ct-bad">'+succ+'</b> successes':'')+
         ' <b class="ct-warn">'+fails.toLocaleString()+'</b> failures'+
         (_violCapped
-          ? ' <span class="ct-warn" title="The server returns at most 500 rows per query.">\u26a0 server returned the first '+
+          ? ' <span class="ct-warn" title="The server capped this query. Export includes only the loaded matches.">\u26a0 server returned the first '+
             _violServerRows.toLocaleString()+' of '+(_violMatched||0).toLocaleString()+
             ' \u2014 narrow the filters to see the rest</span>'
           : '');
@@ -936,10 +948,16 @@ const SW = (function(){
     const pageRows=rows.slice(start, start+VIOL_PER_PAGE);
     // A zero here means "nothing recorded in this window", which is only an
     // all-clear when the poller actually ran in it.
-    const emptyMeasured = _pollerRung==='ok';
+    // UAT C-07 (10-18): when the server returned rows and the in-page filters
+    // (search / result / acknowledged) removed them all, the window was measured.
+    const filteredOut = _violServerRows > 0;
+    const emptyMeasured = filteredOut || _pollerRung==='ok';
     $('violGrid').innerHTML = pageRows.length ? violTable(pageRows,false)
-      : '<div class="empty">'+icon(emptyMeasured?'check':'alert')+' No violations match filters'+
-        (emptyMeasured ? '' : ' \u2014 the poller is '+_pollerRung+', so this window was never measured')+'</div>';
+      : '<div class="empty">'+icon(emptyMeasured?'check':'alert')+
+        (filteredOut
+          ? ' No loaded events match these filters ('+_violServerRows.toLocaleString()+' loaded). Use Reset to clear them.'
+          : ' No violations match filters'+
+            (emptyMeasured ? '' : ' \u2014 the poller is '+_pollerRung+', so this window was never measured'))+'</div>';
     renderPager(total, pages);
   }
 
@@ -947,7 +965,7 @@ const SW = (function(){
     if(total===0){$('violPager').innerHTML='';return;}
     const p=_violPage;
     let h='<span class="pg-info">'+total.toLocaleString()+' total · page '+p+' of '+pages+'</span>';
-    h+='<button class="pg-btn" '+(p<=1?'disabled':'')+' onclick="SW.violGoto('+(p-1)+')">‹</button>';
+    h+='<button class="pg-btn" aria-label="Previous violations page" '+(p<=1?'disabled':'')+' onclick="SW.violGoto('+(p-1)+')">‹</button>';
     // smart page buttons: 1 … p-1 p p+1 … last
     const nums=new Set([1,pages,p,p-1,p+1,p-2,p+2]);
     const sorted=[...nums].filter(n=>n>=1&&n<=pages).sort((a,b)=>a-b);
@@ -957,14 +975,16 @@ const SW = (function(){
       h+='<button class="pg-btn'+(n===p?' on':'')+'" onclick="SW.violGoto('+n+')">'+n+'</button>';
       prev=n;
     }
-    h+='<button class="pg-btn" '+(p>=pages?'disabled':'')+' onclick="SW.violGoto('+(p+1)+')">›</button>';
+    h+='<button class="pg-btn" aria-label="Next violations page" '+(p>=pages?'disabled':'')+' onclick="SW.violGoto('+(p+1)+')">›</button>';
     $('violPager').innerHTML=h;
   }
 
   function violGoto(n){ _violPage=n; renderViolPage(); document.getElementById('violGrid').scrollTop=0; }
 
+  function resetViolationsFields(){clearTimeout(_violSearchTimer);['fSource','fResult','fState','fSearch'].forEach(id=>$(id).value='');$('fHours').value='72';}
   function drillViolations(opts){
     // pre-set filters and switch to violations tab
+    resetViolationsFields();
     if(opts.result) $('fResult').value=opts.result;
     if(opts.hours) $('fHours').value=opts.hours;
     if(opts.state) $('fState').value=opts.state;
@@ -983,7 +1003,7 @@ const SW = (function(){
       h+='<div class="ev-rail"><span class="ev-dot '+resCls+'" title="'+(isSucc?'Successful sign-in':'Blocked attempt')+'"></span></div>';
       h+='<div class="ev-body">';
       h+='<div class="ev-top">';
-      h+='<span class="ev-who">'+esc(r.upn)+'</span>';
+      h+='<button type="button" class="ev-who op-link" aria-label="Investigate '+esc(r.upn)+'">'+esc(r.upn)+'</button>';
       h+='<span style="font-size:10.5px;color:var(--text3)">'+esc((r.source||'')==='okta'?'Okta':'Entra')+'</span>';
       if(isSucc) h+='<span class="ev-pill succ">Signed in</span>';
       if(!r.acked) h+='<span class="ev-pill open">Open</span>';
@@ -1006,10 +1026,10 @@ const SW = (function(){
       h+='</div>';
       if(!compact){
         h+='<div class="ev-acts">';
-        if(!r.acked) h+='<span class="ev-act" onclick="event.stopPropagation();SW.ackOne('+r.id+')">Acknowledge</span>';
-        h+='<span class="ev-act" onclick="event.stopPropagation();SW.investigate('+r.id+')">Investigate</span>';
-        h+='<span class="ev-act" onclick="event.stopPropagation();SW.repush('+r.id+')">Re-alert</span>';
-        h+='<span class="ev-act" onclick="event.stopPropagation();SW.viewRaw('+r.id+')">Raw</span>';
+        if(!r.acked) h+='<button type="button" class="ev-act" onclick="event.stopPropagation();SW.ackOne('+r.id+')">Acknowledge</button>';
+        h+='<button type="button" class="ev-act" onclick="event.stopPropagation();SW.investigate('+r.id+')">Investigate</button>';
+        h+='<button type="button" class="ev-act" onclick="event.stopPropagation();SW.repush('+r.id+')">Re-alert</button>';
+        h+='<button type="button" class="ev-act" onclick="event.stopPropagation();SW.viewRaw('+r.id+')">Raw</button>';
         h+='</div>';
       }
       h+='</div></div>';
@@ -1167,8 +1187,15 @@ const SW = (function(){
       $('flyBody').innerHTML='<div class="fg"><label>Name</label><input id="fcName" placeholder="e.g. IT-Security Teams"></div><div class="fg"><label>Type</label><select id="fcType"><option value="teams">Teams webhook</option><option value="webhook">Generic webhook</option><option value="sdp">SDP ticket</option></select></div><div class="fg"><label>Config JSON</label><textarea id="fcConfig" placeholder=\'{"webhook_url":"https://..."}\'></textarea><div class="hint">Teams: {"webhook_url":"..."}, SDP: {"requester_email":"..."}</div></div><div class="fg"><label>Fires on</label><select id="fcFire"><option value="all">All results</option><option value="failure">Failures only</option><option value="success">Successes only</option></select></div><div class="fg"><label>Tier filter</label><select id="fcTier"><option value="all">All tiers</option><option value="vip">VIP only</option><option value="standard">Standard only</option></select><div class="hint">Route VIP alerts to a dedicated channel with @mentions.</div></div><div class="fg"><label>@mentions (Teams, optional)</label><input id="fcMention" placeholder=\'user@auction.com, other@auction.com\'><div class="hint">Comma-separated UPNs to @mention on Teams alerts.</div></div><div class="switch-row"><input type="checkbox" id="fcAutoInv"><label>Auto-investigate before alerting (attaches findings)</label></div>';
       $('flyFoot').innerHTML='<button class="btn primary" onclick="SW.saveChan()">Add</button><button class="btn" onclick="SW.closeFly()">Cancel</button>';
     }
+    labelFlyControls();
+  }
+  function labelFlyControls(){
+    $('flyover').setAttribute('aria-labelledby','flyTitle');$('flyover').removeAttribute('aria-label');
+    $('flyBody').querySelectorAll('.fg,.switch-row').forEach(row=>{const label=row.querySelector('label'),input=row.querySelector('input,select,textarea');if(label&&input?.id)label.htmlFor=input.id;});
   }
   function closeFly(){ $('flyover').classList.remove('open','wide'); $('scrim').classList.remove('on'); }
+  // UAT SIW-04/C-05 (10-18): Esc closes whichever flyover is open; focus return is operations-polish's observer.
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('flyover').classList.contains('open')){e.preventDefault();closeFly();}});
   async function saveWatch(){
     const upn=$('fwUpn').value.trim().toLowerCase();
     if(!upn){toast('UPN required');return}
@@ -1324,13 +1351,15 @@ const SW = (function(){
     $('invVerdict').innerHTML=h;
     renderBeats();
   }
-  let _curEmp=null;
+  let _curEmp=null,_investigationSeq=0;
 
   async function investigate(violId){
+    const seq=++_investigationSeq;
     // find violation in cache or fetch
     let v = _violations.find(r=>r.id===violId);
     if(!v){
       const j = await api('GET','/violations?limit=500');
+      if(seq!==_investigationSeq)return;
       _violations = j.rows||[];
       v = _violations.find(r=>r.id===violId);
     }
@@ -1357,7 +1386,7 @@ const SW = (function(){
 
     // v3.17.0: pause context — currently suppressed under a ticket?
     api('GET','/watchlist').then(wj=>{
-      if(!wj.ok||!wj.rows) return;
+      if(seq!==_investigationSeq||!wj.ok||!wj.rows) return;
       const w=wj.rows.find(x=>(x.upn||'').toLowerCase()===(upn||'').toLowerCase());
       if(w&&w.pause_ticket_id){
         const el=document.createElement('span');
@@ -1405,10 +1434,11 @@ const SW = (function(){
 
     // empty-panel wrapper: fetcher returns {html, empty, sig:{level,text}}
     const f = (panelId, bodyId, prom, secKey) => prom.then(r=>{
+      if(seq!==_investigationSeq)return;
       if(typeof r==='string') r={html:r,empty:false};
       setPanel(panelId, bodyId, r.html, r.empty);
       if(r.sig && secKey) pushSig(secKey, r.sig.level, r.sig.text);
-    }).catch(e=>{ setPanel(panelId, bodyId, '<div class="dim">'+esc(e.message)+'</div>', true); });
+    }).catch(e=>{ if(seq!==_investigationSeq)return;setPanel(panelId, bodyId, '<div class="dim">'+esc(e.message)+'</div>', true); });
 
     // answer-chip signal store + seeds from the event itself
     _sigs={};
@@ -1419,12 +1449,13 @@ const SW = (function(){
     $('invPosture').innerHTML='<div class="loading">Loading…</div>';
     const empPromise = fetchEmployeeStatusRaw(upn);
     empPromise.then(emp=>{
+      if(seq!==_investigationSeq)return;
       _curEmp=emp; renderPosture(emp); buildVerdict(v, emp);
       if(emp&&emp.found){
         if(emp.employee_status==='terminated') pushSig('who',2,'Terminated employee');
         else if(emp.employee_status==='active') pushSig('who',0,'Active employee');
       }
-    }).catch(()=>{ buildVerdict(v, null); });
+    }).catch(()=>{ if(seq===_investigationSeq)buildVerdict(v, null); });
 
     // Q1 who
     f('p-ad','inv-ad', fetchAD(upn), 'who');
@@ -1490,8 +1521,8 @@ const SW = (function(){
         parts.join(' · ')||'—'); }
     // beat 2 — the outcome
     if(v.result==='success'){
-      setBeat('b2','bad','The password WORKED — they signed in',
-        tc.ca_status==='notApplied'?'And Conditional Access never ran ⚠ — act now':'Check sessions and MFA now');
+      setBeat('b2','bad','Successful sign-in recorded',
+        tc.ca_status==='notApplied'?'Conditional Access reported not applied — review authentication and session details':'Review authentication, sessions and MFA details');
     } else {
       const dec=decodeErr(v.failure_reason);
       const b2hd=/smart lockout/.test(dec||'')?'Smart lockout tripped — blocked':'Wrong password — blocked';
@@ -1511,7 +1542,7 @@ const SW = (function(){
     }
     // beat 4 — the campaign
     { const cw=sigWorst('campaign');
-      if(cw===2) setBeat('b4','bad','Part of a wider campaign', (sigTexts('campaign',2)[0]||'')+' by the same attacker network');
+      if(cw===2) setBeat('b4','bad','Account and network history needs review', (sigTexts('campaign',2)[0]||''));
       else if(cw===1) setBeat('b4','warn','Signs of wider campaign activity', sigTexts('campaign',1).slice(0,2).join(' · '));
       else if(cw===0) setBeat('b4','ok','No wider campaign detected', sigTexts('campaign',0)[0]||'This IP has not hit other watched accounts');
       else setBeat('b4','none','Checking for wider campaign…',''); }
@@ -1525,6 +1556,7 @@ const SW = (function(){
   }
 
   function exitInvestigate(){
+    ++_investigationSeq;
     $('investMode').style.display='none';
     $('monitorMode').style.display='';
     $('sideRail').style.display='';
@@ -1734,7 +1766,7 @@ const SW = (function(){
     }
     let sig=null;
     const succ=Number(h0.successes||0), att=Number(h0.attempts||0), ctry=Number(h0.countries||0);
-    if(succ>0) sig={level:2,text:succ+' successful breach'+(succ===1?'':'es')+' on record'};
+    if(succ>0) sig={level:2,text:succ+' successful sign-in'+(succ===1?'':'s')+' recorded for this account — review required'};
     else if(att>=50&&ctry>=5) sig={level:2,text:'Sustained spray: '+att.toLocaleString()+' attempts / '+ctry+' countries'};
     else if(att>10) sig={level:1,text:att+' prior attempts on this account'};
     else sig={level:0,text:att+' prior attempts'};
@@ -1901,8 +1933,10 @@ const SW = (function(){
     }
     _user={email:me.email, name:me.displayName||me.email};
 
+    ['fSource','fResult','fHours','fState'].forEach(id=>$(id).addEventListener('change',()=>loadViolations()));
     // nav clicks
     document.querySelectorAll('.rl-item[data-nav]').forEach(el=>{
+      el.setAttribute('role','button');el.tabIndex=0;el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click();}});
       el.addEventListener('click',()=>nav(el.dataset.nav));
     });
     document.querySelectorAll('[data-go]').forEach(el=>{
@@ -1923,7 +1957,7 @@ const SW = (function(){
   init();
 
   return { nav, investigate, exitInvestigate, toggleSec, ackOne, bulkAck, viewRaw,
-           loadViolations, loadWatchlist, loadNetworks, loadChannels, drillViolations, violGoto,
+           searchViolations, resetViolations, exportViolations, loadViolations, loadWatchlist, loadNetworks, loadChannels, drillViolations, violGoto,
            openFly, closeFly, saveWatch, saveNet, saveChan,
            delWatch, delNet, testChan, delChan, toggleVip, repush,
            pauseWatch, savePause, resumeWatch, jumpBeat,
@@ -1931,7 +1965,7 @@ const SW = (function(){
 })();
 </script>
 <script src="/it-topbar.js" defer></script>
-<script src="/feed-freshness.js" data-page="signin-watch" defer></script>
+<script src="/feed-freshness-desktop.js?v=9c6727302547" data-page="signin-watch" defer></script>
 <script src="/it-version.js" data-app-key="signin-watch" defer></script>
 </body>
 </html>

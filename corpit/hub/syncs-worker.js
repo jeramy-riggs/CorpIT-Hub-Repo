@@ -31,6 +31,14 @@ try {
   console.error('[syncs-worker] FAILED to start okta-sync scheduler:', e && e.stack || e);
 }
 
+// DARKTRACE-EMAIL 2026-10-14: Darktrace /EMAIL pull. Ticks every 60 s; runs only when
+// dt_email_config is enabled + configured and cadence_min has passed since the last run.
+try {
+  require('./darktrace-email-sync').startScheduler();
+} catch (e) {
+  console.error('[syncs-worker] FAILED to start darktrace-email scheduler:', e && e.stack || e);
+}
+
 // Heartbeat every 15 min so pm2 log tail shows this process is alive
 // between the actual scheduled runs.
 setInterval(() => {

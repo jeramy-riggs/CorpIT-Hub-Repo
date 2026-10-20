@@ -440,7 +440,9 @@ textarea.form-input{height:auto;padding:9px 11px}
 .risk-good{background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.25)}
 .risk-unknown{background:rgba(94,122,151,.12);color:var(--text3);border:1px solid var(--line)}
 .timeline-bar{display:flex;height:22px;border-radius:5px;overflow:hidden;margin:8px 0}
-.timeline-seg{height:100%;transition:width .5s ease;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;font-family:var(--mono);color:rgba(255,255,255,.92)}
+.timeline-seg{height:100%;transition:width .5s ease;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;font-family:var(--mono);color:#0b1620}
+/* KIT2-20261017 (DR-17): dark text on the red/amber/green segments; the last (Unknown) segment sits on a surface colour */
+.timeline-seg:last-child{color:var(--text)}
 
 /* ═══════ SYNC BARS ═══════ */
 .warranty-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
@@ -616,6 +618,33 @@ textarea.form-input{height:auto;padding:9px 11px}
      it saw none of this page's boot traffic. -->
 <script src="/it-observe.js" data-app-key="inventory"></script>
 <link rel="stylesheet" href="/it-depth.css">
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/IT_Inventory_App-portal.css?v=c1fcb31464ed">
+<style id="kit2-20261017">
+/* KIT2-20261017: UAT kit 2 page fixes (itam dev). Removed by the kit's rollback. */
+/* DR-17: alert severity labels on white were 2.8:1 (red) and 1.7:1 (amber) */
+:root[data-theme=light]{--ivk-crit:#b42318;--ivk-warn:#8a5a00;--ivk-info:#6d28d9}
+/* DR-15: the shared account widget (z 10001) floated above this page's dialogs */
+body:has(#modal-backdrop.open, #import-backdrop.open, #emp-profile-backdrop.open, #diag-backdrop[style*="display: flex"], #diag-backdrop[style*="display:flex"], #health-backdrop[style*="display: flex"], #health-backdrop[style*="display:flex"]) .ittb.ittb-fixed{z-index:150 !important}
+#exec-leaders .bar-row{cursor:pointer}
+/* DR-10: the leader drill banner sits in the shared #content, so it showed on every page */
+body:not(:has(#page-employees.active)) #drill-banner{display:none !important}
+#exec-leaders .bar-row:hover .bar-label{color:var(--accent2)}
+</style>
+<style id="kit3-20261017">
+/* KIT3-20261017 (DR-08): the all-pages search panel. Removed by the kit's rollback. */
+#kit3-xsearch{position:fixed;z-index:9000;width:300px;max-width:calc(100vw - 16px);max-height:min(70vh,520px);overflow:auto;background:var(--panel-solid);border:1px solid var(--line2);border-radius:10px;box-shadow:0 14px 34px rgba(0,0,0,.35);padding:6px;font-family:var(--font);font-size:12.5px;color:var(--text)}
+#kit3-xsearch .xs-h{padding:6px 8px 8px;color:var(--text2);font-size:11.5px;border-bottom:1px solid var(--line);margin-bottom:4px;overflow-wrap:anywhere}
+#kit3-xsearch .xs-row{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;border:0;border-radius:7px;background:none;color:var(--text);font:inherit;text-align:left;cursor:pointer}
+#kit3-xsearch .xs-row:hover,#kit3-xsearch .xs-row:focus-visible{background:var(--well)}
+#kit3-xsearch .xs-row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+#kit3-xsearch .xs-l{flex:1}
+#kit3-xsearch .xs-n{font-family:var(--mono);font-weight:700;color:var(--accent2)}
+:root[data-theme=light] #kit3-xsearch .xs-n{color:#0e7490}
+#kit3-xsearch .xs-tag{font-size:10px;color:var(--text3);border:1px solid var(--line2);border-radius:999px;padding:1px 6px}
+#kit3-xsearch .xs-f{padding:6px 8px 4px;color:var(--text3);font-size:11px}
+</style>
+<link rel="stylesheet" href="/workspace-whats-new.css?v=20261018-motion2">
 </head>
 <body data-dp="IT_Inventory_App">
 <div id="app">
@@ -709,6 +738,7 @@ textarea.form-input{height:auto;padding:9px 11px}
       <span class="brand-name">IT ASSET CONSOLE</span>
     </div>
     <div class="ticker-wrap" aria-hidden="true"><div class="ticker" id="hdr-ticker"></div></div>
+    <a class="btn btn-ghost btn-sm cwn-trigger" id="workspace-whats-new-link" href="#whats-new" aria-haspopup="dialog" aria-controls="workspace-whats-new">What’s new</a>
     <div id="searchbar" role="search">
       <span class="search-icon" aria-hidden="true"><span class="ms">search</span></span>
       <label for="global-search" class="visually-hidden">Search across all data</label>
@@ -740,40 +770,42 @@ textarea.form-input{height:auto;padding:9px 11px}
         <button class="btn" id="run-diag-btn" type="button"><span class="ms">bolt</span>Run diagnostics</button>
       </div>
 
-      <div class="gauges" id="gauges"></div>
-      <div class="tiles" id="tiles"></div>
-
-      <div class="mid">
-        <div class="panel">
-          <div class="panel-head" style="justify-content:space-between">
-            <span style="display:flex;align-items:center;gap:8px"><span class="ms" style="font-size:18px;color:var(--accent)">grid_view</span><span class="panel-title">INTUNE COMPLIANCE</span></span>
-            <span class="mono" style="font-size:10.5px;color:var(--text3)" id="heat-scale"></span>
-          </div>
-          <div style="padding:16px">
-            <div class="heat" id="heat"></div>
-            <div class="heat-legend" id="heat-legend"></div>
-          </div>
-        </div>
-
-        <div class="panel" style="display:flex;flex-direction:column;overflow:hidden">
-          <div class="panel-head">
-            <span class="brand-dot" style="background:var(--red);animation:blip 1.6s infinite"></span>
-            <span class="panel-title">ALERT STREAM</span>
-            <span class="badge-count mono" id="alert-count">—</span>
-          </div>
-          <div class="alerts" id="alerts" style="flex:1;overflow-y:auto"></div>
-        </div>
+      <div class="iv-freshness" aria-label="Data freshness">
+        <span class="ms" aria-hidden="true">update</span>
+        <div><strong id="freshness-title">Checking source freshness…</strong><div id="freshness-detail">Page refresh does not synchronize source data.</div></div>
+        <button class="btn btn-ghost" type="button" id="view-sources" aria-controls="source-details" aria-expanded="false">Source details<span class="ms" aria-hidden="true">expand_more</span></button>
       </div>
 
-      <div class="panel">
-        <div class="panel-head"><span class="ms" style="font-size:18px;color:var(--accent)">lan</span><span class="panel-title">INTEGRATION MATRIX</span></div>
-        <div class="scroll-x">
-          <table>
-            <thead><tr id="matrix-cols"></tr></thead>
-            <tbody id="matrix"></tbody>
-          </table>
-        </div>
+      <div class="iv-workspace">
+        <section class="panel iv-priority" aria-labelledby="priority-heading">
+          <div class="panel-head"><h2 id="priority-heading">Needs attention</h2><span class="iv-count" id="alert-count">Checking…</span></div>
+          <p class="iv-caption">Start with critical devices, then review compliance and warranty.</p>
+          <div class="alerts" id="alerts"></div>
+        </section>
+        <section class="panel iv-compliance" aria-labelledby="compliance-heading">
+          <div class="panel-head"><h2 id="compliance-heading">Intune compliance</h2><span class="iv-count" id="compliance-total">Awaiting data</span></div>
+          <div class="iv-compliance-body">
+            <div class="iv-ring-layout"><div class="iv-compliance-ring" id="heat"><div id="gauges"></div></div><div class="heat-legend" id="heat-legend"></div></div>
+            <p class="iv-caption" id="heat-scale"></p>
+          </div>
+        </section>
       </div>
+
+      <section class="panel iv-offboarding" aria-labelledby="offboarding-heading">
+        <div class="panel-head"><h2 id="offboarding-heading">Offboarding &amp; ownership review</h2><span class="iv-count">Recorded assignments</span></div>
+        <div id="offboarding-review"><p class="iv-empty">Loading inventory and HR records…</p></div>
+      </section>
+
+      <section class="iv-inventory" aria-labelledby="inventory-heading">
+        <div class="iv-section-heading"><div><h2 id="inventory-heading">Browse inventory</h2><p class="iv-caption">Device sources can overlap. Counts are not additive.</p></div><button class="btn btn-ghost" id="browse-all" type="button">All devices<span class="ms" aria-hidden="true">chevron_right</span></button></div>
+        <div class="tiles" id="tiles"></div>
+      </section>
+
+      <details class="panel iv-sources" id="source-details">
+        <summary><span class="ms" aria-hidden="true">lan</span><span>Sources &amp; sync status</span><span class="iv-source-summary" id="source-summary">Checking…</span><span class="ms iv-disclosure" aria-hidden="true">expand_more</span></summary>
+        <p class="iv-caption">Loaded records do not confirm a working connection. Only reported sync times establish data age.</p>
+        <div class="scroll-x"><table><thead><tr id="matrix-cols"></tr></thead><tbody id="matrix"></tbody></table></div>
+      </details>
 
       <div class="legacy-dash" hidden><!-- live app dashboard kept for JS compatibility -->
 
@@ -956,8 +988,8 @@ textarea.form-input{height:auto;padding:9px 11px}
     <div class="page" id="page-intune">
       <div class="section-header">
         <div>
-          <div class="section-title">Mobile Devices (Intune)</div>
-          <div class="section-sub">Managed iOS and Android devices</div>
+          <div class="section-title">Intune devices</div>
+          <div class="section-sub">Intune-managed phones, tablets and Windows PCs</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <div class="col-picker-wrap">
@@ -1165,6 +1197,7 @@ textarea.form-input{height:auto;padding:9px 11px}
               <th onclick="sortTable('ipads','Checked In')">Last Check-in</th>
               <th>Warranty</th>
               <th>Status</th>
+              <th scope="col">Device details</th>
             </tr></thead>
             <tbody id="ipads-tbody"></tbody>
           </table>
@@ -1218,6 +1251,7 @@ textarea.form-input{height:auto;padding:9px 11px}
           <option value="Vulnerable">Vulnerable</option>
           <option value="Highly Vulnerable">Highly Vulnerable</option>
           <option value="Unknown">Unknown</option>
+          <option value="__none">No patch data yet</option><!-- KIT2-20261017 (DR-12) -->
         </select>
         <select class="filter-select" id="ep-filter-intune" aria-label="Filter endpoints by Intune enrollment" onchange="renderEndpoints()">
           <option value="">All Intune Status</option>
@@ -1443,7 +1477,7 @@ textarea.form-input{height:auto;padding:9px 11px}
       <div class="section-header">
         <div>
           <div class="section-title">Device Inventory</div>
-          <div class="section-sub">Every device across all sources</div>
+          <div class="section-sub">Source records may overlap · Open Device 360 for selected-record evidence</div>
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-ghost btn-sm" onclick="exportDeviceInventoryCSV()"><span class="ms" style="font-size:15px" aria-hidden="true">download</span> CSV</button>
@@ -1455,6 +1489,7 @@ textarea.form-input{height:auto;padding:9px 11px}
           <option value="LAPTOP">Laptop</option>
           <option value="DESKTOP">Desktop</option>
           <option value="Server">Server</option>
+          <option value="Windows PC">Windows PC</option>
           <option value="MacBook">MacBook</option>
           <option value="iPhone">iPhone</option>
           <option value="Tablet">Tablet</option>
@@ -1472,6 +1507,7 @@ textarea.form-input{height:auto;padding:9px 11px}
         <select class="filter-select" id="di-filter-assignment" aria-label="Filter device inventory by assignment" onchange="renderDeviceInventory()">
           <option value="">All Assignments</option>
           <option value="unassigned">Unassigned only</option>
+          <option value="unmatched">User not found in HR</option>
           <option value="active">Assigned to Active</option>
           <option value="terminated">Assigned to Terminated</option>
         </select>
@@ -1493,6 +1529,7 @@ textarea.form-input{height:auto;padding:9px 11px}
               <th onclick="sortTable('device-inventory','user_name')">Assigned User</th>
               <th onclick="sortTable('device-inventory','manager')">Manager</th>
               <th onclick="sortTable('device-inventory','leader')">Functional Leader</th>
+              <th scope="col">Device details</th>
             </tr></thead>
             <tbody id="di-tbody"></tbody>
           </table>
@@ -1539,6 +1576,11 @@ textarea.form-input{height:auto;padding:9px 11px}
           <div class="card-header"><div class="card-title">🌐 Live Auction Coverage</div></div>
           <div class="card-body" id="exec-auction"></div>
         </div>
+      </div>
+      <!-- KIT2-20261017 (DR-10): leader drill-down on the Executive Summary -->
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-header"><div><div class="card-title">👤 Headcount by Leader</div><div class="card-sub">Select a leader to see their people</div></div></div>
+        <div class="card-body" id="exec-leaders"></div>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title">💡 Key Insights</div></div>
@@ -1688,6 +1730,7 @@ textarea.form-input{height:auto;padding:9px 11px}
       <div class="page-controls">
         <select class="filter-select" id="warranty-filter-status" aria-label="Filter warranty by status" onchange="renderWarranty()">
           <option value="">All Statuses</option>
+          <option value="at-risk">⚠ Expired or expiring soon</option>
           <option value="Expired">🔴 Expired</option>
           <option value="Expiring Soon">🟡 Expiring Soon (90 days)</option>
           <option value="Active">🟢 Active</option>
@@ -1749,6 +1792,10 @@ textarea.form-input{height:auto;padding:9px 11px}
 </div>
 
 <!-- Toast -->
+<dialog id="iv360-dialog" aria-modal="true" aria-labelledby="iv360-title" class="iv360-dialog">
+  <header class="iv360-header"><div><h2 id="iv360-title">Device 360</h2><p id="iv360-subtitle"></p></div><button class="btn btn-ghost" type="button" id="iv360-close" aria-label="Close Device 360" autofocus><span class="ms" aria-hidden="true">close</span></button></header>
+  <div class="iv360-content"><section id="iv360-record" aria-label="Selected inventory record"></section><div id="iv360-evidence" aria-live="polite"></div><div id="iv360-context"></div></div>
+</dialog>
 <div id="toast"><div class="toast-dot" id="toast-dot" aria-hidden="true"></div><span id="toast-msg"></span></div>
 <!-- The one polite live region for the whole app. showToast() and showPage()
      both write here via announce() in IT_Inventory_App.js. The toast itself is
@@ -1801,9 +1848,11 @@ textarea.form-input{height:auto;padding:9px 11px}
 <!-- The vendored SheetJS script loads on first XLSX import/export, with its
      original integrity hash, from IT_Inventory_App.js. -->
 <!-- Core application logic -->
-<script src="IT_Inventory_App.js?v=20260930-xlsx-lazy"></script>
+<script src="IT_Inventory_App.js?v=430875f826c2"></script>
 <!-- UX enhancements layer -->
-<script src="IT_Inventory_App_UX_enhancements.js"></script>
+<script src="IT_Inventory_App_UX_enhancements.js?v=dashboard-pass1-20261017"></script>
+<script src="/IT_Inventory_App-device360.js?v=509dc288d0d1"></script>
+<script src="/IT_Inventory_App-device360-insights.js?v=c8327f2ac346"></script>
 <!-- Light mode is no longer supported. The previous inline
      `document.body.classList.remove('light')` shim is no longer needed
      because the JS theme-toggle and CSS body.light rules have been removed
@@ -1842,7 +1891,7 @@ textarea.form-input{height:auto;padding:9px 11px}
   function arr(k){ var d=D(); return (d && Array.isArray(d[k])) ? d[k] : null; }
   function bnum(id){ var v=val(id); if(v==null) return null; var n=parseInt(String(v).replace(/[^0-9]/g,''),10); return isNaN(n)?null:n; }
   function fmt(n){ return (n==null)?'—':Number(n).toLocaleString(); }
-  function ringBg(frac,color){ var deg=Math.max(0,Math.min(1,frac||0))*360; return 'conic-gradient('+color+' '+deg+'deg,#0E2033 0)'; }
+  function ringBg(frac,color){ var deg=Math.max(0,Math.min(1,frac||0))*360; return 'conic-gradient('+color+' '+deg+'deg,var(--track,#0E2033) 0)'; }  /* KIT2-20261017 (KD-2) */
   function timeAgo(iso){ var t=Date.parse(iso); if(isNaN(t)) return '—'; var s=Math.max(0,(Date.now()-t)/1000);
     if(s<90)return Math.round(s)+'s ago'; var m=s/60; if(m<90)return Math.round(m)+'m ago'; var h=m/60; if(h<36)return Math.round(h)+'h ago'; return Math.round(h/24)+'d ago'; }
 
@@ -1865,8 +1914,8 @@ textarea.form-input{height:auto;padding:9px 11px}
   function _complianceStatsRaw(){
     var a=intuneLive(); if(!a||!a.length) return null;
     var c=0,g=0,n=0,u=0;
-    a.forEach(function(d){ var s=String(d['Compliance']||'').toLowerCase();
-      if(s==='compliant')c++; else if(s.indexOf('grace')>=0)g++; else if(s.indexOf('noncompliant')>=0||s.indexOf('non compliant')>=0)n++; else u++; });
+    a.forEach(function(d){ var s=intuneComplianceKey(d['Compliance']);
+      if(s==='compliant')c++; else if(s==='grace')g++; else if(s==='noncompliant')n++; else u++; });
     return {total:a.length,compliant:c,grace:g,noncompliant:n,unknown:u};
   }
   function userOf(r){
@@ -1881,6 +1930,10 @@ textarea.form-input{height:auto;padding:9px 11px}
   }
   function unassignedCount(){ return _memo('unassignedCount',_unassignedCountRaw); }
   function _unassignedCountRaw(){
+    /* FIX5-20261017 (DR-04): the same rule as Device Inventory's "Unassigned
+       only" filter, from the same function, so the gauge, tile and alert equal
+       the list they open. The block below is the fallback if that is missing. */
+    if(typeof buildDeviceUniverse==='function'){ var du=buildDeviceUniverse(); return (du&&du.length)?du.filter(function(r){return !r.user_key;}).length:null; }
     var groups=['macbooks','ipadDevices','tablets','endpoints']; var any=false,total=0;
     groups.forEach(function(k){ var a=arr(k); if(a){ any=true; a.forEach(function(r){ var u=userOf(r); if(u===''||u==='--') total++; }); } });
     var aws=arr('awsWorkspaces'); if(aws){ any=true; aws.forEach(function(r){ if(String(r['Status']||'').toLowerCase()==='available') total++; }); }
@@ -1903,8 +1956,25 @@ textarea.form-input{height:auto;padding:9px 11px}
     requestAnimationFrame(function(){ t.style.opacity='1'; });
     setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ if(t.parentNode) t.remove(); },250); },2200);
   }
-  function navigateToPage(page,msg){
+  /* FIX5-20261017 (DR-04): every Overview link clears the target page's
+     filters first (a select keeps its value across page changes, so a link
+     followed after an earlier drill showed that drill's subset), then applies
+     the filters the link names, so the list shows the number that was clicked. */
+  function navigateToPage(page,msg,filters){
     if(msg) toastFallback(msg);
+    filters=filters||{};
+    var search=document.getElementById('global-search'); if(search)search.value='';
+    if(typeof window.itamClearSearch==='function')window.itamClearSearch();
+    if(typeof pages==='object'&&pages)pages[page]=1;
+    {
+      var pg=document.getElementById('page-'+page);
+      if(pg) pg.querySelectorAll('select.filter-select').forEach(function(s){ s.value=''; });
+      Object.keys(filters).forEach(function(id){ var s=document.getElementById(id); if(!s) return;
+        var want=String(filters[id]).toLowerCase(), hit=null;
+        for(var i=0;i<s.options.length;i++){ if(s.options[i].value.toLowerCase()===want){ hit=s.options[i]; break; } }
+        if(!hit){ hit=new Option(filters[id],filters[id]); s.appendChild(hit); }
+        s.value=hit.value; });
+    }
     if(page && typeof showPage==='function'){ try{ showPage(page); }catch(e){} }
   }
   function clickable(node,handler){
@@ -1932,7 +2002,9 @@ textarea.form-input{height:auto;padding:9px 11px}
   function focusDialog(back){
     // Re-rendering an already-open dialog (Re-run diagnostics) must not record
     // a control inside the dialog itself as the opener.
-    if(!back.contains(document.activeElement)) _dialogOpener=document.activeElement;
+    /* KIT2-20261017 (DR-15): <body> is not an opener. runDiagnostics disables
+       its button before this runs, which drops focus to body. */
+    if(!back.contains(document.activeElement) && document.activeElement!==document.body) _dialogOpener=document.activeElement;
     var dlg=back.querySelector('[role=dialog]'); if(dlg) dlg.focus();
   }
   function restoreDialogFocus(){
@@ -1955,10 +2027,10 @@ textarea.form-input{height:auto;padding:9px 11px}
 
   /* ---- GAUGES (all live) ---- */
   var GAUGES=[
-    {key:'compliance',label:'Compliance',color:CLR.green,page:'device-inventory'},
-    {key:'warranty',  label:'Warranty at-risk',color:CLR.amber,page:'warranty'},
-    {key:'lifecycle', label:'Lifecycle risk',color:CLR.red,page:'lifecycle'},
-    {key:'unassigned',label:'Unassigned',color:CLR.pink,page:'device-inventory'}
+    {key:'compliance',label:'Compliance',color:CLR.green,page:'intune',f:{}},
+    {key:'warranty',  label:'Warranty at-risk',color:CLR.amber,page:'warranty',f:{'warranty-filter-status':'at-risk'}},
+    {key:'lifecycle', label:'Lifecycle risk',color:CLR.red,page:'lifecycle',f:{'lc-filter-risk':'Critical'}},
+    {key:'unassigned',label:'Unassigned',color:CLR.pink,page:'device-inventory',f:{'di-filter-assignment':'unassigned'}}
   ];
   function gaugeData(key){
     var fleet=fleetTotal();
@@ -1975,12 +2047,14 @@ textarea.form-input{height:auto;padding:9px 11px}
 
   /* ---- TILES (all live counts from real badges) ---- */
   var TILES=[
-    {icon:'desktop_windows',color:CLR.blue,  label:'Windows',      badge:'badge-ep',   page:'endpoints'},
-    {icon:'laptop_mac',     color:CLR.purple,label:'Apple',        badge:'badge-mac',  page:'macbooks', sub:function(){ try{ var _D=(typeof D==='function'?D():null)||{}; var d=_D.macbooks||[]; if(!d.length) return ''; var c={}; d.forEach(function(m){ var k=m['Chip']; if(k) c[k]=(c[k]||0)+1; }); var top=Object.entries(c).sort(function(a,b){return b[1]-a[1];}).slice(0,2).map(function(x){return x[0]+': '+x[1];}).join(' · '); return top; }catch(e){ return ''; } }},
-    {icon:'smartphone',     color:CLR.green, label:'Mobile',       badge:'badge-intune',page:'intune'},
-    {icon:'cloud',          color:CLR.cyan,  label:'AWS Cloud',    badge:'badge-aws',  page:'aws'},
-    {icon:'sim_card',       color:CLR.amber, label:'Carrier Lines',badge:'carrier',    page:'tmobile'},
-    {icon:'inventory_2',    color:CLR.pink,  label:'Unassigned',   badge:'unassigned', page:'device-inventory'}
+    {icon:'desktop_windows',label:'ManageEngine',badge:'badge-ep',page:'endpoints',sub:'Endpoints'},
+    {icon:'laptop_mac',label:'MacBooks',badge:'badge-mac',page:'macbooks',sub:'Kandji'},
+    {icon:'devices',label:'Intune devices',badge:'badge-intune',page:'intune',sub:'Phones, tablets & PCs'},
+    {icon:'cloud',label:'AWS WorkSpaces',badge:'badge-aws',page:'aws',sub:'Cloud desktops'},
+    {icon:'tablet_android',label:'Tablets',badge:'badge-tablets',page:'tablets',sub:'Tablet inventory'},
+    {icon:'tablet_mac',label:'iPads',badge:'badge-ipads',page:'ipads',sub:'Kandji'},
+    {icon:'sim_card',label:'T-Mobile lines',badge:'badge-tm',page:'tmobile',sub:'Cellular accounts'},
+    {icon:'cell_tower',label:'Verizon lines',badge:'badge-vz',page:'verizon',sub:'Cellular accounts'}
   ];
   function tileValue(t){
     if(t.badge==='carrier'){ var a=bnum('badge-tm'),b=bnum('badge-vz'); if(a==null&&b==null)return null; return (a||0)+(b||0); }
@@ -1994,29 +2068,32 @@ textarea.form-input{height:auto;padding:9px 11px}
     {icon:'smartphone',     name:'Microsoft Intune',badge:'badge-intune',url:RB_W+'/api/intune-graph/status',  page:'intune',    maxAgeH:26},
     {icon:'desktop_windows',name:'ManageEngine',    badge:'badge-ep',    url:RB_W+'/api/endpoints-sync/status',page:'endpoints', maxAgeH:26},
     {icon:'cloud',          name:'AWS Workspaces',  badge:'badge-aws',   url:null,                             page:'aws'},
+    {icon:'sim_card',       name:'T-Mobile',         badge:'badge-tm',    url:null,                             page:'tmobile'},
     {icon:'cell_tower',     name:'Verizon',         badge:'badge-vz',    url:null,                             page:'verizon'}
   ];
   function matrixState(m,probe){
-    if(m.url===null){ var n=bnum(m.badge); return n!=null?{st:'DATA OK',color:CLR.green,frac:1,sync:'—'}:{st:'NO DATA',color:CLR.off,frac:0,sync:'—'}; }
+    if(m.url===null){ var n=bnum(m.badge); return n!=null?{st:'DATA LOADED',color:'var(--text2)',frac:0,sync:'Not reported'}:{st:'NO DATA',color:CLR.off,frac:0,sync:'—'}; }
     if(!probe||probe.status===0) return {st:'DOWN',color:CLR.red,frac:0,sync:'unreachable'};
     if(probe.status>=200&&probe.status<300){ var b=probe.body||{}; var ls=b.last_synced||b.lastSynced||b.last_sync; var ts=ls?Date.parse(ls):NaN;
       if(!isNaN(ts) && m.maxAgeH){ var ageH=(Date.now()-ts)/3600000; if(ageH>m.maxAgeH) return {st:'STALE',color:CLR.amber,frac:.5,sync:timeAgo(ls),_syncTs:ts}; }
-      return {st:'OPERATIONAL',color:CLR.green,frac:1,sync:ls?timeAgo(ls):'—',_syncTs:isNaN(ts)?null:ts}; }
+      if(isNaN(ts)) return {st:'SYNC UNKNOWN',color:'var(--yellow)',frac:0,sync:'Not reported'};
+      return {st:'OPERATIONAL',color:'var(--green)',frac:1,sync:timeAgo(ls),_syncTs:ts}; }
     if(probe.status>=500) return {st:'DOWN',color:CLR.red,frac:0,sync:'error'};
     if(probe.status===401||probe.status===403) return {st:'AUTH',color:CLR.amber,frac:.5,sync:'—'};
     return {st:'DEGRADED',color:CLR.amber,frac:.6,sync:'—'};
   }
 
   /* ---- ALERTS (derived from real conditions) ---- */
-  var SEVMAP={crit:{c:CLR.red,bg:'rgba(248,113,113,.13)',t:'CRIT'},warn:{c:CLR.amber,bg:'rgba(251,191,36,.13)',t:'WARN'},info:{c:CLR.purple,bg:'rgba(167,139,250,.13)',t:'INFO'}};
+  /* KIT2-20261017 (DR-17): light mode swaps these for darker tokens */
+  var SEVMAP={crit:{c:'var(--ivk-crit,'+CLR.red+')',bg:'rgba(248,113,113,.13)',t:'CRIT'},warn:{c:'var(--ivk-warn,'+CLR.amber+')',bg:'rgba(251,191,36,.13)',t:'WARN'},info:{c:'var(--ivk-info,'+CLR.purple+')',bg:'rgba(167,139,250,.13)',t:'INFO'}};
   function buildAlerts(states){
     var out=[];
     var cs=complianceStats(), nc=cs?cs.noncompliant:null;
     var w=bnum('badge-warranty'), lc=bnum('badge-lc'), un=unassignedCount();
-    if(lc)  out.push({sev:'crit',icon:'gpp_bad',   text:fmt(lc)+' device(s) at critical lifecycle risk',cat:'LIFECYCLE', page:'lifecycle'});
-    if(nc)  out.push({sev:'warn',icon:'rule',      text:fmt(nc)+' non-compliant device(s) in Intune',   cat:'COMPLIANCE',page:'intune'});
-    if(w)   out.push({sev:'warn',icon:'schedule',  text:fmt(w)+' warranty(ies) expired or expiring soon',cat:'WARRANTY',  page:'warranty'});
-    if(un)  out.push({sev:'info',icon:'inventory_2',text:fmt(un)+' device(s) with no assigned user',      cat:'ASSIGNMENT',page:'device-inventory'});
+    if(lc)  out.push({sev:'crit',icon:'gpp_bad',   text:fmt(lc)+' device(s) at critical lifecycle risk',cat:'LIFECYCLE', page:'lifecycle', f:{'lc-filter-risk':'Critical'}});
+    if(nc)  out.push({sev:'warn',icon:'rule',      text:fmt(nc)+' non-compliant device(s) in Intune',   cat:'COMPLIANCE',page:'intune', f:{'intune-filter-compliance':'noncompliant'}});
+    if(w)   out.push({sev:'warn',icon:'schedule',  text:fmt(w)+' warranty(ies) expired or expiring soon',cat:'WARRANTY',  page:'warranty', f:{'warranty-filter-status':'at-risk'}});
+    if(un)  out.push({sev:'info',icon:'inventory_2',text:fmt(un)+' device(s) with no assigned user',      cat:'ASSIGNMENT',page:'device-inventory', f:{'di-filter-assignment':'unassigned'}});
     (states||[]).forEach(function(s){
       if(s.st==='DOWN')      out.push({sev:'crit',icon:'wifi_off',    text:s.name+' integration unreachable',cat:'SYNC',page:s.page});
       else if(s.st==='DEGRADED') out.push({sev:'warn',icon:'sync_problem',text:s.name+' sync degraded',      cat:'SYNC',page:s.page});
@@ -2038,13 +2115,9 @@ textarea.form-input{height:auto;padding:9px 11px}
   function hEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function devicesInBucket(comp){
     var a=intuneLive(); if(!a) return [];
-    return a.filter(function(d){ var s=String(d['Compliance']||'').toLowerCase();
-      if(comp==='compliant') return s==='compliant';
-      if(comp==='grace') return s.indexOf('grace')>=0;
-      if(comp==='noncompliant') return s.indexOf('noncompliant')>=0||s.indexOf('non compliant')>=0;
-      return !(s==='compliant'||s.indexOf('grace')>=0||s.indexOf('noncompliant')>=0||s.indexOf('non compliant')>=0);
-    });
+    return a.filter(function(d){return intuneComplianceKey(d['Compliance'])===comp;});
   }
+
   function gotoDevice(name){
     toastFallback(name?('Opening '+name):'Opening Intune');
     if(typeof showPage==='function'){ try{ showPage('intune'); }catch(e){} }
@@ -2097,103 +2170,86 @@ textarea.form-input{height:auto;padding:9px 11px}
   /* ================= RENDER ================= */
   var _matrixStates=[];
   function renderGauges(){
-    var box=document.getElementById('gauges'); if(!box)return; box.innerHTML='';
-    GAUGES.forEach(function(g){ var d=gaugeData(g.key);
-      var node=el('<div class="gauge">'
-        +'<div class="ring" style="background:'+ringBg(d.frac,g.color)+'"><div class="inner"><span class="num mono">'+d.value+'</span></div></div>'
-        +'<div><div class="g-label">'+g.label+'</div><div class="g-sub">'+d.sub+'</div></div></div>');
-      clickable(node,function(){ navigateToPage(g.page,'Opening '+g.label+' — '+d.sub); });
-      box.appendChild(node);
-    });
+    var box=document.getElementById('gauges'); if(!box)return;
+    var d=gaugeData('compliance');
+    box.innerHTML='<div class="iv-compliance-number">'+hEsc(d.value)+'</div><div class="iv-compliance-label">Compliant</div>';
+    var total=document.getElementById('compliance-total'),c=complianceStats();if(total)total.textContent=c?fmt(c.total)+' devices':'Awaiting data';
+  }
+  function stablePanel(box,signature,paint){
+    if(box.dataset.signature===signature)return;
+    var old=document.activeElement, key=box.contains(old)?old.getAttribute('data-focus-key'):null;
+    box.innerHTML=''; paint(); box.dataset.signature=signature;
+    if(key){ var match=Array.from(box.querySelectorAll('[data-focus-key]')).find(function(n){return n.getAttribute('data-focus-key')===key;}); if(match)match.focus({preventScroll:true}); }
   }
   function renderTiles(){
-    var box=document.getElementById('tiles'); if(!box)return; box.innerHTML='';
-    TILES.forEach(function(t){ var v=tileValue(t);
-      var node=el('<div class="tile">'
-        +'<div class="tile-top"><span class="ms" style="color:'+t.color+'">'+t.icon+'</span></div>'
-        +'<div class="tile-val mono">'+fmt(v)+'</div><div class="tile-label">'+t.label+'</div>'+(t.sub?'<div class="tile-sub" style="font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--font-mono,monospace)">'+t.sub()+'</div>':'')+'</div>');
-      clickable(node,function(){ navigateToPage(t.page, t.label+': '+fmt(v)+' — opening'); });
-      box.appendChild(node);
+    var box=document.getElementById('tiles'); if(!box)return;
+    stablePanel(box,JSON.stringify(TILES.map(function(t){return tileValue(t);})),function(){
+      TILES.forEach(function(t){ var v=tileValue(t);
+        var node=el('<button type="button" class="iv-inventory-link" data-focus-key="'+t.page+'">'
+          +'<span class="ms iv-inventory-icon" aria-hidden="true">'+t.icon+'</span>'
+          +'<span class="iv-inventory-name">'+t.label+'<small>'+t.sub+'</small></span><strong>'+fmt(v)+'</strong><span class="ms iv-arrow" aria-hidden="true">chevron_right</span></button>');
+        node.addEventListener('click',function(){ navigateToPage(t.page,null,t.f); }); box.appendChild(node);
+      });
     });
   }
   function renderHeat(){
-    var box=document.getElementById('heat'); if(!box)return; var lg=document.getElementById('heat-legend'); var scale=document.getElementById('heat-scale');
-    var b=heatBuckets(); box.innerHTML=''; if(lg)lg.innerHTML='';
-    if(!b){ box.innerHTML='<div style="color:var(--text3);font-size:11px;padding:8px">Awaiting Intune compliance data…</div>'; box.removeAttribute('role'); box.removeAttribute('aria-label'); if(scale)scale.textContent=''; return; }
-    var total=b.total||1, cells=[];
-    BUCKETS.forEach(function(bk){ var n=Math.round((b[bk.key]/total)*120); for(var i=0;i<n;i++) cells.push(bk); });
-    while(cells.length<120) cells.push(BUCKETS[3]);
-    // The 120 cells carry no text, so background colour was the only signal,
-    // and a screen reader read the grid as 120 empty spans. Making each cell a
-    // tab stop would be hostile, so the grid is exposed as ONE image with a
-    // spoken summary of the counts, and the four legend chips become the
-    // keyboard entry points to the same drill-down - they already carry both
-    // the label and the number, so nothing depends on colour any more.
-    box.setAttribute('role','img');
-    box.setAttribute('aria-label','Intune compliance mix - '+BUCKETS.map(function(bk){ return bk.label+' '+fmt(b[bk.key]); }).join(', '));
-    cells.slice(0,120).forEach(function(bk){ var n=el('<span title="'+bk.label+' — click for devices" style="background:'+bk.color+';cursor:pointer"></span>');
-      n.addEventListener('click',function(){ openComplianceModal(bk); }); box.appendChild(n); });
-    if(scale) scale.textContent='each cell ≈ '+Math.max(1,Math.round(b.total/120))+' devices';
-    if(lg) BUCKETS.forEach(function(bk){ var li=el('<span class="li" title="View '+bk.label+' devices"><span class="sw" aria-hidden="true" style="background:'+bk.color+'"></span>'+bk.label+' <span class="ct mono">'+fmt(b[bk.key])+'</span></span>');
-      clickable(li,function(){ openComplianceModal(bk); }); lg.appendChild(li); });
+    var box=document.getElementById('heat'),lg=document.getElementById('heat-legend'),scale=document.getElementById('heat-scale'); if(!box||!lg)return;
+    var b=heatBuckets();
+    if(!b){box.style.background='var(--track)';box.setAttribute('role','img');box.setAttribute('aria-label','Intune compliance data unavailable');lg.textContent='Awaiting Intune compliance data…';delete lg.dataset.signature;if(scale)scale.textContent='Compliance will appear when device data is available.';return;}
+    var colors=['var(--teal)','var(--yellow)','var(--red)','var(--text3)'],at=0,stops=[];
+    BUCKETS.forEach(function(bk,i){var from=at;at+=b[bk.key]/b.total*100;stops.push(colors[i]+' '+from+'% '+at+'%');});
+    box.style.background='conic-gradient('+stops.join(',')+')';
+    box.setAttribute('role','img');box.setAttribute('aria-label','Intune compliance: '+BUCKETS.map(function(bk){return bk.label+' '+fmt(b[bk.key]);}).join(', '));
+    stablePanel(lg,JSON.stringify(b),function(){BUCKETS.forEach(function(bk){
+      var li=el('<button type="button" class="iv-bucket" data-focus-key="'+bk.comp+'"><span class="sw iv-'+bk.comp+'" aria-hidden="true"></span><span>'+bk.label+'</span><strong>'+fmt(b[bk.key])+'</strong><span class="iv-bucket-percent">'+(b[bk.key]/b.total*100).toFixed(1)+'%</span><span class="ms" aria-hidden="true">chevron_right</span></button>');
+      li.addEventListener('click',function(){navigateToPage('intune',null,{'intune-filter-compliance':bk.comp});});lg.appendChild(li);
+    });});
+    if(scale)scale.textContent='Last known Intune data. Select a status to review its devices.';
   }
   function renderMatrix(){
-    var cols=document.getElementById('matrix-cols'), box=document.getElementById('matrix'); if(!box)return;
-    if(cols && !cols.children.length){ ['Source','Status','Devices','Last Sync','Health',''].forEach(function(c){cols.appendChild(el('<th>'+c+'</th>'));}); }
-    box.innerHTML='';
-    MATRIX.forEach(function(m,i){ var s=_matrixStates[i]||{st:'—',color:CLR.off,frac:0,sync:'—'};
-      var dev=(m.badge==='carrier')?null:bnum(m.badge);
-      var node=el('<tr>'
-        +'<td><span class="m-name"><span class="ms">'+m.icon+'</span>'+m.name+'</span></td>'
-        +'<td><span class="m-status mono" style="color:'+s.color+'"><span class="d" style="background:'+s.color+'"></span>'+s.st+'</span></td>'
-        +'<td class="mono" style="color:var(--text2);font-size:11px">'+fmt(dev)+'</td>'
-        +'<td class="mono" style="color:var(--text2);font-size:11px">'+(s.sync||'—')+'</td>'
-        +'<td><span class="m-health"><span style="width:'+Math.round((s.frac||0)*100)+'%;background:'+s.color+'"></span></span></td>'
-        +'<td style="text-align:right"><span class="ms" style="font-size:18px;color:var(--ink-faint)">chevron_right</span></td></tr>');
-      clickable(node,function(){ navigateToPage(m.page, m.name+' — '+s.st+' · opening'); });
-      box.appendChild(node);
+    var cols=document.getElementById('matrix-cols'),box=document.getElementById('matrix'); if(!box)return;
+    if(cols&&!cols.children.length){ ['Source','Status','Records','Last confirmed sync',''].forEach(function(c){ var th=document.createElement('th'); th.scope='col'; th.textContent=c; cols.appendChild(th); }); }
+    stablePanel(box,JSON.stringify(_matrixStates.map(function(s){return [s.st,s.sync];}).concat(MATRIX.map(function(m){return bnum(m.badge);}))),function(){
+      MATRIX.forEach(function(m,i){ var s=_matrixStates[i]||{st:'Checking',sync:'—'};
+        var stateClass=s.st==='STALE'||s.st==='AUTH'||s.st==='SYNC UNKNOWN'?'iv-warning':s.st==='DOWN'?'iv-danger':'';
+        var node=el('<tr><td><span class="m-name"><span class="ms" aria-hidden="true">'+m.icon+'</span>'+m.name+'</span></td><td class="'+stateClass+'">'+hEsc(({OPERATIONAL:'Synced recently',STALE:'Stale data','DATA LOADED':'Data loaded','NO DATA':'No data','SYNC UNKNOWN':'Sync time unknown',DOWN:'Unavailable',AUTH:'Sign-in required',DEGRADED:'Degraded'})[s.st]||s.st)+'</td><td>'+fmt(bnum(m.badge))+'</td><td>'+hEsc(s.sync||'Not reported')+'</td><td><button type="button" class="iv-source-open" data-focus-key="'+m.page+'" aria-label="Open '+m.name+' inventory">Open<span class="ms" aria-hidden="true">chevron_right</span></button></td></tr>');
+        node.querySelector('button').addEventListener('click',function(){navigateToPage(m.page);}); box.appendChild(node);
+      });
     });
   }
   function renderAlerts(){
-    var box=document.getElementById('alerts'); if(!box)return; box.innerHTML='';
-    var list=buildAlerts(_matrixStates);
-    var cnt=document.getElementById('alert-count'); if(cnt) cnt.textContent=list.length+' ACTIVE';
-    if(!list.length){ box.innerHTML='<div style="color:var(--green);font-size:12px;padding:14px;display:flex;align-items:center;gap:8px"><span class="ms">check_circle</span>No active alerts — all clear</div>'; return; }
-    var rank={crit:0,warn:1,info:2};
-    list.sort(function(a,b){return rank[a.sev]-rank[b.sev];}).forEach(function(a){ var sv=SEVMAP[a.sev];
-      var node=el('<div class="alert">'
-        +'<span class="ic" style="background:'+sv.bg+'"><span class="ms" style="color:'+sv.c+'">'+a.icon+'</span></span>'
-        +'<div style="flex:1;min-width:0"><div class="txt">'+a.text+'</div><div class="code mono">'+a.cat+'</div></div>'
-        +'<span class="sev" style="color:'+sv.c+'">'+sv.t+'</span></div>');
-      clickable(node,function(){ navigateToPage(a.page, a.text); });
-      box.appendChild(node);
+    var box=document.getElementById('alerts'); if(!box)return;
+    var list=buildAlerts(_matrixStates).filter(function(a){return a.cat!=='SYNC'&&a.cat!=='ASSIGNMENT';});
+    var cnt=document.getElementById('alert-count'); if(cnt)cnt.textContent=list.length+' review areas';
+    var unavailable=!complianceStats()||bnum('badge-warranty')===null||bnum('badge-lc')===null||unassignedCount()===null;
+    if(cnt&&unavailable)cnt.textContent='Some counts unavailable';
+    stablePanel(box,JSON.stringify([list,unavailable]),function(){
+      if(!list.length){box.innerHTML='<p class="iv-empty">'+(unavailable?'Some source data is unavailable. Check source details before reviewing devices.':'No device issues in the loaded data. Check source freshness before acting.')+'</p>';return;}
+      var labels={LIFECYCLE:'Critical lifecycle risk',COMPLIANCE:'Noncompliant devices',WARRANTY:'Warranty at risk',ASSIGNMENT:'Unassigned devices'};
+      var notes={LIFECYCLE:'Review devices at critical risk',COMPLIANCE:'Review Intune policy failures',WARRANTY:'Expired or expiring within 90 days',ASSIGNMENT:'Review devices with no assigned user'};
+      var cs=complianceStats(),counts={LIFECYCLE:bnum('badge-lc'),COMPLIANCE:cs?cs.noncompliant:null,WARRANTY:bnum('badge-warranty'),ASSIGNMENT:unassignedCount()};
+      list.forEach(function(a){
+        var node=el('<button type="button" class="iv-review-row" data-focus-key="'+a.cat+'"><span class="iv-risk-mark iv-risk-'+a.sev+'" aria-hidden="true"></span><strong class="iv-review-count">'+fmt(counts[a.cat])+'</strong><span class="iv-review-label">'+labels[a.cat]+'<small>'+notes[a.cat]+'</small></span><span class="iv-review-action">Review<span class="ms" aria-hidden="true">chevron_right</span></span></button>');
+        node.addEventListener('click',function(){navigateToPage(a.page,null,a.f);}); box.appendChild(node);
+      });
+      if(unavailable)box.appendChild(el('<p class="iv-empty">Some review counts are unavailable. Check source details.</p>'));
     });
   }
   function renderOverview(){
-    var e=document.getElementById('ov-sub'); if(!e)return;
-    var f=fleetTotal();
-    var live=_matrixStates.filter(function(s){return s.st==='OPERATIONAL'||s.st==='DATA OK';}).length;
-    var oldest=null; _matrixStates.forEach(function(s){ if(s._syncTs && (oldest===null||s._syncTs<oldest)) oldest=s._syncTs; });
-    var freshness = oldest ? 'oldest data '+timeAgo(new Date(oldest).toISOString()) : '';
-    var d=new Date();
-    var parts=[];
-    parts.push(f!=null?fmt(f)+' devices':'— devices');
-    parts.push(_matrixStates.length?live+' of '+_matrixStates.length+' integrations live':'integrations');
-    if(freshness) parts.push(freshness);
-    parts.push('refreshed '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+' UTC');
-    e.textContent=parts.join(' · ');
+    var e=document.getElementById('ov-sub'),f=fleetTotal();
+    if(e)e.textContent=(f===null?'Loading device sources…':fmt(f)+' records across device sources')+' · Inventory, assignments and device health';
+    var needs=_matrixStates.filter(function(s){return ['STALE','DOWN','AUTH','DEGRADED','SYNC UNKNOWN','NO DATA'].indexOf(s.st)>=0;}),oldest=null;
+    _matrixStates.forEach(function(s){if(s._syncTs&&(oldest===null||s._syncTs<oldest))oldest=s._syncTs;});
+    var title=document.getElementById('freshness-title'),detail=document.getElementById('freshness-detail'),summary=document.getElementById('source-summary');
+    var msg=f===null?'Loading device sources…':!_matrixStates.length?'Checking source freshness…':needs.length?needs.length+' sources need attention':'Source status checked';
+    if(title)title.textContent=msg;
+    if(summary)summary.textContent=msg;
+    var notice=document.querySelector('.iv-freshness'); if(notice)notice.classList.toggle('iv-has-warning',needs.length>0);
+    var stamp=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    if(detail)detail.textContent=(oldest?'Oldest reported sync '+timeAgo(new Date(oldest).toISOString())+'. ':'')+'Page checked '+stamp+'. Page refresh does not sync source data.';
   }
 
-  /* Panel-level error isolation. Was six renders and a network round-trip inside
-     ONE try with `}catch(e){}` — two bugs in one line. A throw in renderGauges()
-     also blanked the alerts panel, i.e. the one panel whose entire job is to say
-     something is wrong; and the swallow repeated silently on every pass forever,
-     so a dashboard reading '0 ACTIVE' because its renderer is broken was
-     indistinguishable from a healthy one. Each panel now fails alone, says so in
-     its own container, and reports through window.__invErr — which de-dupes, so
-     a permanently broken panel is surfaced once a minute instead of on every
-     tick (this loop runs every 3s for its first ten passes, then every 30s).
-     An empty panel and a failed panel must not look the same. */
+
   var _dashPanelFail={};
   function _dashPanel(label, boxId, fn){
     var b=document.getElementById(boxId);
@@ -2237,6 +2293,7 @@ textarea.form-input{height:auto;padding:9px 11px}
     try{
       _dashPanel('Gauges','gauges',renderGauges);
       _dashPanel('Tiles','tiles',renderTiles);
+      _dashPanel('Offboarding review','offboarding-review',function(){if(window.Inventory360)window.Inventory360.renderQueue();});
       _dashPanel('Compliance heat map','heat',renderHeat);
       var probes=await Promise.all(MATRIX.map(function(m){ return m.url?realProbe(m.url):Promise.resolve(null); }));
       _dashPanel('Integration matrix','matrix',function(){
@@ -2255,6 +2312,14 @@ textarea.form-input{height:auto;padding:9px 11px}
       _dashBusy=false;   /* in a finally so the loop can never wedge at busy */
     }
   }
+  document.addEventListener('keydown',function(){document.body.classList.add('iv-keyboard');},true);
+  document.addEventListener('pointerdown',function(){document.body.classList.remove('iv-keyboard');},true);
+  var sourceDetails=document.getElementById('source-details'),sourceButton=document.getElementById('view-sources');
+  if(sourceButton&&sourceDetails){
+    sourceButton.addEventListener('click',function(){ sourceDetails.open=!sourceDetails.open; if(sourceDetails.open){sourceDetails.scrollIntoView({block:'nearest'});sourceDetails.querySelector('summary').focus();} });
+    sourceDetails.addEventListener('toggle',function(){sourceButton.setAttribute('aria-expanded',String(sourceDetails.open));});
+  }
+  var browseAll=document.getElementById('browse-all'); if(browseAll)browseAll.addEventListener('click',function(){navigateToPage('device-inventory');});
   refreshDashboard();
   var _dashFast=0;
   var _dashSlowTimer=null;
@@ -2322,12 +2387,13 @@ textarea.form-input{height:auto;padding:9px 11px}
   });
   document.addEventListener('keydown',function(ev){ if(ev.key==='Escape') closeFlyouts(); });
   document.querySelectorAll('.flyout .nav-item').forEach(function(it){
-    it.addEventListener('click',function(){ closeFlyouts(); });
+    it.addEventListener('click',function(){ closeFlyouts(); if(railNarrow&&railNarrow.matches)setRail(false,false); });
   });
   /* ---- expand/collapse rail (persisted; defaults to expanded) ---- */
   var railToggle=document.getElementById('rail-toggle');
   function setRail(open,save){
     document.getElementById('app').classList.toggle('rail-open',open);
+    if(!open&&railToggle&&document.getElementById('sidebar').contains(document.activeElement))railToggle.focus({preventScroll:true});
     if(railToggle){
       railToggle.setAttribute('aria-expanded',String(open));
       railToggle.title=open?'Collapse menu':'Expand menu';
@@ -2335,17 +2401,20 @@ textarea.form-input{height:auto;padding:9px 11px}
       var ic=railToggle.querySelector('.ms'); if(ic)ic.textContent=open?'left_panel_close':'left_panel_open';
     }
     if(open)closeFlyouts();
-    if(save){try{localStorage.setItem('inv-rail-open',open?'1':'0');}catch(e){}}
+    if(save){pref=open?'1':'0';try{localStorage.setItem('inv-rail-open',pref);}catch(e){}}
   }
   var pref='1';
   try{pref=localStorage.getItem('inv-rail-open')||'1';}catch(e){}
-  setRail(pref==='1',false);
+  var railNarrow=window.matchMedia('(max-width:700px)');
+  setRail(!railNarrow.matches&&pref==='1',false);
+  railNarrow.addEventListener('change',function(){setRail(!railNarrow.matches&&pref==='1',false);});
+  document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&railNarrow.matches)setRail(false,false);});
   if(railToggle)railToggle.addEventListener('click',function(){
     setRail(!document.getElementById('app').classList.contains('rail-open'),true);
   });
 
   /* ---- EXECUTIVE SUMMARY drill-downs (additive; app render untouched) ---- */
-  function execGo(page,label){ navigateToPage(page,'Opening '+label); }
+  function execGo(page,label,f){ navigateToPage(page,'Opening '+label,f); }  /* KIT2-20261017: f = filters */
   function enhanceExecutive(){
     var grid=document.getElementById('exec-kpi-grid'); if(!grid)return;
     /* 8 KPI cards, in the app's render order */
@@ -2366,12 +2435,13 @@ textarea.form-input{height:auto;padding:9px 11px}
     if(cb[0]) clickable(cb[0],function(){ openComplianceModal(BUCKETS[0]); });
     if(cb[1]) clickable(cb[1],function(){ openComplianceModal(BUCKETS[2]); });
     /* workforce rows → employees */
-    document.querySelectorAll('#exec-workforce > div').forEach(function(r){ clickable(r,function(){ execGo('employees','Active Employees'); }); });
+    var wfPay=['Regular FT','Regular PT','Contingent Worker'];  /* KIT2-20261017: same order as buildExecutive */
+    document.querySelectorAll('#exec-workforce > div').forEach(function(r,i){ clickable(r,function(){ execGo('employees','Active Employees',wfPay[i]?{'emp-filter-payclass':wfPay[i]}:null); }); });
     /* fleet rows → device pages */
     var fleetPages=['endpoints','macbooks','intune','tablets','ipads'];
     document.querySelectorAll('#exec-fleet .bar-row').forEach(function(r,i){ clickable(r,function(){ execGo(fleetPages[i]||'device-inventory','Fleet'); }); });
     /* lifecycle rows → Device Lifecycle */
-    document.querySelectorAll('#exec-lifecycle > div > div').forEach(function(r){ var t=r.textContent||''; if(/Critical|Warning|Good/.test(t) && !/total devices/.test(t)) clickable(r,function(){ execGo('lifecycle','Device Lifecycle'); }); });
+    document.querySelectorAll('#exec-lifecycle > div > div').forEach(function(r){ var t=r.textContent||''; if(/Critical|Warning|Good/.test(t) && !/total devices/.test(t)){ var rk=/Critical/.test(t)?'Critical':/Warning/.test(t)?'Warning':'Good'; clickable(r,function(){ execGo('lifecycle','Device Lifecycle',{'lc-filter-risk':rk}); }); } });
     /* auction bars → Live Auction */
     document.querySelectorAll('#exec-auction .bar-row').forEach(function(r){ clickable(r,function(){ execGo('liveauction','Live Auction'); }); });
   }
@@ -2403,7 +2473,7 @@ textarea.form-input{height:auto;padding:9px 11px}
     var one=items.map(function(it){
       return '<span class="item" data-page="'+(it[2]||'')+'" style="cursor:pointer"><span class="k">'+it[0]+'</span><span class="v">'+it[1]+'</span></span>';
     }).join('');
-    box.innerHTML=one+one;
+    box.innerHTML=items.filter(function(it){return it[2]==='employees';}).map(function(it){return '<span class="item"><span class="k">Employees</span><span class="v">'+it[1]+'</span></span>';}).join('');
   }
   /* delegate ticker clicks → drill to the matching page */
   (function(){
@@ -2421,9 +2491,9 @@ textarea.form-input{height:auto;padding:9px 11px}
     devIds.forEach(function(id){var v=val(id); if(v!==null){var n=parseInt(v.replace(/[^0-9]/g,''),10); if(!isNaN(n)){sum+=n;got=true;}}});
     var emp=val('badge-emp');
     var d=new Date(); var parts=[];
-    if(got) parts.push(sum.toLocaleString()+' devices');
+    if(got) parts.push(sum.toLocaleString()+' source records');
     if(emp!==null) parts.push(emp+' employees');
-    parts.push('refreshed '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+' UTC');
+    parts.push('page checked '+pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+' UTC');
     e.textContent=parts.join(' · ');
   }
   var fills=0;
@@ -2636,7 +2706,9 @@ textarea.form-input{height:auto;padding:9px 11px}
     back.querySelector('#diag-rerun').addEventListener('click',runDiagnostics);
     if(btn){ btn.disabled=false; btn.innerHTML='<span class="ms">bolt</span>Run diagnostics'; }
   }
-  function closeDiag(){ var b=document.getElementById('diag-backdrop'); if(b)b.style.display='none'; restoreDialogFocus(); }
+  function closeDiag(){ var b=document.getElementById('diag-backdrop'); if(b)b.style.display='none';
+    if(!_dialogOpener||_dialogOpener===document.body) _dialogOpener=document.getElementById('run-diag-btn');  /* KIT2-20261017 (DR-15) */
+    restoreDialogFocus(); }
   document.addEventListener('keydown',function(ev){
     if(ev.key==='Escape'){ var b=document.getElementById('diag-backdrop'); if(b && b.style.display!=='none') closeDiag(); }
   });
@@ -2675,8 +2747,8 @@ textarea.form-input{height:auto;padding:9px 11px}
 .epf-dev.epf-clickable:hover{border-color:var(--line2);background:var(--chip3)}
 .epf-dev .epf-go{margin-left:8px;flex:none;color:var(--ink-faint);font-size:16px}
 .epf-dev.epf-clickable:hover .epf-go{color:var(--link)}
-tr[data-emp-user]{cursor:pointer}
-tr[data-emp-user]:hover{background:var(--well)}
+tr[data-emp-user]:not([data-no-profile]){cursor:pointer}
+tr[data-emp-user]:not([data-no-profile]):hover{background:var(--well)}
 tr[data-emp-user] td:last-child{cursor:default}
 .epf-dev-none{color:var(--text3);font-size:12px;padding:4px 0}
 </style>
@@ -2810,7 +2882,8 @@ tr[data-emp-user] td:last-child{cursor:default}
       var lab=L[i];
       if(lab==='Actions'||lab==='Name') continue;
       if(lab==='Devices'&&richDevices) continue;
-      fields.push([lab||('Field '+(i+1)), cells[i].textContent]);
+      var _df=cells[i].querySelector('[data-full]');   /* KIT2-20261017 (DR-19) */
+      fields.push([lab||('Field '+(i+1)), _df?_df.getAttribute('data-full'):cells[i].textContent]);
     }
     fillProfile(name, sub.filter(Boolean).join(' \u00b7 '), fields, richDevices?devs:null);
   }
@@ -2878,8 +2951,16 @@ tr[data-emp-user] td:last-child{cursor:default}
   // on data-emp-idx, which only real rows carry: the colspan .empty-state row
   // must not become a tab stop announcing "No employees found".
   function decorateRows(){
-    var rows=document.querySelectorAll('#emp-tbody > tr[data-emp-idx]:not([tabindex]), tr[data-emp-user]:not([tabindex])');
+    var rows=document.querySelectorAll('#emp-tbody > tr[data-emp-idx]:not([tabindex]), tr[data-emp-user]:not([tabindex]):not([data-no-profile])');
     Array.prototype.forEach.call(rows,function(r){
+      /* KIT2-20261017 (DR-16): a device row whose user has no active HR record
+         opened nothing, yet had the pointer, a tab stop and "View profile for".
+         Such rows are now marked data-no-profile and left plain. */
+      if(!r.hasAttribute('data-emp-idx')){
+        var _u=r.getAttribute('data-emp-user'), _e=null;
+        try{ _e=(_u && typeof window.itamEmployeeByUserRef==='function')?window.itamEmployeeByUserRef(_u):null; }catch(x){ _e=null; }
+        if(!_e){ r.setAttribute('data-no-profile','1'); r.setAttribute('title','No active employee record for this user'); return; }
+      }
       r.setAttribute('tabindex','0');
       var cells=r.querySelectorAll('td');
       var nm=(r.getAttribute('data-emp-user')||(cells[1]?cells[1].textContent:'')||'').trim();
@@ -2997,5 +3078,52 @@ tr[data-emp-user] td:last-child{cursor:default}
 
 <script src="/it-topbar.js" defer></script>
 <script src="/it-session-watch.js?v=20260904" defer></script>
+<script>/* KIT2-20261017 (KD-1): the shared account widget is position:fixed at
+   the top right and covered Add Record and the clock. Reserve its width as
+   right padding on #topbar; cleared when the widget is hidden (View as). */
+(function(){
+  function fit(){
+    var tb=document.getElementById('topbar'); if(!tb) return;
+    var w=document.querySelector('.ittb.ittb-fixed');
+    var r=w&&w.getClientRects().length?w.getBoundingClientRect():null;
+    if(!r||!r.width||getComputedStyle(w).visibility==='hidden'){ tb.style.paddingRight=''; return; }
+    var t=tb.getBoundingClientRect();
+    tb.style.paddingRight=Math.max(18,Math.ceil(t.right-r.left)+12)+'px';
+  }
+  var q=false; function sched(){ if(q) return; q=true; requestAnimationFrame(function(){ q=false; fit(); }); }
+  window.addEventListener('resize',sched);
+  var ro=(typeof ResizeObserver==='function')?new ResizeObserver(sched):null;
+  function hook(){ var w=document.querySelector('.ittb.ittb-fixed'); if(ro&&w&&!w.__kit2ro){ w.__kit2ro=1; ro.observe(w); } sched(); }
+  hook(); setInterval(hook,2000);
+})();
+</script>
+
+<!-- Shared screenshot-led welcome; its animation never changes the workspace data. -->
+<script type="application/json" id="workspace-whats-new-content">{"title": "What’s new in Inventory", "description": "Spot what needs attention, browse your device sources, and open the evidence behind a device. Here’s a quick look around.", "seenKey": "corpit:inventory:whats-new:2026-10-18-v1", "steps": [{"image": "/assets/inventory-whats-new/attention.webp?v=20261018-motion1", "focus": [[1.198, 13.733, 47.206, 72.637]], "title": "Start with what needs attention", "label": "Spot priorities", "description": "Review lifecycle risks, noncompliant devices and warranty concerns from the dashboard. Select a review area or compliance status to see the matching devices.", "alt": "Real DEV Inventory dashboard showing Needs attention and Intune compliance. The review areas are highlighted."}, {"image": "/assets/inventory-whats-new/browse.webp?v=20261018-motion1", "focus": [[0.499, 38.968, 99.002, 37.23]], "title": "Find inventory by source", "label": "Browse inventory", "description": "Use Browse inventory to open a device source, or All devices for the combined view. Search across the data from the top bar. Source counts can overlap.", "alt": "Real DEV Browse inventory cards for ManageEngine, Kandji, Intune, AWS WorkSpaces, tablets and carrier lines."}, {"image": "/assets/inventory-whats-new/device360.webp?v=20261018-motion1", "focus": [[9.315, 22.109, 81.882, 46.939]], "title": "Get the full device picture", "label": "Open Device 360", "description": "Open Device 360 from a device record to inspect network context, source comparisons and evidence. Review source dates before acting, then continue in People & Devices when needed.", "alt": "Real DEV Device 360 insights and evidence controls, cropped to exclude the employee and device identifiers."}]}</script>
+<dialog id="workspace-whats-new" class="cwn" data-workspace-tour="inventory" aria-labelledby="cwn-title" aria-describedby="cwn-description">
+  <button class="cwn-close" type="button" data-cwn-close aria-label="Close tour"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>
+  <div class="cwn-body">
+    <div class="cwn-screen">
+      <p class="cwn-progress"><span class="cwn-emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/><path d="M20 2v4M18 4h4"/></svg></span><span data-cwn-progress aria-live="polite" aria-atomic="true">A quick tour</span></p>
+      <h2 class="cwn-title" id="cwn-title" tabindex="-1">What’s new in Inventory</h2>
+      <p class="cwn-description" id="cwn-description">Spot what needs attention, browse your device sources, and open the evidence behind a device. Here’s a quick look around.</p>
+      <div class="cwn-stage" aria-hidden="true"><div class="cwn-mini"><img src="/assets/inventory-whats-new/attention.webp?v=20261018-motion1" alt="" width="1200" height="460"><span>Spot priorities</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/inventory-whats-new/browse.webp?v=20261018-motion1" alt="" width="1200" height="460"><span>Browse inventory</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/inventory-whats-new/device360.webp?v=20261018-motion1" alt="" width="1200" height="460"><span>Open Device 360</span><i class="cwn-mini-sheen"></i></div></div>
+      <p class="cwn-welcome-note">Three quick stops. Explore at your own pace.<br>Reopen anytime from <strong>What’s new</strong>.</p>
+      <figure class="cwn-preview" hidden>
+        <div class="cwn-image-wrap"><div class="cwn-shot"><img alt="" width="1200" height="460"><div class="cwn-focuses" aria-hidden="true"></div></div></div>
+        <figcaption>Real DEV screenshots. Counts are a snapshot; available tools follow your access.</figcaption>
+      </figure>
+    </div>
+  </div>
+  <footer class="cwn-footer">
+    <div class="cwn-track" aria-hidden="true" hidden><span></span><span></span><span></span><i class="cwn-indicator"></i></div>
+    <button class="btn btn-ghost cwn-button" type="button" data-cwn-later>Maybe later</button>
+    <div class="cwn-actions">
+      <button class="btn btn-ghost cwn-button" type="button" data-cwn-back hidden>Back</button>
+      <button class="btn btn-primary cwn-button cwn-next" type="button" data-cwn-next autofocus><span>Take a quick tour</span><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+    </div>
+  </footer>
+</dialog>
+<script src="/workspace-whats-new.js?v=20261019-account-guides1" defer></script>
 </body>
 </html>

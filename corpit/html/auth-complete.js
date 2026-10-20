@@ -1,14 +1,8 @@
 /* auth-complete.js — the last step of a CorpIT Hub sign-in.
  *
- * By the time this runs, /api/auth/callback has already validated the Entra
- * id_token server-side and set the HttpOnly it_session cookie. nginx's gate is
- * satisfied. What is still missing is the frontend's copy: rbac-middleware.js
- * authenticates API calls from `Authorization: Bearer`, which every page reads
- * out of sessionStorage.sso_user — and a 302 cannot write sessionStorage.
- *
- * So this page asks for the token that is already in its own cookie, stores it in
- * the exact shape the retired implicit flow used, and forwards. It is deliberately
- * the only new thing the browser has to do.
+ * /api/auth/callback validates the Entra id_token server-side and sets the
+ * HttpOnly it_session cookie. Read /api/auth/identity to populate a display-only tab
+ * mirror; API calls authenticate with the cookie, never a JavaScript token.
  */
 (function () {
   'use strict';
@@ -52,21 +46,37 @@
     rd = safePath(new URLSearchParams(window.location.search).get('rd'));
   } catch (e) { rd = '/'; }
 
-  fetch('/api/auth/token', { credentials: 'same-origin', cache: 'no-store' })
+  // [CORPIT-RETURN-HASH] login.js holds a deep link's #view (it never reaches the
+  // server). Put it back only when it was saved for this same path in the last
+  // 15 minutes, and drop it after one use either way.
+  var hash = '';
+  try {
+    var saved = JSON.parse(sessionStorage.getItem('it_return_hash') || 'null');
+    sessionStorage.removeItem('it_return_hash');
+    if (saved && typeof saved.hash === 'string' && /^#[A-Za-z0-9_\-\/.:]{1,100}$/.test(saved.hash) &&
+        typeof saved.at === 'number' && Date.now() - saved.at < 15 * 60 * 1000 &&
+        typeof saved.path === 'string' && safePath(saved.path) === rd) {
+      hash = saved.hash;
+    }
+  } catch (e) { hash = ''; }
+
+  fetch('/api/auth/identity', { credentials: 'same-origin', cache: 'no-store' })
     .then(function (r) {
       if (!r.ok) throw new Error('no_session_' + r.status);
       return r.json();
     })
     .then(function (j) {
-      if (!j || !j.ok || !j.token) throw new Error('no_token');
-      // Same shape login.html has always written: name, email, idToken.
+      if (!j || !j.email) throw new Error('no_session');
+      // Keep only display identity in tab storage. API calls use the HttpOnly
+      // session cookie; no portable bearer credential reaches page JavaScript.
       sessionStorage.setItem('sso_user', JSON.stringify({
-        name: j.name || j.email || '',
+        name: j.displayName || j.email || '',
         email: j.email || '',
-        idToken: j.token
+        idToken: '',
+        cookieSession: true
       }));
       // replace() so Back does not land the user on this throwaway page.
-      window.location.replace(rd);
+      window.location.replace(rd + hash);
     })
     .catch(function (e) {
       fail('We signed you in with Microsoft, but this browser could not pick up the '

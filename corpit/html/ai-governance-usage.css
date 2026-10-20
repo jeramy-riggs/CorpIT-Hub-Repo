@@ -1,0 +1,14 @@
+.usage-workspace{font-size:12px}.usage-workspace .usage-controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:18px}.usage-controls label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:11px}.usage-controls select,.usage-controls input{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:9px;min-width:170px}.usage-controls input{min-width:250px}.usage-source{display:flex;gap:18px;align-items:start;justify-content:space-between}.usage-source .badge{margin-right:8px}.usage-workspace .usage-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}.usage-metrics>div{padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:8px}.usage-metrics strong{font-size:23px;display:block;margin-bottom:6px}.usage-metrics span{color:var(--muted);font-size:11px}.usage-workspace .table-scroll{max-height:580px}.usage-workspace td{overflow-wrap:anywhere}.usage-workspace small{display:block;margin-top:5px;color:var(--muted);font-size:10px}.usage-workspace .section-space{margin-top:20px}.usage-detail{border-top:1px solid var(--line);padding-top:20px;margin-top:24px}.usage-workspace [role=alert]{color:var(--red)}.usage-workspace .empty{padding:24px}.usage-controls .button{padding:9px 12px}
+
+/* Usage-only progressive disclosure; established portal tokens and skin retained. */
+.usage-workspace .usage-disclosure{border:1px solid var(--line);border-radius:6px;background:var(--panel);margin:12px 0}
+.usage-workspace .usage-disclosure>summary{cursor:pointer;padding:10px 12px;color:var(--text);font-weight:600;line-height:1.5}
+.usage-workspace .usage-disclosure>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.usage-workspace .usage-disclosure-body{padding:0 12px 12px;color:var(--muted);font-size:11px;line-height:1.6}
+.usage-workspace .usage-disclosure-body p{margin:8px 0}
+.usage-workspace .usage-extra-metrics{grid-template-columns:repeat(2,minmax(0,1fr));margin:8px 0}
+.usage-workspace td .usage-disclosure{margin:0;min-width:150px;max-width:360px}
+.usage-workspace td .usage-disclosure>summary{padding:7px 9px;font-size:11px;font-weight:500}
+.usage-workspace .usage-primary{color:var(--muted)}
+.usage-workspace .usage-scope{margin:8px 0 12px}
+.usage-workspace th:first-child{width:30%}

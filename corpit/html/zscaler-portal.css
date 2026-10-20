@@ -1,0 +1,270 @@
+/* Zscaler Command Center: AI Governance portal skin. Presentation only; loads last.
+   Shares the governance banner and Nunito face; rail and top bar stay dark in both themes. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+:root, :root[data-theme=dark] {
+  --bg: #071520; --bg2: #071520; --panel: #142533; --panel2: #10202d; --p2: #142533;
+  --tx: #ebf1f6; --tx2: #a4b5c5; --tx3: #91a3b5;
+  --line: #2a3d4d; --line2: #37505f; --line3: #21384a;
+  --cy: #7dc9e7; --bl: #7dc9e7; --ac: #7dc9e7; --ac-ink: #7dc9e7; --grad: #7dc9e7;
+  --gr: #9bd64a; --am: #f0d08b; --rd: #ffa1ac; --rd-t2: #ffa1ac; --am-t2: #f0d08b;
+  --btn-pri: #3d7924; --btn-pri-tx: #fff;
+  --hover-1: #1b3042; --cc-row-hover: #183044; --row-hover: #183044; --cc-tabs-bg: #10202d;
+  --top-bg: #161c28; --nav-on-tx: #fff;
+  --ui: "Governance Nunito", "Nunito", "Segoe UI", sans-serif;
+  --r: 13px; --r2: 9px; --rail: 224px;
+  --zp-ease: cubic-bezier(.23, 1, .32, 1);
+  --zp-gutter: 22px; --zp-lift: 28px;
+  --zp-edge: #1f3445; --zp-overlay: #1a2f40;
+  --zp-elev-1: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --zp-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+}
+:root[data-theme=light] {
+  --bg: #eff1f3; --bg2: #eff1f3; --panel: #fff; --panel2: #f6f8fa; --p2: #fff;
+  --tx: #17212e; --tx2: #5d6b7e; --tx3: #5f6d80;
+  --line: #dfe3e8; --line2: #cdd4dc; --line3: #e9edf1;
+  --cy: #147299; --bl: #147299; --ac: #147299; --ac-ink: #147299; --grad: #147299;
+  --gr: #3d7924; --am: #8b641f; --rd: #b33440; --rd-t2: #b33440; --am-t2: #8b641f;
+  --btn-pri: #3d7924; --btn-pri-tx: #fff;
+  --hover-1: #eaf3f7; --cc-row-hover: #f6f8fa; --row-hover: #f6f8fa; --cc-tabs-bg: #f6f8fa;
+  --top-bg: #161c28;
+  --zp-edge: #e4e8ed; --zp-overlay: #fff;
+  --zp-elev-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --zp-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+}
+body { background: var(--bg); font-family: var(--ui); }
+input, select, textarea, button { font-family: var(--ui); }
+
+/* Rail: the governance sidebar. Tokens are re-pointed so every nested tool stays legible in light mode. */
+.rail {
+  --tx: #fff; --tx2: #b8c2cf; --tx3: #96a2b3; --line: #29313d; --line2: #343d4b; --line3: #29313d;
+  --panel: #1b2230; --panel2: #202936; --hover-1: #202936; --cy: #78be20; --ac-ink: #a5d877;
+  width: var(--rail); min-width: var(--rail); background: #131823; border-right-color: #29313d; color: #b8c2cf;
+}
+.rail .brand { min-height: 66px; padding: 11px 19px; gap: 10px; border-bottom: 1px solid #29313d; }
+.rail .brand .logo {
+  width: 35px; height: 37px; border-radius: 9px; font-size: 17px; font-weight: 850; color: #fff;
+  background: linear-gradient(140deg, #3d7924, #78be20); box-shadow: inset 0 1px 0 #ffffff33;
+}
+.rail .brand h1 { color: #fff; font-size: 16px; font-weight: 850; letter-spacing: -.3px; }
+.rail .brand p { color: #a2adbb; font-size: 10px; }
+.rail .nav { padding: 12px 9px 16px; }
+.noc-nav { gap: 3px; }
+.noc-nav button {
+  min-height: 36px; padding: 8px 10px; border-radius: 7px; color: #b8c2cf; font-weight: 650;
+  transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--zp-ease);
+}
+.noc-nav button[aria-current=page] { color: #fff; background: #29323c; box-shadow: inset 3px 0 #78be20; }
+.noc-nav button[aria-current=page] svg { color: #a5d877; }
+.noc-nav .hd-governance-link { color: #b3becc; border-top-color: #29313d; font-size: 11px; }
+.noc-all-tools > summary { color: #b3becc; font-size: 11px; }
+.rail .nav .item.on { background: #29323c; color: #fff; }
+.rail .nav .item.on:before { background: #78be20; }
+.railfoot { border-top-color: #29313d; color: #b3becc; }
+.railfoot .rf-item { color: #b3becc; }
+.railfoot .rf-ver { color: #96a2b3; }
+
+/* Top bar */
+.top {
+  --tx: #e6edf7; --tx2: #c1cad6; --tx3: #9aa6b5; --panel: #202936; --panel2: #202936;
+  --line: #303746; --line2: #3c4556; --hover-1: #283645; --cy: #7dc9e7;
+  min-height: 66px; background: #161c28; border-bottom-color: #303746; color: #e6edf7;
+}
+.top .crumb { color: #c1cad6; }
+.top .crumb b { color: #fff; font-weight: 800; }
+.top .search input { background: #202936; border-color: #3c4556; color: #e6edf7; border-radius: 7px; }
+.top .search input::placeholder, .top .search svg, .top .search kbd { color: #9aa6b5; }
+.top .noc-mode { color: #e6dcaa; border-color: #6b6340; background: #3a352633; font-weight: 750; }
+.top .tenant { color: #b9dcef; border-color: #3c5a6e; background: #1d2f3d; }
+.top #it-topbar .ittb {
+  --ittb-fg: #e6edf7; --ittb-muted: #b7c5d7; --ittb-surface: #263241;
+  --ittb-panel: #142533; --ittb-panel-2: #203645; --ittb-line: #43546a;
+  --ittb-av-bg: #294b7c; font-family: inherit;
+}
+#noc-menu { background: #202936; border-color: #3c4556; color: #fff; }
+
+/* Banner page headings: one treatment for every view's heading. */
+.wrap { padding: 0 var(--zp-gutter) 38px; }
+#ov-alert:not(:empty), .view > .cc-tabs:first-child, .view > .hero:not(:first-child) { margin-top: 18px; }
+.view > .hero, .noc-workspace > .noc-page-head, .hd-intro, .zr-heading {
+  --tx: #fff; --tx2: #e0e8ef; --tx3: #c3cfdb; --panel: #172c3cbb; --panel2: #172c3cbb;
+  --line: #91a8b877; --line2: #b3c5d299; --ac-ink: #c0e39a; --cy: #c0e39a;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px 24px;
+  min-height: 151px; margin: 0 calc(-1 * var(--zp-gutter)) 19px; padding: 25px 28px;
+  border-bottom: 3px solid #78be20; color: #fff;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+.view > .hero h2, .noc-page-head h2, .hd-intro h2, .zr-heading h2 {
+  color: #fff; font-size: 29px; font-weight: 850; letter-spacing: -.7px; line-height: 1.15;
+}
+.view > .hero p, .noc-page-head p, .hd-intro p, .zr-heading p:not(.zr-eyebrow) {
+  color: #e0e8ef; font-size: 12px; max-width: 750px;
+}
+.hd-eyebrow, .zr-heading .zr-eyebrow { color: #c0e39a; font-weight: 850; }
+.hd-intro h2 { font-size: 34px; letter-spacing: -1px; margin: 9px 0 8px; }
+.view > .hero .bar { display: none; }
+.view > .hero .stamp, .noc-page-head .noc-live, .noc-page-head label { color: #e0e8ef; }
+.view > .hero .stamp b { color: #fff; }
+.view > .hero button, .view > .hero .sb, .view > .hero .cc-btn, .view > .hero .rd-refresh,
+.noc-page-head button, .zr-heading button {
+  background: #172c3cbb; border-color: #91a8b877; color: #fff;
+}
+.wrap > #feed-freshness-banner { margin-top: 18px !important; }
+.helpdesk-active .wrap > #feed-freshness-banner { margin-top: 24px !important; }
+.hd-intro { display: block; }
+.hd-workspace { max-width: none; }
+.hd-workspace > :not(.hd-intro) { max-width: 1180px; margin-left: auto; margin-right: auto; }
+.zr-workspace { max-width: none; }
+
+/* Surfaces */
+.card, .cc-card, .kpi, .hb, .cn-shell, .zd-shell, .noc-panel, .noc-source-strip button, .hd-shortcuts button, .svc {
+  border-radius: 13px; border-color: var(--zp-edge); box-shadow: var(--zp-elev-1);
+}
+.hd-shortcuts button { border-radius: 13px !important; }
+.noc-panel { padding: 16px 18px; }
+.kpi { background: var(--panel); }
+.kpi .num { font-family: var(--ui); font-weight: 850; letter-spacing: -1px; }
+.kpi .lab { text-transform: none; letter-spacing: 0; font-weight: 750; }
+.noc-workspace h3, .cc-card h4, .card .h .t, .hd-search-card label { font-weight: 700; }
+.noc-workspace p, .noc-small { font-weight: 500; }
+.card .h .t { text-transform: none; letter-spacing: 0; font-size: 14px; }
+.card .h .t .dot { box-shadow: none; }
+.noc-dial strong, .noc-coverage-metrics strong { font-weight: 850; letter-spacing: -1px; }
+.noc-source-strip b, .noc-issue strong, .hd-shortcuts strong, .noc-chart-empty strong { font-weight: 800; }
+table th, .noc-table th {
+  background: var(--panel2); color: var(--tx2); font-size: 10px; font-weight: 800 !important; letter-spacing: .5px !important;
+}
+table td { font-size: 12px; }
+
+/* Controls */
+.noc-workspace button, .noc-workspace a.noc-button, .sb, .cc-btn, .cc-tb-btn, .rd-refresh, button.si {
+  border-radius: 7px; font-weight: 750;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, transform 160ms var(--zp-ease);
+}
+.sb.pri, .cc-btn.pri, .hd-search-row button, .noc-workspace button.pri {
+  background: #3d7924; border-color: #3d7924; color: #fff;
+}
+.noc-workspace input, .noc-workspace select, .si, .cc-tb-sel, .cc-form input, .cc-form select, .hd-search-row input { border-radius: 7px; }
+.cc-tabs .t { font-weight: 750; }
+.cc-tabs .t.on { color: #fff; background: #147299; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--ac-ink); outline-offset: 3px;
+}
+.noc-workspace button:not(:disabled):active, .noc-nav button:active, .sb:active, .cc-btn:active,
+.cc-tb-btn:active, .rd-refresh:active, .hd-shortcuts button:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) {
+  .noc-workspace button:not(:disabled):active, .noc-nav button:active, .sb:active, .cc-btn:active,
+  .cc-tb-btn:active, .rd-refresh:active, .hd-shortcuts button:active { transform: none; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .noc-nav button:hover { background: #202936; color: #fff; }
+  .noc-workspace button:not(:disabled):hover, .sb:hover, .cc-btn:hover { border-color: var(--ac-ink); }
+  .view > .hero button:hover, .noc-page-head button:not(:disabled):hover, .zr-heading button:hover { background: #172c3c; border-color: #c0e39a; }
+  .sb.pri:hover, .cc-btn.pri:hover, .hd-search-row button:hover { background: #31631c; }
+}
+[data-theme=dark] .noc-note, [data-theme=dark] .rd-note { border-color: #74683b; }
+
+/* Depth: canvas, raised, overlay. The first block of each workspace sits on the banner. */
+.noc-evidence, .noc-help-copy, .cc-flyout { background: var(--zp-overlay); box-shadow: var(--zp-elev-2); }
+.noc-workspace > .noc-page-head, .hd-intro {
+  min-height: calc(151px + var(--zp-lift)); padding-bottom: calc(25px + var(--zp-lift)); margin-bottom: 0;
+}
+.noc-page-head ~ [data-noc-body], .hd-intro + .hd-search-card, .noc-page-head + .noc-help-copy:not([hidden]) {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--zp-lift));
+}
+.noc-help-copy:not([hidden]) + [data-noc-body] { margin-top: 0; }
+[data-noc-body] > :first-child { margin-top: 0; }
+[data-noc-body] > .noc-note:first-child { box-shadow: var(--zp-elev-1); }
+
+/* Source strip: one surface, healthy sources recede, degraded ones carry a rule and tint. */
+.noc-source-strip {
+  gap: 0; background: var(--panel); border: 1px solid var(--zp-edge); border-radius: 13px;
+  box-shadow: var(--zp-elev-1); overflow: hidden;
+}
+.noc-source-strip button {
+  border: 0; border-left: 1px solid var(--zp-edge); border-radius: 0;
+  box-shadow: var(--zp-rule, 0 0 #0000); background: var(--zp-tint, transparent); padding: 12px 15px; gap: 3px;
+}
+.noc-source-strip button:first-child { border-left: 0; }
+.noc-source-strip button:focus-visible { outline-offset: -3px; }
+.noc-source-strip b { font-size: 10.5px; letter-spacing: .09em; color: var(--tx2); }
+.noc-source-strip span:not(.noc-small) { font-size: 13px; font-weight: 750; }
+.noc-source-strip button:has(.noc-tone-warn, .noc-tone-stale, .noc-tone-partial) {
+  --zp-tint: color-mix(in srgb, var(--am) 8%, var(--panel)); --zp-rule: inset 3px 0 var(--am);
+}
+.noc-source-strip button:has(.noc-tone-bad, .noc-tone-error, .noc-tone-denied, .noc-tone-auth) {
+  --zp-tint: color-mix(in srgb, var(--rd) 9%, var(--panel)); --zp-rule: inset 3px 0 var(--rd);
+}
+
+/* A dial with no reading draws a dotted track and a quiet value instead of a full-weight gauge. */
+.noc-dial:not(:has(path + path)) path { stroke-dasharray: .1 4.2; stroke-width: 7; }
+.noc-dial:not(:has(path + path)) strong { color: var(--tx3); font-size: 18px; font-weight: 700; letter-spacing: 0; }
+
+/* Overview: what needs action leads; signals become a compact column beside it. */
+@media (min-width: 901px) {
+  #v-overview [data-noc-body] {
+    display: grid; grid-template-columns: minmax(0, 2fr) minmax(290px, 1fr); gap: 14px; align-items: start;
+    grid-template-areas: "strip strip" "note note" "attn signals" "path path" "pair quality" "related related";
+  }
+  #v-overview [data-noc-body] > * { margin: 0; }
+  #v-overview .noc-columns, #v-overview .noc-columns > .noc-stack { display: contents; }
+  #v-overview .noc-source-strip { grid-area: strip; }
+  #v-overview [data-noc-body] > .noc-note { grid-area: note; }
+  #v-overview .noc-signals { grid-area: signals; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0; }
+  #v-overview .noc-overview-aside > .noc-panel:first-child { grid-area: attn; align-self: stretch; }
+  #v-overview .noc-overview-aside > .noc-panel:last-child { grid-area: quality; align-self: stretch; }
+  #v-overview .noc-columns > .noc-stack:first-child > .noc-panel { grid-area: path; }
+  #v-overview .noc-pair { grid-area: pair; }
+  #v-overview .noc-related { grid-area: related; }
+
+  #v-overview .noc-signal {
+    display: grid; grid-template-columns: 112px minmax(0, 1fr); grid-template-areas: "dial h" "dial p" "dial b";
+    column-gap: 14px; align-items: center; text-align: left; padding: 12px 14px;
+  }
+  #v-overview .noc-signal h3 { grid-area: h; font-size: 13px; align-self: end; }
+  #v-overview .noc-signal .noc-dial { grid-area: dial; width: 112px; height: 58px; margin: 0; }
+  #v-overview .noc-signal .noc-dial strong { inset: 29px 0 auto; text-align: center; font-size: 18px; letter-spacing: -.3px; }
+  #v-overview .noc-signal .noc-dial:not(:has(path + path)) strong { font-size: 13px; inset: 33px 0 auto; }
+  #v-overview .noc-signal p { grid-area: p; margin: 1px 0 0; font-size: 11px; line-height: 1.4; }
+  #v-overview .noc-signal button { grid-area: b; justify-self: start; margin-top: 6px; min-height: 27px; padding: 4px 9px; }
+
+  #v-overview .noc-overview-aside > .noc-panel:first-child { padding: 18px 22px 16px; }
+  #v-overview .noc-overview-aside > .noc-panel:first-child:has(.noc-issue) { box-shadow: var(--zp-elev-1), inset 0 3px 0 var(--am); }
+  #v-overview .noc-overview-aside > .noc-panel:first-child h3 { font-size: 18px; font-weight: 800; letter-spacing: -.3px; }
+  #v-overview .noc-overview-aside > .noc-panel:first-child .noc-issues {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px;
+  }
+  #v-overview .noc-issue strong { font-size: 13px; font-weight: 750; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .noc-source-strip button:not(:disabled):hover { background: var(--hover-1); border-color: var(--zp-edge); }
+  .noc-issue:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+}
+
+@media (max-width: 1200px) and (min-width: 901px) { .view > .hero h2, .noc-page-head h2, .zr-heading h2 { font-size: 26px; } }
+@media (max-width: 900px) {
+  :root, :root[data-theme] { --zp-gutter: 12px; --zp-lift: 18px; }
+  .noc-source-strip { gap: 6px; background: none; border: 0; box-shadow: none; overflow: visible; }
+  .noc-source-strip button, .noc-source-strip button:first-child {
+    border: 1px solid var(--zp-edge); border-radius: 11px; background: var(--zp-tint, var(--panel));
+    box-shadow: var(--zp-rule, 0 0 #0000), var(--zp-elev-1);
+  }
+  .rail { inset: 66px auto 0 0 !important; height: calc(100dvh - 66px) !important; }
+  .view > .hero, .noc-workspace > .noc-page-head, .hd-intro, .zr-heading { padding: 22px 18px; min-height: 130px; }
+  .hd-intro h2 { font-size: 28px; }
+  .noc-workspace > .noc-page-head, .hd-intro { min-height: calc(130px + var(--zp-lift)); padding-bottom: calc(22px + var(--zp-lift)); }
+}
+@media print {
+  :root, :root[data-theme] { --zp-elev-1: 0 0 #0000; --zp-elev-2: 0 0 #0000; }
+  .view > .hero, .noc-workspace > .noc-page-head, .hd-intro, .zr-heading {
+    background: none; box-shadow: none; color: #17212e; margin: 0 0 20px; padding: 0 0 15px; min-height: 0; border-bottom: 2px solid #3d7924;
+  }
+  .view > .hero h2, .noc-page-head h2, .hd-intro h2, .zr-heading h2, .view > .hero p, .noc-page-head p, .hd-intro p { color: #17212e; }
+}

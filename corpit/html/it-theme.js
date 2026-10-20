@@ -87,28 +87,22 @@
   try { apply(JSON.parse(localStorage.getItem(CACHE_KEY) || '{}')); } catch (e) { /* defaults */ }
 
   // Reconcile from the server.
-  function token() {
-    try { var s = JSON.parse(sessionStorage.getItem('sso_user') || '{}'); return s.idToken || null; }
-    catch (e) { return null; }
-  }
   // ONE prefs GET per page (2026-09-06). it-theme.js and it-theme-toggle.js both read
   // the same record in the same tick, so the in-flight request is shared through
   // window.__itPrefsGet and dropped once it settles (a later call fetches fresh).
   // Both scripts carry an identical copy of this helper because either may load first.
-  function prefsGet(t) {
+  function prefsGet() {
     var w = window, cur = w.__itPrefsGet;
-    if (cur && cur.token === t) return cur.promise;
-    var p = fetch('/api/rbac/me/prefs', { headers: { Authorization: 'Bearer ' + t } })
+    if (cur) return cur.promise;
+    var p = fetch('/api/rbac/me/prefs', { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; });
     function drop() { if (w.__itPrefsGet && w.__itPrefsGet.promise === p) w.__itPrefsGet = null; }
     p.then(drop, drop);
-    w.__itPrefsGet = { token: t, promise: p };
+    w.__itPrefsGet = { promise: p };
     return p;
   }
 
-  var t = token();
-  if (!t) return;   // signed-out page: defaults stand
-  prefsGet(t)
+  prefsGet()
     .then(function (d) {
       if (!d || !d.prefs) return;
       apply(d.prefs);

@@ -538,8 +538,14 @@
 <script src="/rbac-client.js"></script>
 <script src="/it-observe.js" data-app-key="cert-watchtower"></script>
 <link rel="stylesheet" href="/it-depth.css">
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/cert-watchtower-portal.css?v=7e6626d2a733">
+<link rel="stylesheet" href="/operations-polish.css?v=28493dbcc646">
+<script src="/operations-polish.js?v=da7e6ad64b46"></script>
+<link rel="stylesheet" href="/cert-watchtower-operations.css?v=20261017a">
+<link rel="stylesheet" href="/workspace-whats-new.css?v=20261019-support-guides1">
 </head>
-<body data-dp="cert-watchtower">
+<body data-op-page="cert-watchtower" data-dp="cert-watchtower">
 <div class="container">
   <header class="page-head">
     <div>
@@ -547,18 +553,23 @@
       <h1>Cert Watchtower</h1>
     </div>
     <div class="head-right">
-      <button class="btn btn-ghost" id="btn-refresh" title="Refresh (R)">↻ Refresh</button>
+      <button type="button" class="btn btn-ghost cwn-trigger" id="workspace-whats-new-link" aria-haspopup="dialog" aria-controls="workspace-whats-new" data-rbac-page="cert-watchtower" data-rbac-level="read" data-rbac-action="hide">How to use</button>
+<button class="btn btn-ghost" id="btn-refresh" title="Refresh (R)">↻ Refresh</button>
     </div>
   </header>
 
+<div id="desktop-feed-status"></div>
   <nav class="tabs">
-    <button class="tab active" data-tab="monitors">External Certs <span class="badge" id="tab-count-monitors">0</span></button>
-    <button class="tab" data-tab="targets">Scan Targets <span class="badge" id="tab-count-targets">0</span></button>
-    <button class="tab" data-tab="findings">Findings <span class="badge" id="tab-count-findings">0</span></button>
-    <button class="tab" data-tab="alerts">Alerts <span class="badge crit" id="tab-count-alerts">0</span></button>
-    <button class="tab" data-tab="prtg">PRTG <span class="badge" id="tab-count-prtg">0</span></button>
+    <button class="tab" data-tab="ops">Operations</button>
+    <button class="tab active" data-tab="monitors">External Certs <span class="badge" id="tab-count-monitors">—</span></button>
+    <button class="tab" data-tab="targets">Scan Targets <span class="badge" id="tab-count-targets">—</span></button>
+    <button class="tab" data-tab="findings">Findings <span class="badge" id="tab-count-findings">—</span></button>
+    <button class="tab" data-tab="alerts">Alerts <span class="badge crit" id="tab-count-alerts">—</span></button>
+    <button class="tab" data-tab="prtg">PRTG <span class="badge" id="tab-count-prtg">—</span></button>
     <button class="tab" data-tab="settings">Settings</button>
   </nav>
+
+  <section class="panel cwops" id="panel-ops"><div id="cert-operations-root"></div></section>
 
   <!-- ============== MONITORS PANEL ============== -->
   <section class="panel active" id="panel-monitors">
@@ -566,7 +577,7 @@
       <span class="skeleton" style="width: 280px;"></span>
     </div>
     <div class="toolbar">
-      <input type="text" class="search" id="monitor-search" placeholder="Search hostname, label, or owner…" />
+      <input type="text" class="search" id="monitor-search" aria-label="Search monitors" placeholder="Search hostname, label, or owner…" />
       <div class="filter-pills" id="filter-pills">
         <button class="pill active" data-filter="all">All</button>
         <button class="pill" data-filter="alerting">Alerting</button>
@@ -580,7 +591,7 @@
       <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-add">+ Add External Cert</button>
     </div>
 
-    <div class="card">
+    <div class="op-tools"><select class="op-input" id="monitors-sort" aria-label="Sort monitors" onchange="renderMonitors()"><option value="expiry">Expiry: soonest first</option><option value="name">Hostname: A–Z</option></select><button class="op-btn" type="button" id="monitors-reset">Reset filters</button><button class="op-btn" type="button" id="monitors-export" onclick="opCertExport('monitors')">Export CSV</button><span class="op-results" id="monitors-results" role="status"></span></div><div class="card">
       <table id="monitors-table">
         <thead>
           <tr>
@@ -608,7 +619,7 @@
       <span class="skeleton" style="width: 280px;"></span>
     </div>
     <div class="toolbar">
-      <input type="text" class="search" id="finding-search" placeholder="Search hostname, subject, issuer…" />
+      <input type="text" class="search" id="finding-search" aria-label="Search findings" placeholder="Search hostname, subject, issuer…" />
       <div class="filter-pills" id="finding-filter-pills">
         <button class="pill active" data-finding-filter="all">All</button>
         <button class="pill" data-finding-filter="alerting">Alerting</button>
@@ -618,7 +629,7 @@
         <button class="pill" data-finding-filter="missing">Missing (gone from store)</button>
       </div>
     </div>
-    <div class="card">
+    <div class="op-tools"><select class="op-input" id="findings-sort" aria-label="Sort findings" onchange="renderFindings()"><option value="expiry">Expiry: soonest first</option><option value="name">Hostname: A–Z</option></select><button class="op-btn" type="button" id="findings-reset">Reset filters</button><button class="op-btn" type="button" id="findings-export" onclick="opCertExport('findings')">Export CSV</button><span class="op-results" id="findings-results" role="status"></span></div><div class="card">
       <table id="findings-table">
         <thead>
           <tr>
@@ -645,10 +656,10 @@
       <span class="skeleton" style="width: 280px;"></span>
     </div>
     <div class="toolbar">
-      <input type="text" class="search" id="target-search" placeholder="Search FQDN, hostname, notes…" />
+      <input type="text" class="search" id="target-search" aria-label="Search targets" placeholder="Search FQDN, hostname, notes…" />
       <button class="btn btn-primary" data-rbac-page="cert-watchtower" data-rbac-level="admin" id="btn-add-target">+ Add Scan Target</button>
     </div>
-    <div class="card">
+    <div class="op-tools"><button class="op-btn" type="button" id="targets-reset">Reset filters</button><button class="op-btn" type="button" id="targets-export" onclick="opCertExport('targets')">Export CSV</button><span class="op-results" id="targets-results" role="status"></span></div><div class="card">
       <table id="targets-table">
         <thead>
           <tr>
@@ -1169,6 +1180,10 @@ let alerts = [];
 let activeFilter = 'all';
 let activeTab = 'monitors';
 let detailMonitorId = null;
+const opCertRows={monitors:[],findings:[],targets:[]};
+function opCertSort(rows,kind){const key=document.getElementById(kind+'-sort').value;return rows.slice().sort((a,b)=>key==='name'?String(a.hostname||a.fqdn||'').localeCompare(String(b.hostname||b.fqdn||'')):(a.days_remaining==null?Infinity:Number(a.days_remaining))-(b.days_remaining==null?Infinity:Number(b.days_remaining)));}
+function opCertUpdate(kind,rows){opCertRows[kind]=rows;document.getElementById(kind+'-results').textContent=rows.length+' matching '+kind;document.getElementById(kind+'-export').disabled=!rows.length;}
+function opCertExport(kind){const cols=kind==='targets'?['fqdn','hostname','os_version','staleness','last_checkin_at']:['hostname','fqdn','port','label','subject_cn','issuer_cn','status','days_remaining','last_checked_at','last_seen_at','owner_email','stale'];OpsPolish.csv('cert-'+kind+'.csv',cols,opCertRows[kind].map(r=>cols.map(k=>r[k])));}
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -1320,7 +1335,8 @@ function searchMatches(m, q) {
 function renderMonitors() {
   const q = $('#monitor-search').value.trim();
   const tbody = $('#monitors-tbody');
-  const visible = monitors.filter(m => filterMatches(m) && searchMatches(m, q));
+  const visible = opCertSort(monitors.filter(m => filterMatches(m) && searchMatches(m, q)),'monitors');
+  opCertUpdate('monitors',visible);
   $('#tab-count-monitors').textContent = monitors.length;
 
   if (visible.length === 0) {
@@ -1333,7 +1349,7 @@ function renderMonitors() {
 
   tbody.innerHTML = visible.map(m => `
     <tr data-id="${m.id}">
-      <td class="host">${escapeHtml(m.hostname)}</td>
+      <td class="host"><button type="button" class="op-link" aria-label="Certificate details for ${escapeHtml(m.hostname)}">${escapeHtml(m.hostname)}</button></td>
       <td class="numeric">${m.port}</td>
       <td>${escapeHtml(m.label || '')}</td>
       <td>${statusPill(m.status)}</td>
@@ -1622,7 +1638,9 @@ async function runPrtgTestPush() {
 // ============================================================================
 // Detail modal
 // ============================================================================
+let detailRequest=0;
 async function openDetail(id) {
+  const request=++detailRequest;
   detailMonitorId = id;
   const m = monitors.find(x => x.id === id);
   if (!m) return;
@@ -1632,6 +1650,7 @@ async function openDetail(id) {
 
   try {
     const data = await api(`/api/certs/${id}/history?limit=30`);
+    if(request!==detailRequest)return;
     // Look for a matching scan target — same hostname OR same resolved IP.
     // If found, fetch its full finding list so we can show all certs on that host.
     let allFindings = null;
@@ -1659,8 +1678,10 @@ async function openDetail(id) {
       // Non-fatal — just means we don't show the cross-linked section
       console.warn('Could not fetch related scan target:', e.message);
     }
+    if(request!==detailRequest)return;
     renderDetail(m, data.history, matchingTarget, allFindings);
   } catch (e) {
+    if(request!==detailRequest)return;
     $('#detail-body').innerHTML = `<div class="empty">Failed to load: ${escapeHtml(e.message)}</div>`;
   }
 }
@@ -2026,11 +2047,14 @@ function _prtgSectionHtml(p, kind, id) {
 async function loadPrtgMonitorSection(id) {
   const container = $('#prtg-monitor-section');
   if (!container) return;
+  const request=detailRequest;
   try {
     const data = await api(`/api/certs/${id}/prtg`);
+    if(request!==detailRequest||!container.isConnected)return;
     container.innerHTML = _prtgSectionHtml(data.prtg, 'monitor', id);
     _wirePrtgMonitorEvents(id);
   } catch (e) {
+    if(request!==detailRequest||!container.isConnected)return;
     container.innerHTML = `<div class="empty">Failed to load PRTG settings: ${escapeHtml(e.message)}</div>`;
   }
 }
@@ -2038,11 +2062,14 @@ async function loadPrtgMonitorSection(id) {
 async function loadPrtgFindingSection(id) {
   const container = $('#prtg-finding-section');
   if (!container) return;
+  const request=detailRequest;
   try {
     const data = await api(`/api/findings/${id}/prtg`);
+    if(request!==detailRequest||!container.isConnected)return;
     container.innerHTML = _prtgSectionHtml(data.prtg, 'finding', id);
     _wirePrtgFindingEvents(id);
   } catch (e) {
+    if(request!==detailRequest||!container.isConnected)return;
     container.innerHTML = `<div class="empty">Failed to load PRTG settings: ${escapeHtml(e.message)}</div>`;
   }
 }
@@ -2051,11 +2078,14 @@ async function loadPrtgFindingSection(id) {
 async function loadPrtgAgentSection(id) {
   const container = $('#prtg-agent-section');
   if (!container) return;
+  const request=detailRequest;
   try {
     const data = await api(`/api/agents/${id}/prtg`);
+    if(request!==detailRequest||!container.isConnected)return;
     container.innerHTML = _prtgSectionHtml(data.prtg, 'agent', id);
     _wirePrtgAgentEvents(id);
   } catch (e) {
+    if(request!==detailRequest||!container.isConnected)return;
     container.innerHTML = `<div class="empty">Failed to load PRTG settings: ${escapeHtml(e.message)}</div>`;
   }
 }
@@ -2176,6 +2206,7 @@ function switchTab(name) {
   if (name === 'settings') { loadConfig(); loadPrtgConfig(); loadPrtgStatus(); }
   if (name === 'findings') loadFindings();
   if (name === 'targets') { loadTargets(); loadCloudCerts(); }
+  if (name === 'ops' && window.CertOps) window.CertOps.open();
 }
 
 $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
@@ -2196,6 +2227,7 @@ $('#btn-refresh').addEventListener('click', () => {
   else if (activeTab === 'settings') { loadConfig(); loadPrtgConfig(); loadPrtgStatus(); }
   else if (activeTab === 'findings') loadFindings();
   else if (activeTab === 'targets') { loadTargets(); loadCloudCerts(); }
+  else if (activeTab === 'ops' && window.CertOps) window.CertOps.refresh();
 });
 
 // Add monitor
@@ -2320,6 +2352,7 @@ $('#show-resolved').addEventListener('change', loadAlerts);
 
 // Modal close handlers
 function closeModals() {
+  ++detailRequest;detailTargetId=null;
   $$('.modal-backdrop').forEach(m => m.classList.remove('open'));
   detailMonitorId = null;
 }
@@ -2451,7 +2484,8 @@ function findingSearchMatches(f, q) {
 function renderFindings() {
   const q = $('#finding-search').value.trim();
   const tbody = $('#findings-tbody');
-  const visible = findings.filter(f => findingFilterMatches(f) && findingSearchMatches(f, q));
+  const visible = opCertSort(findings.filter(f => findingFilterMatches(f) && findingSearchMatches(f, q)),'findings');
+  opCertUpdate('findings',visible);
   $('#tab-count-findings').textContent = findings.length;
 
   if (visible.length === 0) {
@@ -2464,7 +2498,7 @@ function renderFindings() {
 
   tbody.innerHTML = visible.map(f => `
     <tr data-finding-id="${f.id}">
-      <td class="host">${escapeHtml(f.hostname || f.fqdn)}</td>
+      <td class="host"><button type="button" class="op-link">${escapeHtml(f.hostname || f.fqdn)}</button></td>
       <td class="host" style="font-size: 11.5px; color: var(--text-dim);">${escapeHtml(f.store_name)}${f.store_location ? '<br><span style="color: var(--text-faint);">' + escapeHtml(f.store_location) + '</span>' : ''}</td>
       <td>${escapeHtml(f.subject_cn || '—')}</td>
       <td style="color: var(--text-dim); font-size: 12px;">${escapeHtml(f.issuer_cn || '—')}</td>
@@ -2489,15 +2523,19 @@ function updateFindingsMeta() {
   `;
 }
 
-async function openFindingDetail(id) {
-  const f = findings.find(x => x.id === id);
+async function openFindingDetail(id, sourceFinding) {
+  const request=++detailRequest;
+  const f = sourceFinding || findings.find(x => x.id === id);
   if (!f) return;
   $('#finding-detail-title').textContent = `${f.subject_cn || 'cert'} on ${f.fqdn}`;
+  $('#finding-detail-body').innerHTML='<div class="empty">Loading…</div>';
   $('#modal-finding-detail').classList.add('open');
   try {
     const data = await api(`/api/findings/${id}`);
+    if(request!==detailRequest)return;
     renderFindingDetail(data.finding);
   } catch (e) {
+    if(request!==detailRequest)return;
     $('#finding-detail-body').innerHTML = `<div class="empty">Failed to load: ${escapeHtml(e.message)}</div>`;
   }
 }
@@ -2570,6 +2608,7 @@ function renderTargets() {
   const q = $('#target-search').value.trim();
   const tbody = $('#targets-tbody');
   const visible = scanTargets.filter(t => targetSearchMatches(t, q));
+  opCertUpdate('targets',visible);
   $('#tab-count-targets').textContent = scanTargets.length;
 
   if (visible.length === 0) {
@@ -2586,7 +2625,7 @@ function renderTargets() {
       : '';
     return `
     <tr data-target-id="${t.id}">
-      <td class="host">${escapeHtml(t.fqdn)}</td>
+      <td class="host"><button type="button" class="op-link">${escapeHtml(t.fqdn)}</button></td>
       <td>${escapeHtml(t.hostname || '—')}</td>
       <td style="color: var(--text-dim); font-size: 12px;">${escapeHtml(t.os_version || '—')}</td>
       <td title="${t.last_checkin_at ? fmtDate(t.last_checkin_at) : ''}">${fmtRelative(t.last_checkin_at)}${errorBit}</td>
@@ -2626,6 +2665,7 @@ function updateTargetsMeta() {
 }
 
 async function openTargetDetail(id) {
+  const request=++detailRequest;
   detailTargetId = id;
   const t = scanTargets.find(x => x.id === id);
   if (!t) return;
@@ -2637,8 +2677,10 @@ async function openTargetDetail(id) {
       api(`/api/agents/${id}`),
       api(`/api/agents/${id}/issued`).catch(() => ({ certs: [] }))
     ]);
+    if(request!==detailRequest)return;
     renderTargetDetail(data.agent, data.findings, issuedData.certs || []);
   } catch (e) {
+    if(request!==detailRequest)return;
     $('#target-detail-body').innerHTML = `<div class="empty">Failed to load: ${escapeHtml(e.message)}</div>`;
   }
 }
@@ -3026,10 +3068,42 @@ document.addEventListener('click', function(e) {
 });
 
 // Initial load
+$('#monitors-reset').onclick=()=>{$('#monitor-search').value='';activeFilter='all';$$('#filter-pills .pill').forEach(p=>p.classList.toggle('active',p.dataset.filter==='all'));$('#monitors-sort').value='expiry';renderMonitors();};
+$('#findings-reset').onclick=()=>{$('#finding-search').value='';activeFindingFilter='all';$$('[data-finding-filter]').forEach(p=>p.classList.toggle('active',p.dataset.findingFilter==='all'));$('#findings-sort').value='expiry';loadFindings();};
+$('#targets-reset').onclick=()=>{$('#target-search').value='';renderTargets();};
 loadMonitors();
 </script>
+<script src="/cert-watchtower-operations.js?v=20261018a"></script>
 <script src="/it-version.js" data-app-key="cert-watchtower" defer></script>
 <script src="/it-topbar.js" defer></script>
-<script src="/feed-freshness.js" data-page="cert-watchtower" defer></script>
+<script src="/feed-freshness-desktop.js?v=9c6727302547" data-page="cert-watchtower" defer></script>
+
+<!-- Shared screenshot-led welcome; its animation never changes the workspace data. -->
+<script type="application/json" id="workspace-whats-new-content">{"title": "How to use Cert Watchtower", "description": "Triage certificate priorities. Plan the renewal hand-off. Check the recorded coverage. Three steps to organize certificate operations.", "rbacPage": "cert-watchtower", "autoHashes": ["", "#monitors", "#ops/triage"], "steps": [{"image": "/assets/workspace-tours/cert-triage.webp?v=20261018-six-tours4", "focus": [[0.253, 39.495, 99.579, 21.098], [0.253, 65.648, 34.962, 7.472]], "title": "1. Triage the certificate priorities", "label": "Triage", "description": "Open Operations → Triage to review expiry, missing-owner and unknown-expiry records. Use Source and Review focus to narrow the list. Recorded status and observation dates stay separate; check both before acting.", "alt": "Real DEV certificate operations summary and Triage, Renewal worklist, Coverage and Snapshot comparison links."}, {"image": "/assets/workspace-tours/cert-renewals.webp?v=20261018-six-tours4", "focus": [[2.973, 40.764, 93.839, 12.102], [3.054, 88.535, 48.588, 11.465]], "title": "2. Plan the renewal hand-off", "label": "Plan", "description": "Use Renewal worklist to filter review dates and planning stages. Open Plan renewal to record an owner, proposed date and notes. Drafts stay private to your account in this browser; planning does not renew a certificate.", "alt": "Real DEV Renewal worklist filters, saved views and planning-stage controls."}, {"image": "/assets/workspace-tours/cert-coverage.webp?v=20261018-six-tours4", "focus": [[1.18, 26.862, 89.713, 31.234]], "title": "3. Check coverage and recorded evidence", "label": "Check", "description": "Open Coverage for recorded scan targets, findings and gaps. Follow the links to Scan Targets, Alerts or PRTG for their existing tools. Snapshot comparison helps compare saved reads; recorded coverage does not establish live service health.", "alt": "Real DEV Coverage and investigation view with links to Scan Targets, Alerts and PRTG."}], "seenKey": "corpit:cert:how-to:2026-10-19-v1", "guide": true}</script>
+<dialog id="workspace-whats-new" class="cwn" data-workspace-tour="cert" aria-labelledby="cwn-title" aria-describedby="cwn-description">
+  <button class="cwn-close" type="button" data-cwn-close aria-label="Close tour"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>
+  <div class="cwn-body">
+    <div class="cwn-screen">
+      <p class="cwn-progress"><span class="cwn-emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/><path d="M20 2v4M18 4h4"/></svg></span><span data-cwn-progress aria-live="polite" aria-atomic="true">A quick tour</span></p>
+      <h2 class="cwn-title" id="cwn-title" tabindex="-1">How to use Cert Watchtower</h2>
+      <p class="cwn-description" id="cwn-description">Triage certificate priorities. Plan the renewal hand-off. Check the recorded coverage. Three steps to organize certificate operations.</p>
+      <div class="cwn-stage" aria-hidden="true"><div class="cwn-mini"><img src="/assets/workspace-tours/cert-triage.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span>Triage</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/workspace-tours/cert-renewals.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span>Plan</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/workspace-tours/cert-coverage.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span>Check</span><i class="cwn-mini-sheen"></i></div><div class="cwn-ai-flow" aria-hidden="true"><i class="cwn-ai-orbit"></i><div class="cwn-ai-node"><b>01</b><span>Triage</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>02</b><span>Plan</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>03</b><span>Check</span></div></div></div>
+      <p class="cwn-welcome-note">Three quick stops. Explore at your own pace.<br>Reopen anytime from <strong>How to use</strong>.</p>
+      <figure class="cwn-preview" hidden>
+        <div class="cwn-image-wrap"><div class="cwn-shot"><img alt="" width="1200" height="460"><div class="cwn-focuses" aria-hidden="true"></div></div></div>
+        <figcaption>Real DEV screenshots. Counts are a snapshot; available tools follow your access.</figcaption>
+      </figure>
+    </div>
+  </div>
+  <footer class="cwn-footer">
+    <div class="cwn-track" aria-hidden="true" hidden><span></span><span></span><span></span><i class="cwn-indicator"></i></div>
+    <button class="btn btn-ghost cwn-button" type="button" data-cwn-later>Maybe later</button>
+    <div class="cwn-actions">
+      <button class="btn btn-ghost cwn-button" type="button" data-cwn-back hidden>Back</button>
+      <button class="btn btn-primary cwn-button cwn-next" type="button" data-cwn-next autofocus><span>Show me how</span><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+    </div>
+  </footer>
+</dialog>
+<script src="/workspace-whats-new.js?v=20261019-account-guides1" defer></script>
 </body>
 </html>

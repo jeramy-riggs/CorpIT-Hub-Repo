@@ -540,11 +540,9 @@ router.post('/session', async (req, res) => {
   require('./session-cookie').setSessionCookie(res, token, _v.exp - Date.now(), req);
   // A minted credential must never sit in a shared cache.
   res.set('Cache-Control', 'no-store, private');
-  // The old hardcoded "10 hours" field this body used to carry is gone: it
-  // becomes a lie the moment the cap clamps. `token` and `exp` stay so the
-  // still-deployed v1.4 watcher (which reads only j.token) keeps working
-  // between this deploy and the client rollout.
-  res.json({ ok: true, token, exp: _v.exp,
+  // The browser uses the refreshed HttpOnly cookie; do not return its portable
+  // bearer value to page JavaScript.
+  res.json({ ok: true, exp: _v.exp,
              email: _v.email, name: _v.name,
              // Same guard as above: null, explicitly, when the cap could not be
              // measured -- never a NaN that JSON quietly turns into the same null.

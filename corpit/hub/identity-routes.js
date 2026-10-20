@@ -4,6 +4,7 @@ const router = express.Router();
 const { execFile } = require('child_process');
 const path = require('path');
 const { lookupUser, searchUsers } = require('./identity-ldap');
+const deviceModel = require('./identity-device-model');
 
 let lookupZscalerUser = null;
 const { enhanceRiskScore } = require('./enhance-risk');
@@ -323,9 +324,9 @@ router.get('/okta-failures', rbac.requirePage('identity-diag','read'), async (re
 // (which ManageEngine often has no owner for). iPhone/Tablet=Intune(upn),
 // Mac=Kandji(username OR full name), Windows=ManageEngine(first_last/logged_on)
 // + Intune(upn) deduped, iPad=ipad_devices(username), AWS=aws_workspaces(username).
-router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res) => {
+async function deviceDiscovery(req, res) {
   const q = (req.query.q || '').trim();
-  if (!q) return res.status(400).json({ error: 'Query parameter "q" is required', devices: [] });
+  if (!q || q.length > 256) return res.status(400).json({ error: 'A person query of 1–256 characters is required', devices: [] });
 
   // Lazy-init MySQL pool for device queries
   if (!router._devicePool) {
@@ -376,12 +377,13 @@ router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res
   const fullName = resolved ? (resolved.first_last || '').trim().toLowerCase() : qLower;
 
   const devices = [];
+  const sourceRecords = [];
   const winSeen = new Set();   // Windows machine keys (name/serial) already added, for dedup
 
   // iPhones & tablets — Intune (current only), keyed on primary_user_upn
   try {
     const [rows] = await pool.query(
-      "SELECT device_name, model, os, os_version, serial_number, device_category, primary_user_upn, " +
+      "SELECT id, device_id, device_name, model, os, os_version, serial_number, device_category, primary_user_upn, " +
       "       primary_user_name, compliance, last_checkin, ownership, phone_number, subscriber_carrier " +
       "  FROM it_inventory.intune_devices " +
       " WHERE device_category IN ('iphone','tablet') AND is_historical=0 " +
@@ -390,12 +392,14 @@ router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res
       [username]
     );
     rows.forEach(function (r) {
-      devices.push({
+      const device = {
         deviceName: r.device_name, model: r.model, os: r.os || (r.device_category === 'tablet' ? 'Android' : 'iOS'),
         osVersion: r.os_version, serial: r.serial_number, user: r.primary_user_upn || r.primary_user_name,
         compliance: r.compliance, lastCheckin: r.last_checkin, ownership: r.ownership, phone: r.phone_number,
         carrier: r.subscriber_carrier, source: 'Intune', type: r.device_category === 'tablet' ? 'Tablet' : 'iPhone',
-      });
+      };
+      sourceRecords.push(deviceModel.sourceRecord('intune', r.id, r.device_id, device));
+      devices.push(device);
     });
     sources.intuneMobile = srcOk('Intune (iPhone / Tablet)', rows.length);
   } catch (e) { sources.intuneMobile = srcUnknown('Intune (iPhone / Tablet)', e, 'intune device query error'); }
@@ -403,18 +407,20 @@ router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res
   // MacBooks — Kandji (Kandji stores full names, so match username OR full name)
   try {
     const [rows] = await pool.query(
-      "SELECT device_name, model, os_version, serial, blueprint, user_name, checked_in " +
+      "SELECT id, device_name, model, os_version, serial, blueprint, user_name, checked_in " +
       "  FROM it_inventory.macbooks " +
       " WHERE REPLACE(LOWER(TRIM(user_name)),'@auction.com','')=? OR LOWER(TRIM(user_name))=? " +
       " ORDER BY checked_in DESC",
       [username, fullName]
     );
     rows.forEach(function (r) {
-      devices.push({
+      const device = {
         deviceName: r.device_name, model: r.model, os: 'macOS', osVersion: r.os_version, serial: r.serial,
         user: r.user_name, compliance: null, lastCheckin: r.checked_in, blueprint: r.blueprint,
         source: 'Kandji', type: 'MacBook',
-      });
+      };
+      sourceRecords.push(deviceModel.sourceRecord('kandji-mac', r.id, null, device));
+      devices.push(device);
     });
     sources.kandjiMac = srcOk('Kandji (MacBook)', rows.length);
   } catch (e) { sources.kandjiMac = srcUnknown('Kandji (MacBook)', e, 'kandji device query error'); }
@@ -422,7 +428,7 @@ router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res
   // Windows (1/2) — ManageEngine endpoints (owner in first_last or logged_on_user)
   try {
     const [rows] = await pool.query(
-      "SELECT computer_name, device_model, os_name, os_version, service_tag, first_last, logged_on_user, last_asset_scan " +
+      "SELECT id, resource_id, computer_name, device_model, os_name, os_version, service_tag, first_last, logged_on_user, last_asset_scan " +
       "  FROM it_inventory.endpoints " +
       " WHERE os_name LIKE '%Windows%' " +
       "   AND ( REPLACE(LOWER(TRIM(first_last)),'@auction.com','')=? " +
@@ -433,11 +439,13 @@ router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res
     rows.forEach(function (r) {
       if (r.computer_name) winSeen.add(String(r.computer_name).trim().toUpperCase());
       if (r.service_tag) winSeen.add(String(r.service_tag).trim().toUpperCase());
-      devices.push({
+      const device = {
         deviceName: r.computer_name, model: r.device_model, os: r.os_name, osVersion: r.os_version,
         serial: r.service_tag, user: r.first_last || r.logged_on_user, compliance: null,
         lastCheckin: r.last_asset_scan, source: 'ManageEngine', type: 'Windows',
-      });
+      };
+      sourceRecords.push(deviceModel.sourceRecord('manageengine', r.id, r.resource_id, device));
+      devices.push(device);
     });
     sources.manageEngineWindows = srcOk('ManageEngine (Windows)', rows.length);
   } catch (e) { sources.manageEngineWindows = srcUnknown('ManageEngine (Windows)', e, 'endpoints device query error'); }
@@ -446,7 +454,7 @@ router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res
   // has no owner for these). Dedup against the ManageEngine rows above by name/serial.
   try {
     const [rows] = await pool.query(
-      "SELECT device_name, model, os, os_version, serial_number, primary_user_upn, compliance, last_checkin, ownership " +
+      "SELECT id, device_id, device_name, model, os, os_version, serial_number, primary_user_upn, compliance, last_checkin, ownership " +
       "  FROM it_inventory.intune_devices " +
       " WHERE device_category='windows' AND is_historical=0 " +
       "   AND REPLACE(LOWER(TRIM(primary_user_upn)),'@auction.com','')=? " +
@@ -456,12 +464,14 @@ router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res
     rows.forEach(function (r) {
       const nm = (r.device_name || '').trim().toUpperCase();
       const sn = (r.serial_number || '').trim().toUpperCase();
-      if ((nm && winSeen.has(nm)) || (sn && winSeen.has(sn))) return; // already listed from ManageEngine
-      devices.push({
+      const legacyDuplicate = (nm && winSeen.has(nm)) || (sn && winSeen.has(sn));
+      const device = {
         deviceName: r.device_name, model: r.model, os: r.os || 'Windows', osVersion: r.os_version,
         serial: r.serial_number, user: r.primary_user_upn, compliance: r.compliance,
         lastCheckin: r.last_checkin, ownership: r.ownership, source: 'Intune', type: 'Windows',
-      });
+      };
+      sourceRecords.push(deviceModel.sourceRecord('intune', r.id, r.device_id, device));
+      if (!legacyDuplicate) devices.push(device);
     });
     sources.intuneWindows = srcOk('Intune (Windows)', rows.length);
   } catch (e) { sources.intuneWindows = srcUnknown('Intune (Windows)', e, 'intune windows query error'); }
@@ -469,18 +479,20 @@ router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res
   // iPads — ipad_devices (Kandji-managed)
   try {
     const [rows] = await pool.query(
-      "SELECT device_name, model, os_version, serial, user_name, checked_in, carrier " +
+      "SELECT id, device_id, device_name, model, os_version, serial, user_name, checked_in, carrier " +
       "  FROM it_inventory.ipad_devices " +
       " WHERE REPLACE(LOWER(TRIM(user_name)),'@auction.com','')=? " +
       " ORDER BY checked_in DESC",
       [username]
     );
     rows.forEach(function (r) {
-      devices.push({
+      const device = {
         deviceName: r.device_name, model: r.model, os: 'iPadOS', osVersion: r.os_version, serial: r.serial,
         user: r.user_name, compliance: null, lastCheckin: r.checked_in, carrier: r.carrier,
         source: 'Kandji', type: 'iPad',
-      });
+      };
+      sourceRecords.push(deviceModel.sourceRecord('kandji-ipad', r.id, r.device_id, device));
+      devices.push(device);
     });
     sources.kandjiIpad = srcOk('Kandji (iPad)', rows.length);
   } catch (e) { sources.kandjiIpad = srcUnknown('Kandji (iPad)', e, 'ipad device query error'); }
@@ -488,35 +500,49 @@ router.get('/devices', rbac.requirePage('identity-diag','read'), async (req, res
   // AWS Workspaces — keyed on username
   try {
     const [rows] = await pool.query(
-      "SELECT username, user_volume FROM it_inventory.aws_workspaces WHERE LOWER(TRIM(username))=?",
+      "SELECT id, workspace_id, username, user_volume FROM it_inventory.aws_workspaces WHERE LOWER(TRIM(username))=?",
       [username]
     );
     rows.forEach(function (r) {
-      devices.push({
+      const device = {
         deviceName: r.username, model: 'AWS Workspace', os: 'AWS', osVersion: null, serial: null,
         user: r.username, compliance: null, lastCheckin: null,
         detail: r.user_volume ? ('Vol ' + r.user_volume) : '', source: 'AWS', type: 'AWS Workspace',
-      });
+      };
+      sourceRecords.push(deviceModel.sourceRecord('aws', r.id, r.workspace_id, device));
+      devices.push(device);
     });
     sources.awsWorkspaces = srcOk('AWS Workspaces', rows.length);
   } catch (e) { sources.awsWorkspaces = srcUnknown('AWS Workspaces', e, 'aws workspace query error'); }
 
+  const groupingWarnings = await deviceModel.measureSerialMultiplicity(pool, sourceRecords);
+  const deviceGroups = deviceModel.buildDeviceGroups(sourceRecords);
   const srcRoll = srcSummary(sources);
   const payload = {
     devices: devices,
     count: devices.length,
+    deviceGroups,
+    deviceGroupCount: deviceGroups.length,
+    sourceRecordCount: sourceRecords.length,
+    deviceSources: sources,
+    groupingWarnings,
     resolvedUser: resolved ? { username: resolved.username, name: resolved.first_last } : null,
   };
-  // Fail-quiet: when every source was measured the response is byte-identical
-  // to today's. Only a source we could NOT measure attaches the ladder, so the
-  // tile can render AMBER "<label> unavailable" instead of a confident zero.
+  // Preserve the legacy conditional availability ladder. New deviceSources and
+  // deviceGroups are additive; legacy devices/count keep their prior meaning.
   // No boolean is emitted: the generic renderer paints boolean true GREEN.
   if (srcRoll.partial) {
     payload.sources = sources;
     payload.unavailable = srcRoll.unavailable;
   }
   return res.json(payload);
-});
+}
+router.get('/devices', rbac.requirePage('identity-diag','read'), deviceDiscovery);
+require('./identity-device-detail').register(router,{rbac,discover:deviceDiscovery,
+  zccList:q=>require('./zscaler-diag-routes').identityDeviceList(q),
+  zdx:require('./zscaler-capabilities').zdx});
+require('./identity-device-network').register(router,{rbac,discover:deviceDiscovery});
+require('./identity-device-network-live').register(router,{rbac,discover:deviceDiscovery});
 
 // ── Password Expiry (live LDAP query) ──
 // GET /api/identity/password-expiry?days=30

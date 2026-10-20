@@ -420,9 +420,9 @@
               <input value="{{ pageSearch }}" sc-camel-on-change="{{ onPageSearch }}" placeholder="Search…" style="width:100%; box-sizing:border-box; padding:8px 12px 8px 34px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel2, #F7F9FC); color:var(--txt, #1B2733); font-size:13px;">
             </div>
             <sc-for list="{{ pageFilters }}" as="f" hint-placeholder-count="2">
-              <sc-raw-select value="{{ f.value }}" sc-camel-on-change="{{ f.onChange }}" style="padding:8px 10px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); color:var(--txt, #1B2733); font-size:13px; cursor:pointer;">
+              <sc-raw-select aria-label="{{ f.label }}" value="{{ f.value }}" sc-camel-on-change="{{ f.onChange }}" style="padding:8px 10px; border-radius:8px; border:1px solid var(--line, #E4E9F0); background:var(--panel, #fff); color:var(--txt, #1B2733); font-size:13px; cursor:pointer;">
                 <sc-for list="{{ f.options }}" as="opt" hint-placeholder-count="3">
-                  <option value="{{ opt }}">{{ opt }}</option>
+                  <option value="{{ opt }}" label="{{ opt }}"></option>
                 </sc-for>
               </sc-raw-select>
             </sc-for>
@@ -2087,7 +2087,7 @@ class Component extends DCLogic {
           };
           const opts = ['All ' + (PLURALS[fk.label] || fk.label + 's'), ...Array.from(new Set(pg.rows.map(r => facetValue(r[fk.key])))).sort()];
           const cur = fs[fk.key] && fs[fk.key] !== 'All' ? fs[fk.key] : opts[0];
-          return { value: cur, options: opts, onChange: e => this.setFilter(route, fk.key, e.target.value.startsWith('All ') ? 'All' : e.target.value) };
+          return { label: fk.label, value: cur, options: opts, onChange: e => this.setFilter(route, fk.key, e.target.value.startsWith('All ') ? 'All' : e.target.value) };
         }),
         pageCols: pg.columns.map(c => ({ hLabel: c.label + (sort && sort.key === c.key ? (sort.dir === 1 ? ' ▼' : ' ▲') : ''), onSort: () => this.sortBy(route, c.key) })),
         pageRows: slice.map(r => ({ cells: pg.cellFor(r).map(c => ({ text: c.text, style: c.style || {}, onClick: c.onClick || (() => {}) })) })),

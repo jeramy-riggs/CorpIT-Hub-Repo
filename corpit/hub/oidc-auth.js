@@ -67,6 +67,8 @@ const ALLOWED_HOSTS = String(process.env.SSO_ALLOWED_HOSTS || '')
 // CORPIT-AUDIT-MEDIUM  __Host- forbids Domain= and requires Path=/, so no sibling host under
 // nrpi.local can plant or shadow this cookie and fixate a sign-in transaction.
 const TX_COOKIE   = '__Host-it_sso_tx';  // in-flight sign-in state
+const HANDOFF_BIND_COOKIE = '__Host-it_handoff_bind'; // target-browser sign-in state
+const HANDOFF_BIND_PARAM = '_it_handoff_bind';
 const TX_TTL_MS   = 10 * 60 * 1000;    // an unfinished sign-in dies after 10 min
 const HANDOFF_TTL_MS = 60 * 1000;      // cross-host handoff token lifetime
 
@@ -334,7 +336,21 @@ router.get('/login', (req, res) => {
   // will read it back in /callback. Any other vhost hands the whole sign-in over
   // and gets its session on the return trip via the handoff token.
   if (here !== AUTH_ORIGIN) {
-    const back = target.origin + target.path;
+    if (DEV_ORIGIN_RE.test(target.origin) && target.origin !== here) {
+      return res.redirect(302, target.origin + '/api/auth/login?rd=' + encodeURIComponent(target.path));
+    }
+    let back = target.origin + target.path;
+    if (DEV_ORIGIN_RE.test(here) && target.origin === here) {
+      // Bind a DEV handoff to the browser that started it. The auth origin
+      // carries this nonce inside the signed return path but never sees the
+      // HttpOnly target-host cookie, so a stolen handoff URL cannot sign in a
+      // different browser as its subject.
+      const nonce = b64url(crypto.randomBytes(32));
+      const rd = new URL(target.path, here);
+      rd.searchParams.set(HANDOFF_BIND_PARAM, nonce);
+      back = here + rd.pathname + rd.search;
+      res.cookie(HANDOFF_BIND_COOKIE, nonce, { ...TX_COOKIE_OPTS, maxAge: TX_TTL_MS });
+    }
     return res.redirect(302, AUTH_ORIGIN + '/api/auth/login?rd=' + encodeURIComponent(back));
   }
 
@@ -490,6 +506,18 @@ router.get('/accept', (req, res) => {
   const here = selfOrigin(req);
   const p = verifyHandoff(req.query.t, here);
   if (!p) return res.redirect(302, '/login.html?sso=handoff_invalid');
+  let boundPath = p.rd;
+  if (DEV_ORIGIN_RE.test(here)) {
+    let rd;
+    try { rd = new URL(String(p.rd || ''), here); } catch (e) { rd = null; }
+    const nonce = rd && rd.origin === here ? rd.searchParams.get(HANDOFF_BIND_PARAM) : null;
+    if (!nonce || !readCookieAll(req, HANDOFF_BIND_COOKIE).some(raw => safeEqual(raw, nonce))) {
+      return res.redirect(302, '/login.html?sso=handoff_unbound');
+    }
+    res.clearCookie(HANDOFF_BIND_COOKIE, TX_COOKIE_OPTS);
+    rd.searchParams.delete(HANDOFF_BIND_PARAM);
+    boundPath = rd.pathname + rd.search;
+  }
   if (jtiSeen(p.jti)) return res.redirect(302, '/login.html?sso=handoff_replayed');
 
   const token = sessionAuth.mintSessionToken(p.sub, p.name,
@@ -509,38 +537,35 @@ router.get('/accept', (req, res) => {
     (_v && _v.ok) ? (_v.exp - Date.now()) : sessionAuth.SESSION_TTL_MS, req);
   console.log('[oidc-auth] handoff accepted %s on %s', p.sub, here);
   // Redirect to the clean path so the one-time token leaves the address bar.
-  const path = (typeof p.rd === 'string' && p.rd.startsWith('/') && !p.rd.startsWith('//')) ? p.rd : '/';
+  const path = (typeof boundPath === 'string' && boundPath.startsWith('/') && !boundPath.startsWith('//')) ? boundPath : '/';
   return res.redirect(302, '/auth-complete.html?rd=' + encodeURIComponent(path));
+});
+
+// ── GET /api/auth/identity ────────────────────────────────────────────────────
+// The completion page runs on every SSO host, including hosts without an
+// /api/rbac/me proxy. Verify the host's HttpOnly session here and return only
+// display identity; never hand a bearer credential to page JavaScript.
+router.get('/identity', (req, res) => {
+  res.set('Cache-Control', 'no-store, private');
+  res.set('Vary', 'Cookie');
+  for (const token of readCookieAll(req, sessionCookie.NAME)) {
+    const identity = sessionAuth.verifySessionToken(token, { host: req.get('host') });
+    if (identity && identity.ok) {
+      return res.json({ email: identity.email, displayName: identity.name });
+    }
+  }
+  return res.status(401).json({ ok: false, error: 'NO_SESSION' });
 });
 
 // ── GET /api/auth/status ──────────────────────────────────────────────────────
 // Read-only self-check, for verification and for the console's settings page.
 // Reports configuration shape only — never a secret.
 // [CORPIT-HUB-SSO-TOKEN]
-// GET /api/auth/token
-// Hands the caller the session token already sitting in its OWN HttpOnly cookie,
-// so the page can put it in sessionStorage and send it as Authorization: Bearer.
-//
-// This widens nothing: the retired implicit flow put the very same token in
-// sessionStorage, and anyone who can call this already holds the cookie. Pure HMAC
-// verification, no directory call -- same reason gate-routes.js /check is pure:
-// a directory hiccup must never lock a user out.
+// The former token handoff exposed the HttpOnly session as a portable bearer
+// to every same-origin script. Browser callers now use the cookie directly.
 router.get('/token', (req, res) => {
   res.set('Cache-Control', 'no-store, private');
-  // During a Domain-cookie rollout a browser can hold two it_session cookies and
-  // send both, so try every value rather than only the first (as gate-routes does).
-  const raw = req.headers.cookie || '';
-  const re = /(?:^|;\s*)it_session=([^;]*)/g;
-  let m;
-  while ((m = re.exec(raw)) !== null) {
-    let v = m[1];
-    try { v = decodeURIComponent(v); } catch (e) { /* malformed %-escape: use raw */ }
-    const r = sessionAuth.verifySessionToken(v, { host: req.headers.host });   // MP-SIGNIN-SCOPE
-    if (r && r.ok) {
-      return res.json({ ok: true, token: v, email: r.email, name: r.name, exp: r.exp });
-    }
-  }
-  return res.status(401).json({ ok: false, error: 'NO_SESSION' });
+  return res.status(410).json({ ok: false, error: 'TOKEN_HANDOFF_RETIRED' });
 });
 
 router.get('/status', (req, res) => {

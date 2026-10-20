@@ -248,8 +248,12 @@
     .bar-row { grid-template-columns: minmax(80px, 42%) 1fr auto; }
   }
 </style>
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/okta-dashboard-portal.css?v=15368b7312dc">
+<link rel="stylesheet" href="/operations-polish.css?v=28493dbcc646">
+<script src="/operations-polish.js?v=da7e6ad64b46"></script>
 </head>
-<body data-dp="okta-dashboard">
+<body data-op-page="okta-dashboard" data-dp="okta-dashboard">
 <div class="container">
   <header class="page-head">
     <div>
@@ -262,6 +266,7 @@
     </div>
   </header>
 
+<div id="desktop-feed-status"></div>
   <section class="source-strip" id="source-strip" aria-label="Data sources and their age">
     <span class="src"><span class="skeleton" style="width:150px"></span></span>
     <span class="src"><span class="skeleton" style="width:170px"></span></span>
@@ -308,7 +313,7 @@
       </div>
     </div>
 
-    <div class="table-wrap">
+    <div class="op-tools"><select class="op-input" id="user-sort" aria-label="Sort users"><option value="default">Last sign-in: newest first</option><option value="name">Name: A–Z</option><option value="oldest">Last sign-in: oldest first</option></select><button class="op-btn" type="button" id="user-reset">Reset filters</button><button class="op-btn" type="button" id="user-export" disabled>Export loaded CSV</button></div><div class="table-wrap">
       <table id="user-table">
         <colgroup>
           <col style="width:26%"><col style="width:26%"><col style="width:13%">
@@ -321,7 +326,7 @@
         <tbody id="user-rows"><tr><td colspan="5"><div class="state">Loading&hellip;</div></td></tr></tbody>
       </table>
     </div>
-    <div class="table-foot" id="user-foot"></div>
+    <div class="table-foot" id="user-foot"></div><div id="user-pager"></div>
   </section>
 
   <!-- ================= APPLICATIONS ================= -->
@@ -347,7 +352,7 @@
       </div>
     </div>
 
-    <div class="table-wrap">
+    <div class="op-tools"><select class="op-input" id="app-sort" aria-label="Sort apps"><option value="default">Assigned users: highest first</option><option value="name">Name: A–Z</option><option value="groups">Assigned groups: highest first</option></select><button class="op-btn" type="button" id="app-reset">Reset filters</button><button class="op-btn" type="button" id="app-export" disabled>Export loaded CSV</button></div><div class="table-wrap">
       <table id="app-table">
         <colgroup>
           <col style="width:36%"><col style="width:12%"><col style="width:22%">
@@ -360,7 +365,7 @@
         <tbody id="app-rows"><tr><td colspan="5"><div class="state">Loading&hellip;</div></td></tr></tbody>
       </table>
     </div>
-    <div class="table-foot" id="app-foot"></div>
+    <div class="table-foot" id="app-foot"></div><div id="app-pager"></div>
   </section>
 </div>
 
@@ -596,6 +601,9 @@
   // People
   // ---------------------------------------------------------------------
   var userFilter = { status: 'ACTIVE', mfa: '', q: '' };
+  var opData={users:null,apps:null},opRows={users:[],apps:[]};
+  function opSort(kind){var d=opData[kind];if(!d)return;var singular=kind==='users'?'user':'app',k=$('#'+singular+'-sort').value;var rows=d.rows.slice();if(k!=='default')rows.sort(function(a,b){return k==='name'?String(a.label||[a.firstName,a.lastName].filter(Boolean).join(' ')||a.login||a.name||'').localeCompare(String(b.label||[b.firstName,b.lastName].filter(Boolean).join(' ')||b.login||b.name||''),undefined,{numeric:true,sensitivity:'base'}):k==='oldest'?String(a.lastLogin||'').localeCompare(String(b.lastLogin||'')):(b.assignedGroups||0)-(a.assignedGroups||0);});opRows[kind]=rows;(kind==='users'?paintUsers:paintApps)(d,true);}
+  function opExport(kind){var rows=opRows[kind],cols=kind==='users'?['firstName','lastName','email','login','status','activeFactors','otherFactors','lastLogin']:['label','name','status','signOnMode','assignedUsers','assignedGroups'];OpsPolish.csv('okta-'+kind+'-loaded.csv',cols,rows.map(r=>cols.map(k=>r[k])));}
   var userAbort = null;
 
   function mfaCell(r) {
@@ -617,12 +625,15 @@
     return '<span class="tag ' + cls + '">' + esc(s || 'unknown') + '</span>';
   }
 
-  function paintUsers(d) {
+  function paintUsers(d,sorted) {
+    if(!sorted){opData.users=d;opSort('users');return;}
+    var displayRows=OpsPolish.page('users',opRows.users,$('#user-pager'),function(){paintUsers(opData.users,true);});
+    $('#user-pager').hidden=false;$('#user-export').disabled=!opRows.users.length;
     var tb = $('#user-rows');
-    if (!d.rows.length) {
+    if (!displayRows.length) {
       tb.innerHTML = stateRow(5, 'No accounts match these filters.');
     } else {
-      tb.innerHTML = d.rows.map(function (r) {
+      tb.innerHTML = displayRows.map(function (r) {
         var name = [r.firstName, r.lastName].filter(Boolean).join(' ') || r.login || r.oktaId;
         var last = dateOnly(r.lastLogin);
         return '<tr>'
@@ -638,7 +649,7 @@
 
     // The count shown is the count matched, never the count rendered. A page
     // that prints its own length as the total is how dropped rows disappear.
-    var foot = 'Showing ' + num(d.returned) + ' of ' + num(d.total) + ' matching account'
+    var foot = 'Loaded ' + num(d.returned) + ' of ' + num(d.total) + ' matching account'
       + (d.total === 1 ? '' : 's') + '.';
     if (d.truncated) {
       foot += ' <span class="warn">' + num(d.total - d.returned)
@@ -659,6 +670,7 @@
     if (userFilter.mfa) p.set('mfa', userFilter.mfa);
     if (userFilter.q) p.set('q', userFilter.q);
     p.set('limit', '200');
+    opData.users=null;opRows.users=[];$('#user-export').disabled=true;$('#user-pager').hidden=true;
     $('#user-foot').innerHTML = '';
     $('#user-rows').innerHTML = stateRow(5, 'Loading…');
     return api('/api/okta/users?' + p.toString(), userAbort.signal)
@@ -676,12 +688,15 @@
   var appFilter = { status: 'ACTIVE', q: '' };
   var appAbort = null;
 
-  function paintApps(d) {
+  function paintApps(d,sorted) {
+    if(!sorted){opData.apps=d;opSort('apps');return;}
+    var displayRows=OpsPolish.page('apps',opRows.apps,$('#app-pager'),function(){paintApps(opData.apps,true);});
+    $('#app-pager').hidden=false;$('#app-export').disabled=!opRows.apps.length;
     var tb = $('#app-rows');
-    if (!d.rows.length) {
+    if (!displayRows.length) {
       tb.innerHTML = stateRow(5, 'No applications match these filters.');
     } else {
-      tb.innerHTML = d.rows.map(function (r) {
+      tb.innerHTML = displayRows.map(function (r) {
         var label = r.label || r.name || r.oktaId;
         var sub = (r.name && r.label && r.name !== r.label) ? r.name : null;
         return '<tr>'
@@ -695,7 +710,7 @@
       }).join('');
     }
 
-    var foot = 'Showing ' + num(d.returned) + ' of ' + num(d.total) + ' matching application'
+    var foot = 'Loaded ' + num(d.returned) + ' of ' + num(d.total) + ' matching application'
       + (d.total === 1 ? '' : 's') + '.';
     var f = d.freshness && d.freshness.okta_apps;
     var right;
@@ -718,6 +733,7 @@
     var p = new URLSearchParams();
     if (appFilter.status) p.set('status', appFilter.status);
     if (appFilter.q) p.set('q', appFilter.q);
+    opData.apps=null;opRows.apps=[];$('#app-export').disabled=true;$('#app-pager').hidden=true;
     $('#app-foot').innerHTML = '';
     $('#app-rows').innerHTML = stateRow(5, 'Loading…');
     return api('/api/okta/apps?' + p.toString(), appAbort.signal)
@@ -788,6 +804,12 @@
     appFilter.q = e.target.value.trim(); loadApps();
   }, 280));
 
+  $('#user-sort').onchange=function(){opSort('users');};
+  $('#user-export').onclick=function(){opExport('users');};
+  $('#user-reset').onclick=function(){document.querySelectorAll('#user-status-pills .pill').forEach(b=>b.classList.toggle('active',b.dataset.status==='ACTIVE'));$('#user-search').value='';$('#user-sort').value='default';userFilter={status:'ACTIVE',mfa:'',q:''};document.querySelectorAll('#user-mfa-pills .pill').forEach(b=>b.classList.toggle('active',b.dataset.mfa===''));loadUsers();};
+  $('#app-sort').onchange=function(){opSort('apps');};
+  $('#app-export').onclick=function(){opExport('apps');};
+  $('#app-reset').onclick=function(){document.querySelectorAll('#app-status-pills .pill').forEach(b=>b.classList.toggle('active',b.dataset.status==='ACTIVE'));$('#app-search').value='';$('#app-sort').value='default';appFilter={status:'ACTIVE',q:''};loadApps();};
   $('#btn-refresh').addEventListener('click', function () {
     loadSummary(); loadUsers(); loadApps();
   });
@@ -801,7 +823,7 @@
 })();
 </script>
 <script src="/it-topbar.js" defer></script>
-<script src="/feed-freshness.js" data-page="okta-dashboard" defer></script>
+<script src="/feed-freshness-desktop.js?v=9c6727302547" data-page="okta-dashboard" defer></script>
 <script src="/it-version.js" data-app-key="okta-dashboard" defer></script>
 </body>
 </html>

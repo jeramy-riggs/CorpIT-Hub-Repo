@@ -77,7 +77,7 @@ async function user360(q, authHeader) {
 }
 
 /* ── low-level FortiGate GET ─────────────────────────────────────── */
-function fgtGet(fw, apiPath, query) {
+function fgtGet(fw, apiPath, query, options = {}) {
   return new Promise((resolve, reject) => {
     const cfg = FW[fw];
     if (!cfg || !cfg.host || !cfg.token) {
@@ -104,8 +104,17 @@ function fgtGet(fw, apiPath, query) {
       agent: new https.Agent({ rejectUnauthorized: false }),
       timeout: FGT_TIMEOUT_MS,
     }, res => {
-      let body = '';
-      res.on('data', c => { body += c; });
+      let body = '', bytes = 0;
+      res.on('data', c => {
+        bytes += c.length;
+        if (Number.isSafeInteger(options.maxBytes) && options.maxBytes > 0 && bytes > options.maxBytes) {
+          const error = new Error('FortiGate response exceeded the read limit');
+          reject(error); req.destroy(error);
+          return;
+        }
+        body += c;
+      });
+      res.on('error', reject);
       res.on('end', () => {
         if (res.statusCode === 401 || res.statusCode === 403) {
           const e = new Error(`FortiGate ${fw} rejected the API token (HTTP ${res.statusCode}) — check trusted-host + key`);
@@ -488,3 +497,6 @@ module.exports = function buildNetdiagRouter(deps) {
 
   return router;
 };
+
+// Shared transport for explicit selected-device read-only checks; legacy routes are unchanged.
+module.exports.fgtGet = fgtGet;

@@ -273,6 +273,7 @@ const API_PUBLIC = new Set([
   '/api/auth/callback',
   '/api/auth/accept',
   '/api/auth/status',
+  '/api/auth/identity',            // self-verifying, display-only session lookup for every SSO host
   '/api/auth/token',              // hands back the caller's OWN cookie token; 401 otherwise
   '/api/mpauth/login',            // MP-SIGNIN: My Profile's own sign-in, same reasoning as
   '/api/mpauth/callback',         // /api/auth/login + /callback above (mp-signin.js)
@@ -443,7 +444,8 @@ app.get('/api/health', async (req, res) => {
     await pool.query('SELECT 1');
     res.json({ status: 'ok', timestamp: new Date().toISOString(), version: platformVersion(), schema: schemaReadiness.summary() });
   } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
+    console.error('[health] database probe failed:', e.message);
+    res.status(500).json({ status: 'error', message: 'Service unavailable' });
   }
 });
 
@@ -487,6 +489,21 @@ app.use('/api/identity', identityRoutes);
 
 const zscalerDiagRouter = require('./zscaler-diag-routes');
 app.use('/api/zscaler', zscalerDiagRouter);
+// AI Governance has its own RBAC page and never provisions access.
+// Each mount is guarded: a release that carries this file without its routes (or schema slice)
+// logs and skips that mount instead of stopping the hub.
+try {
+  app.use('/api/zscaler/governance', require('./ai-governance-routes')({pool,rbac:rbacGate}));
+  console.log('[startup] ai-governance routes mounted at /api/zscaler/governance');
+} catch (e) {
+  console.error('[startup] ai-governance routes NOT mounted:', e && e.stack || e);
+}
+try {
+  app.use('/api/zscaler/releases', require('./zcc-releases-routes')({pool,rbac:rbacGate}));
+  console.log('[startup] zcc-releases routes mounted at /api/zscaler/releases');
+} catch (e) {
+  console.error('[startup] zcc-releases routes NOT mounted:', e && e.stack || e);
+}
 const zsnetRouter = require('./zsnet-routes');
 app.use('/api/zsnet', zsnetRouter);
 
@@ -558,6 +575,13 @@ app.use("/api/sdp", sdpRouter);
 app.use("/api/signin-watch", require("./signin-watch-routes"));
 const sdopsRouter = require('./sdops-routes');
 app.use('/api/sdops', sdopsRouter);
+// DARKTRACE-EMAIL 2026-10-14: Darktrace /EMAIL data + settings (darktrace-email-routes.js).
+try {
+  app.use('/api/sentinel/darktrace-email', require('./darktrace-email-routes'));
+  console.log('[startup] darktrace-email routes mounted at /api/sentinel/darktrace-email');
+} catch (e) {
+  console.error('[startup] darktrace-email routes NOT mounted:', e && e.stack || e);
+}
 const sentinelRouter = require('./sentinel-routes');
 app.use('/api/sentinel', sentinelRouter);
 // Okta -> Entra migration workspace. oem-work-routes (discovery, matching, work queue, jobs,
@@ -717,6 +741,17 @@ try {
   console.log('[startup] /api/feeds mounted');
 } catch (e) {
   console.error('[startup] FAILED to mount /api/feeds:', e.message);
+}
+
+// --- Patch status (DEV) ----------------------------------------------------
+// Read-only Intune patch level for /patch-status.html. The router enforces its own
+// gate: super-admins and the tier2 role (SaaS-ITH-HD).
+try {
+  const patchStatusRoutes = require('./patch-status-routes');
+  app.use('/api/patch-status', patchStatusRoutes);
+  console.log('[startup] /api/patch-status mounted');
+} catch (e) {
+  console.error('[startup] FAILED to mount /api/patch-status:', e.message);
 }
 
 // --- Observability -----------------------------------------------------------

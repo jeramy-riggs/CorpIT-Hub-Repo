@@ -315,6 +315,7 @@ async function apiBulkImport(route, records) {
 // STATE
 // ============================================================
 let DATA = {};
+const inventoryLoadState={phase:'loading',sources:{}};
 let currentPage = 'dashboard';
 let sortState = {};
 let searchQuery = '';
@@ -433,6 +434,7 @@ async function init() {
   let failed = 0;
   results.forEach((r, i) => {
     const key = calls[i][0];
+    inventoryLoadState.sources[key]=r.status==='fulfilled'&&Array.isArray(r.value)?'ok':'unavailable';
     if (r.status === 'fulfilled' && Array.isArray(r.value)) {
       DATA[key] = r.value;
       bumpDataVersion();
@@ -451,10 +453,56 @@ async function init() {
     showToast('Connected to database ✓');
   }
 
+  inventoryLoadState.phase='ready';
   bootstrap();
+  if(window.Inventory360)window.Inventory360.renderQueue();
+}
+
+// FIX5-20261017 (DR-02): the HR feed keeps some leavers on Active Employees
+// as well as on Terminated (same Worker ID, termination date on or after the
+// hire date, so not a rehire). They are moved off the Active list, kept in
+// DATA.activeTermOverlap, and listed in a notice on the Employees page.
+// Rows whose dates don't both parse are left where they are.
+function _splitTermOverlap() {
+  const act = DATA.activeEmployees;
+  if (!Array.isArray(act) || act === DATA._overlapSrc) return;
+  const termById = new Map();
+  (DATA.terms || []).forEach(t => { const id = String(t['Worker ID'] || '').trim(); if (id) termById.set(id, t); });
+  const keep = [], moved = [];
+  act.forEach(e => {
+    const t = termById.get(String(e['Worker ID'] || '').trim());
+    const hire = t ? Date.parse(e['Hire Date']) : NaN;
+    const term = t ? Date.parse(t['Termination Date']) : NaN;
+    if (t && !isNaN(hire) && !isNaN(term) && term >= hire) moved.push({ emp: e, term: t });
+    else keep.push(e);
+  });
+  DATA.activeTermOverlap = moved;
+  DATA.activeEmployees = moved.length ? keep : act;
+  DATA._overlapSrc = DATA.activeEmployees;
+  if (moved.length) bumpDataVersion();
+}
+function _renderOverlapNote() {
+  const count = document.getElementById('emp-count');
+  const bar = count && count.parentElement;
+  if (!bar || !bar.parentElement) return;
+  let note = document.getElementById('emp-overlap-note');
+  const moved = DATA.activeTermOverlap || [];
+  if (!moved.length) { if (note) note.remove(); return; }
+  if (!note) {
+    note = document.createElement('div');
+    note.id = 'emp-overlap-note';
+    note.className = 'data-gap-notice';
+    bar.insertAdjacentElement('afterend', note);
+  }
+  const names = moved.map(m => esc(m.emp['First/Last'] || m.emp['Employee Name'] || m.emp['Worker ID'])
+    + ' <span style="color:var(--text3)">(' + esc(m.term['Status'] || 'Terminated') + ' ' + esc(m.term['Termination Date'] || '') + ')</span>').join(' · ');
+  note.innerHTML = '<details><summary>⚠ ' + moved.length + (moved.length === 1 ? ' person is' : ' people are')
+    + ' on both the Active and Terminated HR feeds and are not counted here. They are on Terminated Employees.</summary>'
+    + '<div style="margin-top:6px;line-height:1.7">' + names + '</div></details>';
 }
 
 function bootstrap() {
+  _splitTermOverlap();
   // Helper: only set badge text if both the element and the value exist.
   // Previously each line accessed .length directly; if any DATA array was
   // undefined the page died on first paint with a TypeError.
@@ -549,7 +597,7 @@ function showPage(name) {
   currentPage = name;
   document.getElementById('topbar-title').textContent = {
     dashboard:'Dashboard',employees:'Active Employees',terms:'Terminated Employees',
-    intune:'Mobile Devices',macbooks:'MacBooks (Kandji)',endpoints:'ManageEngine',
+    intune:'Intune devices',macbooks:'MacBooks (Kandji)',endpoints:'ManageEngine',
     liveauction:'Live Auction Devices',tmobile:'T-Mobile Lines',verizon:'Verizon Lines',
     aws:'AWS Workspaces',
     lifecycle:'Device Lifecycle',
@@ -612,7 +660,165 @@ function onSearch(val) {
     searchQuery = val.toLowerCase().trim();
     pages[currentPage] = 1;
     renderTable(currentPage);
+    _kit3XS.update();  // KIT3-20261017 (DR-08)
   }, 150);
+}
+
+// KIT3-20261017 (DR-08): "Search across all data" only filtered the open page.
+// The open page still filters as you type; this panel under the box counts the
+// matches on every page and opens the chosen one with the search applied.
+// Each count uses that page's own base rows and match rule with its filters
+// cleared, which is exactly what the page shows when opened from here.
+const _KIT3_XS_PAGES = [   // rail order
+  ['employees',        'Active Employees', () => DATA.activeEmployees],
+  ['terms',            'Terminated',       () => DATA.terms],
+  ['tablets',          'Tablets',          () => DATA.tablets || []],
+  ['macbooks',         'MacBooks',         () => DATA.macbooks],
+  ['ipads',            'iPads',            () => DATA.ipadDevices],
+  ['endpoints',        'ManageEngine',     () => DATA.endpoints.filter(isWindowsEndpoint)],
+  ['intune',           'Intune',           () => DATA.intuneDevices.filter(d => !d['is_historical'])],
+  ['liveauction',      'Live Auction',     () => DATA.liveAuction],
+  ['tmobile',          'T-Mobile',         () => DATA.tmobile],
+  ['verizon',          'Verizon',          () => DATA.verizon],
+  ['warranty',         'Warranty',         () => _warrantyData,       'values'],
+  ['lifecycle',        'Device Lifecycle', () => buildLifecycleData(), 'values'],
+  ['device-inventory', 'Device Inventory', () => buildDeviceUniverse()],
+  ['aws',              'AWS Workspaces',   () => DATA.awsWorkspaces],
+];
+const _kit3XS = (() => {
+  let pop = null, status = null;
+  const input = () => document.getElementById('global-search');
+  function count(rows, mode) {
+    // Warranty and Lifecycle match on raw values (renderWarranty/renderLifecycle);
+    // every other page goes through filterBySearch.
+    if (mode === 'values') return rows.filter(r => Object.values(r).some(v => v && String(v).toLowerCase().includes(searchQuery))).length;
+    return filterBySearch(rows).length;
+  }
+  function build() {
+    if (pop) return;
+    pop = document.createElement('div');
+    pop.id = 'kit3-xsearch'; pop.hidden = true;
+    pop.setAttribute('role', 'region'); pop.setAttribute('aria-label', 'Matches across all data');
+    document.body.appendChild(pop);
+    status = document.createElement('div');
+    status.className = 'visually-hidden'; status.setAttribute('role', 'status');
+    document.body.appendChild(status);
+    pop.addEventListener('click', e => { const b = e.target.closest('[data-xs-page]'); if (b) go(b.getAttribute('data-xs-page')); });
+    pop.addEventListener('keydown', e => {
+      const items = [...pop.querySelectorAll('[data-xs-page]')], i = items.indexOf(document.activeElement);
+      if (e.key === 'ArrowDown') { e.preventDefault(); (items[i + 1] || items[0])?.focus(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); if (i <= 0) input()?.focus(); else items[i - 1].focus(); }
+      // Focus first: the box's focus handler reopens the panel, so hide after it.
+      else if (e.key === 'Escape') { e.preventDefault(); input()?.focus(); hide(); }
+    });
+    // Close on a click or focus anywhere else. Not on blur: Safari does not focus
+    // a clicked <button>, so a blur rule would close the panel before the click.
+    document.addEventListener('mousedown', e => { if (!pop.hidden && !pop.contains(e.target) && e.target !== input()) hide(); });
+    document.addEventListener('focusin', e => { if (!pop.hidden && !pop.contains(e.target) && e.target !== input()) hide(); });
+    window.addEventListener('resize', place);
+    const inp = input();
+    if (inp) {
+      inp.setAttribute('aria-controls', 'kit3-xsearch'); inp.setAttribute('aria-expanded', 'false');
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown' && !pop.hidden) { e.preventDefault(); pop.querySelector('[data-xs-page]')?.focus(); }
+        else if (e.key === 'Escape' && !pop.hidden) { e.preventDefault(); hide(); }
+      });
+      inp.addEventListener('focus', () => { if (searchQuery.length >= 2) update(); });
+    }
+  }
+  function place() {
+    if (!pop || pop.hidden || !input()) return;
+    const r = input().getBoundingClientRect();
+    pop.style.top = Math.round(r.bottom + 6) + 'px';
+    pop.style.left = Math.round(Math.max(8, Math.min(r.left, innerWidth - pop.offsetWidth - 8))) + 'px';
+  }
+  function hide() {
+    if (!pop || pop.hidden) return;
+    pop.hidden = true; input()?.setAttribute('aria-expanded', 'false');
+  }
+  function update() {
+    const q = searchQuery, inp = input();
+    // Only while the user is in the box: a profile device-jump also calls
+    // onSearch, and should not pop a panel over the page it opened.
+    if (!q || q.length < 2 || !inp || document.activeElement !== inp) { hide(); return; }
+    build();
+    const hits = [], notCounted = [];
+    _KIT3_XS_PAGES.forEach(([page, label, rowsOf, mode]) => {
+      let rows;
+      try { rows = rowsOf(); } catch (e) { notCounted.push(label); setTimeout(() => { throw e; }); return; }
+      // _warrantyData stays empty until the warranty feed has loaded.
+      if (!Array.isArray(rows) || (page === 'warranty' && !rows.length)) { notCounted.push(label); return; }
+      let n;
+      try { n = count(rows, mode); } catch (e) { notCounted.push(label); setTimeout(() => { throw e; }); return; }
+      if (n) hits.push({page, label, n});
+    });
+    const total = hits.reduce((a, h) => a + h.n, 0);
+    const head = total
+      ? `${total.toLocaleString()} match${total === 1 ? '' : 'es'} on ${hits.length} page${hits.length === 1 ? '' : 's'}`
+      : 'No matches on any page';
+    pop.innerHTML =
+      `<div class="xs-h">${head} for “${esc(q)}”</div>` +
+      hits.map(h => `<button type="button" class="xs-row${h.page === currentPage ? ' xs-cur' : ''}" data-xs-page="${h.page}">` +
+        `<span class="xs-l">${esc(h.label)}</span>${h.page === currentPage ? '<span class="xs-tag">this page</span>' : ''}` +
+        `<span class="xs-n">${h.n.toLocaleString()}</span></button>`).join('') +
+      (notCounted.length ? `<div class="xs-f">Not counted yet: ${esc(notCounted.join(', '))}</div>` : '') +
+      (hits.length ? `<div class="xs-f">Opening a page clears its filters and keeps this search.</div>` : '');
+    status.textContent = head + '.';
+    pop.hidden = false; inp.setAttribute('aria-expanded', 'true');
+    place();
+  }
+  function go(page) {
+    const q = input()?.value || '';
+    if (page === currentPage) { input()?.focus(); hide(); return; }
+    hide();
+    const pg = document.getElementById('page-' + page);
+    if (pg) pg.querySelectorAll('select.filter-select').forEach(s => { s.value = ''; });
+    // __itamDrilling stops the page's showPage wrapper clearing the search.
+    window.__itamDrilling = true;
+    try { showPage(page); } finally { window.__itamDrilling = false; }
+    const sb = input(); if (sb) sb.value = q;
+    searchQuery = q.toLowerCase().trim();
+    pages[page] = 1;
+    renderTable(page);
+  }
+  return { update, hide };
+})();
+
+// KIT2-20261017 helpers. _kit2NameKey is the same rule fix5 uses for the
+// Device Inventory join: lowercase, trailing "(...)" dropped, spaces collapsed.
+// HR's own First/Last carries suffixes such as "(SCII)", so both sides of a
+// name comparison must go through it.
+const _kit2NameKey = s => String(s || '').toLowerCase().replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
+const _KIT2_US_STATES = new Set('AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA PR RI SC SD TN TX UT VT VA WA WV WI WY'.split(' '));
+const _kit2IsState = s => _KIT2_US_STATES.has(String(s || '').trim().toUpperCase());
+function _kit2StateBadge(s) {
+  if (!s) return '—';
+  if (_kit2IsState(s)) return badge(s, 'blue');
+  return `<span class="badge badge-gray" title="Not a US state code. The source data has a district code in the State field.">${esc(s)}</span>`;
+}
+// Intune returns ISO timestamps; show them the way the Kandji pages do.
+function _kit2FmtIso(v) {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (isNaN(d)) return String(v);
+  return d.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit'});
+}
+// Intune names Android Enterprise tablets after the enrolment, and copies that
+// name into "Primary user display name", so the User column repeated the
+// device name on all 374 rows. Fall back to the HR name for the UPN.
+function _kit2TabletUser(r) {
+  const dn = String(r['Primary user display name'] || '').trim(), dev = String(r['Device name'] || '').trim();
+  if (dn && dn !== dev) return dn;
+  const upn = String(r['Primary user UPN'] || '').trim();
+  let e = null;
+  try { e = upn && typeof window.itamEmployeeByUserRef === 'function' ? window.itamEmployeeByUserRef(upn) : null; } catch (_) { e = null; }
+  return e ? (e['First/Last'] || upn) : (upn || '—');
+}
+// Verizon types business gateways as SMARTPHONE.
+function _kit2VzType(r) {
+  const t = r['Device Type'] || '';
+  if (t === 'SMARTPHONE' && /gateway|\bNCM\d|router|hotspot/i.test(String(r['Equipment Model'] || ''))) return 'GATEWAY';
+  return t;
 }
 
 function filterBySearch(rows) {
@@ -620,7 +826,17 @@ function filterBySearch(rows) {
   // Was a full Object.values() scan of every row on every keystroke, sort and
   // page click. rowHaystack() builds each row's lowercased haystack once per
   // DATA_VERSION and reuses it for every later search.
-  return rows.filter(r => rowHaystack(r).includes(searchQuery));
+  // KIT2-20261017 (DR-11): phone numbers are stored as bare digits (T-Mobile)
+  // or dotted (Verizon), so "(214) 998-0010" found nothing. A query made only
+  // of digits and phone punctuation also matches each field's digits.
+  let digits = searchQuery.replace(/\D/g, '');
+  if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1);
+  const phoneish = digits.length >= 4 && digits !== searchQuery && /^[\d\s().+\-]+$/.test(searchQuery);
+  return rows.filter(r => {
+    const h = rowHaystack(r);
+    if (h.includes(searchQuery)) return true;
+    return phoneish && h.split(_HAY_SEP).some(v => v.replace(/\D/g, '').includes(digits));
+  });
 }
 
 // ============================================================
@@ -865,10 +1081,10 @@ function cellPhone(v){return '<td class="cell-mono">'+esc(formatPhone(v))+'</td>
 function badge(label, color='gray'){return `<span class="badge badge-${color}">${esc(label)}</span>`;}
 function payClassBadge(p){
   if(!p) return badge('—');
-  if(p.includes('FT')) return badge('FT','blue');
-  if(p.includes('PT')) return badge('PT','purple');
-  if(p.includes('Contingent')) return badge('CW','orange');
-  return badge(p);
+  // KIT2-20261017 (DR-19): the profile drawer reads cell text, which is the
+  // short badge ("FT"); data-full carries the real value for it.
+  const b = p.includes('FT') ? badge('FT','blue') : p.includes('PT') ? badge('PT','purple') : p.includes('Contingent') ? badge('CW','orange') : badge(p);
+  return b.replace('<span ', `<span title="${esc(p)}" data-full="${esc(p)}" `);
 }
 function statusBadge(s){
   if(!s) return badge('—');
@@ -891,8 +1107,9 @@ function _encodeRef(record, idx) {
 function actionsCell(table, idx, record) {
   const ref = _encodeRef(record, idx);
   return `<td class="actions">
-    <button class="btn btn-ghost btn-sm" onclick="editRecord('${table}',${ref})">Edit</button>
-    <button class="btn btn-danger btn-sm" onclick="deleteRecord('${table}',${ref})" style="margin-left:4px">Del</button>
+    ${window.Inventory360?window.Inventory360.sourceAction(table,record):''}
+    <button data-rbac-page="it-inventory" data-rbac-level="admin" class="btn btn-ghost btn-sm" onclick="editRecord('${table}',${ref})">Edit</button>
+    <button data-rbac-page="it-inventory" data-rbac-level="admin" class="btn btn-danger btn-sm" onclick="deleteRecord('${table}',${ref})" style="margin-left:4px">Del</button>
   </td>`;
 }
 // ============================================================
@@ -1083,7 +1300,7 @@ function itamDevicesForEmployee(emp) {
 }
 if (typeof window!=='undefined') window.itamDevicesForEmployee = itamDevicesForEmployee;
 if (typeof window!=='undefined') window.itamEmployeeDevices = function(idx){ try{ var e=DATA.activeEmployees[parseInt(idx,10)]; return e?itamDevicesForEmployee(e):null; }catch(_){ return null; } };
-if (typeof window!=='undefined') window.itamClearSearch = function(){ try{ searchQuery=''; var sb=document.getElementById('global-search'); if(sb) sb.value=''; }catch(_){}; };
+if (typeof window!=='undefined') window.itamClearSearch = function(){ try{ clearTimeout(_searchDebounce); searchQuery=''; var sb=document.getElementById('global-search'); if(sb) sb.value=''; _kit3XS.hide(); }catch(_){}; };  // KIT3-20261017: also closes the all-pages panel
 if (typeof window!=='undefined') window.itamEmployeeByUserRef = function(ref){
   try{
     if(!ref) return null;
@@ -1097,15 +1314,25 @@ if (typeof window!=='undefined') window.itamEmployeeByUserRef = function(ref){
     var emps=(DATA.activeEmployees||[]);
     var uname=xu(raw);
     if(uname){ for(var i=0;i<emps.length;i++){ if((emps[i]['Username']||'').toLowerCase().trim()===uname) return emps[i]; } }
-    var nm=raw.toLowerCase().trim().replace(/\s*\(sc[^)]*\)\s*$/i,'').trim();
-    for(var j=0;j<emps.length;j++){ if((emps[j]['First/Last']||'').toLowerCase().trim()===nm) return emps[j]; }
+    // KIT2-20261017 (DR-16): HR's First/Last also carries "(SCII)"-style
+    // suffixes, so only the device side was being stripped and those rows
+    // opened nothing. Both sides now use the same key; an email falls back to
+    // Business Email.
+    var nk=_kit2NameKey(raw);
+    for(var j=0;j<emps.length;j++){ if(_kit2NameKey(emps[j]['First/Last'])===nk) return emps[j]; }
+    if(raw.indexOf('@')>0){ var em=raw.toLowerCase(); for(var q=0;q<emps.length;q++){ if(String(emps[q]['Business Email']||'').toLowerCase().trim()===em) return emps[q]; } }
     return null;
   }catch(_){ return null; }
 };
 
 function renderEmployees() {
   let rows = [...DATA.activeEmployees];
+  // KIT2-20261017: options from the data ("Temporary PT" had none).
+  _syncFilterOptions('emp-filter-payclass', rows, 'Pay Class', 'All Pay Classes');
   const leader = document.getElementById('emp-filter-leader')?.value;
+  // KIT2-20261017 (DR-10): the "Filtered by Leader" banner followed the drill,
+  // not the filter, so it stayed after the filter was cleared or changed.
+  if (leader) showDrillBanner(`Filtered by Leader: ${leader}`, clearDrill); else hideDrillBanner();
   const payclass = document.getElementById('emp-filter-payclass')?.value;
   const device = document.getElementById('emp-filter-device')?.value;
   // Build the device join from the actual device tables (Intune/Kandji/Endpoints/etc.) instead
@@ -1129,6 +1356,7 @@ function renderEmployees() {
   rows = applySorting(rows,'employees');
   const total = rows.length;
   document.getElementById('emp-count').textContent = `${total.toLocaleString()} employees`;
+  _renderOverlapNote();
   const page = paginate(rows,'employees');
   document.getElementById('emp-tbody').innerHTML = page.map((r,i)=>{
     const globalIdx = DATA.activeEmployees.indexOf(r);
@@ -1178,13 +1406,45 @@ function renderTerms() {
 // ============================================================
 // INTUNE
 // ============================================================
+// FIX5-20261017 (DR-06): the OS and compliance selects were hard-coded, so
+// Windows (277 devices), In grace and Unknown could not be filtered at all.
+// Options are rebuilt from the values actually present; the current choice is
+// kept, and the option value is the raw value the filter compares against.
+const _COMPLIANCE_LABELS = { compliant: 'Compliant', noncompliant: 'Noncompliant', ingraceperiod: 'In grace period', unknown: 'Unknown', grace: 'In grace period' };
+function _syncFilterOptions(id, rows, field, allLabel, labelOf) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const vals = [...new Set(rows.map(r => r[field]).filter(v => v != null && String(v).trim() !== '').map(String))]
+    .sort((a, b) => cmpText(a, b));
+  const sig = vals.join('\u0001');
+  if (sel.dataset.optSig === sig) return;
+  const cur = sel.value;
+  sel.innerHTML = '';
+  sel.appendChild(new Option(allLabel, ''));
+  vals.forEach(v => sel.appendChild(new Option(labelOf ? labelOf(v) : v, v)));
+  sel.value = vals.some(v => v.toLowerCase() === cur.toLowerCase()) ? vals.find(v => v.toLowerCase() === cur.toLowerCase()) : '';
+  sel.dataset.optSig = sig;
+}
+const _complianceLabel = v => _COMPLIANCE_LABELS[String(v).toLowerCase()] || v;
+
+// One status vocabulary for the dashboard distribution and its filtered list.
+function intuneComplianceKey(value) {
+  const s = String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (s === 'compliant') return 'compliant';
+  if (s.includes('grace')) return 'grace';
+  if (s === 'noncompliant') return 'noncompliant';
+  return 'unknown';
+}
+
 function renderIntune() {
   let rows = DATA.intuneDevices.filter(d => !d['is_historical']);
+  _syncFilterOptions('intune-filter-os', rows, 'OS', 'All OS');
+  _syncFilterOptions('intune-filter-compliance', ['compliant','grace','noncompliant','unknown'].map(Compliance => ({Compliance})), 'Compliance', 'All Compliance', _complianceLabel);
   const os   = document.getElementById('intune-filter-os')?.value;
   const comp = document.getElementById('intune-filter-compliance')?.value;
   const live = document.getElementById('intune-filter-live')?.value;
   if (os)   rows = rows.filter(r=>r['OS']===os);
-  if (comp) rows = rows.filter(r=>(r['Compliance']||'').toLowerCase()===comp.toLowerCase());
+  if (comp) rows = rows.filter(r => intuneComplianceKey(r['Compliance']) === intuneComplianceKey(comp));
   if (live === 'confirmed') rows = rows.filter(r => {
     const sKey = (r['Serial number']||'').toLowerCase().trim();
     return !!_intuneGraphMap[sKey];
@@ -1255,7 +1515,9 @@ function renderMacbooks() {
   document.getElementById('macbooks-tbody').innerHTML = page.map((r)=>{
     const globalIdx = DATA.macbooks.indexOf(r);
     const ci = r['Checked In']||'';
-    const ciShort = ci.length>10?ci.substring(0,10):ci;
+    // KIT2-20261017 (DR-13): was substring(0,10), which cut "Sep 29, 2026, 03:26 AM"
+    // to "Sep 29, 20". Drop only the time; the full value is the cell title.
+    const ciShort = ci.replace(/,?\s+\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)?\s*$/i, '');
     return `<tr data-emp-user="${esc(r['User'])}">
       ${cellMono(r['Device Name'])}
       ${cellName(r['User'])}
@@ -1264,7 +1526,7 @@ function renderMacbooks() {
       ${cellMono(r['OS Version'])}
       ${cellMono(r['Serial'])}
       ${cell(r['Blueprint'])}
-      ${cell(ciShort)}
+      <td title="${esc(ci)}">${esc(ciShort||'—')}</td>
       ${abmWarrantyCell(r['Serial'])}
       ${actionsCell('macbooks',globalIdx,r)}
     </tr>`;
@@ -1302,8 +1564,9 @@ function renderIPads() {
       ${cell(r['Checked In'])}
       ${abmWarrantyCell(r['Serial'])}
       <td>${statusBadgeHtml}</td>
+      <td>${window.Inventory360?window.Inventory360.sourceAction('ipads',r):'Device details unavailable'}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text3)">No iPads found</td></tr>';
+  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3)">No iPads found</td></tr>';
   renderAbmCoverageNotice('ipad-abm-notice', DATA.ipadDevices);
   renderPagination('ipad-pagination','ipad-page-info', total, 'ipads');
 }
@@ -1453,7 +1716,9 @@ function renderEndpoints() {
     const k = (r['Service Tag']||r['Computer Name']||'').toLowerCase().trim();
     return _intuneGraphMap[k] || _intuneGraphMap['name:'+r['Computer Name']?.toLowerCase().trim()];
   });
-  if (patchFilter) rows = rows.filter(r => (r['Patch Health'] || '') === patchFilter);
+  // KIT2-20261017 (DR-12): devices with no patch data had no option at all.
+  if (patchFilter === '__none') rows = rows.filter(r => !r['Patch Health']);
+  else if (patchFilter) rows = rows.filter(r => (r['Patch Health'] || '') === patchFilter);
   if (intuneFilter === 'not-enrolled') rows = rows.filter(r => {
     const k = (r['Service Tag']||r['Computer Name']||'').toLowerCase().trim();
     return !_intuneGraphMap[k] && !_intuneGraphMap['name:'+r['Computer Name']?.toLowerCase().trim()];
@@ -1502,8 +1767,9 @@ function renderEndpoints() {
       ${intuneBadge}
       ${patchHealthBadge(r.resource_id)}
       <td class="actions">
-        <button class="btn btn-ghost btn-sm" onclick="editRecord('endpoints',${_encodeRef(r, globalIdx)})">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteRecord('endpoints',${_encodeRef(r, globalIdx)})" style="margin-left:4px">Del</button>
+        ${window.Inventory360?window.Inventory360.sourceAction('endpoints',r):''}
+        <button data-rbac-page="it-inventory" data-rbac-level="admin" class="btn btn-ghost btn-sm" onclick="editRecord('endpoints',${_encodeRef(r, globalIdx)})">Edit</button>
+        <button data-rbac-page="it-inventory" data-rbac-level="admin" class="btn btn-danger btn-sm" onclick="deleteRecord('endpoints',${_encodeRef(r, globalIdx)})" style="margin-left:4px">Del</button>
         ${/* URL/attribute context, not text: resource_id is ManageEngine-supplied, and a
              bare double quote in it closes the href and lets the rest of the value add its
              own attributes to the anchor — no < required, so esc()'s text-context coverage
@@ -1534,7 +1800,7 @@ function renderLiveAuction() {
 
   // Summary chips
   const active = rows.filter(r=>r['Active/Inactive']==='Active').length;
-  const states = new Set(rows.map(r=>r['State']).filter(Boolean)).size;
+  const states = new Set(rows.map(r=>r['State']).filter(_kit2IsState)).size;  // KIT2-20261017 (DR-19)
   document.getElementById('la-summary').innerHTML = `
     <div class="summary-chip"><strong>${total}</strong><span>Total Devices</span></div>
     <div class="summary-chip"><strong>${active}</strong><span>Active</span></div>
@@ -1550,7 +1816,7 @@ function renderLiveAuction() {
       ${cellName(r['First/Last'])}
       ${cell(r['Model']?.replace('Samsung Galaxy Tab S7 FE 5G (SMT738UZKA)','Galaxy Tab S7 FE'))}
       ${cell(r['Device Type'])}
-      <td>${r['State']?badge(r['State'],'blue'):cell('')}</td>
+      <td>${_kit2StateBadge(r['State'])}</td>
       ${cell(r['Regional'])}
       <td>${statusBadge(r['Active/Inactive'])}</td>
       ${cell(r['Verizon']?'Verizon':'T-Mobile')}
@@ -1642,7 +1908,9 @@ function renderVerizon() {
   const type = document.getElementById('vz-filter-type')?.value;
   const vzIntuneFilter = document.getElementById('vz-filter-intune')?.value;
   const vzIntuneMap = buildVerizonIntuneMap();
-  if (type) rows = rows.filter(r=>r['Device Type']===type);
+  // KIT2-20261017 (DR-19): business gateways arrive typed SMARTPHONE.
+  _syncFilterOptions('vz-filter-type', DATA.verizon.map(r => ({t: _kit2VzType(r)})), 't', 'All Device Types');
+  if (type) rows = rows.filter(r=>_kit2VzType(r)===type);
   if (vzIntuneFilter) {
     rows = rows.filter(r => {
       const imei = String(r['IMEI']||'').toLowerCase().trim();
@@ -1671,7 +1939,7 @@ function renderVerizon() {
       ${cell(r['Department'])}
       ${cell(r['Functional Leader'])}
       ${cell(r['Equipment Model'])}
-      ${cell(r['Device Type'])}
+      ${cell(_kit2VzType(r))}
       <td>${statusBadge(statusMap[r['Service Status']]||r['Service Status'])}</td>
       ${vzIntuneBadge(r)}
       ${actionsCell('verizon',globalIdx,r)}
@@ -1709,9 +1977,9 @@ function renderAWS() {
 
 // ============================================================
 // DEVICE INVENTORY (v1.3.4 — device-centric)
-// One row per physical device. Unassigned and terminated-user
-// devices are visible; multiple devices of same type per user
-// stay as separate rows. Source tables are de-duplicated:
+// One row per selected source record. Unassigned and terminated-user
+// devices are visible; source observations of one device can overlap.
+// Known redundant endpoint categories are excluded:
 //   - endpoints excludes WSAMZN-* (owned by AWS) and Macs (owned by Kandji)
 //   - Servers (OS contains 'server') surface as type 'Server'
 // ============================================================
@@ -1794,6 +2062,15 @@ function _diExtractUser(val) {
 
 let _diUniverse = null;
 let _diUniverseVersion = -1;
+function inventorySupportRef(table,record) {
+  const sourceKeys={endpoints:'manageengine',macbooks:'kandji-mac',intune:'intune',ipads:'kandji-ipad',aws:'aws'};
+  return {table,sourceKey:sourceKeys[table]||null,rowId:record._id??record.id??null,
+    nativeId:table==='endpoints'?record.resource_id:table==='aws'?record['WorkSpace ID']:record.device_id??null};
+}
+function inventoryDeviceManufacturer(record) {
+  return record['Manufacturer']||record['manufacturer']||record['device_manufacturer']||record['Device manufacturer']||record['deviceManufacturer']||null;
+}
+
 function buildDeviceUniverse() {
   // ~3,300 records assembled from six source tables and joined against
   // employees + terms. renderDeviceInventory() called this on every keystroke,
@@ -1802,12 +2079,23 @@ function buildDeviceUniverse() {
   if (_diUniverse && _diUniverseVersion === DATA_VERSION) return _diUniverse;
   const recs = [];
 
-  // Name → username fallback for Kandji 'User' fields stored as full name
-  const empByName = {};
+  // Name → username fallback for Kandji 'User' fields stored as full name.
+  // FIX5-20261017 (DR-01): Kandji sends display names such as
+  // "Moises Ponce (SCII)". _diExtractUser() turns that into the lowercased
+  // name, which is truthy, so the old `if (!key ...)` fallback never ran and
+  // every MacBook missed the employee join (all 140 counted as unassigned).
+  // Names are now resolved through Active AND Terminated, with any trailing
+  // "(...)" suffix stripped; the key formats match empMap / termMap below.
+  const _diNameKey = s => String(s || '').toLowerCase().replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+/g, ' ').trim();
+  const empByName = {}, termByName = {};
   (DATA.activeEmployees || []).forEach(e => {
     if (e['First/Last'] && e['Username']) {
-      empByName[e['First/Last'].toLowerCase().trim()] = e['Username'].toLowerCase();
+      empByName[_diNameKey(e['First/Last'])] = e['Username'].toLowerCase().trim();
     }
+  });
+  (DATA.terms || []).forEach(e => {
+    const k = (e['Username'] || e['username'] || _diExtractUser(e['Business Email']) || '').toLowerCase().trim();
+    if (e['First/Last'] && k) termByName[_diNameKey(e['First/Last'])] = k;
   });
 
   // 1. ManageEngine endpoints — Windows laptops/desktops + Servers only
@@ -1824,6 +2112,8 @@ function buildDeviceUniverse() {
       model: inferEndpointModel(r) || '—',
       serial: r['Service Tag'] || r['Computer Name'] || '—',
       source: 'ManageEngine',
+      manufacturer: inventoryDeviceManufacturer(r),
+      support_ref: inventorySupportRef('endpoints',r),
       status: _diEndpointStatus(r),
       user_raw: r['First/Last'] || null,
       user_key: _diExtractUser(r['First/Last']),
@@ -1834,15 +2124,17 @@ function buildDeviceUniverse() {
   (DATA.macbooks || []).forEach(r => {
     const user = (r['User'] || '').trim();
     let key = _diExtractUser(user);
-    if (!key && user && user !== '--') {
-      const nameKey = user.toLowerCase().replace(/\s*\(sc\d*\)\s*$/i, '').trim();
-      key = empByName[nameKey] || null;
+    if (user && user !== '--' && !user.includes('@')) {
+      const nameKey = _diNameKey(user);
+      key = empByName[nameKey] || termByName[nameKey] || key;
     }
     recs.push({
       type: 'MacBook',
       model: r['Model'] || '—',
       serial: r['Serial'] || '—',
       source: 'Kandji',
+      manufacturer: inventoryDeviceManufacturer(r),
+      support_ref: inventorySupportRef('macbooks',r),
       status: _diKandjiStatus(r),
       user_raw: user && user !== '--' ? user : null,
       user_key: key,
@@ -1855,9 +2147,11 @@ function buildDeviceUniverse() {
     if (r['is_historical']) return;
     recs.push({
       type: 'iPhone',
+      manufacturer: inventoryDeviceManufacturer(r),
       model: r['Model'] || '—',
       serial: r['Serial number'] || r['IMEI'] || '—',
       source: 'Intune',
+      support_ref: inventorySupportRef('intune',r),
       status: r['Compliance'] || 'Unknown',
       user_raw: r['Primary user UPN'] || null,
       user_key: _diExtractUser(r['Primary user UPN']),
@@ -1870,9 +2164,29 @@ function buildDeviceUniverse() {
     if (r['is_historical']) return;
     recs.push({
       type: 'Tablet',
+      manufacturer: inventoryDeviceManufacturer(r),
       model: r['Model'] || '—',
       serial: r['Serial number'] || '—',
       source: 'Intune',
+      support_ref: inventorySupportRef('intune',r),
+      status: r['Compliance'] || 'Unknown',
+      user_raw: r['Primary user UPN'] || null,
+      user_key: _diExtractUser(r['Primary user UPN']),
+    });
+  });
+
+  // Current Windows enrollments must also reach the shared HR join and
+  // ownership queue. Keep their source identities separate from ME records;
+  // Windows alone does not establish laptop/desktop chassis type.
+  (DATA.intuneDevices || []).forEach(r => {
+    if (r['is_historical'] || !/^windows/i.test(r['OS'] || '')) return;
+    recs.push({
+      type: 'Windows PC',
+      manufacturer: inventoryDeviceManufacturer(r),
+      model: r['Model'] || '—',
+      serial: r['Serial number'] || r['Device name'] || '—',
+      source: 'Intune',
+      support_ref: inventorySupportRef('intune',r),
       status: r['Compliance'] || 'Unknown',
       user_raw: r['Primary user UPN'] || null,
       user_key: _diExtractUser(r['Primary user UPN']),
@@ -1889,9 +2203,11 @@ function buildDeviceUniverse() {
     if (!isShared) key = _diExtractUser(user) || lower || null;
     recs.push({
       type: 'iPad',
+      manufacturer: inventoryDeviceManufacturer(r),
       model: r['Model'] || '—',
       serial: r['Serial'] || r['Service Tag'] || '—',
       source: 'Kandji iPad',
+      support_ref: inventorySupportRef('ipads',r),
       status: _diKandjiStatus(r),
       user_raw: !isShared && user ? user : null,
       user_key: key,
@@ -1907,6 +2223,7 @@ function buildDeviceUniverse() {
       model: r['Compute'] || '—',
       serial: r['WorkSpace ID'] || '—',
       source: 'AWS',
+      support_ref: inventorySupportRef('aws',r),
       status: r['Status'] || 'Unknown',
       user_raw: key ? user : null,
       user_key: key,
@@ -1984,7 +2301,8 @@ function renderDeviceInventory() {
 
   if (typeF)    rows = rows.filter(r => r.type === typeF);
   if (sourceF)  rows = rows.filter(r => r.source === sourceF);
-  if (assignF === 'unassigned')      rows = rows.filter(r => !r.user_key || r.user_status === null);
+  if (assignF === 'unassigned')      rows = rows.filter(r => !r.user_key);
+  else if (assignF === 'unmatched')  rows = rows.filter(r => r.user_key && r.user_status === null);
   else if (assignF === 'active')     rows = rows.filter(r => r.user_status === 'Active');
   else if (assignF === 'terminated') rows = rows.filter(r => r.user_status === 'Terminated');
   if (managerF) rows = rows.filter(r => r.manager === managerF);
@@ -1993,7 +2311,7 @@ function renderDeviceInventory() {
   rows = applySorting(rows, 'device-inventory');
 
   const total = rows.length;
-  document.getElementById('di-count').textContent = total.toLocaleString() + ' devices';
+  document.getElementById('di-count').textContent = total.toLocaleString() + ' source record' + (total===1?'':'s');
   const page = paginate(rows, 'device-inventory');
   document.getElementById('di-tbody').innerHTML = page.map(r => {
     const userInner = r.user_key
@@ -2009,6 +2327,7 @@ function renderDeviceInventory() {
       <td>${userInner}</td>
       ${cell(r.manager)}
       ${cell(r.leader)}
+      <td>${window.Inventory360?window.Inventory360.action(r):'Device details unavailable'}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text3)">No devices found</td></tr>';
   renderPagination('di-pagination', 'di-page-info', total, 'device-inventory');
@@ -2146,7 +2465,7 @@ function buildDashboard() {
 
   // State chart
   const stateCounts = {};
-  DATA.liveAuction.forEach(d=>{ const s=d['State']; if(s) stateCounts[s]=(stateCounts[s]||0)+1; });
+  DATA.liveAuction.forEach(d=>{ const s=d['State']; if(_kit2IsState(s)) stateCounts[s]=(stateCounts[s]||0)+1; });
   const topStates = Object.entries(stateCounts).sort((a,b)=>b[1]-a[1]).slice(0,7);
   const maxSt = topStates[0]?.[1]||1;
   document.getElementById('state-chart').innerHTML = topStates.map(([st,count])=>`
@@ -3376,6 +3695,9 @@ async function confirmImport() {
 // — renderIntune() still reads it when the user sets it by hand.
 function drillByLeader(leader) {
   showPage('employees');
+  // KIT2-20261017 (DR-10): a pay class or device filter left from earlier
+  // would hide some of the leader's people under a "Filtered by Leader" banner.
+  ['emp-filter-payclass', 'emp-filter-device'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   // Set the leader filter dropdown
   const sel = document.getElementById('emp-filter-leader');
   if (sel) { sel.value = leader; renderEmployees(); }
@@ -3453,7 +3775,7 @@ function buildExecutive() {
   const noncomp   = intune.filter(d=>(d['Compliance']||'').toLowerCase()==='noncompliant').length;
   const compPct   = intune.length ? Math.round(compliant/intune.length*100) : null; // null = not measured, never 0%
   const laDevices = DATA.liveAuction.length;
-  const laStates  = new Set(DATA.liveAuction.map(d=>d['State']).filter(Boolean)).size;
+  const laStates  = new Set(DATA.liveAuction.map(d=>d['State']).filter(_kit2IsState)).size;  // KIT2-20261017 (DR-19)
 
   // KPI cards
   const kpis = [
@@ -3551,7 +3873,7 @@ function buildExecutive() {
   // Auction coverage
   const laActive = DATA.liveAuction.filter(d=>d['Active/Inactive']==='Active').length;
   const stateCounts = {};
-  DATA.liveAuction.forEach(d=>{ const s=d['State']; if(s) stateCounts[s]=(stateCounts[s]||0)+1; });
+  DATA.liveAuction.forEach(d=>{ const s=d['State']; if(_kit2IsState(s)) stateCounts[s]=(stateCounts[s]||0)+1; });
   const topStates = Object.entries(stateCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const maxSt = topStates[0]?.[1]||1;
   document.getElementById('exec-auction').innerHTML = `
@@ -3572,12 +3894,30 @@ function buildExecutive() {
       <div class="bar-count">${c}</div>
     </div>`).join('') + `</div>`;
 
+  // KIT2-20261017 (DR-10): the leader drill-down was only reachable from
+  // #leader-chart, which sits hidden on the Overview. The Executive Summary
+  // now has its own leader card; rows open Active Employees for that leader.
+  const leadEl = document.getElementById('exec-leaders');
+  if (leadEl) {
+    const lc = {};
+    emp.forEach(e => { const l = e['Functional Leader']; if (l) lc[l] = (lc[l] || 0) + 1; });
+    const top = Object.entries(lc).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const mx = top[0]?.[1] || 1;
+    leadEl.innerHTML = top.length ? `<div class="bar-chart">` + top.map(([n, c]) => `<div class="bar-row" data-leader="${esc(n)}" role="button" tabindex="0" aria-label="Show the ${c} employees under ${esc(n)}">
+      <div class="bar-label">${esc(n)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${c / mx * 100}%;background:var(--accent)"></div></div>
+      <div class="bar-count">${c}</div>
+    </div>`).join('') + `</div><div style="font-size:11px;color:var(--text3);margin-top:8px">Top ${top.length} of ${Object.keys(lc).length} leaders by active headcount</div>`
+      : `<div style="color:var(--text3);font-size:12px">No leader data</div>`;
+  }
+
   // Key insights
   const insights = [];
   if (compPct == null) insights.push({icon:'⚪',text:'Compliance rate is <strong>not measured</strong> — Intune returned no managed devices.',color:'var(--text3)'});
   else if (compPct < 80) insights.push({icon:'🔴',text:`<strong>${noncomp} devices</strong> are non-compliant — ${100-compPct}% of the mobile fleet poses a security risk.`,color:'var(--red)'});
   else insights.push({icon:'🟢',text:`Compliance rate is strong at <strong>${compPct}%</strong>. Only ${noncomp} devices need attention.`,color:'var(--green)'});
-  if (lcCrit > 0) insights.push({icon:'⚠️',text:`<strong>${lcCrit} devices</strong> are past 3 years old and need immediate replacement.`,color:'var(--yellow)'});
+  // KIT2-20261017 (DR-20): the rule is 4+ years for Windows, 3+ for the rest.
+  if (lcCrit > 0) insights.push({icon:'⚠️',text:`<strong>${lcCrit} devices</strong> are past their replacement age (4+ years Windows, 3+ years other devices) and need replacing.`,color:'var(--yellow)'});
   insights.push({icon:'💰',text:`Total fleet value estimated at <strong>${fmtK(calcFleetValue())}</strong> based on current hardware catalog.`,color:'var(--accent)'});
   insights.push({icon:'📍',text:`Live Auction fleet covers <strong>${laStates} states</strong> with ${laActive} active devices in the field.`,color:'var(--orange)'});
   if (cw > 0) insights.push({icon:'👤',text:`<strong>${cw} contingent workers</strong> (${Math.round(cw/total*100)}% of workforce) may have different device entitlements.`,color:'var(--purple)'});
@@ -3588,6 +3928,18 @@ function buildExecutive() {
       <span style="font-size:13px;color:var(--text2);line-height:1.5">${i.text}</span>
     </div>`).join('') + `</div>`;
 }
+
+// KIT2-20261017 (DR-10): click and keyboard for the Executive leader card.
+(function initExecLeaders() {
+  function go(e) {
+    const row = e.target.closest && e.target.closest('#exec-leaders [data-leader]');
+    if (!row) return false;
+    if (typeof drillByLeader === 'function') drillByLeader(row.getAttribute('data-leader'));
+    return true;
+  }
+  document.addEventListener('click', go);
+  document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && go(e)) e.preventDefault(); });
+})();
 
 // ── Generic KPI count-up animation ──
 function animateCards(containerId) {
@@ -3702,12 +4054,20 @@ function buildCostReport() {
   });
   const topLeaders = Object.entries(leaderCosts).sort((a,b)=>b[1]-a[1]).slice(0,7);
   const maxLC = topLeaders[0]?.[1]||1;
+  // KIT2-20261017 (DR-20): the leader and pay-class charts count one device of
+  // each type per active employee, so they never add up to the fleet total.
+  // Say so, with the numbers.
+  const _assigned = Object.values(leaderCosts).reduce((a, b) => a + b, 0);
+  const _topSum = topLeaders.reduce((a, [, c]) => a + c, 0);
+  const _gapNote = `${fmtK(Math.max(0, totalVal - _assigned))} of the ${fmtK(totalVal)} fleet value is not tied to an active employee (unassigned, shared or leavers' devices, or a second device of the same type).`;
+  const _noteDiv = t => `<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.45">${t}</div>`;
   document.getElementById('cost-by-leader').innerHTML = `<div class="bar-chart">` +
     topLeaders.map(([l,c])=>`<div class="bar-row">
       <div class="bar-label">${esc(l)}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${c/maxLC*100}%;background:var(--accent)"></div></div>
       <div class="bar-count" style="width:70px;color:var(--text)">${fmtK(c)}</div>
-    </div>`).join('') + `</div>`;
+    </div>`).join('') + `</div>` +
+    _noteDiv(`Top ${topLeaders.length} of ${Object.keys(leaderCosts).length} leaders: ${fmtK(_topSum)} of the ${fmtK(_assigned)} assigned to active employees (one device of each type per person). ${_gapNote}`);
 
   // Replacement cost breakdown
   const replByType = {};
@@ -3733,9 +4093,11 @@ function buildCostReport() {
     `<div style="text-align:center;padding:30px;color:var(--green)">✅ No critical or warning devices found</div>`;
 
   // Cost by pay class
-  const pcCosts = {'Regular FT':0,'Regular PT':0,'Contingent Worker':0};
+  // KIT2-20261017 (DR-20): every pay class in the data ("Temporary PT" was
+  // dropped), and a missing one is Unknown rather than silently FT.
+  const pcCosts = {};
   emp.forEach(e => {
-    const pc = e['Pay Class']||'Regular FT';
+    const pc = e['Pay Class']||'Unknown';
     const k = (e['Username']||'').toLowerCase().trim();
     const d = lcDevMap[k] || {};
     let cost = 0;
@@ -3744,7 +4106,7 @@ function buildCostReport() {
     if (d.iphone)  cost += HW_COSTS['iPhone'].cost;
     if (d.tablet)  cost += HW_COSTS['Tablet'].cost;
     if (d.ipad)    cost += HW_COSTS['iPad'].cost;
-    if (pcCosts[pc]!==undefined) pcCosts[pc]+=cost;
+    pcCosts[pc] = (pcCosts[pc]||0) + cost;
   });
   const pcEntries = Object.entries(pcCosts).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   const maxPC = pcEntries[0]?.[1]||1;
@@ -3754,7 +4116,8 @@ function buildCostReport() {
       <div class="bar-label">${esc(l.replace('Regular ','').replace('Contingent Worker','Contingent'))}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${c/maxPC*100}%;background:${pcColors[l]||'var(--accent)'}"></div></div>
       <div class="bar-count" style="width:70px;color:var(--text)">${fmtK(c)}</div>
-    </div>`).join('') + `</div>`;
+    </div>`).join('') + `</div>` +
+    _noteDiv(`${fmtK(_assigned)} assigned to active employees. ${_gapNote}`);
 }
 
 // ============================================================
@@ -3770,7 +4133,7 @@ function exportExecPDF() {
   const macbooks  = DATA.macbooks.length;
   const iphones   = DATA.intuneDevices.filter(d=>d['device_category']==='iphone'&&!d['is_historical']).length;
   const tablets   = (DATA.tablets||[]).length;
-  const laStates  = new Set(DATA.liveAuction.map(d=>d['State']).filter(Boolean)).size;
+  const laStates  = new Set(DATA.liveAuction.map(d=>d['State']).filter(_kit2IsState)).size;  // KIT2-20261017 (DR-19)
   const lcData    = buildLifecycleData();
   const lcCrit    = lcData.filter(d=>d.risk==='Critical').length;
   const fleetVal  = calcFleetValue();
@@ -4567,12 +4930,16 @@ async function buildWarrantyDashboard() {
 }
 
 function renderWarranty() {
+  // KIT2-20261017 (DR-19): the type options were hard-coded ("Laptop" matched
+  // nothing) and covered 412 of 840 devices.
+  _syncFilterOptions('warranty-filter-type', _warrantyData.map(r => ({t: String(r.device_type || '--')})), 't', 'All Device Types', v => v === '--' ? 'Not reported' : v);
   const statusFilter = document.getElementById('warranty-filter-status')?.value;
   const typeFilter   = document.getElementById('warranty-filter-type')?.value;
 
   let rows = [..._warrantyData];
-  if (statusFilter) rows = rows.filter(r => r.label === statusFilter);
-  if (typeFilter)   rows = rows.filter(r => r.device_type?.toLowerCase().includes(typeFilter.toLowerCase()));
+  if (statusFilter === 'at-risk') rows = rows.filter(r => r.label === 'Expired' || r.label === 'Expiring Soon');
+  else if (statusFilter) rows = rows.filter(r => r.label === statusFilter);
+  if (typeFilter)   rows = rows.filter(r => String(r.device_type || '--') === typeFilter);
   if (searchQuery)  rows = rows.filter(r =>
     Object.values(r).some(v => v && String(v).toLowerCase().includes(searchQuery))
   );
@@ -4796,7 +5163,10 @@ async function loadEndpointsSyncStatus() {
     const s = await res.json();
     if (s.last_synced) window._diFeedAsOf.endpoints = s.last_synced;
     if (el && s.last_synced) {
-      el.textContent  = `Last synced: ${new Date(s.last_synced).toLocaleString()} · ${s.total} devices`;
+      // KIT2-20261017 (DR-12): s.total is every ManageEngine device (Macs,
+      // servers and WorkSpaces too); this page lists Windows PCs only.
+      const _winN = (DATA.endpoints || []).filter(isWindowsEndpoint).length;
+      el.textContent  = `Last synced: ${new Date(s.last_synced).toLocaleString()} · ${s.total} devices in ManageEngine` + (_winN ? ` · ${_winN.toLocaleString()} Windows PCs listed here` : '');
       if (sub) sub.textContent = ' · Click "Sync from ME" to refresh now (~5 min)' + _diFeedAgeNote('endpoints');
     }
   } catch(e) {
@@ -4905,6 +5275,7 @@ function buildTabletIntuneMap() {
 
 function renderTablets() {
   let rows = [...(DATA.tablets||[])];
+  _syncFilterOptions('tablet-filter-compliance', rows, 'Compliance', 'All Compliance', _complianceLabel);
   const comp = document.getElementById('tablet-filter-compliance')?.value;
   const tabletIntuneFilter = document.getElementById('tablet-filter-intune')?.value;
   const tabletIntuneMap = buildTabletIntuneMap();
@@ -4930,13 +5301,13 @@ function renderTablets() {
   }
   document.getElementById('tablets-tbody').innerHTML = page.map(r =>
     '<tr data-emp-user="'+esc(r['Primary user UPN'])+'">' +
-    cellName(r['Device name']) +
-    cell(r['Primary user display name']) +
+    cellMono(r['Device name']) +
+    cellName(_kit2TabletUser(r)) +  // KIT2-20261017 (DR-19)
     cell(r['Model']) +
     cellMono(r['OS version']) +
     cellMono(r['Serial number']) +
     cellMono(r['IMEI']||'—') +
-    cell(r['Last check-in']) +
+    '<td title="'+esc(r['Last check-in']||'')+'">'+esc(_kit2FmtIso(r['Last check-in']))+'</td>' +
     '<td>' + carrierBadge(r['Carrier']) + '</td>' +
     tabletIntuneBadge(r) +
     '</tr>'

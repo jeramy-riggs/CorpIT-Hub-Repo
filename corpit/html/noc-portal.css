@@ -1,0 +1,193 @@
+/* IT Command NOC pages (network-health, device-trace, network-switches): AI Governance portal skin. Presentation only;
+   loads after it-unifi.css, it-command.css, it-noc.css and the inline styles.
+   Shares the governance banner and Nunito face with SharePoint, Zscaler, Identity, AD Management and the IT Asset Console.
+   Every colour on these pages comes from the --o-* palette on body (it-command.css) and nothing reads it back from
+   script, so the palette is re-pointed on body. The page title lives in the sticky top bar (built by it-noc.js), so the
+   top bar is the banner; the sidebar is chrome and stays dark in both themes. Status hues (--o-sig/--o-slow/--o-fault)
+   and the --chip-* pairs are data colours with verified contrast and are left as the shell defines them. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+
+/* ── Tokens. Light is the base, dark follows it-command.css's own rule (system dark unless the page says light). ── */
+body.u.cmd.noc {
+  --o-bg: #eff1f3; --o-bg2: #f6f8fa; --o-panel: #fff; --o-panel2: #f6f8fa;
+  --o-line: #dbe1e7; --o-hair: #e9edf1;
+  --o-ink: #17212e; --o-dim: #5d6b7e; --o-faint: #5f6d80; --o-off: #74828f;
+  --o-mint: #147299; --o-mint-bright: #0f5f80; --o-mint-wash: #1472991a; --o-btn-ink: #fff;
+  --o-live: #147299; --o-focus: #147299;
+  --o-core: #fff; --o-corei: #17212e;
+  --o-shadow: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --o-glow: 0 6px 18px #1472992e;
+  --np-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --np-ease: cubic-bezier(.23, 1, .32, 1);
+  --np-t: 160ms cubic-bezier(.23, 1, .32, 1);
+  --n-sans: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --u-font: var(--n-sans);
+  --n-top: 70px; --n-r: 13px;
+  font-family: var(--n-sans);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body.u.cmd.noc {
+    --o-bg: #071520; --o-bg2: #0d1d2a; --o-panel: #142533; --o-panel2: #182c3c;
+    --o-line: #2a3d4d; --o-hair: #1f3445;
+    --o-ink: #ebf1f6; --o-dim: #a4b5c5; --o-faint: #91a3b5; --o-off: #7f91a3;
+    --o-mint: #7dc9e7; --o-mint-bright: #a9dcf0; --o-mint-wash: #7dc9e724; --o-btn-ink: #062030;
+    --o-live: #7dc9e7; --o-focus: #a9dcf0;
+    --o-core: #142533; --o-corei: #ebf1f6;
+    --o-shadow: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+    --o-glow: 0 0 20px #7dc9e733;
+    --np-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  }
+}
+:root[data-theme="dark"] body.u.cmd.noc {
+  --o-bg: #071520; --o-bg2: #0d1d2a; --o-panel: #142533; --o-panel2: #182c3c;
+  --o-line: #2a3d4d; --o-hair: #1f3445;
+  --o-ink: #ebf1f6; --o-dim: #a4b5c5; --o-faint: #91a3b5; --o-off: #7f91a3;
+  --o-mint: #7dc9e7; --o-mint-bright: #a9dcf0; --o-mint-wash: #7dc9e724; --o-btn-ink: #062030;
+  --o-live: #7dc9e7; --o-focus: #a9dcf0;
+  --o-core: #142533; --o-corei: #ebf1f6;
+  --o-shadow: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --o-glow: 0 0 20px #7dc9e733;
+  --np-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+}
+html:has(> body.u.cmd.noc) { background: var(--o-bg, #071520); }
+body.u.cmd.noc ::selection { background: #7dc9e740; color: inherit; }
+
+/* ── Chrome: the sidebar and the banner bar are dark in both themes. Palette re-pointed so nested controls stay legible. ── */
+body.u.cmd.noc :is(.nside, .ntop) {
+  --o-panel: #1a212d; --o-panel2: #202936; --o-line: #3c4556; --o-hair: #29313d;
+  --o-ink: #e6edf7; --o-dim: #c1cad6; --o-faint: #9aa6b5;
+  --o-mint: #7dc9e7; --o-mint-bright: #a9dcf0; --o-mint-wash: #7dc9e724; --o-btn-ink: #062030; --o-focus: #a9dcf0;
+  --chip-crit-bg: #392b3b; --chip-crit-ink: #ffa3ac;
+  --chip-warn-bg: #373631; --chip-warn-ink: #f5c877;
+  --chip-ok-bg: #16373a; --chip-ok-ink: #63dda4;
+  --chip-info-bg: #1f3551; --chip-info-ink: #9ccbff;
+  color: var(--o-ink);
+}
+body.u.cmd.noc .nside { background: #131823; border-right-color: #29313d; }
+body.u.cmd.noc .nbrand { border-bottom-color: #29313d; }
+body.u.cmd.noc .nbrand .mk {
+  border-radius: 8px; color: #0b1a05;
+  background: linear-gradient(140deg, #3d7924, #78be20); box-shadow: inset 0 1px 0 #ffffff33;
+}
+body.u.cmd.noc .nbrand b { font-weight: 850; letter-spacing: .06em; text-transform: uppercase; color: #fff; }
+body.u.cmd.noc .nbrand span span { color: #8f9bab; }
+body.u.cmd.noc .ngroup { font-family: var(--n-sans); font-size: 10.5px; font-weight: 800; letter-spacing: .06em; color: #8f9bab; }
+body.u.cmd.noc .nitem {
+  font-size: 13px; font-weight: 700; color: #b8c2cf;
+  transition: color var(--np-t), background-color var(--np-t), box-shadow var(--np-t), transform var(--np-t);
+}
+body.u.cmd.noc .nitem[aria-current="page"] { color: #fff; background: #78be201c; box-shadow: inset 3px 0 0 #78be20; font-weight: 800; }
+body.u.cmd.noc .nitem .n { background: #202936; color: #c1cad6; }
+body.u.cmd.noc .nfoot { border-top-color: #29313d; color: #9aa6b5; }
+
+/* The banner bar: governance banner art behind the title, search and actions; green rule and blue glow on the edge. */
+body.u.cmd.noc .ntop {
+  border-bottom: 3px solid #78be20;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover #0b1520;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6, 0 1px 0 #0000004d;
+  padding: 0 18px 0 22px;
+}
+body.u.cmd.noc .ncrumb { flex-direction: column; align-items: flex-start; gap: 1px; }
+body.u.cmd.noc .ncrumb h1 { font-size: 22px; font-weight: 850; letter-spacing: -.01em; color: #fff; line-height: 1.15; }
+body.u.cmd.noc .ncrumb .sub { font-family: var(--n-sans); font-size: 12px; font-weight: 700; color: #d5dee7; }
+body.u.cmd.noc .ntop .nsearch input {
+  height: 34px; border-radius: 9px; background: #0b1520c7; border-color: #3c4556; color: #fff; font-weight: 600;
+  transition: border-color var(--np-t), box-shadow var(--np-t), background-color var(--np-t);
+}
+body.u.cmd.noc .ntop .nsearch input:focus { background: #0b1520; border-color: #7dc9e7; box-shadow: 0 0 0 3px #7dc9e72e; }
+body.u.cmd.noc .ntop .nsearch kbd { background: #1a212d; border-color: #3c4556; color: #9aa6b5; }
+body.u.cmd.noc .ntop :is(.nbtn, .nburger) { background: #0b1520c7; border-color: #3c4556; color: #d5dee7; }
+body.u.cmd.noc .ntop .nbtn .badge { border-color: #131823; }
+body.u.cmd.noc .ntop .ittb .ittb-ctl { background: #0b1520c7; color: #d5dee7; border-color: #3c4556; }
+body.u.cmd.noc .ntop .ittb .ittb-av { background: #263241; color: #fff; border-color: #3c4556; }
+
+/* Where it-topbar leaves the hub dock pinned to the window (device-trace) instead of inside the bar, it covered the
+   search box. Keep its corner of the bar clear, centre it on the banner and give it the dark banner controls. */
+body.u.cmd.noc .ntop:not(:has(.ittb)) { padding-right: 214px; }
+body.u.cmd.noc > .ittb { top: 19px; }
+body.u.cmd.noc > .ittb .ittb-ctl { background: #0b1520c7; color: #d5dee7; border-color: #3c4556; }
+body.u.cmd.noc > .ittb .ittb-av { background: #263241; color: #fff; border-color: #3c4556; }
+
+/* Vitals strip: the raised surface on the banner edge. Solid so the banner never shows through. */
+body.u.cmd.noc .nvit { background: var(--o-panel); border-bottom-color: var(--o-line); box-shadow: var(--o-shadow); }
+body.u.cmd.noc .nv { border-right-color: var(--o-hair); }
+body.u.cmd.noc .nvit:empty { display: none; }
+body.u.cmd.noc .nv .k { font-family: var(--n-sans); font-size: 10.5px; font-weight: 800; letter-spacing: .06em; }
+
+/* ── Content surfaces: rounder cards with the governance lift. ── */
+body.u.cmd.noc .nbody { padding: 14px 18px 28px; }
+body.u.cmd.noc .ngrid { gap: 12px; }
+body.u.cmd.noc :is(.ncard, .nkpi, .u-card, .u-stat, .u-note) { border-radius: var(--n-r); box-shadow: var(--o-shadow); }
+body.u.cmd.noc .nch { min-height: 42px; }
+body.u.cmd.noc .nch h2 { font-size: 14px; font-weight: 800; letter-spacing: -.005em; }
+body.u.cmd.noc .u-card > header :is(h2, h3) { font-weight: 800; }
+body.u.cmd.noc .nkpi { padding: 12px 14px 13px; }
+/* A KPI that is a <button> shrank to its text and left a gap in its grid column; fill the column like the others. */
+body.u.cmd.noc button.nkpi { width: 100%; color: var(--o-ink); }
+body.u.cmd.noc .nkpi::before { width: 3px; border-radius: 0 3px 3px 0; }
+body.u.cmd.noc :is(.nkpi .k, table.nt th, .ngroup) { font-family: var(--n-sans); }
+body.u.cmd.noc .nkpi .k { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; }
+body.u.cmd.noc .nkpi .v { font-weight: 850; letter-spacing: -.02em; }
+body.u.cmd.noc .nkpi .s { font-weight: 600; }
+body.u.cmd.noc table.nt th { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; }
+body.u.cmd.noc table.nt .t, body.u.cmd.noc .nrow .bd .t { font-weight: 700; }
+body.u.cmd.noc :is(.nbtn, .nseg button, .u-btn, .claim, .owner, .qex) { font-weight: 700; }
+
+/* Primary actions are the governance green in both themes. */
+body.u.cmd.noc :is(.nbtn.pri, .u-btn.pri) { background: #3d7924; border-color: #3d7924; color: #fff; }
+
+/* Active filter segment reads as selected without relying on the shadow alone. */
+body.u.cmd.noc .nseg button[aria-pressed="true"] { background: var(--o-mint-wash); color: var(--o-mint); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--o-mint) 35%, transparent); }
+
+/* ── Motion: exact properties, strong ease-out; the mobile sidebar uses the drawer curve. ── */
+body.u.cmd.noc :is(.nbtn, .nburger, .nseg button, .u-btn, .claim, .owner, .qex) {
+  transition: color var(--np-t), background-color var(--np-t), border-color var(--np-t), box-shadow var(--np-t), transform var(--np-t);
+}
+body.u.cmd.noc :is(.nrow, button.nkpi, button.u-stat, .u-stat.click) {
+  transition: background-color var(--np-t), border-color var(--np-t), box-shadow var(--np-t), transform var(--np-t);
+}
+body.u.cmd.noc :is(.nbtn, .nburger, .nseg button, .u-btn, .claim, .owner, .qex, .nitem):active { transform: scale(.97); }
+body.u.cmd.noc :is(.nrow, button.nkpi, button.u-stat, .u-stat.click):active { transform: scale(.985); box-shadow: none; }
+@media (hover: hover) and (pointer: fine) {
+  body.u.cmd.noc .nitem:not([aria-current="page"]):hover { background: #202936; color: #fff; }
+  body.u.cmd.noc .ntop :is(.nbtn, .nburger):hover,
+  body.u.cmd.noc .ntop .ittb .ittb-ctl:hover,
+  body.u.cmd.noc > .ittb .ittb-ctl:hover { background: #1a212d; color: #fff; border-color: #7dc9e7; }
+  body.u.cmd.noc :is(.nbtn.pri, .u-btn.pri):hover { background: #31631c; border-color: #31631c; color: #fff; }
+  body.u.cmd.noc :is(button.nkpi, button.u-stat, .u-stat.click):hover { border-color: var(--o-mint); box-shadow: var(--np-elev-2); transform: translateY(-1px); }
+}
+@media (max-width: 1180px) {
+  body.u.cmd.noc .nside { transition: transform 260ms cubic-bezier(.32, .72, 0, 1); box-shadow: 0 22px 44px -18px #000000bf; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.u.cmd.noc :is(.nbtn, .nburger, .nseg button, .u-btn, .claim, .owner, .qex, .nitem, .nrow, button.nkpi, button.u-stat, .u-stat.click):is(:active, :hover) { transform: none; }
+}
+
+/* ── Phones: a shorter banner bar and tighter gutters. ── */
+/* The bar holds menu, title, search and actions, and the hub dock is pinned (position: fixed) over its top-right
+   corner at phone width; together they overlapped the title. The bar wraps instead: menu and title on the first row,
+   with room kept clear for the dock, then search and actions on the second. Bar and vitals strip scroll with the page
+   so the pinned dock never sits over the vitals. */
+@media (max-width: 640px) {
+  body.u.cmd.noc { --n-top: 60px; }
+  body.u.cmd.noc > .ittb { top: 10px; }
+  body.u.cmd.noc .ntop, body.u.cmd.noc .ntop:not(:has(.ittb)) { position: relative; height: auto; flex-wrap: wrap; row-gap: 10px; column-gap: 8px; padding: 10px 12px 12px; }
+  body.u.cmd.noc .ncrumb { flex: 1 0 calc(100% - 52px); min-width: 0; padding-right: 140px; }
+  body.u.cmd.noc .ncrumb h1 { font-size: 20px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  body.u.cmd.noc .ncrumb .sub { display: block; max-width: 100%; }
+  body.u.cmd.noc .ntop .nsearch { margin-left: 0; }
+  body.u.cmd.noc .ntop .act { margin-left: auto; }
+  body.u.cmd.noc .nvit { position: relative; top: auto; }
+  body.u.cmd.noc .nbody { padding: 12px 12px 24px; }
+}
+@media print {
+  body.u.cmd.noc .ntop { background: none; box-shadow: none; border-bottom: 1px solid #ccc; }
+  body.u.cmd.noc .ncrumb h1 { color: #000; }
+}

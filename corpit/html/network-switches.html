@@ -1,299 +1,46 @@
 <!DOCTYPE html>
-<html lang="en" data-version="3.0.0">
-<head>
-<script src="/it-theme.js"></script>
-<script src="/it-theme-toggle.js"></script>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Switch Fabric — IT Command</title>
-<link href="/fonts/fonts.css" rel="stylesheet">
-<link href="/it-unifi.css" rel="stylesheet">
-<link href="/it-command.css" rel="stylesheet">
-<link href="/it-noc.css" rel="stylesheet">
-<style>
-/* the faceplate is the hero of this page — give it room and a quiet frame */
-.panelwrap{padding:var(--n-pad)}
-.panelmeta{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:11px;font-size:12px;color:var(--o-dim)}
-.panelmeta b{color:var(--o-ink);font-variant-numeric:tabular-nums}
-.pnote{margin-top:8px;font-size:11.5px;color:var(--o-faint);max-width:80ch}
-.swid{display:flex;align-items:center;gap:10px;min-width:0}
-.swid .nm{font-size:14px;font-weight:660;letter-spacing:-.015em}
-.swid .ip{font-family:var(--n-mono);font-size:11.5px;color:var(--o-faint)}
-.dl{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:12.5px}
-.dl dt{font-family:var(--n-mono);font-size:9.5px;font-weight:600;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--o-faint);padding-top:2px;white-space:nowrap}
-.dl dd{margin:0;font-weight:540}
-.dl dd .nmeter{margin-top:5px}
-</style>
+<html lang="en" data-version="4.0.0"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Network Operations — IT Command</title>
+<script src="/it-theme.js"></script><script src="/it-theme-toggle.js"></script>
+<link href="/fonts/fonts.css" rel="stylesheet"><link href="/it-unifi.css" rel="stylesheet"><link href="/it-command.css" rel="stylesheet"><link href="/it-noc.css" rel="stylesheet">
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/noc-portal.css?v=95b8761fead1"><link rel="stylesheet" href="/operations-polish.css?v=28493dbcc646">
+<link rel="stylesheet" href="/network-ops-views.css?v=575e6a122195"><link rel="stylesheet" href="/network-ops.css?v=35900e7f448d">
+<script src="/operations-polish.js?v=da7e6ad64b46"></script><link rel="stylesheet" href="/workspace-whats-new.css?v=20261019-support-guides1">
+<link rel="stylesheet" href="/network-operations-welcome.css?v=557ba08ff478">
 </head>
-<body class="u cmd noc" data-page="fabric">
-<div id="nocContent">
-  <div class="ngrid" id="kpis"></div>
-
-  <div class="ngrid" style="margin-top:10px">
-    <section class="ncard c12" id="panelCard">
-      <div class="nch">
-        <h2 id="panelTitle">Front panel</h2>
-        <div class="tools" id="panelTools"></div>
-      </div>
-      <div class="panelwrap" id="panel">
-        <div class="nskel" style="height:120px;border-radius:12px"></div>
-      </div>
-    </section>
+<body class="u cmd noc" data-op-page="network-switches">
+<div id="nocContent"><noscript>Enable JavaScript to use Network Operations. Existing network tool links remain the entry points.</noscript></div>
+<script src="/rbac-client.js"></script><script src="/it-observe.js" data-app-key="network-switches"></script>
+<script src="/network-ops-shell.js?v=fdd715791163"></script><script src="/it-panel.js"></script><script src="/network-ops-drill.js?v=dee974ce64e8"></script><script src="/network-ops-assets.js?v=aa5e83031dff"></script><button type="button" class="nbtn cwn-trigger" id="workspace-whats-new-link" aria-haspopup="dialog" aria-controls="workspace-whats-new" data-rbac-page="network-diag" data-rbac-level="read" data-rbac-action="hide" hidden>How to use</button>
+<!-- Shared screenshot-led welcome; its animation never changes the workspace data. -->
+<script type="application/json" id="workspace-whats-new-content">{"title": "How to use Network Operations", "description": "Learn to scope network evidence, work faults, inspect ports and hand off a useful investigation.", "rbacPage": "network-diag", "triggerBefore": ".ntop .nsearch", "steps": [{"title": "1. Choose scope and check freshness", "label": "Choose scope and check freshness", "description": "Start with the question, the site and the age of the evidence.", "actions": ["Use Overview for priorities, Switches for a faceplate, or Investigate for a device or person.", "Set Site and History. Check the scan age in the header before treating a result as current.", "Refresh the current view when needed. Read any unavailable or refresh-failed message before drawing conclusions."], "meaning": "A saved scan is evidence from that time. A failed lookup or old scan does not establish a current outage.", "image": "/assets/workspace-tours/net-train-scope.webp?v=20261018-training1", "focus": [[0.0, 25.0, 100.0, 49.783]], "alt": "Real DEV Network Operations scope, freshness, view tabs and handoff controls; counts are a saved snapshot."}, {"title": "2. Know what Site actually filters", "label": "Know what Site actually filters", "description": "Scope stays visible as you move between views, but some sources remain fleet-wide.", "actions": ["Site narrows switch inventory, switch totals and the Overview fault queue.", "Read the fleet labels: wireless, firewalls and the error trend stay fleet-wide even when a site is selected.", "Investigate can resolve devices across sites. Wi-Fi history is limited to seven days, even when History is longer."], "meaning": "Compare like scopes and time windows. A fleet total should not be read as the selected site’s total.", "image": "/assets/workspace-tours/net-train-scope.webp?v=20261018-training1", "focus": [[0.0, 25.0, 100.0, 49.783]], "alt": "Real DEV Network Operations scope, freshness, view tabs and handoff controls; counts are a saved snapshot."}, {"title": "3. Work the fault queue", "label": "Work the fault queue", "description": "Use severity to prioritize, then open the evidence before deciding what to do.", "actions": ["Choose Critical, Warnings or Info; search the fault queue and sort its columns to narrow the review.", "Open the fault title or row for port history and related evidence. Read the fault explanation and the port context.", "Use Reset filters to recover the full queue. CSV exports the current filtered view for review."], "meaning": "Severity is a triage signal. It does not confirm business impact, identify an affected person or approve a network change.", "image": "/assets/workspace-tours/network-overview.webp?v=20261018-six-tours4", "focus": [[0.506, 33.437, 99.089, 23.763], [0.709, 14.69, 22.065, 8.713]], "alt": "Real DEV Network Operations view tabs, scope controls and fleet priority cards."}, {"title": "4. Find the switch and port", "label": "Find the switch and port", "description": "Move from inventory to a specific port without losing the workspace context.", "actions": ["In Switches, filter the inventory by name and condition, then select a switch to load its front panel.", "Select a port on the faceplate, or use Find a port and Show to narrow by description, errors, learned devices or link state.", "Use Reset port filters if a port is hidden. Export ports CSV captures the filtered port results."], "meaning": "Inventory filters and port filters serve different lists. A link-down port can be unused; inspect its evidence before calling it a fault.", "image": "/assets/workspace-tours/network-switches.webp?v=20261018-six-tours4", "focus": [[12.205, 20.903, 86.256, 29.164], [1.026, 75.485, 76.41, 12.308]], "alt": "Real DEV switch front panel and port filters, with the port map highlighted."}, {"title": "5. Read port evidence carefully", "label": "Read port evidence carefully", "description": "Port history explains observations; it needs context to become a diagnosis.", "actions": ["Open a port and check its status, history, counters and related findings for the selected History window.", "Review learned devices as attachment evidence. Use the investigation link to follow a device when appropriate.", "Check the switch, port and evidence age before handing off. Use View switch or Faults on this switch to restore context."], "meaning": "A learned MAC address is an observed attachment, not proof of the current user or business impact. Confirm the reported symptom separately.", "image": "/assets/workspace-tours/network-switches.webp?v=20261018-six-tours4", "focus": [[12.205, 20.903, 86.256, 29.164], [1.026, 75.485, 76.41, 12.308]], "alt": "Real DEV switch front panel and port filters, with the port map highlighted."}, {"title": "6. Follow a device’s path", "label": "Follow a device’s path", "description": "Investigate connects the evidence available from several sources.", "actions": ["Use the top search for a device, address or person. A person result helps find managed devices; an IP or MAC can trace the path.", "Review the returned switch, Wi-Fi, firewall and identity sections. Read missing-source and no-match messages.", "Compare timestamps and the reported symptom. Use a more precise IP or MAC if a name is ambiguous."], "meaning": "No match means the available sources did not resolve the query. Missing evidence does not prove a device is offline or that a person has no devices.", "image": "/assets/workspace-tours/network-investigate.webp?v=20261018-six-tours4", "focus": [[16.601, 4.054, 35.432, 93.243]], "alt": "Real DEV Investigate introduction showing switch location, live health and identity evidence."}, {"title": "7. Understand owners and watches", "label": "Understand owners and watches", "description": "Coordinate follow-up only after reviewing the evidence.", "actions": ["Check the Owner column and related evidence before picking up a fault. Claim records ownership; releasing makes it available again.", "Watch this port or Watch this device adds it to the shared Watch list for continued observation.", "Revisit watched evidence from Overview and verify its latest timestamp. This guide itself creates no claims or watches."], "meaning": "Claiming does not repair or clear a fault. Watching records follow-up interest and does not change switch configuration or remediate a device.", "image": "/assets/workspace-tours/network-overview.webp?v=20261018-six-tours4", "focus": [[0.506, 33.437, 99.089, 23.763], [0.709, 14.69, 22.065, 8.713]], "alt": "Real DEV Network Operations view tabs, scope controls and fleet priority cards."}, {"title": "8. Hand off a useful investigation", "label": "Hand off a useful investigation", "description": "Make the next person’s starting point clear and reproducible.", "actions": ["Check the selected view, Site, History, filters and evidence age; open the relevant port or investigation.", "Copy workspace link preserves the current workspace context. Copy support summary captures the loaded evidence and scope.", "Add the reported symptom, impact, owner and next check to your handoff. Reopen How to use anytime or jump to a topic above."], "meaning": "Copying prepares text or a link; it does not send a message or create a ticket. The recipient still needs access and should recheck current evidence.", "image": "/assets/workspace-tours/net-train-scope.webp?v=20261018-training1", "focus": [[0.0, 25.0, 100.0, 49.783]], "alt": "Real DEV Network Operations scope, freshness, view tabs and handoff controls; counts are a saved snapshot."}], "seenKey": "corpit:network:how-to:2026-10-19-v1", "guide": true, "training": true}</script>
+<dialog id="workspace-whats-new" class="cwn" data-workspace-tour="network" aria-labelledby="cwn-title" aria-describedby="cwn-description">
+  <button class="cwn-close" type="button" data-cwn-close aria-label="Close tour"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>
+  <div class="cwn-body">
+    <div class="cwn-screen">
+      <p class="cwn-progress"><span class="cwn-emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/><path d="M20 2v4M18 4h4"/></svg></span><span data-cwn-progress aria-live="polite" aria-atomic="true">Training guide</span><label class="net-tour-topic">Jump to<select data-cwn-topic aria-label="Choose a training topic"><option value="-1">Introduction</option><option value="0">1. Choose scope and check freshness</option><option value="1">2. Know what Site actually filters</option><option value="2">3. Work the fault queue</option><option value="3">4. Find the switch and port</option><option value="4">5. Read port evidence carefully</option><option value="5">6. Follow a device’s path</option><option value="6">7. Understand owners and watches</option><option value="7">8. Hand off a useful investigation</option></select></label></p>
+      <h2 class="cwn-title" id="cwn-title" tabindex="-1">How to use Network Operations</h2>
+      <p class="cwn-description" id="cwn-description">Learn to scope network evidence, work faults, inspect ports and hand off a useful investigation.</p>
+      <div class="cwn-stage" aria-hidden="true"><div class="cwn-mini"><img src="/assets/workspace-tours/network-overview.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span>Review</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/workspace-tours/network-switches.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span>Inspect</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/workspace-tours/network-investigate.webp?v=20261018-six-tours4" alt="" width="1200" height="460"><span>Investigate</span><i class="cwn-mini-sheen"></i></div><div class="cwn-ai-flow" aria-hidden="true"><i class="cwn-ai-orbit"></i><div class="cwn-ai-node"><b>01</b><span>Review</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>02</b><span>Inspect</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>03</b><span>Investigate</span></div></div></div>
+      <p class="cwn-welcome-note">Eight guided topics. Follow along or jump to a section.<br>Reopen anytime from <strong>How to use</strong>.</p>
+      <section class="net-tour-lesson" data-cwn-lesson hidden><h3>What to do</h3><ol data-cwn-actions></ol><div class="net-tour-meaning"><h3>What this means</h3><p data-cwn-meaning></p></div></section>
+      <figure class="cwn-preview" hidden>
+        <div class="cwn-image-wrap"><p class="net-tour-image-status" data-cwn-image-status role="status" aria-live="polite" aria-atomic="true" hidden></p><div class="cwn-shot"><img alt="" width="1200" height="460"><div class="cwn-focuses" aria-hidden="true"></div></div></div>
+        <figcaption>Real DEV screenshots. Counts are a snapshot; available tools follow your access.</figcaption>
+      </figure>
+    </div>
   </div>
-
-  <div class="ngrid" style="margin-top:10px">
-    <section class="ncard c8">
-      <div class="nch"><h2>Inventory</h2>
-        <div class="tools">
-          <div class="nseg" id="siteSeg"></div>
-          <div class="nsearch" style="flex:0 0 190px">
-            <input id="q" type="search" placeholder="Filter name, model, IP…" aria-label="Filter switches">
-          </div>
-        </div>
-      </div>
-      <div class="ncb flush"><div class="ntw cap" id="rows"></div></div>
-      <div class="ncf" id="foot"></div>
-    </section>
-
-    <section class="ncard c4">
-      <div class="nch"><h2>Selected switch</h2></div>
-      <div class="ncb" id="detail"></div>
-    </section>
-  </div>
-</div>
-
-<script src="/it-netnav.js"></script>
-<script src="/it-panel.js"></script>
-<script src="/it-noc.js"></script>
-<script src="/rbac-client.js"></script>
-<script src="/it-observe.js" data-app-key="network-switches"></script>
-<script>
-NOC.mount({page:'fabric', title:'Switch fabric', sub:'NRPI · all sites'});
-NOC.act('<button class="nbtn" id="nRefresh">'+NOC.icon('refresh')+'Refresh</button>');
-var esc=NOC.esc, ago=NOC.ago;
-var S={devices:[],meta:{},site:'ALL',q:'',sel:null,ports:{}};
-
-async function jget(u){
-  var r=await fetch(u,{credentials:'include'});
-  if(r.status===401)throw Object.assign(new Error('sign-in required'),{code:401});
-  return await r.json().catch(function(){return {ok:false};});
-}
-function isUplink(p){return /^(Te|Twe|Fo|Hu|Fi)/i.test(String(p.port||''))||(p.speed||0)>=10000;}
-
-function visible(){
-  var q=S.q;
-  return S.devices.filter(function(d){
-    if(S.site!=='ALL'&&d.site!==S.site)return false;
-    if(!q)return true;
-    return [d.name,d.ip,d.model,d.serial,d.site].join(' ').toLowerCase().indexOf(q)>-1;
-  }).sort(function(a,b){
-    return String(a.site||'').localeCompare(String(b.site||''))||
-           String(a.name||'').localeCompare(String(b.name||''));});
-}
-
-function renderKpis(){
-  var d=S.devices;
-  var up=d.filter(function(x){return x.reachable;}).length;
-  var pu=d.reduce(function(n,x){return n+(x.if_up||0);},0);
-  var pt=d.reduce(function(n,x){return n+(x.if_total||0);},0);
-  var sites=Object.keys(d.reduce(function(a,x){a[x.site]=1;return a;},{})).length;
-  // ios_current arrives as a SQLite integer (0/1), never a boolean, so the
-  // old `=== false` test matched nothing. null = the collector never read a
-  // version off that switch: unknown, which is neither current nor behind.
-  var offStd=d.filter(function(x){return x.ios_current!=null && !x.ios_current;}).length;
-  var stdUnk=d.filter(function(x){return x.ios_current==null;}).length;
-  var stdBuild=(d.filter(function(x){return x.ios_current==1;})[0]||{}).ios||'';
-  var core=d.filter(function(x){return x.core;}).length;
-  var K=function(o){return '<div class="c2"><div class="nkpi'+(o.tone?' '+o.tone:'')+'">'+
-    '<span class="k">'+esc(o.k)+'</span><span class="v">'+o.v+'</span>'+
-    (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+
-    (o.meter!=null?'<span class="nmeter"><i class="'+(o.mt||'')+'" style="width:'+o.meter+'%"></i></span>':'')+
-    '</div></div>';};
-  document.getElementById('kpis').innerHTML=
-    K({k:'Switches',v:up+'<small>/'+d.length+'</small>',tone:up<d.length?'bad':'good',
-       s:up<d.length?(d.length-up)+' not responding':'all responding',
-       meter:d.length?Math.round(up/d.length*100):0,mt:up<d.length?'bad':'good'})+
-    K({k:'Ports active',v:pu.toLocaleString()+'<small>/'+pt.toLocaleString()+'</small>',
-       s:pt?Math.round(pu/pt*100)+'% in use':'',meter:pt?Math.round(pu/pt*100):0})+
-    K({k:'Sites',v:sites,tone:'info',s:'with switching'})+
-    K({k:'Core',v:core,s:'core / distribution'})+
-    K({k:'Access',v:d.length-core,s:'access switches'})+
-    K({k:'Off standard build',v:offStd,
-       tone:offStd?'warn':(stdUnk?'info':'good'),
-       s:offStd?((stdBuild?'not on '+stdBuild:'off the standard build')+
-                 (stdUnk?' · '+stdUnk+' unknown':''))
-              :(stdUnk?stdUnk+' version not read'
-                     :(stdBuild?'all on '+stdBuild:'all on the standard build'))});
-}
-
-function renderRows(){
-  var rows=visible();
-  if(!rows.filter(function(d){return d.ip===S.sel;}).length) S.sel=rows.length?rows[0].ip:null;
-
-  var sites=Object.keys(S.devices.reduce(function(a,x){a[x.site]=1;return a;},{})).sort();
-  document.getElementById('siteSeg').innerHTML=
-    ['ALL'].concat(sites).map(function(s){
-      var n=s==='ALL'?S.devices.length:S.devices.filter(function(x){return x.site===s;}).length;
-      return '<button data-s="'+esc(s)+'" aria-pressed="'+(S.site===s)+'">'+
-        (s==='ALL'?'All':esc(s))+' '+n+'</button>';}).join('');
-  document.querySelectorAll('#siteSeg [data-s]').forEach(function(b){
-    b.addEventListener('click',function(){S.site=b.dataset.s;renderRows();renderDetail();});});
-
-  var el=document.getElementById('rows');
-  if(!rows.length){
-    el.innerHTML='<div class="nempty">'+NOC.icon('switchd')+'<b>No switches match</b>'+
-      'Try a different site or clear the filter.</div>';
-  }else{
-    el.innerHTML='<table class="nt">'+
-      '<colgroup><col class="wide"><col style="width:92px"><col style="width:112px">'+
-      '<col style="width:92px"><col style="width:104px"><col style="width:84px"></colgroup>'+
-      '<thead><tr>'+
-      '<th data-key="n">Switch</th><th data-key="site">Site</th><th data-key="m">Model</th>'+
-      '<th data-key="ios">IOS-XE</th><th data-key="p" data-type="num" class="num">Ports</th>'+
-      '<th data-key="st">State</th></tr></thead><tbody>'+
-      rows.map(function(d){
-        var pct=d.if_total?Math.round(d.if_up/d.if_total*100):0;
-        return '<tr class="click" data-ip="'+esc(d.ip)+'" aria-selected="'+(S.sel===d.ip)+'">'+
-          '<td class="grow"><button class="fbtn" type="button" aria-label="Show '+esc(d.name)+'">'+
-            '<span class="t">'+esc(d.name)+(d.core?' <span class="sev info">core</span>':'')+'</span>'+
-            '<span class="s">'+esc(d.ip)+'</span></button></td>'+
-          '<td class="mono">'+esc(d.site||'')+'</td>'+
-          '<td class="mono">'+esc(d.model||'')+'</td>'+
-          '<td class="mono">'+esc(d.ios||'—')+
-            (d.ios_current!=null&&!d.ios_current?' <span class="sev warn">off std</span>':'')+'</td>'+
-          '<td class="num" data-sort="'+(d.if_up||0)+'">'+(d.if_up||0)+'/'+(d.if_total||0)+'</td>'+
-          '<td>'+(d.reachable?'<span class="sev ok">up</span>':'<span class="sev crit">no reply</span>')+'</td>'+
-          '</tr>';}).join('')+'</tbody></table>';
-    NOC.sortable(el.querySelector('table'));
-    el.querySelectorAll('tr.click').forEach(function(tr){
-      var go=function(){select(tr.dataset.ip);};
-      tr.addEventListener('click',go);
-      var fb=tr.querySelector('.fbtn');
-      if(fb)fb.addEventListener('click',function(e){e.stopPropagation();go();});
-    });
-  }
-  var up=S.devices.filter(function(d){return d.reachable;}).length;
-  var pu=S.devices.reduce(function(n,d){return n+(d.if_up||0);},0);
-  document.getElementById('foot').innerHTML=
-    '<span><b>'+rows.length+'</b> shown</span><span><b>'+up+'/'+S.devices.length+'</b> responding</span>'+
-    '<span><b>'+pu.toLocaleString()+'</b> ports up</span>'+
-    '<span style="margin-left:auto;color:var(--o-faint)">Pick a switch to load its front panel</span>';
-}
-
-function select(ip){ S.sel=ip; renderRows(); renderDetail(); renderPanel(); }
-
-function renderDetail(){
-  var el=document.getElementById('detail');
-  var d=S.devices.filter(function(x){return x.ip===S.sel;})[0];
-  if(!d){el.innerHTML='<div class="nempty">'+NOC.icon('switchd')+
-    '<b>No switch selected</b>Pick one from the inventory.</div>';return;}
-  var pct=d.if_total?Math.round(d.if_up/d.if_total*100):0;
-  var c=S.ports[d.ip];
-  el.innerHTML='<div class="swid" style="margin-bottom:12px">'+
-      '<span><span class="nm">'+esc(d.name)+'</span><br>'+
-      '<span class="ip">'+esc(d.ip)+'</span></span></div>'+
-    '<dl class="dl">'+
-      '<dt>State</dt><dd>'+(d.reachable
-        ?'<span class="sev ok">responding</span>':'<span class="sev crit">no reply</span>')+
-        ' <span style="color:var(--o-faint);font-size:11.5px">'+esc(ago(S.meta.age_seconds))+'</span></dd>'+
-      '<dt>Role</dt><dd>'+(d.core?'Core / distribution':'Access')+'</dd>'+
-      '<dt>Model</dt><dd class="mono">'+esc(d.model||'—')+'</dd>'+
-      (d.serial?'<dt>Serial</dt><dd class="mono">'+esc(d.serial)+'</dd>':'')+
-      '<dt>Software</dt><dd>IOS-XE <b>'+esc(d.ios||'—')+'</b>'+
-        (d.ios_current!=null&&!d.ios_current?' <span class="sev warn">off standard build</span>':
-         (d.ios_current==null?' <span class="sev info">build not read</span>':''))+'</dd>'+
-      '<dt>Ports</dt><dd>'+(d.if_up||0)+' of '+(d.if_total||0)+' active'+
-        '<span class="nmeter"><i style="width:'+pct+'%"></i></span></dd>'+
-      (c&&!c.err?'<dt>Devices</dt><dd><b>'+c.clients+'</b> learned on this switch</dd>':'')+
-    '</dl>';
-}
-
-/* ── the faceplate, kept exactly as it was and given the whole width ────── */
-function renderPanel(){
-  var d=S.devices.filter(function(x){return x.ip===S.sel;})[0];
-  var host=document.getElementById('panel');
-  var title=document.getElementById('panelTitle');
-  if(!d){host.innerHTML='<div class="nempty">'+NOC.icon('switchd')+
-    '<b>No switch selected</b></div>';return;}
-  title.textContent=d.name+' · front panel';
-  document.getElementById('panelTools').innerHTML=
-    '<span class="sev '+(d.reachable?'ok':'crit')+'">'+(d.reachable?'responding':'no reply')+'</span>'+
-    '<span style="font-family:var(--n-mono);font-size:11px;color:var(--o-faint)">'+esc(d.model||'')+'</span>';
-
-  var draw=function(){
-    if(S.sel!==d.ip)return;
-    var c=S.ports[d.ip];
-    if(!c)return;
-    if(c.err){host.innerHTML='<div class="nempty">'+NOC.icon('switchd')+
-      '<b>Port detail unavailable</b>'+esc(c.err)+'</div>';return;}
-    host.innerHTML='';
-    ITPanel.render(host,{kind:'switch',title:d.model||d.name,sub:d.ip,sysOk:!!d.reachable,
-      ports:c.ports,onSelect:function(p){ITDrill.portDetail(d.ip,d.name,p.id,p.label);}});
-    var withDev=c.ports.filter(function(p){return (p.mac_count||0)>0;}).length;
-    var errP=c.ports.filter(function(p){return (p.crc||0)+(p.in_err||0)+(p.out_err||0)>0;}).length;
-    var upl=c.ports.filter(isUplink).length;
-    host.insertAdjacentHTML('beforeend','<div class="panelmeta">'+
-      '<span><b>'+c.clients+'</b> devices learned</span>'+
-      '<span><b>'+withDev+'</b> ports with a device</span>'+
-      '<span><b>'+upl+'</b> uplinks</span>'+
-      (errP?'<span style="color:var(--o-slow)"><b>'+errP+'</b> ports counting errors</span>'
-           :'<span>no ports counting errors</span>')+
-      '<span style="margin-left:auto;color:var(--o-faint)">Click any port for history and what is plugged in</span>'+
-      '</div>'+
-      (c.ports.some(function(p){return p.duplex;})?'':
-        '<div class="pnote">Duplex and live throughput arrive with the next collector pass; '+
-        'until a port reports them, those two indicators are left off rather than guessed.</div>'));
-    renderDetail();
-  };
-  if(S.ports[d.ip]){draw();return;}
-  host.innerHTML='<div class="nskel" style="height:120px;border-radius:12px"></div>';
-  fetch('/api/netswitch/switch/'+encodeURIComponent(d.ip),{credentials:'include'})
-    .then(function(r){return r.json();})
-    .then(function(j){
-      if(!j||j.ok===false)throw new Error((j&&j.detail)||'unavailable');
-      S.ports[d.ip]={ports:j.ports||[],clients:j.clients||0};})
-    .catch(function(e){S.ports[d.ip]={ports:[],clients:0,err:e.message};})
-    .then(draw);
-}
-
-document.getElementById('q').addEventListener('input',function(e){
-  S.q=e.target.value.toLowerCase();renderRows();renderDetail();renderPanel();});
-
-async function load(){
-  S.ports={};
-  try{
-    var ov=await jget('/api/netswitch/overview');
-    if(!ov||ov.ok===false)throw new Error((ov&&ov.detail)||'unavailable');
-    S.devices=ov.devices||[]; S.meta=ov.meta||{};
-    var s=ov.summary||{};
-    var crit=(ov.issues||[]).filter(function(i){return i.severity==='critical';}).length;
-    NOC.badge('health',crit||(ov.issues||[]).length,crit?'bad':'warn');
-    NOC.vitals([
-      {k:'Scan',v:ago(S.meta.age_seconds)},
-      {k:'Switches',v:s.switches_up+'/'+s.switches,cls:s.switches_down?'bad':'good'},
-      {k:'Ports up',v:Number(s.ports_up||0).toLocaleString()},
-      {k:'Sites',v:Object.keys(S.devices.reduce(function(a,x){a[x.site]=1;return a;},{})).length},
-      {k:'Open faults',v:(ov.issues||[]).length,cls:crit?'bad':'warn'}
-    ]);
-    NOC.stamp('scanned '+ago(S.meta.age_seconds),(S.meta.age_seconds||0)>7200);
-    var want=new URLSearchParams(location.search).get('site');
-    if(want&&S.devices.some(function(d){return d.site===want;}))S.site=want;
-    /* ?switch=<ip> (linked from the Observatory's uplink issues) opens that switch's detail */
-    var wsw=new URLSearchParams(location.search).get('switch');
-    var wdev=wsw?S.devices.filter(function(d){return d.ip===wsw;})[0]:null;
-    if(wdev){ S.sel=wdev.ip; if(wdev.site)S.site=wdev.site; }
-    renderKpis(); renderRows(); renderDetail(); renderPanel();
-  }catch(e){
-    var m=(e.code===401)?'Your session expired. <a href="/login.html">Sign in</a>.':esc(e.message);
-    document.getElementById('kpis').innerHTML='<div class="c12"><div class="ncard"><div class="ncb">'+
-      '<div class="nempty">'+NOC.icon('switchd')+'<b>Couldn’t load the fabric</b>'+m+'</div></div></div></div>';
-  }
-}
-document.getElementById('nRefresh').addEventListener('click',load);
-load();
-</script>
-<script src="/it-topbar.js" defer></script>
-<script src="/it-version.js" data-app-key="network-switches" defer></script>
-</body>
-</html>
+  <footer class="cwn-footer">
+    <div class="cwn-track" aria-hidden="true" hidden><span></span><span></span><span></span><i class="cwn-indicator"></i></div>
+    <button class="btn btn-ghost cwn-button" type="button" data-cwn-later>Maybe later</button>
+    <div class="cwn-actions">
+      <button class="btn btn-ghost cwn-button" type="button" data-cwn-back hidden>Back</button>
+      <button class="btn btn-primary cwn-button cwn-next" type="button" data-cwn-next autofocus><span>Show me how</span><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+    </div>
+  </footer>
+</dialog>
+<script src="/workspace-whats-new.js?v=20261019-account-guides1"></script>
+<script src="/network-ops.js?v=f522117c451a"></script>
+<script src="/it-topbar.js" defer></script><script src="/it-version.js" data-app-key="network-switches" defer></script></body></html>

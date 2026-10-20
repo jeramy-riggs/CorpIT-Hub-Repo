@@ -1,0 +1,20 @@
+/* Training stays inside the existing dialog and portal tokens. Desktop only. */
+.cwn[data-workspace-tour="ai"] { width: 980px; }
+.cwn[data-workspace-tour="ai"] .cwn-progress { gap: 9px; }
+.cwn[data-workspace-tour="ai"] .ai-tour-topic { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.cwn[data-workspace-tour="ai"] .ai-tour-topic select { max-width: 290px; min-height: 30px; border: 1px solid var(--cwn-line); border-radius: 7px; padding: 4px 7px; color: var(--text); background: var(--cwn-surface-2); font: 650 12px/1.4 var(--font); }
+.cwn[data-workspace-tour="ai"] .ai-tour-topic select:focus-visible { outline: 2px solid var(--cwn-accent); outline-offset: 3px; }
+.cwn[data-workspace-tour="ai"] .cwn-screen:has(.ai-tour-lesson:not([hidden])) { display: grid; grid-template-columns: minmax(0,.95fr) minmax(0,1.2fr); column-gap: 24px; }
+.cwn[data-workspace-tour="ai"] :is(.cwn-progress,.cwn-title,.cwn-description) { grid-column: 1 / -1; }
+.cwn[data-workspace-tour="ai"] .ai-tour-lesson { grid-column: 1; grid-row: 4; margin-top: 20px; }
+.cwn[data-workspace-tour="ai"] .ai-tour-lesson h3 { margin: 0 0 8px; color: var(--text); font: 800 13px/1.4 var(--font); }
+.cwn[data-workspace-tour="ai"] .ai-tour-lesson ol { margin: 0; padding-left: 19px; color: var(--cwn-muted); font-size: 13px; line-height: 1.6; }
+.cwn[data-workspace-tour="ai"] .ai-tour-lesson li { margin: 0 0 11px; padding-left: 3px; }
+.cwn[data-workspace-tour="ai"] .ai-tour-meaning { margin-top: 16px; padding: 11px 12px; border: 1px solid var(--cwn-line); border-radius: 8px; background: var(--cwn-surface-2); }
+.cwn[data-workspace-tour="ai"] .ai-tour-meaning p { margin: 0; color: var(--cwn-muted); font-size: 12.5px; line-height: 1.6; }
+.cwn[data-workspace-tour="ai"] .cwn-preview { grid-column: 2; grid-row: 4; align-self: start; }
+.cwn[data-workspace-tour="ai"] .cwn-image-wrap { height: 218px; }
+.cwn[data-workspace-tour="ai"] .cwn-description { min-height: 0; }
+
+.cwn[data-workspace-tour="ai"] .ai-tour-image-status { margin: 0; padding: 24px; max-width: 36ch; text-align: center; color: var(--cwn-muted); font-size: 13px; line-height: 1.6; }
+.cwn[data-workspace-tour="ai"] .cwn-image-wrap:has(.ai-tour-image-status:not([hidden])) { background: var(--cwn-surface-2); }

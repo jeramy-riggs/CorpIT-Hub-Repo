@@ -1,0 +1,43 @@
+/* Desktop housekeeping additions. Existing portal tokens, font and skin retained. */
+#modeHousekeeping .hk-workbench { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 12px; color:var(--text2); font-size:12px; }
+#modeHousekeeping .hk-mode-switch { display:flex; padding:3px; border:1px solid var(--border); border-radius:8px; background:var(--bg-input); }
+#modeHousekeeping .hk-mode-switch button { border:0; }
+#modeHousekeeping .hk-mode-switch button.on { background:var(--blue-d); color:var(--blue); box-shadow:inset 0 0 0 1px var(--blue); }
+#modeHousekeeping .hk-mode-switch button:focus-visible,
+#modeHousekeeping .hk-views summary:focus-visible { outline:2px solid var(--blue); outline-offset:3px; }
+#modeHousekeeping .hk-views { margin-left:auto; position:relative; }
+#modeHousekeeping .hk-views summary { cursor:pointer; padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg-surface); color:var(--text); }
+#modeHousekeeping .hk-view-panel { position:absolute; z-index:45; right:0; top:calc(100% + 7px); width:350px; padding:14px; background:var(--bg-raised); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow-modal); }
+#modeHousekeeping .hk-view-panel label { display:block; color:var(--text2); margin-bottom:6px; }
+#modeHousekeeping .hk-view-panel select { width:100%; margin-bottom:10px; }
+#modeHousekeeping .hk-view-save, #modeHousekeeping .hk-view-actions { display:flex; align-items:center; gap:7px; margin:8px 0; }
+#modeHousekeeping .hk-view-save input { width:0; flex:1; }
+#modeHousekeeping .hk-view-panel p { color:var(--text3); margin:9px 0 0; font-size:11px; }
+#modeHousekeeping .hk-active-filters { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 10px; }
+#modeHousekeeping .hk-active-filters[hidden] { display:none; }
+#modeHousekeeping .hk-filter-chip { color:var(--blue); border-color:var(--border); max-width:100%; white-space:normal; overflow-wrap:anywhere; text-align:left; }
+#modeHousekeeping .hk-scope-note { color:var(--text3); font-size:11px; margin:0 0 10px; }
+#modeHousekeeping .hk-category { display:inline-block; padding:2px 5px; margin:2px 3px 2px 0; background:var(--chip-bg); border:1px solid var(--border); border-radius:4px; color:var(--text2); font-size:10px; white-space:nowrap; }
+#modeHousekeeping .hk-reason-more { display:block; margin-top:4px; color:var(--text3); font-size:10px; }
+#modeHousekeeping .hk-review-reason { max-width:280px; white-space:normal; line-height:1.45; }
+#modeHousekeeping #usersBody td { vertical-align:top; }
+#modeHousekeeping #usersBody .ad-name-link { text-align:left; }
+#modeHousekeeping #pane-audit .filter-row, #modeHousekeeping #pane-recovery .filter-row { flex-wrap:wrap; }
+#modeHousekeeping #pane-audit .filter-row input, #modeHousekeeping #pane-recovery .filter-row input { flex:1; min-width:240px; }
+#modeHousekeeping #pane-audit .filter-row select, #modeHousekeeping #pane-recovery .filter-row select { flex:0 1 180px; }
+#detailContent .hk-detail-tools { display:flex; gap:7px; flex-wrap:wrap; margin:12px 0 16px; }
+#detailContent .hk-detail-tools a { text-decoration:none; }
+#detailContent .hk-related-findings { padding:12px 14px; border:1px solid var(--border); border-radius:8px; background:var(--bg-input); margin:0 0 16px; }
+#detailContent .hk-related-findings h4 { font-size:13px; margin:0 0 10px; color:var(--text); }
+#detailContent .hk-related-findings ul { padding:0; margin:0; list-style:none; }
+#detailContent .hk-related-findings li + li { margin-top:9px; padding-top:9px; border-top:1px solid var(--border); }
+#detailContent .hk-related-findings strong { display:block; font-size:11px; color:var(--text); }
+#detailContent .hk-related-findings li span { display:block; margin-top:3px; color:var(--text2); font-size:12px; line-height:1.5; }
+#detailContent .value { overflow-wrap:anywhere; }
+
+#modeHousekeeping #cards[hidden] { display:none !important; }
+#modeHousekeeping .page-header .hk-focus-button { margin-left:auto; }
+
+#modeHousekeeping .hk-priv-scopes { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin:0 0 10px; color:var(--text2); font-size:11px; }
+#modeHousekeeping .hk-priv-scopes[hidden] { display:none; }
+#modeHousekeeping .hk-priv-scopes [aria-pressed=true] { color:var(--blue); border-color:var(--blue); }

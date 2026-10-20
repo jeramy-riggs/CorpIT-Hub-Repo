@@ -1,0 +1,481 @@
+{
+  "id": "recheck-langchain-copilot-20261017-05",
+  "cycle": "2026-10-17T05:00:00.000Z",
+  "targets": [
+    {
+      "catalog_id": 110,
+      "family": "Web Proxy Activity"
+    },
+    {
+      "catalog_id": 6,
+      "family": "Web Proxy Activity"
+    }
+  ],
+  "coverage_history_seed": {
+    "version": 1,
+    "basis": "Recorded attempted checks in 30 distinct locally verified saved samples; incomplete scheduler history, not proof of never checked",
+    "evidence_sha256": "4a0e6bff1aaf97f202b6b5d69653841d82f8cac2de96c51998f21a66c4371b3e",
+    "apps": [
+      {
+        "catalog_id": 1,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 2,
+        "last_attempted_collection_at": "2026-10-17T02:39:28.940Z",
+        "run_id": "20138d23-d553-43c9-a099-8bd50d5784fa"
+      },
+      {
+        "catalog_id": 3,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 4,
+        "last_attempted_collection_at": "2026-10-17T01:42:07.139Z",
+        "run_id": "18045037-400f-4d5b-8b13-c8e2278b00d4"
+      },
+      {
+        "catalog_id": 5,
+        "last_attempted_collection_at": "2026-10-16T22:18:31.607Z",
+        "run_id": "1fae2c12-d18c-433d-baf6-f5eea59f70ff"
+      },
+      {
+        "catalog_id": 6,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 7,
+        "last_attempted_collection_at": "2026-10-17T01:42:07.139Z",
+        "run_id": "18045037-400f-4d5b-8b13-c8e2278b00d4"
+      },
+      {
+        "catalog_id": 8,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 9,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 15,
+        "last_attempted_collection_at": "2026-10-16T19:26:37.038Z",
+        "run_id": "5fc97ea2-c5da-4f5e-8cf2-6129a7798123"
+      },
+      {
+        "catalog_id": 16,
+        "last_attempted_collection_at": "2026-10-16T21:00:00.015Z",
+        "run_id": "a9d0ad82-ab52-45b3-a3f4-1b0ff4a959c7"
+      },
+      {
+        "catalog_id": 17,
+        "last_attempted_collection_at": "2026-10-16T21:00:00.015Z",
+        "run_id": "a9d0ad82-ab52-45b3-a3f4-1b0ff4a959c7"
+      },
+      {
+        "catalog_id": 18,
+        "last_attempted_collection_at": "2026-10-16T16:47:28.281Z",
+        "run_id": "3127c7af-39f8-43e0-969a-e2603a48f61f"
+      },
+      {
+        "catalog_id": 19,
+        "last_attempted_collection_at": "2026-10-16T16:47:28.281Z",
+        "run_id": "3127c7af-39f8-43e0-969a-e2603a48f61f"
+      },
+      {
+        "catalog_id": 20,
+        "last_attempted_collection_at": "2026-10-16T16:47:28.281Z",
+        "run_id": "3127c7af-39f8-43e0-969a-e2603a48f61f"
+      },
+      {
+        "catalog_id": 21,
+        "last_attempted_collection_at": "2026-10-16T16:47:28.281Z",
+        "run_id": "3127c7af-39f8-43e0-969a-e2603a48f61f"
+      },
+      {
+        "catalog_id": 22,
+        "last_attempted_collection_at": "2026-10-17T03:00:00.027Z",
+        "run_id": "3ed02224-68f1-4261-ad8d-16c968420d70"
+      },
+      {
+        "catalog_id": 23,
+        "last_attempted_collection_at": "2026-10-17T03:00:00.027Z",
+        "run_id": "3ed02224-68f1-4261-ad8d-16c968420d70"
+      },
+      {
+        "catalog_id": 24,
+        "last_attempted_collection_at": "2026-10-17T03:00:00.027Z",
+        "run_id": "3ed02224-68f1-4261-ad8d-16c968420d70"
+      },
+      {
+        "catalog_id": 25,
+        "last_attempted_collection_at": "2026-10-17T03:00:00.027Z",
+        "run_id": "3ed02224-68f1-4261-ad8d-16c968420d70"
+      },
+      {
+        "catalog_id": 26,
+        "last_attempted_collection_at": "2026-10-17T03:00:00.027Z",
+        "run_id": "3ed02224-68f1-4261-ad8d-16c968420d70"
+      },
+      {
+        "catalog_id": 27,
+        "last_attempted_collection_at": "2026-10-17T03:00:00.027Z",
+        "run_id": "3ed02224-68f1-4261-ad8d-16c968420d70"
+      },
+      {
+        "catalog_id": 28,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 29,
+        "last_attempted_collection_at": "2026-10-17T03:00:00.027Z",
+        "run_id": "3ed02224-68f1-4261-ad8d-16c968420d70"
+      },
+      {
+        "catalog_id": 30,
+        "last_attempted_collection_at": "2026-10-17T04:00:00.035Z",
+        "run_id": "e025dbf2-9e28-4ef8-9a00-71989956d4b2"
+      },
+      {
+        "catalog_id": 31,
+        "last_attempted_collection_at": "2026-10-17T02:00:00.016Z",
+        "run_id": "331e3bf0-acf7-4bca-a0bb-4b11ba36811a"
+      },
+      {
+        "catalog_id": 32,
+        "last_attempted_collection_at": "2026-10-17T04:00:00.035Z",
+        "run_id": "e025dbf2-9e28-4ef8-9a00-71989956d4b2"
+      },
+      {
+        "catalog_id": 33,
+        "last_attempted_collection_at": "2026-10-17T02:00:00.016Z",
+        "run_id": "331e3bf0-acf7-4bca-a0bb-4b11ba36811a"
+      },
+      {
+        "catalog_id": 37,
+        "last_attempted_collection_at": "2026-10-16T22:00:00.015Z",
+        "run_id": "08c73a5f-1321-4762-9ad9-60d011ead484"
+      },
+      {
+        "catalog_id": 40,
+        "last_attempted_collection_at": "2026-10-16T18:00:00.030Z",
+        "run_id": "084426e2-aff9-45e8-976a-64532c9dc99a"
+      },
+      {
+        "catalog_id": 41,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 42,
+        "last_attempted_collection_at": "2026-10-17T01:18:51.540Z",
+        "run_id": "9e22e2c1-4640-46d8-a571-de9bf7c1d539"
+      },
+      {
+        "catalog_id": 43,
+        "last_attempted_collection_at": "2026-10-17T01:18:51.540Z",
+        "run_id": "9e22e2c1-4640-46d8-a571-de9bf7c1d539"
+      },
+      {
+        "catalog_id": 44,
+        "last_attempted_collection_at": "2026-10-17T01:18:51.540Z",
+        "run_id": "9e22e2c1-4640-46d8-a571-de9bf7c1d539"
+      },
+      {
+        "catalog_id": 45,
+        "last_attempted_collection_at": "2026-10-17T03:00:00.027Z",
+        "run_id": "3ed02224-68f1-4261-ad8d-16c968420d70"
+      },
+      {
+        "catalog_id": 46,
+        "last_attempted_collection_at": "2026-10-17T04:00:00.035Z",
+        "run_id": "e025dbf2-9e28-4ef8-9a00-71989956d4b2"
+      },
+      {
+        "catalog_id": 47,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 48,
+        "last_attempted_collection_at": "2026-10-17T04:00:00.035Z",
+        "run_id": "e025dbf2-9e28-4ef8-9a00-71989956d4b2"
+      },
+      {
+        "catalog_id": 49,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 50,
+        "last_attempted_collection_at": "2026-10-17T02:20:22.181Z",
+        "run_id": "b45fdd03-fd71-4f7f-9e70-7782eaedfb46"
+      },
+      {
+        "catalog_id": 51,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 52,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 54,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 55,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 56,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 57,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 58,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 59,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 60,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 61,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 62,
+        "last_attempted_collection_at": "2026-10-17T02:39:28.940Z",
+        "run_id": "20138d23-d553-43c9-a099-8bd50d5784fa"
+      },
+      {
+        "catalog_id": 63,
+        "last_attempted_collection_at": "2026-10-17T04:00:00.035Z",
+        "run_id": "e025dbf2-9e28-4ef8-9a00-71989956d4b2"
+      },
+      {
+        "catalog_id": 64,
+        "last_attempted_collection_at": "2026-10-17T04:00:00.035Z",
+        "run_id": "e025dbf2-9e28-4ef8-9a00-71989956d4b2"
+      },
+      {
+        "catalog_id": 65,
+        "last_attempted_collection_at": "2026-10-17T04:00:00.035Z",
+        "run_id": "e025dbf2-9e28-4ef8-9a00-71989956d4b2"
+      },
+      {
+        "catalog_id": 66,
+        "last_attempted_collection_at": "2026-10-17T04:00:00.035Z",
+        "run_id": "e025dbf2-9e28-4ef8-9a00-71989956d4b2"
+      },
+      {
+        "catalog_id": 67,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 68,
+        "last_attempted_collection_at": "2026-10-17T04:00:00.035Z",
+        "run_id": "e025dbf2-9e28-4ef8-9a00-71989956d4b2"
+      },
+      {
+        "catalog_id": 69,
+        "last_attempted_collection_at": "2026-10-17T01:42:07.139Z",
+        "run_id": "18045037-400f-4d5b-8b13-c8e2278b00d4"
+      },
+      {
+        "catalog_id": 70,
+        "last_attempted_collection_at": "2026-10-17T01:42:07.139Z",
+        "run_id": "18045037-400f-4d5b-8b13-c8e2278b00d4"
+      },
+      {
+        "catalog_id": 71,
+        "last_attempted_collection_at": "2026-10-17T01:42:07.139Z",
+        "run_id": "18045037-400f-4d5b-8b13-c8e2278b00d4"
+      },
+      {
+        "catalog_id": 76,
+        "last_attempted_collection_at": "2026-10-17T01:00:00.019Z",
+        "run_id": "47be6ff5-e0c9-48c2-a535-cadb50b42a78"
+      },
+      {
+        "catalog_id": 77,
+        "last_attempted_collection_at": "2026-10-17T01:18:51.540Z",
+        "run_id": "9e22e2c1-4640-46d8-a571-de9bf7c1d539"
+      },
+      {
+        "catalog_id": 78,
+        "last_attempted_collection_at": "2026-10-17T01:00:00.019Z",
+        "run_id": "47be6ff5-e0c9-48c2-a535-cadb50b42a78"
+      },
+      {
+        "catalog_id": 79,
+        "last_attempted_collection_at": "2026-10-17T01:00:00.019Z",
+        "run_id": "47be6ff5-e0c9-48c2-a535-cadb50b42a78"
+      },
+      {
+        "catalog_id": 89,
+        "last_attempted_collection_at": "2026-10-16T19:00:00.018Z",
+        "run_id": "bc697f32-d870-4340-b0a3-35a362b113e9"
+      },
+      {
+        "catalog_id": 90,
+        "last_attempted_collection_at": "2026-10-16T20:22:36.591Z",
+        "run_id": "41557179-3b16-44bd-b948-68a9f8079b14"
+      },
+      {
+        "catalog_id": 92,
+        "last_attempted_collection_at": "2026-10-16T22:18:31.607Z",
+        "run_id": "1fae2c12-d18c-433d-baf6-f5eea59f70ff"
+      },
+      {
+        "catalog_id": 98,
+        "last_attempted_collection_at": "2026-10-17T00:10:30.329Z",
+        "run_id": "959f7352-84a9-4993-8248-e5e9495ac96f"
+      },
+      {
+        "catalog_id": 99,
+        "last_attempted_collection_at": "2026-10-17T00:10:30.329Z",
+        "run_id": "959f7352-84a9-4993-8248-e5e9495ac96f"
+      },
+      {
+        "catalog_id": 100,
+        "last_attempted_collection_at": "2026-10-17T00:10:30.329Z",
+        "run_id": "959f7352-84a9-4993-8248-e5e9495ac96f"
+      },
+      {
+        "catalog_id": 101,
+        "last_attempted_collection_at": "2026-10-17T00:10:30.329Z",
+        "run_id": "959f7352-84a9-4993-8248-e5e9495ac96f"
+      },
+      {
+        "catalog_id": 102,
+        "last_attempted_collection_at": "2026-10-17T02:39:28.940Z",
+        "run_id": "20138d23-d553-43c9-a099-8bd50d5784fa"
+      },
+      {
+        "catalog_id": 103,
+        "last_attempted_collection_at": "2026-10-17T00:10:30.329Z",
+        "run_id": "959f7352-84a9-4993-8248-e5e9495ac96f"
+      },
+      {
+        "catalog_id": 104,
+        "last_attempted_collection_at": "2026-10-17T00:10:30.329Z",
+        "run_id": "959f7352-84a9-4993-8248-e5e9495ac96f"
+      },
+      {
+        "catalog_id": 105,
+        "last_attempted_collection_at": "2026-10-17T01:08:25.841Z",
+        "run_id": "90b7ad57-f564-4576-9dbc-7031130ea5c4"
+      },
+      {
+        "catalog_id": 106,
+        "last_attempted_collection_at": "2026-10-17T01:08:25.841Z",
+        "run_id": "90b7ad57-f564-4576-9dbc-7031130ea5c4"
+      },
+      {
+        "catalog_id": 107,
+        "last_attempted_collection_at": "2026-10-17T01:08:25.841Z",
+        "run_id": "90b7ad57-f564-4576-9dbc-7031130ea5c4"
+      },
+      {
+        "catalog_id": 108,
+        "last_attempted_collection_at": "2026-10-17T01:08:25.841Z",
+        "run_id": "90b7ad57-f564-4576-9dbc-7031130ea5c4"
+      },
+      {
+        "catalog_id": 109,
+        "last_attempted_collection_at": "2026-10-17T01:08:25.841Z",
+        "run_id": "90b7ad57-f564-4576-9dbc-7031130ea5c4"
+      },
+      {
+        "catalog_id": 110,
+        "last_attempted_collection_at": "2026-10-17T01:08:25.841Z",
+        "run_id": "90b7ad57-f564-4576-9dbc-7031130ea5c4"
+      },
+      {
+        "catalog_id": 111,
+        "last_attempted_collection_at": "2026-10-17T01:08:25.841Z",
+        "run_id": "90b7ad57-f564-4576-9dbc-7031130ea5c4"
+      },
+      {
+        "catalog_id": 112,
+        "last_attempted_collection_at": "2026-10-17T01:08:25.841Z",
+        "run_id": "90b7ad57-f564-4576-9dbc-7031130ea5c4"
+      },
+      {
+        "catalog_id": 113,
+        "last_attempted_collection_at": "2026-10-17T01:08:25.841Z",
+        "run_id": "90b7ad57-f564-4576-9dbc-7031130ea5c4"
+      },
+      {
+        "catalog_id": 114,
+        "last_attempted_collection_at": "2026-10-17T00:39:20.083Z",
+        "run_id": "ada2a578-9331-478f-9403-6d5e8ec05ea5"
+      },
+      {
+        "catalog_id": 115,
+        "last_attempted_collection_at": "2026-10-17T00:39:20.083Z",
+        "run_id": "ada2a578-9331-478f-9403-6d5e8ec05ea5"
+      },
+      {
+        "catalog_id": 116,
+        "last_attempted_collection_at": "2026-10-17T00:39:20.083Z",
+        "run_id": "ada2a578-9331-478f-9403-6d5e8ec05ea5"
+      },
+      {
+        "catalog_id": 122,
+        "last_attempted_collection_at": "2026-10-16T18:23:28.267Z",
+        "run_id": "39d5f5cb-545d-4f69-87b8-aff82488d29a"
+      },
+      {
+        "catalog_id": 123,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 124,
+        "last_attempted_collection_at": "2026-10-17T03:00:00.027Z",
+        "run_id": "3ed02224-68f1-4261-ad8d-16c968420d70"
+      },
+      {
+        "catalog_id": 125,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 126,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      },
+      {
+        "catalog_id": 127,
+        "last_attempted_collection_at": "2026-10-17T04:12:48.430Z",
+        "run_id": "f89b0830-4446-47e9-b5d5-c15e635ae140"
+      }
+    ]
+  }
+}

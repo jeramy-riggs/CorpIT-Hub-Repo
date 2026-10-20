@@ -132,6 +132,7 @@ svg{display:block}
 @media (max-width:560px){ .wrap{width:min(1462px, 100% - 32px)} }
 @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
 </style>
+<link rel="stylesheet" href="/tools-portal.css?v=3f076b7eec1c">
 </head>
 <body>
 
@@ -144,7 +145,7 @@ svg{display:block}
     <a class="nav-i" href="/landing.html">Overview</a>
     <a class="nav-i is-active" href="/tools.html" aria-current="page">Tools</a>
     <a class="nav-i" href="/service-desk-portal.html">Service Desk</a>
-    <a class="nav-i" href="https://itam.nrpi.local/it-command-quickstart.html" target="_blank" rel="noopener noreferrer">Knowledge</a>
+    <a class="nav-i" href="/it-command-quickstart.html">Knowledge</a>
   </nav>
   <div class="hdr-r">
     <button type="button" class="hdr-btn" id="hdr-search" aria-label="Filter tools"><span data-icon="search"></span></button>
@@ -208,26 +209,234 @@ let CATS=[
   {key:'sec',label:'Security'},{key:'data',label:'Data & Collaboration'},{key:'net',label:'Network & Monitoring'},
   {key:'desk',label:'Service Desk'},{key:'res',label:'Resources'}];
 let TILES=[
-  {id:'it-inventory',name:'Asset Inventory',cat:'dev',icon:'monitor',tone:'t-teal',href:'/IT_Inventory_App.html',purpose:'Track hardware, warranties, Intune endpoints & patch health.',favorite:true,quick:true},
-  {id:'identity-diag',name:'Identity Diagnostics',cat:'iam',icon:'search',tone:'t-blue',href:'/identity-diag.html',purpose:'Diagnose AD lockouts, password issues & group access.',favorite:true,quick:true},
-  {id:'ad-management',name:'AD Management',cat:'iam',icon:'user-cog',tone:'t-blue',href:'/ad-management.html',purpose:'Clean up stale accounts, groups & computers; GPO audit for super-admins.'},
-  {id:'user-projects',name:'User Projects',cat:'iam',icon:'user',tone:'t-blue',href:'/identity-diag.html#projects',purpose:'Grant time-bound AD group access for POCs.'},
-  {id:'access-portal',name:'Access Portal',cat:'iam',icon:'ticket',tone:'t-blue',href:'https://accessportal.itam.nrpi.local/',purpose:'Submit access, AI-tool and security-exception requests.'},
-  {id:'app-migration',name:'App Migration',cat:'apps',icon:'grid',tone:'t-purple',href:'/app-migration.html',purpose:'Move SSO apps from Okta to Entra & confirm matches.'},
-  {id:'okta',name:'Okta Dashboard',cat:'apps',icon:'globe',tone:'t-purple',href:'/okta-dashboard.html',purpose:'SSO usage, account health & security events.'},
-  {id:'ai-usage-credits',name:'AI Usage & Credits',cat:'apps',icon:'activity',tone:'t-purple',href:'https://reporting.nrpi.local/ai-usage-credits.html',purpose:'Track shared AI service usage, credit balances & per-user spend.'},
-  {id:'cert-watchtower',name:'Cert Watchtower',cat:'sec',icon:'shield',tone:'t-amber',href:'/cert-watchtower.html',purpose:'Monitor TLS & Windows cert expiry with alerts.'},
-  {id:'signin-watch',name:'Sign-In Watch',cat:'sec',icon:'shield-alert',tone:'t-red',href:'/signin-watch.html',purpose:'Monitor sign-ins for watched accounts & alert on untrusted networks.'},
-  {id:'security-center',name:'M365 Control Center',cat:'sec',icon:'activity',tone:'t-red',href:'/tenant-sentinel.html',purpose:'Security score, findings & fix tracking.'},
-  {id:'sharepoint-gov',name:'SharePoint Governance',cat:'data',icon:'grid',tone:'t-amber',href:'/sharepoint-governance-dashboard.html',purpose:'Audit site lifecycle, external sharing & tenant storage.'},
-  {id:'network-diag',name:'Network Health',cat:'net',icon:'radio',tone:'t-green',href:'/network-health.html',purpose:'Switch, firewall and Wi-Fi health, plus ports and devices needing attention.'},
-  {id:'device-trace',name:'Device Trace',cat:'net',icon:'search',tone:'t-teal',href:'/device-trace.html',purpose:'Look up any IP, MAC or user to see its switch port, Wi-Fi and firewall path.',favorite:true},
-  {id:'network-switches',name:'Switches',cat:'net',icon:'server',tone:'t-blue',href:'/network-switches.html',purpose:'Every switch: model, serial, IOS version, uptime and port utilization.'},
-  {id:'zscaler-diag',name:'Zscaler Command Center',cat:'net',icon:'cloud',tone:'t-blue',href:'/zscaler-command-center.html',purpose:'Live visibility into users, web activity, DLP & policy.'},
-  {id:'server-health',name:'Server Health',cat:'net',icon:'server',tone:'t-purple',href:'/server-health.html',purpose:'Infrastructure stats, forecasts & maintenance.',favorite:true},
-  {id:'service-desk-portal',name:'Service Desk Portal',cat:'desk',icon:'headset',tone:'t-blue',href:'/service-desk-portal.html',purpose:'Submit and track IT service desk tickets.',favorite:true,quick:true},
-  {id:'report-bug',name:'Report a Bug',cat:'desk',icon:'x',tone:'t-red',href:'/report-bug.html',purpose:'Flag something broken; get emailed when it is fixed.'},
-  {id:'quickstart',name:'IT Quick Start',cat:'res',icon:'grid',tone:'t-amber',href:ITAM+'/it-command-quickstart.html',purpose:'What each tool does & when to use it.',favorite:true},
+  {
+    "id": "l1",
+    "name": "Asset Inventory",
+    "cat": "dev",
+    "icon": "monitor",
+    "tone": "t-teal",
+    "href": "/IT_Inventory_App.html",
+    "purpose": "Track hardware, warranties, Intune endpoints & patch health.",
+    "newTab": false,
+    "favorite": true,
+    "quick": true
+  },
+  {
+    "id": "l23",
+    "name": "Intune Health",
+    "cat": "dev",
+    "icon": "monitor",
+    "tone": "t-teal",
+    "href": "/patch-status.html",
+    "purpose": "Review Windows updates, Defender, reboot needs, app failures and Intune device health.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l2",
+    "name": "People & Devices",
+    "cat": "iam",
+    "icon": "user-search",
+    "tone": "t-teal",
+    "href": "/identity-diag.html",
+    "purpose": "Support people, assigned devices, sign-ins, access and network context.",
+    "newTab": false,
+    "favorite": true,
+    "quick": true
+  },
+  {
+    "id": "l3",
+    "name": "AD Management",
+    "cat": "iam",
+    "icon": "user-cog",
+    "tone": "t-blue",
+    "href": "/ad-management.html",
+    "purpose": "Clean up stale accounts, groups & computers; GPO audit for super-admins.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l5",
+    "name": "Access Portal",
+    "cat": "iam",
+    "icon": "ticket",
+    "tone": "t-blue",
+    "href": "https://dev-accessportal.nrpi.local/",
+    "purpose": "Submit access, AI-tool and security-exception requests.",
+    "newTab": true,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l7",
+    "name": "Okta Dashboard",
+    "cat": "apps",
+    "icon": "globe",
+    "tone": "t-purple",
+    "href": "/okta-dashboard.html",
+    "purpose": "Account status, MFA enrolment and the Okta application inventory.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l8",
+    "name": "AI Usage & Credits",
+    "cat": "apps",
+    "icon": "activity",
+    "tone": "t-purple",
+    "href": "https://dev-reporting.nrpi.local/ai-usage-credits.html",
+    "purpose": "Track shared AI service usage, credit balances & per-user spend.",
+    "newTab": true,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l21",
+    "name": "Okta\u2013Entra Migration",
+    "cat": "apps",
+    "icon": "grid",
+    "tone": "t-purple",
+    "href": "/okta-entra-migration.html",
+    "purpose": "Move application SSO from Okta to Entra; review optional Conditional Access work separately.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l22",
+    "name": "AI Governance",
+    "cat": "apps",
+    "icon": "shield",
+    "tone": "t-purple",
+    "href": "/ai-governance.html",
+    "purpose": "Review AI inventory, usage, ownership, access, risks and governance work.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l9",
+    "name": "Cert Watchtower",
+    "cat": "sec",
+    "icon": "shield",
+    "tone": "t-amber",
+    "href": "/cert-watchtower.html",
+    "purpose": "Monitor TLS & Windows cert expiry with alerts.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l10",
+    "name": "Sign-In Watch",
+    "cat": "sec",
+    "icon": "shield-alert",
+    "tone": "t-red",
+    "href": "/signin-watch.html",
+    "purpose": "Monitor sign-ins for watched accounts & alert on untrusted networks.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l11",
+    "name": "M365 Control Center",
+    "cat": "sec",
+    "icon": "activity",
+    "tone": "t-red",
+    "href": "/tenant-sentinel.html",
+    "purpose": "Security score, findings & fix tracking.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l12",
+    "name": "SharePoint Governance",
+    "cat": "data",
+    "icon": "grid",
+    "tone": "t-purple",
+    "href": "/sharepoint-governance-dashboard.html",
+    "purpose": "Audit site lifecycle, external sharing & tenant storage.",
+    "newTab": false,
+    "favorite": false,
+    "quick": true
+  },
+  {
+    "id": "l13",
+    "name": "Network Operations",
+    "cat": "net",
+    "icon": "radio",
+    "tone": "t-green",
+    "href": "/network-health.html",
+    "purpose": "Investigate network health, switches, ports and device connectivity.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l16",
+    "name": "Zscaler Command Center",
+    "cat": "net",
+    "icon": "cloud",
+    "tone": "t-blue",
+    "href": "/zscaler-command-center.html",
+    "purpose": "Live visibility into users, web activity, DLP & policy.",
+    "newTab": false,
+    "favorite": false,
+    "quick": true
+  },
+  {
+    "id": "l17",
+    "name": "Server Health",
+    "cat": "net",
+    "icon": "server",
+    "tone": "t-purple",
+    "href": "https://dev-subadmin.nrpi.local/operations",
+    "purpose": "Unified infrastructure health, findings & maintenance.",
+    "newTab": true,
+    "favorite": true,
+    "quick": false
+  },
+  {
+    "id": "l18",
+    "name": "Service Desk Portal",
+    "cat": "desk",
+    "icon": "headset",
+    "tone": "t-blue",
+    "href": "/service-desk-portal.html",
+    "purpose": "Submit and track IT service desk tickets.",
+    "newTab": false,
+    "favorite": true,
+    "quick": false
+  },
+  {
+    "id": "l19",
+    "name": "Report a Bug",
+    "cat": "desk",
+    "icon": "x",
+    "tone": "t-red",
+    "href": "/report-bug.html",
+    "purpose": "Flag something broken in any CorpIT Hub app.",
+    "newTab": false,
+    "favorite": false,
+    "quick": false
+  },
+  {
+    "id": "l20",
+    "name": "IT Quick Start",
+    "cat": "res",
+    "icon": "grid",
+    "tone": "t-amber",
+    "href": "/it-command-quickstart.html",
+    "purpose": "What each tool does & when to use it.",
+    "newTab": false,
+    "favorite": true,
+    "quick": false
+  }
 ];
 let MEASURED = false, PINS = [], Q = '';
 

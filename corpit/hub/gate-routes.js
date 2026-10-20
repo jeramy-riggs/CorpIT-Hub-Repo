@@ -114,8 +114,11 @@ router.get('/check', function (req, res) {
       // nginx passes the target host as X-Original-Host; its absence means the
       // vhost was wired without that header, so treat it as an unknown site and
       // let the default policy (deny, bar super-admins) apply rather than guess.
+      // SECPAGELIMIT-20261019: the raw request URI lets a site's page_limits refuse
+      // page documents; a missing header refuses only people who are page-limited.
       const verdict = siteAccess.decide(req.get('X-Original-Host'), gateEmail,
-                                        who.groups === undefined ? null : who.groups);
+                                        who.groups === undefined ? null : who.groups,
+                                        req.get('X-Original-URI') || null);
       if (!verdict.allow) {
         res.set('X-Gate-Auth', 'not-entitled');
         res.set('X-Gate-Reason', verdict.reason);
@@ -321,10 +324,16 @@ router.get('/landing', function (req, res) {
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
   });
 
+  // SECPAGELIMIT-20261019: the caller's own page limit on the host asking, if any, so
+  // pages can hide controls that lead to refused pages and the 403 page can send
+  // them to their home page. Reports only the caller's own access, like the rest.
+  const hereHost = siteAccess.normHost(req.get('X-Original-Host') || req.get('host') || '');
+  const lim = siteAccess.pageLimitFor(hereHost, email, groups);
   return res.status(200).json({
     host:  sites.length ? sites[0].host : null,
     count: sites.length,
     sites: sites,
+    here:  lim ? { host: hereHost, page_limit: lim } : null,
   });
 });
 

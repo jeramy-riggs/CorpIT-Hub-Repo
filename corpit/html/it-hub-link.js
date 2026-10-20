@@ -38,13 +38,24 @@
   // One request per page, shared by every caller. null means "could not tell".
   var pending = null, known = null;
 
+  // SECPAGELIMIT-20261019: one /api/gate/landing read per page, shared by entitled()
+  // and the page-limit check below. null means "could not tell".
+  var landingP = null;
+  function landing() {
+    if (landingP) return landingP;
+    if (!window.fetch) return Promise.resolve(null);
+    landingP = fetch('/api/gate/landing', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+    return landingP;
+  }
+
   function entitled() {
     if (isHome) return Promise.resolve(true);
     if (known !== null) return Promise.resolve(known);
     if (pending) return pending;
     if (!window.fetch) return Promise.resolve(null);
-    pending = fetch('/api/gate/landing', { credentials: 'same-origin', cache: 'no-store' })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    pending = landing()
       .then(function (d) {
         if (!d || !Array.isArray(d.sites)) return null;      // unreadable -> unknown
         known = d.sites.some(function (s) {
@@ -131,6 +142,97 @@
       hint(a, 'You do not have access to the CorpIT Hub');
     }, true);
   }
+
+  /* SECPAGELIMIT-20261019: someone held to a few pages on this host (page_limits in
+   * site-access.json) has no Hub to go back to -- the gate refuses it. Hide the Hub
+   * controls and My Profile's "Add from the Hub" card, de-link the brand/home links,
+   * hide every other link and tile to a page of this host they cannot open (also
+   * ones rendered later), and stop any click that still gets through with a note
+   * instead of a 403. Cosmetic only: the gate is the control, and an unreadable
+   * answer leaves the last known state alone. */
+  var LIMIT_KEY = 'ithub-limited:' + here;
+  var LIMIT_CSS = '.ittb-hub,.back-btn,.nav-item[data-nav="hub"]{display:none!important}' +
+                  '.card:has(#hubgrid){display:none!important}' +
+                  'a[data-ithub-hidden]{display:none!important}' +
+                  '.rail-links:not(:has(a:not([data-ithub-hidden]))){display:none!important}' +
+                  'a[data-ithub-delinked]{cursor:default}';
+  var limit = null;
+  function limitStyle(on) {
+    var s = document.getElementById('ithub-limit-css');
+    if (on && !s) {
+      s = document.createElement('style');
+      s.id = 'ithub-limit-css';
+      s.textContent = LIMIT_CSS;
+      (document.head || document.documentElement).appendChild(s);
+    } else if (!on && s) {
+      s.parentNode.removeChild(s);
+    }
+  }
+  function sameSite(u) {
+    var h = u.hostname.toLowerCase();
+    return h === here || h === HOST;
+  }
+  function refused(u) {
+    if (!sameSite(u) || /^\/(api|hub-api)\//.test(u.pathname)) return false;
+    return limit.pages.indexOf(u.pathname) === -1;
+  }
+  // Brand/home links lose their href (hiding them would break the header); every
+  // other link to a refused page, and any tile, is hidden.
+  function tidy() {
+    if (!limit) return;
+    var links = document.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var a = links[i], href = a.getAttribute('href'), u;
+      try { u = new URL(href, window.location.href); } catch (e) { continue; }
+      if (!refused(u)) continue;
+      var tile = /(^|\s)(hubtile|fav-tile)(\s|$)/.test(a.className || '');
+      if (!tile && (u.pathname === '/' || u.pathname === '/landing.html')) {
+        a.setAttribute('data-ithub-delinked', href);
+        a.removeAttribute('href');
+      } else {
+        a.setAttribute('data-ithub-hidden', href);
+      }
+    }
+  }
+  // The observer runs before paint (no flash) and also in background tabs; tidy()
+  // only changes attributes, which it does not watch, so it cannot loop.
+  function watch() {
+    tidy();
+    if (window.MutationObserver) {
+      new MutationObserver(tidy).observe(document.documentElement, { childList: true, subtree: true });
+    }
+  }
+  try { if (window.sessionStorage.getItem(LIMIT_KEY) === '1') limitStyle(true); } catch (e) { /* storage blocked */ }
+  landing().then(function (d) {
+    if (!d) return;
+    var h = d.here;
+    limit = (h && h.page_limit && Array.isArray(h.page_limit.pages) &&
+             String(h.host || '').toLowerCase() === here) ? h.page_limit : null;
+    try {
+      if (limit) window.sessionStorage.setItem(LIMIT_KEY, '1');
+      else window.sessionStorage.removeItem(LIMIT_KEY);
+    } catch (e) { /* storage blocked */ }
+    limitStyle(!!limit);
+    if (!limit) return;
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch);
+    else watch();
+  });
+  document.addEventListener('click', function (ev) {
+    if (!limit) return;
+    var a = ev.target;
+    while (a && a.nodeType === 1 && a.tagName !== 'A') a = a.parentNode;
+    if (!a || a.nodeType !== 1) return;
+    var href = a.getAttribute('href') || a.getAttribute('data-ithub-delinked');
+    if (!href) return;
+    var u;
+    try { u = new URL(href, window.location.href); } catch (e) { return; }
+    if (!sameSite(u) || u.pathname === window.location.pathname) return;
+    if (/^\/(api|hub-api)\//.test(u.pathname)) return;      // sign-out and the like
+    if (limit.pages.indexOf(u.pathname) !== -1) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    hint(a, 'That page is not part of your access');
+  }, true);
 
   window.ITHubLink = {
     HOST: HOST,

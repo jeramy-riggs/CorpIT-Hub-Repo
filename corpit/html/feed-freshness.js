@@ -112,7 +112,7 @@
     // writes it last failed. The second can happen while the data still looks
     // current, because a half-finished run leaves fresh rows behind it.
     var bad = (data.feeds || []).filter(function (f) {
-      return f.state !== 'ok' || producerBad(f);
+      return f.state !== 'not_included' && (f.state !== 'ok' || producerBad(f));
     });
     if (!bad.length) return;
 
@@ -167,6 +167,7 @@
     ].join(';');
 
     var items = bad.map(function (f) {
+      if(f.collectionMode==='manual_test')return '<li>'+esc(f.label)+' is a DEV test snapshot; recurring collection is intentionally not enabled here. '+esc(f.newest?'Source date: '+f.newest+'.':'No source date recorded.')+' Live collection belongs in production.</li>';
       var age = f.state === 'stale' ? ' for ' + ago(f.ageHours) : '';
       if (f.state === 'ok' && producerBad(f)) age = '';
       // What each state actually measures, and nothing beyond it.

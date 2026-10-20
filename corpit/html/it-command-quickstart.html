@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<script src="/it-theme.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IT Quick Start · Operations Hub</title>
+<link href="/fonts/fonts.css" rel="stylesheet">
+<script src="/rbac-client.js?v=20260904"></script>
+<script src="/it-observe.js" data-app-key="quickstart"></script>
+<script src="/it-profile.js" defer></script>
+<style>
+:root{
+  --ease-out: cubic-bezier(0.23,1,0.32,1);
+  --navy-1:#0D294C; --navy-2:#103463;
+  --page:#F6F9FC; --surface:#FEFEFE;
+  --line:#EDF1F6; --line-2:#E3EBF2;
+  --ink:#0F172A; --muted:#64748B; --dim:#94A3B8;
+  --blue:#1C77FA; --blue-dk:#1668E0; --blue-tint:#E4F2FD;
+  --green:#0F9D58; --green-tint:#E6F8F2;
+  --purple:#7C4DFF; --purple-tint:#F1EDFE;
+  --rose:#E11D48; --rose-tint:#FDECF0;
+  --amber:#D48806; --amber-tint:#FDF3E2;
+  --orange:#EA580C; --orange-tint:#FDEDE2;
+  --teal:#0E9384; --teal-tint:#E2F6F3;
+  --red:#E11D48; --red-tint:#FDECF0;
+  --shadow-panel: 0 1px 2px rgba(15,42,80,.05), 0 8px 22px -16px rgba(15,42,80,.30);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{min-height:100%;font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input{font:inherit;color:inherit}
+svg{display:block}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+.hdr :focus-visible{outline-color:#8FC0FF}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.wrap{width:min(1462px, 100% - 48px);margin-inline:auto}
+
+/* header — identical to the Overview page so the shell never shifts */
+.hdr{position:relative;display:flex;align-items:center;height:57px;padding:0 34px 0 40px;
+  background:linear-gradient(90deg,var(--navy-1),var(--navy-2));color:#fff}
+.brand{display:flex;align-items:center;gap:16px;flex:0 0 auto;padding-right:10px;border-radius:10px}
+.brand-sq{width:33px;height:33px;border-radius:8px;background:#1C77FA;display:grid;place-items:center;
+  color:#fff;flex:0 0 auto}
+.brand-sq svg{width:19px;height:19px}
+.brand-tx{display:flex;flex-direction:column;gap:2px;line-height:1}
+.brand-tx b{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.brand-tx i{font-style:normal;font-size:9.5px;font-weight:600;letter-spacing:.17em;color:rgba(255,255,255,.52)}
+.nav{display:flex;align-items:center;gap:31px;margin-inline:auto;height:100%}
+.nav-i{position:relative;display:inline-flex;align-items:center;height:100%;padding:0 13px;
+  font-size:14px;font-weight:500;color:rgba(255,255,255,.78);
+  transition:color 160ms var(--ease-out)}
+.nav-i::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:#2479EF;
+  opacity:0;transition:opacity 180ms var(--ease-out)}
+.nav-i.is-active{color:#fff}
+.nav-i.is-active::after{opacity:1}
+@media (hover:hover) and (pointer:fine){ .nav-i:hover{color:#fff} }
+.hdr-r{display:flex;align-items:center;gap:24px;flex:0 0 auto}
+.hdr-btn{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;color:rgba(255,255,255,.86);
+  transition:background-color 160ms var(--ease-out),color 160ms var(--ease-out),transform 120ms var(--ease-out)}
+.hdr-btn svg{width:19px;height:19px}
+@media (hover:hover) and (pointer:fine){ .hdr-btn:hover{background:rgba(255,255,255,.12);color:#fff} }
+.hdr-btn:active{transform:scale(.94)}
+.hdr-av{display:flex;align-items:center}
+.hdr .ittb{gap:0;margin:0}
+.hdr .ittb .ittb-av{width:36px;height:36px;background:#548AE4;color:#fff;
+  border-color:rgba(255,255,255,.22);font-weight:600;font-size:13px}
+.hdr .ittb .ittb-av:hover,.hdr .ittb .ittb-av[aria-expanded="true"]{border-color:#fff}
+
+/* page */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;
+  padding:30px 0 20px;flex-wrap:wrap}
+.top h1{font-size:28px;font-weight:700;letter-spacing:-.022em;line-height:1.1}
+.top p{margin-top:8px;font-size:14.5px;color:var(--muted)}
+.filter{display:flex;align-items:center;gap:11px;width:360px;max-width:100%;height:42px;
+  padding:0 14px;border-radius:11px;background:#fff;border:1px solid #DDE5EE;
+  box-shadow:0 1px 2px rgba(15,42,80,.05);
+  transition:border-color 150ms var(--ease-out),box-shadow 150ms var(--ease-out)}
+.filter:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(28,119,250,.15)}
+.filter svg{width:17px;height:17px;color:#94A3B8;flex:0 0 auto}
+.filter input{flex:1;border:none;outline:none;background:none;font-size:14.5px}
+.filter input::placeholder{color:#9AA9BC}
+.sect{margin-bottom:30px}
+.sect-h{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+.sect-h h2{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#8496AC}
+.sect-h span{flex:1;height:1px;background:var(--line-2)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:14px}
+.card{position:relative;display:flex;flex-direction:column;gap:5px;padding:16px 17px 17px;
+  background:var(--surface);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow-panel);
+  transition:box-shadow 200ms var(--ease-out),border-color 200ms var(--ease-out),transform 140ms var(--ease-out)}
+@media (hover:hover) and (pointer:fine){
+  .card:hover{border-color:#D8E4F2;box-shadow:0 10px 26px -14px rgba(15,42,80,.4)}
+}
+.card:active{transform:scale(.99)}
+.sq{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;margin-bottom:7px}
+.sq svg{width:20px;height:20px}
+.sq .ic{display:grid;place-items:center;width:20px;height:20px}
+.sq .ic img,.sq .ic svg{max-width:20px;max-height:20px}
+.sq.logo{background:#fff;border:1px solid var(--line-2)}
+.tn{font-size:15.5px;font-weight:700;letter-spacing:-.012em}
+.td{font-size:13.5px;color:var(--muted);line-height:1.45}
+.tx{margin-top:6px;font-size:11.5px;color:#8496AC}
+.pin{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:8px;
+  display:grid;place-items:center;color:#C3CFDE;opacity:0;
+  transition:opacity 160ms var(--ease-out),color 160ms var(--ease-out),background-color 160ms var(--ease-out)}
+.pin svg{width:16px;height:16px}
+.pin[aria-pressed="true"]{opacity:1;color:#F2B01E;fill:#F2B01E}
+.pin[aria-pressed="true"] svg{fill:#F2B01E}
+.card:hover .pin,.pin:focus-visible{opacity:1}
+@media (hover:hover) and (pointer:fine){ .pin:hover{background:#F1F5F9;color:#F2B01E} }
+.t-blue{background:var(--blue-tint);color:var(--blue)}
+.t-green{background:var(--green-tint);color:var(--green)}
+.t-purple{background:var(--purple-tint);color:var(--purple)}
+.t-rose,.t-red{background:var(--rose-tint);color:var(--rose)}
+.t-amber{background:var(--amber-tint);color:var(--amber)}
+.t-orange{background:var(--orange-tint);color:var(--orange)}
+.t-teal{background:var(--teal-tint);color:var(--teal)}
+.note{padding:26px 4px;font-size:14.5px;color:var(--muted)}
+.foot{padding:6px 0 40px;font-size:13px;color:var(--dim)}
+@media (max-width:1100px){ .hdr{padding:0 20px} .nav{gap:16px} .hdr-r{gap:16px} }
+@media (max-width:860px){
+  .brand-tx i{display:none}
+  .hdr{height:auto;flex-wrap:wrap;padding:10px 16px 0;row-gap:8px}
+  .nav{width:100%;order:3;margin:0;overflow-x:auto;gap:4px}
+  .nav-i{height:42px;padding:0 12px;font-size:13.5px}
+  .brand{margin-right:auto}
+  .filter{width:100%}
+}
+@media (max-width:560px){ .wrap{width:min(1462px, 100% - 32px)} }
+@media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+<link rel="stylesheet" href="/tools-portal.css?v=3f076b7eec1c">
+</head>
+<body>
+
+<header class="hdr">
+  <a class="brand" href="/landing.html" aria-label="Operations Hub — Overview">
+    <span class="brand-sq" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V8l4-2v15M13 21V4l5 2v15M9 21V11h4M15.5 9.5h.01M15.5 12.5h.01M15.5 15.5h.01"/></svg></span>
+    <span class="brand-tx"><b>Operations Hub</b><i>IT COMMAND CENTER</i></span>
+  </a>
+  <nav class="nav" aria-label="Primary">
+    <a class="nav-i" href="/landing.html">Overview</a>
+    <a class="nav-i" href="/tools.html">Tools</a>
+    <a class="nav-i" href="/service-desk-portal.html">Service Desk</a>
+    <a class="nav-i is-active" href="/it-command-quickstart.html" aria-current="page">Knowledge</a>
+  </nav>
+  <div class="hdr-r">
+    <div class="hdr-av" id="it-topbar"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="top"><div><h1>IT Quick Start</h1>
+    <p>Find the right workspace for the task. These links open development pages.</p></div></div>
+  <p class="note">Start with People &amp; Devices for person-specific support, Asset Inventory for device records, or Service Desk for requests. Use the descriptions below to choose a specialist workspace. Each workspace keeps its existing access checks.</p>
+<section class="sect"><div class="sect-h"><h2>Devices</h2><span></span></div><div class="grid">
+<a class="card" href="/IT_Inventory_App.html"><span class="sq t-teal" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-monitor"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="20" height="14" x="2" y="3" rx="2" />
+  <line x1="8" x2="16" y1="21" y2="21" />
+  <line x1="12" x2="12" y1="17" y2="21" />
+</svg>
+</span></span><span class="tn">Asset Inventory</span><span class="td">Track hardware, warranties, Intune endpoints &amp; patch health.</span></a>
+<a class="card" href="/patch-status.html"><span class="sq t-teal" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-monitor"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="20" height="14" x="2" y="3" rx="2" />
+  <line x1="8" x2="16" y1="21" y2="21" />
+  <line x1="12" x2="12" y1="17" y2="21" />
+</svg>
+</span></span><span class="tn">Intune Health</span><span class="td">Review Windows updates, Defender, reboot needs, app failures and Intune device health.</span></a>
+</div></section>
+<section class="sect"><div class="sect-h"><h2>Identity &amp; Access</h2><span></span></div><div class="grid">
+<a class="card" href="/identity-diag.html"><span class="sq t-teal logo" aria-hidden="true"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#225086" d="M108.1 399.1c11 6.9 29.4 14.5 48.8 14.5c17.7 0 34.1-5.1 47.7-13.9h.1l51.3-32.1v115.9c-8.1 0-16.3-2.2-23.4-6.7c0 .1-124.5-77.7-124.5-77.7"/><path fill="#6df" d="M223.4 42.9L10 283.5c-16.5 18.6-12.2 46.7 9.2 60c0 0 79 49.4 88.9 55.6c11 6.9 29.4 14.5 48.8 14.5c17.7 0 34.1-5.1 47.7-13.9h.1l51.3-32.1L131.9 290L256 150V28.4c-12 0-24.1 4.9-32.6 14.5"/><path fill="#cbf8ff" d="m131.9 290.1l1.4.9L256 367.7V150z"/><path fill="#074793" d="M492.8 343.6c21.4-13.3 25.7-41.4 9.2-60l-140-158c-11.3-5.3-24-8.3-37.3-8.3c-26.3 0-49.8 11.3-65.5 29.2l-3.1 3.5l124.1 140.1L256 367.7v115.9c8.2 0 16.3-2.2 23.4-6.7z"/><path fill="#0294e4" d="M256 28.4V150l3.1-3.5c15.6-17.8 39.2-29.2 65.5-29.2c13.4 0 26.1 3 37.3 8.3l-73.4-82.7c-8.4-9.6-20.5-14.4-32.5-14.5"/><path fill="#96bcc2" d="M380.2 290.1L256 150.1v217.6z"/></svg></span></span><span class="tn">People &amp; Devices</span><span class="td">Support people, assigned devices, sign-ins, access and network context.</span></a>
+<a class="card" href="/ad-management.html"><span class="sq t-blue logo" aria-hidden="true"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18"><defs><linearGradient id="a" x1="13.25" y1="13.02" x2="8.62" y2="4.25" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1988d9"/><stop offset=".9" stop-color="#54aef0"/></linearGradient><linearGradient id="b" x1="11.26" y1="10.47" x2="14.46" y2="15.99" gradientUnits="userSpaceOnUse"><stop offset=".1" stop-color="#54aef0"/><stop offset=".29" stop-color="#4fabee"/><stop offset=".51" stop-color="#41a2e9"/><stop offset=".74" stop-color="#2a93e0"/><stop offset=".88" stop-color="#1988d9"/></linearGradient></defs><path fill="#50e6ff" d="M1.01 10.19l7.92 5.14 8.06-5.16L18 11.35l-9.07 5.84L0 11.35l1.01-1.16z"/><path fill="#fff" d="M1.61 9.53L8.93.81l7.47 8.73-7.47 4.72-7.32-4.73z"/><path fill="#50e6ff" d="M8.93.81v13.45L1.61 9.53 8.93.81z"/><path fill="url(#a)" d="M8.93.81v13.45l7.47-4.72L8.93.81z"/><path fill="#53b1e0" d="M8.93 7.76l7.47 1.78-7.47 4.72v-6.5z"/><path fill="#9cebff" d="M8.93 14.26L1.61 9.53l7.32-1.77v6.5z"/><path fill="url(#b)" d="M8.93 17.19L18 11.35l-1.01-1.18-8.06 5.16v1.86z"/></svg></span></span><span class="tn">AD Management</span><span class="td">Clean up stale accounts, groups &amp; computers; GPO audit for super-admins.</span></a>
+<a class="card" href="https://dev-accessportal.nrpi.local/" target="_blank" rel="noopener noreferrer"><span class="sq t-blue" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-ticket"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+  <path d="M13 5v2" />
+  <path d="M13 17v2" />
+  <path d="M13 11v2" />
+</svg>
+</span></span><span class="tn">Access Portal</span><span class="td">Submit access, AI-tool and security-exception requests.</span></a>
+</div></section>
+<section class="sect"><div class="sect-h"><h2>Applications &amp; SSO</h2><span></span></div><div class="grid">
+<a class="card" href="/okta-dashboard.html"><span class="sq t-purple logo" aria-hidden="true"><span class="ic"><svg viewBox="0 0 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid">
+    <title>okta</title>
+    <g>
+        <path d="M140.84428,1.77777778 L135.578481,66.6311111 C133.0879,66.3466667 130.59732,66.2044444 128.03558,66.2044444 C124.833405,66.2044444 121.702389,66.4177778 118.642533,66.9155556 L115.653837,35.4844444 C115.582677,34.4888889 116.365431,33.6355556 117.361663,33.6355556 L122.698621,33.6355556 L120.136881,1.84888889 C120.065722,0.853333333 120.848476,0 121.773549,0 L139.207612,0 C140.203845,0 140.986598,0.853333333 140.84428,1.84888889 L140.84428,1.84888889 L140.84428,1.77777778 Z M96.8677434,4.97777778 C96.5831056,4.05333333 95.5868734,3.48444444 94.6618006,3.84 L78.2951286,9.81333333 C77.3700558,10.1688889 76.9430991,11.2355556 77.3700558,12.0888889 L90.6768718,41.1022222 L85.6245513,42.9511111 C84.6994785,43.3066667 84.2725218,44.3733333 84.6994785,45.2266667 L98.2909322,73.7422222 C103.200934,71.04 108.537892,68.9777778 114.159488,67.6977778 L96.9389028,4.97777778 L96.8677434,4.97777778 Z M56.7338171,23.04 L94.3771628,76.0888889 C89.6094801,79.2177778 85.268754,82.9155556 81.568463,87.1822222 L59.0109193,64.9955556 C58.2993249,64.2844444 58.3704843,63.1466667 59.0820788,62.5066667 L63.2093265,59.0933333 L40.7941017,36.4088889 C40.0825073,35.6977778 40.1536667,34.56 40.9364206,33.92 L54.2432366,22.7555556 C55.0259905,22.1155556 56.0933821,22.2577778 56.6626577,23.04 L56.7338171,23.04 Z M25.1390241,53.76 C24.3562702,53.1911111 23.2177191,53.4755556 22.719603,54.3288889 L14.0381509,69.4044444 C13.5400348,70.2577778 13.895832,71.3244444 14.7497453,71.7511111 L43.6404795,85.4044444 L40.9364206,90.0266667 C40.4383045,90.88 40.7941017,92.0177778 41.7191745,92.3733333 L70.4675897,105.528889 C72.5312136,100.195556 75.3064319,95.2177778 78.7220852,90.7377778 L25.1390241,53.76 Z M3.86235042,94.72 C4.00466931,93.7244444 5.00090152,93.1555556 5.92597429,93.3688889 L68.902082,109.795556 C67.2654148,115.128889 66.340342,120.746667 66.1980231,126.577778 L34.6743896,124.017778 C33.6781573,123.946667 32.9665629,123.022222 33.1800412,122.026667 L34.105114,116.764444 L2.29684266,113.777778 C1.30061044,113.706667 0.660175451,112.782222 0.802494339,111.786667 L3.79119098,94.6488889 L3.79119098,94.6488889 L3.86235042,94.72 Z M1.51408878,137.244444 C0.517856564,137.315556 -0.12257843,138.24 0.0197404578,139.235556 L3.07959654,156.373333 C3.22191543,157.368889 4.21814764,157.937778 5.14322041,157.724444 L36.026419,149.688889 L36.9514918,154.951111 C37.0938106,155.946667 38.0900429,156.515556 39.0151156,156.302222 L69.4713575,147.911111 C67.6923714,142.648889 66.5538203,137.031111 66.2691826,131.271111 L1.44292933,137.244444 L1.51408878,137.244444 Z M11.6187298,182.328889 C11.1206137,181.475556 11.4764109,180.408889 12.3303242,179.982222 L71.1080247,152.106667 C73.3139675,157.368889 76.3026641,162.275556 79.8606363,166.684444 L54.1009177,185.031111 C53.3181638,185.6 52.1796127,185.386667 51.6814966,184.533333 L48.9774377,179.84 L22.719603,197.973333 C21.9368491,198.542222 20.798298,198.257778 20.3001819,197.404444 L11.5475703,182.328889 L11.6187298,182.328889 Z M82.849333,170.097778 L37.0938106,216.391111 C36.3822162,217.102222 36.4533756,218.24 37.2361295,218.88 L50.6141049,230.044444 C51.3968588,230.684444 52.4642505,230.542222 53.033526,229.76 L71.5349814,203.733333 L75.6622291,207.217778 C76.444983,207.857778 77.5835341,207.715556 78.1528097,206.862222 L96.0849895,180.835556 C91.2461473,177.848889 86.7631024,174.222222 82.9204924,170.097778 L82.849333,170.097778 Z M73.8120836,244.408889 C72.8870108,244.053333 72.4600542,242.986667 72.8870108,242.133333 L99.9987589,182.968889 C104.97992,185.528889 110.388038,187.448889 116.009634,188.515556 L108.039776,219.093333 C107.826298,220.017778 106.758906,220.586667 105.833833,220.231111 L100.781513,218.382222 L92.313539,249.173333 C92.0289012,250.097778 91.032669,250.666667 90.1075962,250.311111 L73.7409242,244.337778 L73.7409242,244.337778 L73.8120836,244.408889 Z M120.492679,189.297778 L115.22688,254.151111 C115.15572,255.146667 115.938474,256 116.863547,256 L134.297611,256 C135.293843,256 136.076597,255.146667 135.934278,254.151111 L133.372538,222.364444 L138.709496,222.364444 C139.705728,222.364444 140.488482,221.511111 140.417323,220.515556 L137.428626,189.084444 C134.36877,189.582222 131.237755,189.795556 128.03558,189.795556 C125.47384,189.795556 122.983259,189.653333 120.492679,189.297778 L120.492679,189.297778 Z M183.255308,13.7244444 C183.682265,12.8 183.255308,11.8044444 182.330235,11.4488889 L165.963563,5.47555556 C165.03849,5.12 164.042258,5.68888889 163.75762,6.61333333 L155.289647,37.4044444 L150.237326,35.5555556 C149.312253,35.2 148.316021,35.7688889 148.031383,36.6933333 L140.061526,67.2711111 C145.754281,68.4088889 151.091239,70.3288889 156.072401,72.8177778 L183.255308,13.7244444 L183.255308,13.7244444 Z M218.977349,39.5377778 L173.221826,85.8311111 C169.379217,81.7066667 164.967331,78.08 160.057329,75.0933333 L177.989509,49.0666667 C178.558785,48.2844444 179.697336,48.0711111 180.48009,48.7111111 L184.607337,52.1955556 L203.108793,26.1688889 C203.678068,25.3866667 204.81662,25.2444444 205.528214,25.8844444 L218.906189,37.0488889 C219.688943,37.6888889 219.688943,38.8266667 219.048508,39.5377778 L218.977349,39.5377778 Z M243.740835,75.9466667 C244.665908,75.52 244.950546,74.4533333 244.45243,73.6 L235.699818,58.5244444 C235.201702,57.6711111 234.063151,57.4577778 233.280397,57.9555556 L207.022562,76.0888889 L204.318503,71.4666667 C203.820387,70.6133333 202.681836,70.3288889 201.899082,70.9688889 L176.139364,89.3155556 C179.697336,93.7244444 182.614873,98.6311111 184.891975,103.893333 L243.669676,76.0177778 L243.740835,75.9466667 Z M252.991563,99.5555556 L255.98026,116.693333 C256.122578,117.688889 255.482143,118.542222 254.485911,118.684444 L189.659658,124.728889 C189.37502,118.897778 188.236469,113.351111 186.457483,108.088889 L216.913725,99.6977778 C217.838798,99.4133333 218.83503,100.053333 218.977349,101.048889 L219.902422,106.311111 L250.78562,98.2755556 C251.710693,98.0622222 252.706925,98.6311111 252.849244,99.6266667 L252.849244,99.6266667 L252.991563,99.5555556 Z M250.074026,162.488889 C250.999098,162.702222 251.995331,162.133333 252.13765,161.137778 L255.126346,144 C255.268665,143.004444 254.62823,142.151111 253.631998,142.008889 L221.823727,139.022222 L222.748799,133.76 C222.891118,132.764444 222.250683,131.911111 221.254451,131.768889 L189.730817,129.208889 C189.588499,135.04 188.663426,140.657778 187.026759,145.991111 L250.002866,162.417778 L250.002866,162.417778 L250.074026,162.488889 Z M233.280397,201.6 C232.782281,202.453333 231.64373,202.666667 230.860976,202.168889 L177.277915,165.191111 C180.693568,160.711111 183.468786,155.733333 185.53241,150.4 L214.280826,163.555556 C215.205898,163.982222 215.561696,165.048889 215.063579,165.902222 L212.359521,170.524444 L241.250255,184.177778 C242.104168,184.604444 242.459965,185.671111 241.961849,186.524444 L233.280397,201.6 L233.280397,201.6 L233.280397,201.6 Z M161.622837,179.768889 L199.266183,232.817778 C199.835458,233.6 200.97401,233.742222 201.685604,233.102222 L214.99242,221.937778 C215.775174,221.297778 215.775174,220.16 215.134739,219.448889 L192.719514,196.764444 L196.846762,193.351111 C197.629516,192.711111 197.629516,191.573333 196.917921,190.862222 L174.360378,168.675556 C170.588927,172.942222 166.31936,176.711111 161.551678,179.768889 L161.551678,179.768889 L161.622837,179.768889 Z M161.26704,252.017778 C160.341967,252.373333 159.345735,251.804444 159.061097,250.88 L141.840512,188.16 C147.462108,186.88 152.799066,184.817778 157.709068,182.115556 L171.300522,210.631111 C171.727478,211.555556 171.300522,212.622222 170.375449,212.906667 L165.323128,214.755556 L178.629944,243.768889 C179.056901,244.693333 178.629944,245.688889 177.704871,246.044444 L161.338199,252.017778 L161.338199,252.017778 L161.26704,252.017778 Z" fill="#000000"></path>
+    </g>
+</svg>
+</span></span><span class="tn">Okta Dashboard</span><span class="td">Account status, MFA enrolment and the Okta application inventory.</span></a>
+<a class="card" href="https://dev-reporting.nrpi.local/ai-usage-credits.html" target="_blank" rel="noopener noreferrer"><span class="sq t-purple logo" aria-hidden="true"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#d97757" d="m100.5 340.4l100.7-56.5l1.7-4.9l-1.7-2.7h-4.9l-16.9-1l-57.6-1.6l-49.8-2.1l-48.4-2.6l-12.2-2.6l-11.4-15l1.2-7.5l10.2-6.8l14.6 1.3l32.4 2.2L107 244l35.2 2.1l52.2 5.4h8.3l1.2-3.3l-2.9-2.1l-2.2-2.1l-50.3-34l-54.4-36l-28.5-20.7l-15.4-10.5l-7.8-9.9l-3.4-21.5L53 96l18.8 1.3l4.8 1.3l19.1 14.6l40.7 31.5l53.1 39.1l7.8 6.5l3.1-2.2l.4-1.6l-3.5-5.8l-28.9-52.2l-30.8-53.1l-13.7-22l-3.6-13.4c-1.4-5.1-2.1-10.3-2.2-15.6l16-21.6l8.8-2.9l21.2 2.9l9 7.8l13.2 30.2l21.4 47.6l33.2 64.6l9.7 19.2l5.2 17.7l1.9 5.4h3.4v-3.1l2.7-36.4l5.1-44.7l4.9-57.5l1.7-16.2l8-19.4l15.9-10.5l12.5 6l10.2 14.6l-1.4 9.5l-6.1 39.5l-11.9 61.9l-7.8 41.4h4.5l5.2-5.2l21-27.9l35.2-44l15.6-17.5l18.1-19.3l11.7-9.2h22l16.2 24.1l-7.3 24.9l-22.7 28.7l-18.8 24.4l-27 36.3l-16.9 29l1.6 2.3l4-.4l60.9-12.9l32.9-6l39.3-6.7l17.8 8.3l1.9 8.4l-7 17.2l-42 10.4l-49.3 9.9l-73.4 17.3l-.9.6l1 1.3l33 3.1l14.1.8h34.6l64.4 4.8l16.9 11.1l10.1 13.6l-1.7 10.3l-25.9 13.2l-35-8.3l-81.7-19.4l-28-7h-3.9v2.3l23.3 22.8l42.8 38.6L455 410l2.7 12.3l-6.9 9.7l-7.3-1l-47-35.3l-18.2-15.9l-41.1-34.6h-2.7v3.6l9.5 13.8l50 75.1l2.6 23l-3.6 7.5l-13 4.5l-14.3-2.6l-28.7-40.7l-30.2-46.2l-24.4-41.5l-3 1.7L265 498.2l-6.7 7.9l-15.6 6l-12.9-9.8l-6.9-15.9l6.9-31.5l8.3-41l6.7-32.6l6.1-40.5l3.6-13.5l-.3-.9l-3 .4l-30.6 42l-46.5 62.8l-36.8 39.4l-8.8 3.5l-15.3-7.9l1.4-14.1l8.6-12.6l50.9-64.8l30.7-40.1l19.8-23.2l-.1-3.4h-1.2L88.1 395.9L64 399.1l-10.4-9.7l1.3-15.9l4.9-5.2l40.7-28c.1-.1 0 .1 0 .1"/></svg></span></span><span class="tn">AI Usage &amp; Credits</span><span class="td">Track shared AI service usage, credit balances &amp; per-user spend.</span></a>
+<a class="card" href="/okta-entra-migration.html"><span class="sq t-purple" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-shield-check"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+  <path d="m9 12 2 2 4-4" />
+</svg>
+</span></span><span class="tn">Okta–Entra Migration</span><span class="td">Move application SSO from Okta to Entra; review optional Conditional Access work separately.</span></a>
+<a class="card" href="/ai-governance.html"><span class="sq t-purple" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-brain"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 18V5" />
+  <path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4" />
+  <path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5" />
+  <path d="M17.997 5.125a4 4 0 0 1 2.526 5.77" />
+  <path d="M18 18a4 4 0 0 0 2-7.464" />
+  <path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517" />
+  <path d="M6 18a4 4 0 0 1-2-7.464" />
+  <path d="M6.003 5.125a4 4 0 0 0-2.526 5.77" />
+</svg>
+</span></span><span class="tn">AI Governance</span><span class="td">Review AI inventory, usage, ownership, access, risks and governance work.</span></a>
+</div></section>
+<section class="sect"><div class="sect-h"><h2>Security</h2><span></span></div><div class="grid">
+<a class="card" href="/cert-watchtower.html"><span class="sq t-amber" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-lock"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+</svg>
+</span></span><span class="tn">Cert Watchtower</span><span class="td">Monitor TLS &amp; Windows cert expiry with alerts.</span></a>
+<a class="card" href="/signin-watch.html"><span class="sq t-red" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-shield"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+</svg>
+</span></span><span class="tn">Sign-In Watch</span><span class="td">Monitor sign-ins for watched accounts &amp; alert on untrusted networks.</span></a>
+<a class="card" href="/tenant-sentinel.html"><span class="sq t-red logo" aria-hidden="true"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><radialGradient id="SVGW71XOcaB" cx="-90.407" cy="-6.401" r="11.637" gradientTransform="rotate(110.528 -1582.507 971.976)scale(33.3657 58.1966)" gradientUnits="userSpaceOnUse"><stop offset=".064" stop-color="#ae7fe2"/><stop offset="1" stop-color="#0078d4"/></radialGradient><path fill="url(#SVGW71XOcaB)" d="m210.4 11.9l-2.6 1.6q-6.3 3.75-11.7 8.4l7.5-5.3h64l11.6 88.1l-58.2 58.2l-58.2 40.4V250c0 32.6 17 62.8 44.9 79.6l61.3 37.1l-129.4 75.5h-25L68.2 414c-27.9-16.9-44.9-47.1-44.9-79.6V177.6c0-32.6 17-62.8 44.9-79.7l139.6-84.5c.9-.5 1.8-1 2.6-1.5"/><linearGradient id="SVGDUKpnxEu" x1="253.639" x2="198.241" y1="653.085" y2="557.27" gradientTransform="translate(0 -278)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#114a8b"/><stop offset="1" stop-color="#0078d4" stop-opacity="0"/></linearGradient><path fill="url(#SVGDUKpnxEu)" d="m210.4 11.9l-2.6 1.6q-6.3 3.75-11.7 8.4l7.5-5.3h64l11.6 88.1l-58.2 58.2l-58.2 40.4V250c0 32.6 17 62.8 44.9 79.6l61.3 37.1l-129.4 75.5h-25L68.2 414c-27.9-16.9-44.9-47.1-44.9-79.6V177.6c0-32.6 17-62.8 44.9-79.7l139.6-84.5c.9-.5 1.8-1 2.6-1.5"/><radialGradient id="SVGpvOZoepW" cx="-95.09" cy="32.254" r="11.637" gradientTransform="rotate(-8.367 -3217.16 -20322.12)scale(31.0503 20.5108)" gradientUnits="userSpaceOnUse"><stop offset=".134" stop-color="#d59dff"/><stop offset="1" stop-color="#5e438f"/></radialGradient><path fill="url(#SVGpvOZoepW)" d="M349.1 197.8v52.1c0 32.6-17 62.8-44.9 79.6L164.6 414c-28.6 17.4-64.1 18-93.2 2l136.4 82.6c29.6 17.9 66.8 17.9 96.4 0L443.8 414c27.9-16.9 44.9-47.1 44.9-79.6v-37.7l-11.6-17.5z"/><linearGradient id="SVGdF2K1dNs" x1="389.732" x2="330.368" y1="510.531" y2="595.653" gradientTransform="translate(0 -278)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#493474"/><stop offset="1" stop-color="#8c66ba" stop-opacity="0"/></linearGradient><path fill="url(#SVGdF2K1dNs)" d="M349.1 197.8v52.1c0 32.6-17 62.8-44.9 79.6L164.6 414c-28.6 17.4-64.1 18-93.2 2l136.4 82.6c29.6 17.9 66.8 17.9 96.4 0L443.8 414c27.9-16.9 44.9-47.1 44.9-79.6v-37.7l-11.6-17.5z"/><radialGradient id="SVG31DpxbmO" cx="-123.182" cy="-9.402" r="11.637" gradientTransform="rotate(194.228 -1265.388 -274.62)scale(24.9228 41.9552)" gradientUnits="userSpaceOnUse"><stop offset=".058" stop-color="#50e6ff"/><stop offset="1" stop-color="#436dcd"/></radialGradient><path fill="url(#SVG31DpxbmO)" d="M443.8 97.9L304.2 13.4C275.5-4 239.8-4.5 210.6 11.8l-2.8 1.7a93.13 93.13 0 0 0-44.9 79.7v110.4l44.9-27.2c29.6-17.9 66.7-17.9 96.4 0l139.6 84.5c27 16.3 43.8 45.2 44.9 76.6c0-1 .1-2 .1-3.1V177.6c-.1-32.6-17.1-62.8-45-79.7"/><linearGradient id="SVGyetrOcnl" x1="174.261" x2="261.665" y1="446.725" y2="446.725" gradientTransform="translate(0 -278)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2d3f80"/><stop offset="1" stop-color="#436dcd" stop-opacity="0"/></linearGradient><path fill="url(#SVGyetrOcnl)" d="M443.8 97.9L304.2 13.4C275.5-4 239.8-4.5 210.6 11.8l-2.8 1.7a93.13 93.13 0 0 0-44.9 79.7v110.4l44.9-27.2c29.6-17.9 66.7-17.9 96.4 0l139.6 84.5c27 16.3 43.8 45.2 44.9 76.6c0-1 .1-2 .1-3.1V177.6c-.1-32.6-17.1-62.8-45-79.7"/></svg></span></span><span class="tn">M365 Control Center</span><span class="td">Security score, findings &amp; fix tracking.</span></a>
+</div></section>
+<section class="sect"><div class="sect-h"><h2>Data &amp; Collaboration</h2><span></span></div><div class="grid">
+<a class="card" href="/sharepoint-governance-dashboard.html"><span class="sq t-purple logo" aria-hidden="true"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><circle cx="262" cy="148.8" r="142.9" fill="#036c70"/><circle cx="381" cy="279.8" r="131" fill="#1a9ba1"/><circle cx="279.8" cy="404.8" r="101.2" fill="#37c6d0"/><path d="M285.8 134.9V389c-.1 8.8-5.4 16.8-13.6 20.1c-2.6 1.1-5.4 1.7-8.2 1.7h-85.3c-.1-2-.1-3.9-.1-6c0-2 0-4 .2-6c2.2-38.1 25.6-71.6 60.6-86.8v-22.1c-77.8-12.3-131-85.4-118.6-163.3c.1-.5.2-1.1.3-1.6c.6-4 1.4-8 2.5-11.9H264c12 .1 21.7 9.8 21.8 21.8" opacity=".1"/><path d="M252.1 125h-131c-13.2 77.7 39 151.4 116.7 164.7c2.4.4 4.7.7 7.1 1c-36.9 17.5-63.8 67.2-66.1 108.2c-.2 2-.3 4-.2 6c0 2 0 3.9.1 6c.2 4 .7 8 1.5 11.9H252c8.8-.1 16.8-5.4 20.1-13.6c1.1-2.6 1.7-5.4 1.7-8.2V146.8c0-12-9.7-21.7-21.7-21.8" opacity=".2"/><path d="M252.1 125h-131c-13.2 77.7 39 151.4 116.8 164.7c1.6.3 3.2.5 4.8.7c-35.7 18.8-61.6 68.4-63.8 108.5h73.2c12-.1 21.7-9.8 21.8-21.8V146.8c-.1-12-9.8-21.7-21.8-21.8" opacity=".2"/><path d="M240.2 125H121.1c-12.5 73.4 33.5 144 105.6 162.3c-27.3 31.2-44.1 70.2-47.9 111.5h61.3c12 0 21.7-9.8 21.8-21.8V146.8c0-12-9.7-21.8-21.7-21.8" opacity=".2"/><linearGradient id="SVGTTYJ8bNu" x1="45.489" x2="216.395" y1="1562.036" y2="1266.033" gradientTransform="matrix(1 0 0 -1 0 1670)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#058f92"/><stop offset=".5" stop-color="#038489"/><stop offset="1" stop-color="#026d71"/></linearGradient><path fill="url(#SVGTTYJ8bNu)" d="M21.8 125h218.3c12.1 0 21.8 9.8 21.8 21.8v218.3c0 12.1-9.8 21.8-21.8 21.8H21.8C9.8 387 0 377.2 0 365.2V146.8c0-12 9.8-21.8 21.8-21.8"/><path fill="#fff" d="M97.5 253.3c-5.1-3.4-9.4-7.9-12.5-13.2c-3-5.5-4.5-11.8-4.3-18.1c-.3-8.5 2.6-16.9 8.1-23.4c5.8-6.6 13.2-11.4 21.5-14c9.5-3.1 19.4-4.7 29.4-4.5c13.1-.5 26.2 1.4 38.7 5.4v27.4c-5.4-3.3-11.3-5.7-17.5-7.1c-6.7-1.6-13.6-2.5-20.5-2.5c-7.3-.3-14.5 1.3-21 4.5c-5 2.2-8.3 7.1-8.3 12.6c0 3.3 1.3 6.5 3.6 9c2.7 2.8 6 5.1 9.5 6.8c4 2 9.9 4.6 17.9 7.9c.9.3 1.7.6 2.5 1q11.7 4.65 22.5 11.1c5.4 3.4 10 7.9 13.3 13.4c3.4 6.2 5 13.2 4.8 20.2c.4 8.8-2.3 17.4-7.6 24.4c-5.3 6.4-12.3 11.2-20.2 13.6c-9.3 2.9-19.1 4.3-28.9 4.2c-8.8 0-17.5-.7-26.2-2.1c-7.3-1.2-14.4-3.3-21.2-6.2v-28.9c6.5 4.6 13.7 8.1 21.4 10.2c7.7 2.4 15.6 3.7 23.6 3.8c7.4.5 14.8-1.1 21.4-4.5c4.6-2.6 7.4-7.5 7.3-12.8c0-3.7-1.4-7.2-4-9.8c-3.3-3.2-7-5.8-11.2-7.8c-4.8-2.4-11.8-5.5-21-9.4c-7.4-3.1-14.5-6.8-21.1-11.2"/></svg></span></span><span class="tn">SharePoint Governance</span><span class="td">Audit site lifecycle, external sharing &amp; tenant storage.</span></a>
+</div></section>
+<section class="sect"><div class="sect-h"><h2>Network &amp; Monitoring</h2><span></span></div><div class="grid">
+<a class="card" href="/network-health.html"><span class="sq t-green" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-radio"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M16.247 7.761a6 6 0 0 1 0 8.478" />
+  <path d="M19.075 4.933a10 10 0 0 1 0 14.134" />
+  <path d="M4.925 19.067a10 10 0 0 1 0-14.134" />
+  <path d="M7.753 16.239a6 6 0 0 1 0-8.478" />
+  <circle cx="12" cy="12" r="2" />
+</svg>
+</span></span><span class="tn">Network Operations</span><span class="td">Investigate network health, switches, ports and device connectivity.</span></a>
+<a class="card" href="/zscaler-command-center.html"><span class="sq t-blue logo" aria-hidden="true"><span class="ic"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#256cf7" d="M511 258.8c8.3 50.2-35.8 78.4-80.4 81.7c-28.5 57.7-128.6 96.7-215.6 54.7c-37.2 5.5-57.5-3.6-73.3-21.1c31.8-40.4 128-113.1 245.4-75.6c62.7 20 79-27 63.2-44.7c-59.2-66.4-192.8-6.6-197.6-1.6c52.6-79.4 240.4-101.6 258.3 6.6m-179.9-91.2c.3-.1-42.7-15.1-102.8 10.5c-2.4-.9-4.8-1.9-7.1-3c57.8-37.9 108.5-54 151.9-47.8c-26.3-29.8-152.4-51.8-224.6 19.7C59.1 129.7-3.4 204.5.1 272.8s79 110.8 122 99.3c1-.1 2.1-.1 3.1 0c9.5-45.2 48.4-150.2 205.9-204.5"/></svg></span></span><span class="tn">Zscaler Command Center</span><span class="td">Live visibility into users, web activity, DLP &amp; policy.</span></a>
+<a class="card" href="https://dev-subadmin.nrpi.local/operations" target="_blank" rel="noopener noreferrer"><span class="sq t-purple" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-server"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+  <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+  <line x1="6" x2="6.01" y1="6" y2="6" />
+  <line x1="6" x2="6.01" y1="18" y2="18" />
+</svg>
+</span></span><span class="tn">Server Health</span><span class="td">Unified infrastructure health, findings &amp; maintenance.</span></a>
+</div></section>
+<section class="sect"><div class="sect-h"><h2>Service Desk</h2><span></span></div><div class="grid">
+<a class="card" href="/service-desk-portal.html"><span class="sq t-blue" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-headset"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z" />
+  <path d="M21 16v2a4 4 0 0 1-4 4h-5" />
+</svg>
+</span></span><span class="tn">Service Desk Portal</span><span class="td">Submit and track IT service desk tickets.</span></a>
+<a class="card" href="/report-bug.html"><span class="sq t-red" aria-hidden="true"><span class="ic"><svg
+  class="lucide lucide-bug"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 20v-9" />
+  <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" />
+  <path d="M14.12 3.88 16 2" />
+  <path d="M21 21a4 4 0 0 0-3.81-4" />
+  <path d="M21 5a4 4 0 0 1-3.55 3.97" />
+  <path d="M22 13h-4" />
+  <path d="M3 21a4 4 0 0 1 3.81-4" />
+  <path d="M3 5a4 4 0 0 0 3.55 3.97" />
+  <path d="M6 13H2" />
+  <path d="m8 2 1.88 1.88" />
+  <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" />
+</svg>
+</span></span><span class="tn">Report a Bug</span><span class="td">Flag something broken in any CorpIT Hub app.</span></a>
+</div></section>
+<p class="foot">18 workspaces · <a href="/tools.html">Open the full Tools catalog</a></p>
+</main>
+<script src="/it-topbar.js" defer></script>
+<script src="/it-session-watch.js?v=20260904" defer></script>
+<script src="/it-version.js" data-app-key="corpit-platform" data-label="IT Quick Start" defer></script>
+</body></html>

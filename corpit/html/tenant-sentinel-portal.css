@@ -1,0 +1,196 @@
+/* M365 Control Center (tenant-sentinel): AI Governance portal skin. Presentation only; loads after the inline styles and it-depth.css.
+   Shares the governance banner and Nunito face with SharePoint, Zscaler, Identity, AD Management and the IT Asset Console.
+   The side rail and the sticky top bar are chrome and stay dark in both themes. The banner sits behind the breadcrumb and
+   page heading; the "What is this?" note is the raised strip on the banner edge.
+   Charts read neutral colours from :root through cssv(), so neutrals are set on :root (via :has) to keep chart grid lines
+   and labels in step. it-theme.js writes --accent INLINE on :root, so the accent is set on body, which outranks it.
+   Severity colours (--crit/--high/--med/--low/--pass) are data colours and are left as the page defines them. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+
+/* ── Tokens ── */
+:root:not([data-theme=light]):has(> body[data-dp="tenant-sentinel"]) {
+  --bg: #071520; --bg-2: #0d1d2a; --panel: #142533; --panel-2: #182c3c;
+  --line: #1f3445; --line-2: #2a3d4d;
+  --ink: #ebf1f6; --ink-2: #a4b5c5; --ink-3: #91a3b5;
+  --grid: #1a2e3e;
+  --ts-elev-1: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --ts-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+}
+:root[data-theme=light]:has(> body[data-dp="tenant-sentinel"]) {
+  --bg: #eff1f3; --bg-2: #f6f8fa; --panel: #fff; --panel-2: #f6f8fa;
+  --line: #e4e8ed; --line-2: #cdd4dc;
+  --ink: #17212e; --ink-2: #5d6b7e; --ink-3: #5f6d80;
+  --grid: #e4e8ed;
+  --ts-elev-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --ts-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+}
+:root:not([data-theme=light]) body[data-dp="tenant-sentinel"] { --accent: #7dc9e7; --accent-dim: #3f8fb0; --ts-tint: #7dc9e724; }
+:root[data-theme=light] body[data-dp="tenant-sentinel"] { --accent: #147299; --accent-dim: #8cc3d8; --ts-tint: #1472991a; }
+body[data-dp="tenant-sentinel"] {
+  --font: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --ts-ease: cubic-bezier(.23, 1, .32, 1);
+  --ts-t: 160ms cubic-bezier(.23, 1, .32, 1);
+  --ts-lift: 26px; --ts-pt: 24px; --ts-px: 26px;
+  --radius: 13px;
+  --dp-face: none; --dp-face-2: none; --dp-wash: none;
+  --dp-sheen: 0 0 #0000; --dp-sheen-2: 0 0 #0000; --dp-relief: 0 0 #0000; --dp-relief-2: 0 0 #0000;
+  --dp-lift-1: var(--ts-elev-1); --dp-lift-2: var(--ts-elev-2); --dp-lift-3: var(--ts-elev-2);
+  --dp-well: inset 0 1px 2px #00000026; --dp-well-2: inset 0 1px 3px #00000033;
+  --dp-bar: 0 1px 0 #0000004d; --dp-rail: 0 0 #0000;
+  background: var(--bg); font-family: var(--font);
+}
+html:has(> body[data-dp="tenant-sentinel"]) { background: var(--bg, #071520); }
+body[data-dp="tenant-sentinel"] ::selection { background: #7dc9e740; }
+
+/* ── Chrome: side rail and top bar, dark in both themes. Tokens re-pointed so nested controls and menus stay legible. ── */
+body[data-dp="tenant-sentinel"] aside,
+body[data-dp="tenant-sentinel"] .topbar {
+  --panel: #1a212d; --panel-2: #202936; --line: #29313d; --line-2: #3c4556;
+  --ink: #e6edf7; --ink-2: #c1cad6; --ink-3: #9aa6b5; --accent: #a5d877; --accent-dim: #4a5568;
+  color: var(--ink);
+}
+body[data-dp="tenant-sentinel"] aside { background: #131823; border-right-color: #29313d; box-shadow: none; }
+body[data-dp="tenant-sentinel"] .brand b { font-weight: 850; letter-spacing: .06em; color: #fff; }
+body[data-dp="tenant-sentinel"] .logo {
+  border-radius: 8px; color: #0b1a05;
+  background: linear-gradient(140deg, #3d7924, #78be20); box-shadow: inset 0 1px 0 #ffffff33;
+}
+body[data-dp="tenant-sentinel"] .navlbl { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; color: #8f9bab; }
+body[data-dp="tenant-sentinel"] nav a {
+  font-weight: 700; color: #b8c2cf; border-radius: 8px;
+  transition: color var(--ts-t), background-color var(--ts-t), box-shadow var(--ts-t), transform var(--ts-t);
+}
+body[data-dp="tenant-sentinel"] nav a.active { color: #fff; background: #78be201c; box-shadow: inset 3px 0 0 #78be20; font-weight: 800; }
+body[data-dp="tenant-sentinel"] nav a .tag { font-weight: 800; background: #202936; border-color: #3c4556; color: #c1cad6; }
+body[data-dp="tenant-sentinel"] .topbar {
+  background: #131823; backdrop-filter: none; border-bottom-color: #29313d; box-shadow: 0 1px 0 #0000004d;
+}
+body[data-dp="tenant-sentinel"] .switcher button,
+body[data-dp="tenant-sentinel"] .search input,
+body[data-dp="tenant-sentinel"] #navToggle { background: #1a212d; border-color: #3c4556; color: #e6edf7; box-shadow: none; background-image: none; }
+body[data-dp="tenant-sentinel"] .switcher .meta { font-weight: 750; }
+body[data-dp="tenant-sentinel"] .search input { transition: border-color var(--ts-t), box-shadow var(--ts-t); }
+body[data-dp="tenant-sentinel"] .search input:focus { outline: none; border-color: #7dc9e7; box-shadow: 0 0 0 3px #7dc9e72e; }
+body[data-dp="tenant-sentinel"] .topbar .btn { background: #1a212d; border-color: #3c4556; color: #c1cad6; }
+body[data-dp="tenant-sentinel"] .topbar .ittb .ittb-ctl { background: #1a212d; color: #c1cad6; border-color: #3c4556; }
+body[data-dp="tenant-sentinel"] .topbar .ittb .ittb-av { background: #263241; color: #fff; border-color: #3c4556; }
+
+/* ── Banner: a band behind the breadcrumb and heading, bled to main's edges past the 1320px column. ── */
+body[data-dp="tenant-sentinel"] main { container-type: inline-size; }
+body[data-dp="tenant-sentinel"] .wrap { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; }
+body[data-dp="tenant-sentinel"] .wrap > * { grid-column: 1; }
+body[data-dp="tenant-sentinel"] .wrap::before {
+  content: ""; grid-column: 1; grid-row: 1 / 3;
+  margin: calc(-1 * var(--ts-pt)) calc(100% + var(--ts-px) - 100cqw) 0 calc(-1 * var(--ts-px));
+  border-bottom: 3px solid #78be20;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+  pointer-events: none;
+}
+body[data-dp="tenant-sentinel"] #breadcrumbBar {
+  grid-row: 1; position: relative; z-index: 1; padding-top: 22px; margin-bottom: 6px !important;
+  font-weight: 700; --ink-3: #d5dee7; --ink-2: #fff; --accent: #a9dcf0;
+}
+body[data-dp="tenant-sentinel"] .pagehead { grid-row: 2; position: relative; z-index: 1; margin-bottom: calc(var(--ts-lift) + 24px); }
+body[data-dp="tenant-sentinel"] .pagehead h1 { color: #fff; font-size: 29px; font-weight: 850; letter-spacing: -.7px; line-height: 1.15; }
+body[data-dp="tenant-sentinel"] .pagehead p { color: #e0e8ef; font-size: 13px; font-weight: 600; }
+body[data-dp="tenant-sentinel"] .pagehead .stamp { color: #d5dee7; font-weight: 650; }
+body[data-dp="tenant-sentinel"] .pagehead .stamp :is(b, strong) { color: #fff; }
+
+/* Depth: the note is the raised strip on the banner edge. Its tint sits over a solid surface so the banner never shows through. */
+body[data-dp="tenant-sentinel"] .pagehead + .note {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--ts-lift));
+  background: linear-gradient(color-mix(in srgb, var(--med) 11%, transparent), color-mix(in srgb, var(--med) 11%, transparent)) var(--panel);
+  border-radius: 13px; padding: 13px 16px; font-size: 12.5px; box-shadow: var(--ts-elev-1);
+}
+
+/* ── Surfaces ── */
+body[data-dp="tenant-sentinel"] .card {
+  background: var(--panel); background-image: none; border-color: var(--line); border-radius: 13px; box-shadow: var(--ts-elev-1);
+}
+body[data-dp="tenant-sentinel"] .card h3 { font-size: 11.5px; font-weight: 800; letter-spacing: .07em; color: var(--ink-2); }
+body[data-dp="tenant-sentinel"] .tile { background: var(--panel-2); background-image: none; border-radius: 11px; box-shadow: none; }
+body[data-dp="tenant-sentinel"] .tile .n,
+body[data-dp="tenant-sentinel"] .gauge .val b,
+body[data-dp="tenant-sentinel"] .kv .k b { font-family: var(--font); font-weight: 850; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+body[data-dp="tenant-sentinel"] .tile .n { font-size: 26px; }
+body[data-dp="tenant-sentinel"] .gauge .val b { font-size: 32px; }
+body[data-dp="tenant-sentinel"] .tile .l { font-weight: 750; letter-spacing: .05em; }
+body[data-dp="tenant-sentinel"] .kv .k,
+body[data-dp="tenant-sentinel"] .affected .a { background: var(--panel-2); background-image: none; box-shadow: none; border-radius: 10px; }
+body[data-dp="tenant-sentinel"] .grade, body[data-dp="tenant-sentinel"] .sev, body[data-dp="tenant-sentinel"] .stat { font-weight: 800; }
+body[data-dp="tenant-sentinel"] th { font-weight: 800; color: var(--ink-2); letter-spacing: .07em; }
+body[data-dp="tenant-sentinel"] tr.row { transition: background-color var(--ts-t); }
+body[data-dp="tenant-sentinel"] tr.row td { transition: background-color var(--ts-t); }
+/* The heatmap template had 5 severity columns but renderHeat() draws 4 (critical/high/medium/low), so every row slid one
+   column right. Presentation fix: match the template to what is drawn. */
+body[data-dp="tenant-sentinel"] .heat { grid-template-columns: 120px repeat(4, minmax(0, 1fr)); }
+body[data-dp="tenant-sentinel"] .heat .cell { transition: transform var(--ts-t), border-color var(--ts-t); }
+body[data-dp="tenant-sentinel"] footer { border-top-color: var(--line); }
+
+/* ── Controls: the primary action is governance green; filter chips show the active one as a tint. ── */
+body[data-dp="tenant-sentinel"] :is(.btn, .chip, .btn-share, .db button) {
+  font-weight: 700; background-image: none; box-shadow: none;
+  transition: background-color var(--ts-t), border-color var(--ts-t), color var(--ts-t), transform var(--ts-t);
+}
+body[data-dp="tenant-sentinel"] .btn { border-radius: 8px; }
+body[data-dp="tenant-sentinel"] :is(.btn, .btn-share).primary { background: #3d7924; border: 1px solid #3d7924; color: #fff; font-weight: 800; }
+body[data-dp="tenant-sentinel"] .chip.on { background: var(--ts-tint); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); font-weight: 800; }
+body[data-dp="tenant-sentinel"] :is(.btn, .chip, .btn-share, nav a, #navToggle):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Drawer and modal: the drawer slides on the iOS drawer curve; the scrim fades on opacity only. ── */
+body[data-dp="tenant-sentinel"] .drawer {
+  background: var(--panel); border-left-color: var(--line-2); border-radius: 14px 0 0 14px; box-shadow: var(--ts-elev-2);
+  transition: transform 260ms cubic-bezier(.32, .72, 0, 1), visibility 0s linear 260ms;
+}
+body[data-dp="tenant-sentinel"] .drawer.show { transition: transform 260ms cubic-bezier(.32, .72, 0, 1), visibility 0s; }
+body[data-dp="tenant-sentinel"] .dh { background: var(--panel-2); background-image: none; box-shadow: none; }
+body[data-dp="tenant-sentinel"] .dh h2 { font-weight: 850; }
+body[data-dp="tenant-sentinel"] .db section h4 { font-weight: 800; letter-spacing: .07em; }
+body[data-dp="tenant-sentinel"] .scrim { transition: opacity 200ms var(--ts-ease); }
+body[data-dp="tenant-sentinel"] .share-box { border-radius: 14px; box-shadow: var(--ts-elev-2); }
+body[data-dp="tenant-sentinel"] .share-box h3 { font-weight: 850; }
+
+/* ── Press feedback, hover (fine pointers only), reduced motion. ── */
+body[data-dp="tenant-sentinel"] :is(.btn, .chip, .btn-share, .db button, nav a, #navToggle):active { transform: scale(.97); box-shadow: none; }
+body[data-dp="tenant-sentinel"] :is(.tile.cp, .tile[onclick], .tile[data-fid], .tile[data-v], .tile[data-grp], .tile[data-fw], .a[onclick], .a[data-i], .a[data-mod], .a[data-sku], .a[data-app], .a[data-flow], .a[data-dept]) {
+  transition: border-color var(--ts-t), background-color var(--ts-t), transform var(--ts-t);
+}
+body[data-dp="tenant-sentinel"] :is(.tile.cp, .tile[onclick], .tile[data-fid], .tile[data-v], .tile[data-grp], .tile[data-fw], .a[onclick], .a[data-i], .a[data-mod], .a[data-sku], .a[data-app], .a[data-flow], .a[data-dept]):active { transform: scale(.985); box-shadow: none; }
+body[data-dp="tenant-sentinel"] .heat .cell:hover { transform: none; border-color: transparent; }
+@media (hover: hover) and (pointer: fine) {
+  body[data-dp="tenant-sentinel"] nav a:not(.active):hover { color: #fff; background: #ffffff0d; }
+  body[data-dp="tenant-sentinel"] :is(.btn, .btn-share).primary:hover { background: #31631c; border-color: #31631c; color: #fff; opacity: 1; }
+  body[data-dp="tenant-sentinel"] .topbar .btn:hover { background: #202936; border-color: #4a5568; color: #fff; }
+  body[data-dp="tenant-sentinel"] .topbar .ittb .ittb-ctl:hover { background: #202936; color: #fff; border-color: #4a5568; }
+  body[data-dp="tenant-sentinel"] :is(.tile.cp, .tile[onclick], .tile[data-fid], .tile[data-v], .tile[data-grp], .tile[data-fw], .a[onclick], .a[data-i], .a[data-mod], .a[data-sku], .a[data-app], .a[data-flow], .a[data-dept]):hover {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: none;
+  }
+  body[data-dp="tenant-sentinel"] .heat .cell:hover { border-color: var(--ink); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-dp="tenant-sentinel"] :is(.btn, .chip, .btn-share, .db button, nav a, #navToggle, .tile, .a):active { transform: none; }
+  body[data-dp="tenant-sentinel"] .drawer, body[data-dp="tenant-sentinel"] .drawer.show { transition: visibility 0s; }
+}
+
+/* ── Phones ── */
+@media (max-width: 640px) {
+  body[data-dp="tenant-sentinel"] { --ts-pt: 18px; --ts-px: 14px; --ts-lift: 20px; }
+  /* it-topbar pins the hub dock fixed at top-right on phones, where it sat on the tenant switcher. Give it its own band. */
+  body[data-dp="tenant-sentinel"] .topbar { padding-top: 58px; }
+  body[data-dp="tenant-sentinel"] .wrap { padding: 18px 14px 48px; }
+  body[data-dp="tenant-sentinel"] #breadcrumbBar { padding-top: 14px; }
+  body[data-dp="tenant-sentinel"] .pagehead h1 { font-size: 25px; }
+}
+
+@media print {
+  body[data-dp="tenant-sentinel"] .wrap::before { display: none; }
+  body[data-dp="tenant-sentinel"] .pagehead :is(h1, p, .stamp) { color: #000; }
+}

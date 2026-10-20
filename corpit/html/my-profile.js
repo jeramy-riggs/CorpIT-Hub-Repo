@@ -329,6 +329,8 @@
     return api('GET', '/me').then(function (m) {
       ME = m; PREFS = m.prefs || {};
       applyPrefsToDocument();
+      var allTicketsButton = $('#tsearch-scope button[data-v="all"]');
+      if (allTicketsButton) allTicketsButton.hidden = !m.canSearchAllTickets;
       var name = m.displayName || m.email, title = (m.entra && m.entra.jobTitle) || (m.hr && m.hr.title) || '';
       VIEW_AS_ACTIVE = !!m.viewingAs;
       paintViewAsBar(m);
@@ -819,6 +821,33 @@
         '<div class="row"><div class="l"><div class="t">Start page</div><div class="d">Where CorpIT takes you after sign-in. Only tools that run on CorpIT can be a start page.</div></div><div class="c"><select class="sel" id="sel-start">' + opts + '</select></div></div>' +
         '<div class="row"><div class="l"><div class="t">Favorites</div><div class="d">' + (PINS && PINS.links.length ? PINS.links.length + ' pinned · ' + esc(PINS.links.map(function (l) { return l.title; }).slice(0, 4).join(', ')) + (PINS.links.length > 4 ? '…' : '') : 'Nothing pinned yet — the Hub defaults are shown.') + '</div></div><div class="c"><a class="btn sm" href="#favorites">' + ic('star') + 'Manage favorites</a></div></div>' +
         '<div class="row"><div class="l"><div class="t">Saved searches &amp; drafts</div><div class="d">Kept under My work.</div></div><div class="c"><a class="btn sm" href="#work">' + ic('search') + 'Open My work</a></div></div>';
+      // Personal, DEV-only reset. Borrowed profiles stay read-only, just like
+      // the other settings; the API also always scopes deletion to the caller.
+      if (location.hostname === 'dev-myprofile.nrpi.local') {
+        var guideRow = document.createElement('div'); guideRow.className = 'row';
+        guideRow.innerHTML = '<div class="l"><div class="t">How-to guides</div><div class="d" id="pf-guide-reset-note">Replay the first-launch guides for your DEV account across browsers and devices. Each guide will open on your next visit.</div><div class="note" id="pf-guide-reset-status" role="status" aria-live="polite" aria-atomic="true"></div></div><div class="c"><button class="btn sm" type="button" id="pf-guide-reset" aria-describedby="pf-guide-reset-note">' + ic('refresh') + 'Reset guides</button></div>';
+        $('#f-workspace').appendChild(guideRow);
+        var resetGuides = $('#pf-guide-reset'), resetStatus = $('#pf-guide-reset-status');
+        resetGuides.disabled = !!m.viewer;
+        if (m.viewer) resetGuides.title = 'Return to your own profile to reset your guides';
+        resetGuides.addEventListener('click', function () {
+          if (m.viewer || resetGuides.disabled) return;
+          resetGuides.disabled = true;
+          resetGuides.textContent = 'Resetting…';
+          resetStatus.textContent = '';
+          api('POST', '/guides/reset').then(function (result) {
+            if (!result || result.ok !== true) throw new Error('Guides could not be reset. Please try again.');
+            resetStatus.textContent = 'Guides reset. Revisit or refresh each workspace to see its welcome guide.';
+            toast('Guides reset for your DEV account');
+          }).catch(function (error) {
+            resetStatus.textContent = error.message;
+            toast(error.message, true);
+          }).then(function () {
+            resetGuides.disabled = false;
+            resetGuides.innerHTML = ic('refresh') + 'Reset guides';
+          });
+        });
+      }
       var sel = $('#sel-start'); sel.value = PREFS.default_landing || ''; if (sel.value !== (PREFS.default_landing || '')) sel.value = '';
       sel.addEventListener('change', function () { savePref('default_landing', sel.value); });
     });

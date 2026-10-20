@@ -34,6 +34,10 @@ const pool = mysql.createPool({
 });
 const rbac = createRbac(pool);
 router.use(rbac.loadCurrentUser);
+// settingsfold W6 2026-10-12: PATCH /settings and POST /digest/send-test also write an
+// rbac_audit_log row (page user-projects) so User activity shows them. The
+// user_project_audit rows below are unchanged.
+const SA = require('./settings-audit');
 
 // ─── LDAP config ─────────────────────────────────────────────────────────────
 const LDAP_URL       = process.env.LDAP_URL       || 'ldap://10.9.64.80:389';
@@ -749,6 +753,8 @@ router.get('/settings', rbac.requirePage('user-projects','read'), async (req, re
 router.patch('/settings', rbac.requirePage('user-projects','admin'), async (req, res) => {
   const updates = req.body || {};
   const ALLOWED = ['digest_enabled','digest_day_of_week','digest_hour_local','digest_recipients','sensitive_group_blocklist','digest_sections'];
+  const saKeys = Object.keys(updates).filter(k => ALLOWED.includes(k));
+  const saBefore = saKeys.length ? await SA.byKey(pool, 'SELECT setting_key, setting_value FROM user_project_settings', [], 'setting_key', 'setting_value') : undefined;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -774,6 +780,12 @@ router.patch('/settings', rbac.requirePage('user-projects','admin'), async (req,
     const [rows] = await pool.query('SELECT setting_key, setting_value, updated_by, updated_at FROM user_project_settings');
     const out = {};
     for (const r of rows) out[r.setting_key] = { value: r.setting_value, updated_by: r.updated_by, updated_at: r.updated_at };
+    if (saKeys.length) {
+      const saAfter = {};
+      for (const r of rows) saAfter[r.setting_key] = r.setting_value;
+      await SA.record(rbac, req, 'user-projects', 'settings_saved', SA.entry({ what: 'digest_settings', op: 'update',
+        before: saBefore, after: saAfter, keys: saKeys }));
+    }
     res.json({ settings: out });
   } catch (err) {
     try { await conn.rollback(); } catch (_) {}
@@ -1250,11 +1262,15 @@ router.post('/digest/send-test', rbac.requirePage('user-projects','admin'), asyn
   const timeout = setTimeout(() => { try { child.kill('SIGKILL'); } catch(_){} }, 45000);
   child.on('close', code => {
     clearTimeout(timeout);
+    SA.record(rbac, req, 'user-projects', code === 0 ? 'settings_test_sent' : 'settings_test_failed',
+      SA.entry({ what: 'digest', op: 'test', subject: to, extra: { ok: code === 0, exit_code: code } }));
     if (code === 0) return res.json({ ok: true, to, stdout: stdout.slice(-2000) });
     return res.status(500).json({ ok: false, code, stdout: stdout.slice(-2000), stderr: stderr.slice(-2000) });
   });
   child.on('error', e => {
     clearTimeout(timeout);
+    SA.record(rbac, req, 'user-projects', 'settings_test_failed',
+      SA.entry({ what: 'digest', op: 'test', subject: to, extra: { ok: false, exit_code: null } }));
     res.status(500).json({ error: e.message });
   });
 });

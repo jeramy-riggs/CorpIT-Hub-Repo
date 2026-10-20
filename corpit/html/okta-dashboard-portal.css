@@ -1,0 +1,173 @@
+/* Okta Dashboard: AI Governance portal skin. Presentation only; loads after the inline styles.
+   Shares the governance banner and Nunito face with SharePoint, Zscaler, Identity, AD Management, Cert Watchtower and the IT Asset Console.
+   The page header becomes a full-bleed banner; the source strip is the raised bar sitting on its lower edge.
+   it-theme.js writes --accent INLINE on :root, so page tokens are set on body, which outranks it. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+
+/* ── Tokens ── */
+:root:not([data-theme=light]) body[data-dp="okta-dashboard"] {
+  --bg: #071520; --bg-card: #142533; --bg-card-hover: #1a2f40;
+  --border: #2a3d4d; --border-strong: #37505f;
+  --text: #ebf1f6; --text-dim: #a4b5c5; --text-faint: #91a3b5;
+  --accent: #7dc9e7; --accent-hover: #a9dcf0; --accent-soft: #7dc9e71f; --on-accent: #071520;
+  --ok: #9bd64a; --info: #7dc9e7; --warning: #f0d08b; --critical: #ffa1ac; --unknown: #c9b8ff;
+  --od-raised: #182c3c; --od-edge: #1f3445; --od-tint: #7dc9e71a; --od-tint-2: #7dc9e72e;
+  --od-elev-1: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --od-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  --shadow: var(--od-elev-2);
+}
+:root[data-theme=light] body[data-dp="okta-dashboard"] {
+  --bg: #eff1f3; --bg-card: #fff; --bg-card-hover: #f6f8fa;
+  --border: #cdd4dc; --border-strong: #b3bfc9;
+  --text: #17212e; --text-dim: #5d6b7e; --text-faint: #5f6d80;
+  --accent: #147299; --accent-hover: #0f5d7d; --accent-soft: #1472991a; --on-accent: #fff;
+  --ok: #3d7924; --info: #147299; --warning: #8b641f; --critical: #b33440; --unknown: #6d28d9;
+  --od-raised: #f6f8fa; --od-edge: #e4e8ed; --od-tint: #1472991a; --od-tint-2: #1472992b;
+  --od-elev-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --od-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --shadow: var(--od-elev-2);
+}
+body[data-dp="okta-dashboard"] {
+  --sans: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --od-t: 160ms cubic-bezier(.23, 1, .32, 1);
+  --od-lift: 26px;
+  --od-col: 1268px;
+  background: var(--bg);
+}
+html:has(body[data-dp="okta-dashboard"]) { background: var(--bg, #071520); }
+body[data-dp="okta-dashboard"] ::selection { background: #7dc9e740; }
+
+/* ── Layout: the container goes full width so the banner can run edge to edge; everything under it keeps the old 1268px column. ── */
+body[data-dp="okta-dashboard"] .container { max-width: none; padding: 0 0 80px; }
+body[data-dp="okta-dashboard"] .container > * { width: min(var(--od-col), calc(100% - 52px)); margin-inline: auto; }
+
+/* ── Banner ── */
+body[data-dp="okta-dashboard"] header.page-head {
+  width: auto; margin: 0; align-items: flex-end; gap: 16px;
+  padding: 36px max(26px, calc((100% - var(--od-col)) / 2)) calc(var(--od-lift) + 24px);
+  border-bottom: 3px solid #78be20;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+body[data-dp="okta-dashboard"] .breadcrumb { color: #d5dee7; font-size: 12.5px; font-weight: 700; }
+body[data-dp="okta-dashboard"] .breadcrumb a { color: #a9dcf0; }
+body[data-dp="okta-dashboard"] header.page-head h1 {
+  color: #fff; font-size: 29px; font-weight: 850; letter-spacing: -.7px; line-height: 1.15; margin-top: 6px;
+}
+body[data-dp="okta-dashboard"] header.page-head .btn-ghost { background: #172c3cbb; color: #fff; border-color: #b3c5d299; }
+body[data-dp="okta-dashboard"] header.page-head .ittb .ittb-ctl { background: #172c3cbb; color: #dfe8ef; border-color: #b3c5d266; }
+body[data-dp="okta-dashboard"] header.page-head .ittb .ittb-av { background: #263241; color: #fff; border-color: #b3c5d266; }
+
+/* ── Source strip: the raised bar on the banner edge. Stale and never-synced mirrors keep their warning edge. ── */
+body[data-dp="okta-dashboard"] .source-strip {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--od-lift)); margin-bottom: 18px;
+  gap: 6px; padding: 6px; border: 1px solid var(--od-edge); border-radius: 13px;
+  background: var(--bg-card); box-shadow: var(--od-elev-1);
+}
+body[data-dp="okta-dashboard"] .src { border-color: var(--od-edge); border-radius: 8px; background: var(--od-raised); }
+body[data-dp="okta-dashboard"] .src.stale { border-color: color-mix(in srgb, var(--warning) 55%, transparent); background: color-mix(in srgb, var(--warning) 8%, var(--od-raised)); }
+body[data-dp="okta-dashboard"] .src.never { border-color: color-mix(in srgb, var(--unknown) 55%, transparent); background: color-mix(in srgb, var(--unknown) 8%, var(--od-raised)); }
+body[data-dp="okta-dashboard"] .src b { font-weight: 800; }
+
+/* ── KPIs ── */
+body[data-dp="okta-dashboard"] .kpi { border-color: var(--od-edge); border-radius: 13px; box-shadow: var(--od-elev-1); }
+body[data-dp="okta-dashboard"] .kpi.attn { border-color: color-mix(in srgb, var(--warning) 60%, transparent); box-shadow: inset 3px 0 0 var(--warning), var(--od-elev-1); }
+body[data-dp="okta-dashboard"] .kpi .k-label { font-size: 11px; font-weight: 800; letter-spacing: .06em; color: var(--text-faint); }
+body[data-dp="okta-dashboard"] .kpi .k-value { font-weight: 850; letter-spacing: -.5px; }
+body[data-dp="okta-dashboard"] .kpi .k-value.muted { font-weight: 750; }
+
+/* ── Tabs: the open tab is a tinted chip with a governance-green underline. ── */
+body[data-dp="okta-dashboard"] .tabs { gap: 2px; border-bottom-color: var(--od-edge); }
+body[data-dp="okta-dashboard"] .tab {
+  border-radius: 8px 8px 0 0; font-weight: 750; font-size: 13px;
+  transition: color var(--od-t), background-color var(--od-t), transform var(--od-t);
+}
+body[data-dp="okta-dashboard"] .tab.active { background: var(--od-tint); border-bottom-color: #78be20; }
+body[data-dp="okta-dashboard"] .badge { font-family: var(--sans); font-weight: 800; }
+
+/* ── Cards and breakdowns ── */
+body[data-dp="okta-dashboard"] .card,
+body[data-dp="okta-dashboard"] .table-wrap { border-color: var(--od-edge); border-radius: 13px; box-shadow: var(--od-elev-1); }
+body[data-dp="okta-dashboard"] .card > h2 { font-size: 11px; font-weight: 800; letter-spacing: .06em; border-bottom-color: var(--od-edge); }
+body[data-dp="okta-dashboard"] .card > h2 .h2-note { font-weight: 600; }
+body[data-dp="okta-dashboard"] .bar-label { font-weight: 650; }
+body[data-dp="okta-dashboard"] .bar-track { background: var(--od-edge); }
+body[data-dp="okta-dashboard"] .bar-n { font-weight: 700; }
+
+/* ── Toolbar ── */
+body[data-dp="okta-dashboard"] .search { border-color: var(--border); border-radius: 7px; transition: border-color var(--od-t), box-shadow var(--od-t); }
+body[data-dp="okta-dashboard"] .search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--od-tint-2); }
+body[data-dp="okta-dashboard"] .pill-set > .set-label { font-weight: 800; }
+body[data-dp="okta-dashboard"] .pill {
+  font-weight: 750;
+  transition: background-color var(--od-t), border-color var(--od-t), color var(--od-t), transform var(--od-t);
+}
+body[data-dp="okta-dashboard"] .pill.active { background: var(--od-tint-2); border-color: var(--accent); color: var(--text); }
+
+/* ── Buttons ── */
+body[data-dp="okta-dashboard"] .btn {
+  font-weight: 750; border-radius: 7px;
+  transition: background-color var(--od-t), border-color var(--od-t), color var(--od-t), transform var(--od-t);
+}
+
+/* ── Table: the header row sits on the raised panel; rows tint on hover. ── */
+body[data-dp="okta-dashboard"] th {
+  background: var(--od-raised); color: var(--text-dim); font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
+  box-shadow: inset 0 -1px 0 var(--od-edge);
+}
+body[data-dp="okta-dashboard"] thead th:first-child { border-top-left-radius: 12px; }
+body[data-dp="okta-dashboard"] thead th:last-child { border-top-right-radius: 12px; }
+body[data-dp="okta-dashboard"] th, body[data-dp="okta-dashboard"] td { border-bottom-color: var(--od-edge); }
+body[data-dp="okta-dashboard"] tbody tr:hover td { background: var(--od-tint); }
+body[data-dp="okta-dashboard"] .cell-main { font-weight: 750; }
+body[data-dp="okta-dashboard"] .table-foot { font-weight: 650; }
+
+/* ── Status tags: one tint per state, drawn from the state colour itself. ── */
+body[data-dp="okta-dashboard"] .tag {
+  border-radius: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em;
+  border-color: color-mix(in srgb, currentColor 45%, transparent);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+/* ── Press feedback, hover (fine pointers only), reduced motion. ── */
+body[data-dp="okta-dashboard"] .btn:not(:disabled):active,
+body[data-dp="okta-dashboard"] .pill:active,
+body[data-dp="okta-dashboard"] .tab:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) {
+  body[data-dp="okta-dashboard"] header.page-head .btn-ghost:hover { background: #1d3a4ecc; border-color: #a5d877; color: #fff; }
+  body[data-dp="okta-dashboard"] header.page-head .ittb .ittb-ctl:hover { background: #1d3a4ecc; color: #fff; border-color: #a5d877; }
+  body[data-dp="okta-dashboard"] .pill:not(.active):hover { color: var(--text); border-color: var(--border-strong); }
+  body[data-dp="okta-dashboard"] .tab:not(.active):hover { background: var(--od-tint); }
+}
+@media (hover: none), (pointer: coarse) {
+  /* The inline hover rules apply on touch too and stick after a tap; hold them at rest. */
+  body[data-dp="okta-dashboard"] .pill:not(.active):hover { color: var(--text-dim); border-color: var(--border-strong); }
+  body[data-dp="okta-dashboard"] .tab:not(.active):hover { color: var(--text-dim); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-dp="okta-dashboard"] .btn:not(:disabled):active,
+  body[data-dp="okta-dashboard"] .pill:active,
+  body[data-dp="okta-dashboard"] .tab:active { transform: none; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  body[data-dp="okta-dashboard"] { --od-lift: 18px; }
+  body[data-dp="okta-dashboard"] .container { padding: 0 0 60px; }
+  body[data-dp="okta-dashboard"] .container > * { width: calc(100% - 28px); }
+  body[data-dp="okta-dashboard"] header.page-head { padding: 24px 14px calc(var(--od-lift) + 18px); }
+  body[data-dp="okta-dashboard"] header.page-head h1 { font-size: 25px; }
+}
+
+@media print {
+  body[data-dp="okta-dashboard"] header.page-head { background: none; box-shadow: none; border-bottom: 1px solid #ccc; }
+  body[data-dp="okta-dashboard"] header.page-head h1, body[data-dp="okta-dashboard"] .breadcrumb { color: #000; }
+  body[data-dp="okta-dashboard"] .source-strip { box-shadow: none; margin-top: 0; }
+}

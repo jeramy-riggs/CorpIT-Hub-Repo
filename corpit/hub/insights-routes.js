@@ -35,6 +35,8 @@ const pool = mysql.createPool({
   waitForConnections: true, connectionLimit: 5,
 });
 const rbac = createRbac(pool);
+// settingsfold W6 2026-10-12: the group-limit PUT writes an rbac_audit_log row.
+const SA = require('./settings-audit');
 router.use(rbac.loadCurrentUser);
 
 const PAGE_KEY = 'tenant-sentinel';
@@ -1270,6 +1272,45 @@ router.get('/shared/ai-usage-credits/directory-search', rbac.requireSuperAdmin, 
   } catch (err) {
     console.error('[insights/shared/ai-usage-credits/directory-search]', err.message);
     res.status(500).json({ error: 'directory search failed' });
+  }
+});
+
+// ── AI usage org group spend limit (settingsfold W3, 2026-10-12) ─────────────
+// Was kept only in the browser (localStorage 'ai_group_limit'). Stored in
+// corpit_hub.ai_limit_setting, one row per platform. Read = the same guard as
+// /shared/ai-usage (the page's data read); write = the same guard as the CSV
+// import below (admin on ai-usage-credits), since the value is entered in the
+// import drawer. updated_by follows this file's req.user?.email convention.
+// The body is parsed by server.js's global 1 MB JSON parser (CHG-ARCH-13).
+const GROUP_LIMIT_MAX = 9999999999.99;   // DECIMAL(12,2)
+router.get('/shared/ai-usage-credits/group-limit', rbac.requirePage('ai-usage-credits', 'read'), async (req, res) => {
+  try {
+    const [row] = await q(`SELECT group_limit, updated_by, updated_at FROM ai_limit_setting WHERE platform='claude'`);
+    res.json({ platform: 'claude', groupLimit: row && row.group_limit != null ? Number(row.group_limit) : null,
+      updatedBy: row ? row.updated_by : null, updatedAt: row ? row.updated_at : null });
+  } catch (err) {
+    console.error('[insights/shared/ai-usage-credits/group-limit]', err.message);
+    res.status(500).json({ error: 'group limit read failed' });
+  }
+});
+router.put('/shared/ai-usage-credits/group-limit', rbac.requirePage('ai-usage-credits', 'admin'), async (req, res) => {
+  const raw = (req.body || {}).groupLimit;
+  const v = typeof raw === 'number' ? raw : (typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN);
+  if (!Number.isFinite(v) || v <= 0 || v > GROUP_LIMIT_MAX)
+    return res.status(400).json({ error: 'groupLimit must be a number greater than 0' });
+  try {
+    const saBefore = await SA.snap(pool, `SELECT group_limit FROM ai_limit_setting WHERE platform='claude'`);
+    await pool.query(
+      `INSERT INTO ai_limit_setting (platform, group_limit, updated_by) VALUES ('claude', ?, ?)
+       ON DUPLICATE KEY UPDATE group_limit=VALUES(group_limit), updated_by=VALUES(updated_by)`,
+      [Math.round(v * 100) / 100, req.user?.email || 'unknown']);
+    const [row] = await q(`SELECT group_limit, updated_by, updated_at FROM ai_limit_setting WHERE platform='claude'`);
+    await SA.record(rbac, req, 'ai-usage-credits', 'settings_saved', SA.entry({ what: 'ai_group_limit', subject: 'claude',
+      before: saBefore, after: row || null, keys: ['group_limit'] }));
+    res.json({ platform: 'claude', groupLimit: Number(row.group_limit), updatedBy: row.updated_by, updatedAt: row.updated_at });
+  } catch (err) {
+    console.error('[insights/shared/ai-usage-credits/group-limit PUT]', err.message);
+    res.status(500).json({ error: 'group limit save failed' });
   }
 });
 

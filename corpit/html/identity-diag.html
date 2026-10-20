@@ -19,7 +19,7 @@
       · the provisioning Help link is gone: user-provisioning-sop.html was never
         ported and the ITAM host it pointed at was retired 2026-09-09, so it was
         a dead control.
-      · Session Kill now actually revokes (DELETE /api/identity/okta-sessions/clear),
+      · Sessions now actually revokes (DELETE /api/identity/okta-sessions/clear),
         admin-gated and confirmed, instead of only listing sessions under a name
         that promised revocation.
 -->
@@ -29,7 +29,7 @@
 <script src="/it-theme-toggle.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Identity Diagnostics — Operator Console</title>
+<title>Identity support — CorpIT</title>
 <link href="/fonts/fonts.css" rel="stylesheet">
 
 <script>
@@ -637,8 +637,11 @@ table.dtable{width:100%;border-collapse:collapse;font-size:12.5px}
 .seg button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
 .detail-mode{display:none}
 .detail-mode.active{display:block}
-.detail-scroll{display:grid;grid-template-columns:186px 1fr;gap:18px;align-items:start}
-@media(max-width:980px){.detail-scroll{grid-template-columns:1fr}.sec-rail{display:none!important}}
+/* B4 2026-10-17: minmax(0,1fr), not 1fr. A 1fr track cannot shrink below its widest
+   table (the Security sign-in table, 984px), so Rail + scroll ran sections off the
+   right edge; tables already scroll inside .tbl-wrap. */
+.detail-scroll{display:grid;grid-template-columns:186px minmax(0,1fr);gap:18px;align-items:start}
+@media(max-width:980px){.detail-scroll{grid-template-columns:minmax(0,1fr)}.sec-rail{display:none!important}}
 .sec-rail{position:sticky;top:0;display:flex;flex-direction:column;gap:1px;padding:2px}
 .sec-rail .srl{font-size:9.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;padding:6px 9px 4px}
 .sec-link{
@@ -1314,9 +1317,10 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
    (overflow:hidden), so global search, the environment select, the Operations
    Hub link and the shared topbar were all pushed off-screen with no way to
    scroll to them. The header row simply has more in it than a phone width
-   holds, so below 620px it becomes two rows: identity + actions on top,
-   environment + search underneath. */
-@media(max-width:620px){
+   holds, so below 820px it becomes two rows: identity + actions on top,
+   environment + search underneath. (Was 620px; B2 2026-10-17 measured the
+   one-row header at 777px even icon-only.) */
+@media(max-width:820px){
   .shell{grid-template-rows:auto 1fr auto}
   .hdr{flex-wrap:wrap;height:auto;column-gap:8px;row-gap:6px;padding:6px 8px 8px 0}
   .hdr-right{flex:0 1 auto;min-width:0;gap:6px}
@@ -1339,7 +1343,28 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
      (z-index 60) and rail sit above the scrim (54) and stay usable. */
   .pane-scrim{position:fixed;inset:0 0 0 var(--rail-w)}
 }
+/* B2 2026-10-17: between 620px and about 1130px the header's one-row minimum
+   (1003px at 888, 1127px once the titles show above 1080) was wider than the
+   window. .shell has no column template, so its implicit auto column grew to
+   that minimum and dragged .body and the connector strip with it; overflow:
+   hidden then clipped the Hub link, avatar and the right of every view with
+   no way to scroll. The column is now pinned to the window, header button
+   labels drop below 1180px, the header wraps below 820px (above), and the
+   person context bar stacks below 1000px (the support layer only stacks it at
+   880; .shell prefix because that stylesheet loads after this one). */
+.shell{grid-template-columns:minmax(0,1fr)}
+@media(max-width:1180px){.hdr .btn .btn-txt{display:none}}
+@media(max-width:1000px){
+  .shell .support-person-context{align-items:flex-start;flex-direction:column}
+  .shell .support-person-context .identity-selected-device{flex:none;width:100%}
+  .shell .support-person-context .identity-device-controls select{max-width:none}
+}
 </style>
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/identity-diag-portal.css?v=85ed936edf49">
+<link rel="stylesheet" href="/identity-diag-support.css?v=stage3b-20261016b">
+<link rel="stylesheet" href="/identity-diag-facelift.css?v=a30c2a8d7aff">
+<link rel="stylesheet" href="/workspace-whats-new.css?v=20261019-support-guides1">
 </head>
 <body data-page="identity-diag" data-app-key="identity-diag">
 <!-- NOTE: `data-dp="identity-diag"` is deliberately absent. it-depth.css is a
@@ -1357,8 +1382,8 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
     </div>
   </div>
   <div class="hdr-titles">
-    <h1>Identity Diagnostics</h1>
-    <span>Operator Console</span>
+    <h1>Identity support</h1>
+    <span>People, devices and access</span>
   </div>
   <div class="hdr-sep" aria-hidden="true"></div>
 
@@ -1383,6 +1408,8 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
   </div>
 
   <div class="hdr-right">
+    <a class="btn btn-ghost btn-sm cwn-trigger" id="workspace-whats-new-link" href="#whats-new" aria-haspopup="dialog" aria-controls="workspace-whats-new">How to use</a>
+
     <button class="btn btn-ghost btn-sm" id="btnCopySummary" type="button" title="Copy the selected account's diagnostic summary">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="2.5" width="8" height="11" rx="1.5"/><path d="M6 6h4M6 8.5h4"/></svg>
       <span class="btn-txt">Copy summary</span>
@@ -1402,7 +1429,7 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
   <nav class="rail" id="rail" aria-label="Workspaces">
     <button class="rail-btn active" type="button" data-ws="accounts" aria-label="Accounts" aria-current="page">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5.4" r="2.7"/><path d="M2.6 13.6c0-2.7 2.4-4.3 5.4-4.3s5.4 1.6 5.4 4.3"/></svg>
-      <span class="rb-tip">Accounts</span>
+      <span class="rb-tip">Support</span>
     </button>
     <button class="rail-btn" type="button" data-ws="devices" aria-label="Devices">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.8" y="3" width="12.4" height="8.4" rx="1.6"/><path d="M5.5 13.6h5"/></svg>
@@ -1411,23 +1438,23 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
     <button class="rail-btn" type="button" data-ws="activity" aria-label="Activity and sessions">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4.2V8l2.7 1.8"/></svg>
       <span class="rb-badge" id="rb-activity-badge" hidden></span>
-      <span class="rb-tip">Activity &amp; sessions</span>
+      <span class="rb-tip">Sign-ins</span>
     </button>
     <button class="rail-btn" type="button" data-ws="security" aria-label="Security and policy">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.6L2.3 4v4.4c0 3.4 2.4 5.4 5.7 6.8 3.3-1.4 5.7-3.4 5.7-6.8V4L8 1.6z"/><path d="M8 5.4v3.2M8 10.8v.4"/></svg>
       <span class="rb-badge" id="rb-security-badge" hidden></span>
-      <span class="rb-tip">Security &amp; policy</span>
+      <span class="rb-tip">Security</span>
     </button>
     <button class="rail-btn" type="button" data-ws="provisioning" aria-label="User provisioning"
             data-rbac-page="user-provisioning" data-rbac-action="hide">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="5" r="2.4"/><path d="M1.6 13.4c0-2.4 2-3.9 4.4-3.9 1 0 1.9.2 2.6.6"/><path d="M12.4 8.2v4.4M10.2 10.4h4.4"/></svg>
       <span class="rb-badge" id="rb-prov-badge" hidden></span>
-      <span class="rb-tip">User provisioning</span>
+      <span class="rb-tip">Group access</span>
     </button>
     <button class="rail-btn" type="button" data-ws="projects" aria-label="User projects"
             data-rbac-page="user-projects" data-rbac-action="hide">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.8 5.2a1.4 1.4 0 011.4-1.4h2.6l1.2 1.6h5.8a1.4 1.4 0 011.4 1.4v5a1.4 1.4 0 01-1.4 1.4H3.2a1.4 1.4 0 01-1.4-1.4z"/></svg>
-      <span class="rb-tip">User projects</span>
+      <span class="rb-tip">Projects</span>
     </button>
 
     <div class="rail-spacer"></div>
@@ -1473,7 +1500,7 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
       </div>
       <div class="pane-tabs" role="tablist" aria-label="Account list view">
         <button class="pane-tab active" type="button" role="tab" aria-selected="true" data-view="recent">Recent <span class="pt-n" id="ptn-recent">0</span></button>
-        <button class="pane-tab" type="button" role="tab" aria-selected="false" data-view="locked">Locked <span class="pt-n" id="ptn-locked">–</span></button>
+        <button class="pane-tab" type="button" role="tab" aria-selected="false" data-view="locked">Lockout history <span class="pt-n" id="ptn-locked">–</span></button>
         <button class="pane-tab" type="button" role="tab" aria-selected="false" data-view="all">All <span class="pt-n" id="ptn-all">–</span></button>
       </div>
       <div class="pane-search">
@@ -1489,10 +1516,10 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
       <div class="pane-hd"><h2>Device lookup</h2></div>
       <div class="pane-search">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
-        <input id="devQuery" type="text" placeholder="Hostname, serial or owner…" aria-label="Device query" autocomplete="off">
+        <input hidden id="devQuery" type="text" placeholder="Hostname, serial or owner…" aria-label="Device query" autocomplete="off">
       </div>
-      <div style="padding:0 10px 8px"><button class="btn btn-primary btn-sm" type="button" id="devRun" style="width:100%">Look up device</button></div>
-      <div class="pane-note">Queries Intune, Zscaler Client Connector and ZDX for the same identifier. An owner match also opens that person's account.</div>
+      <div style="padding:0 10px 8px"><button class="btn btn-primary btn-sm" type="button" id="devRun" hidden style="width:100%">Look up device</button></div>
+      <div class="pane-note">Use the search in the main panel to find a person’s assigned devices. For Client Connector and ZDX telemetry, open Zscaler from the account.</div>
       <div class="pane-group">Recently looked up</div>
       <div class="pane-body" id="devRecent"></div>
     </section>
@@ -1513,7 +1540,7 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
 
     <!-- PROVISIONING -->
     <section class="pane-sec" data-pane="provisioning" data-rbac-page="user-provisioning" data-rbac-action="hide">
-      <div class="pane-hd"><h2>Provisioning</h2><span class="pane-count" id="adpScopeLbl">no user</span></div>
+      <div class="pane-hd"><h2>Group access</h2><span class="pane-count" id="adpScopeLbl">no user</span></div>
       <div class="adp-ctx" id="adpCtx">
         <div class="pane-note" id="adp_hint">Search for a user in the main panel to begin managing group memberships.</div>
 
@@ -1618,8 +1645,8 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
 
         <div class="hero">
           <div class="hero-t">
-            <h1>Account lookup</h1>
-            <p>One consolidated identity view across AD, Okta, Entra, Rapid7, Zscaler and Fortinet.</p>
+            <h1>Who are you helping?</h1>
+            <p>Find the person, check the evidence, and take the next step.</p>
           </div>
           <div class="hero-f">
             <div class="fw">
@@ -1632,7 +1659,17 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
           </div>
         </div>
 
-        <div class="metrics" id="kpiRow">
+        <div class="support-task-head"><h2>What needs attention?</h2><p>Choose a task, then find the person. You can also look up an account first.</p></div>
+        <div class="support-tasks">
+          <button type="button" data-support-task="signin"><strong>Can’t sign in</strong><span>Account, password, MFA and sign-in checks</span></button>
+          <button type="button" data-support-task="devices"><strong>Device issue</strong><span>Assigned devices and last reported state</span></button>
+          <button type="button" data-support-task="access" data-rbac-page="user-provisioning" data-rbac-action="hide"><strong>Missing access</strong><span>Review group memberships and queue changes</span></button>
+          <button type="button" data-support-task="offboarding"><strong>Offboarding review</strong><span>Check account, app and device access</span></button>
+        </div>
+        <p id="support-task-hint" class="support-task-hint" role="status" hidden></p>
+        <details class="support-tools"><summary>All tools <span>Direct access to sign-ins, policy checks and other tools</span></summary>
+        <div class="grid g-3" id="toolGrid"></div></details>
+        <details class="support-org"><summary>Organization overview <span>Directory totals, incidents and connector probes</span></summary>        <div class="metrics" id="kpiRow">
           <div class="metric">
             <div class="metric-t">
               <span class="metric-ic" style="background:var(--info-dim);color:var(--info)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="6" cy="5" r="2.6"/><path d="M2 13.5c0-2.3 1.8-4 4-4s4 1.7 4 4M10.5 4.2a2.4 2.4 0 010 4.4M14 13.5c0-1.8-1-3-2.6-3.6"/></svg></span>
@@ -1644,7 +1681,7 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
           <div class="metric">
             <div class="metric-t">
               <span class="metric-ic" style="background:var(--bad-dim);color:var(--bad)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5.2a2.5 2.5 0 015 0V7"/></svg></span>
-              Locked out
+              Lockout history
             </div>
             <div class="metric-n" id="kpi-locked"><span class="skel" style="display:inline-block;width:44px;height:20px"></span></div>
             <div class="metric-s" id="kpi-locked-sub">AD accounts carrying a lockout stamp</div>
@@ -1703,10 +1740,7 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
           </div>
         </div>
 
-        <div class="sec-head">
-          <h3><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2.5" width="5.5" height="5.5" rx="1"/><rect x="8.5" y="2.5" width="5.5" height="5.5" rx="1"/><rect x="2" y="9" width="5.5" height="4.5" rx="1"/><rect x="8.5" y="9" width="5.5" height="4.5" rx="1"/></svg>Tools</h3>
-        </div>
-        <div class="grid g-3" id="toolGrid"></div>
+</details>
       </div>
     </section>
 
@@ -1796,7 +1830,7 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
 
         <div class="tool-head">
           <div style="min-width:0">
-            <h1>User provisioning</h1>
+            <h1>Group access</h1>
             <p>Search a user, compare their AD security-group memberships against the baseline, queue additions and removals, then review and apply them together. Nothing is written to AD until you press <b>Apply</b>.</p>
           </div>
           <div class="th-act">
@@ -1804,6 +1838,11 @@ button.card:focus-visible{outline:2px solid var(--accent-line);outline-offset:2p
           </div>
         </div>
 
+        <div id="support-group-tools" class="support-group-tools" hidden>
+          <div><small>Reviewing groups for</small><strong id="support-group-name"></strong></div>
+          <div><button class="btn btn-ghost btn-sm" type="button" data-adp-change>Change person</button>
+          <button class="btn btn-primary btn-sm" type="button" id="support-group-review" data-adp-review disabled>Review queue (0)</button></div>
+        </div>
         <!-- search -->
         <div class="panel adp-search-card" id="adp_searchSection">
           <div class="panel-hd"><h3><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>Find a user</h3></div>
@@ -2168,22 +2207,26 @@ function toast(msg,kind){
    Escape, a Tab containment loop and focus restore, for every dialog on the
    page rather than the two that had them. */
 var MODAL_IDS=['rpm-overlay','lsm-overlay','gam-overlay','ssm-overlay','cfm-overlay','kbd-overlay'];
-var _lastFocus=null;
+var _lastFocus=null, _ssmSeq=0, _syncSeq=0, _diagRun=0, _lockoutSeq=0;
+function sharedDialog(kind){ $('ssm-overlay').dataset.kind=kind; }
 function _openModals(){ return MODAL_IDS.map($).filter(function(el){ return el && el.classList.contains('show'); }); }
 function openModal(id){
   if(!_openModals().length)_lastFocus=document.activeElement;
   var el=$(id); if(!el)return;
   el.classList.add('show');
+  if(id==='ssm-overlay')_ssmSeq++;
   setTimeout(function(){
     var f=el.querySelector('input:not([type=hidden]):not([disabled]),button:not([disabled]),a[href]');
-    if(f)try{ f.focus(); }catch(e){}
+    if(f&&el.classList.contains('show'))try{ f.focus(); }catch(e){}
   },40);
 }
 function closeModal(id){
   var el=$(id); if(!el)return;
   el.classList.remove('show');
-  if(id==='rpm-overlay'){ var f=$('rpm-pwd'); if(f)f.value=''; _resetSam=null; revealPwd(false); }
-  if(id==='gam-overlay'){ clearTimeout(_gam.timer); _gam={q:'',picked:null,results:[],seq:_gam.seq,timer:null}; }
+  if(id==='ssm-overlay')_ssmSeq++;
+  if(id==='lsm-overlay')_lockoutSeq++;
+  if(id==='rpm-overlay'){ _resetSeq++; var f=$('rpm-pwd'); if(f)f.value=''; _resetSam=null; revealPwd(false); }
+  if(id==='gam-overlay'){ clearTimeout(_gam.timer); _gam={q:'',picked:null,results:[],seq:_gam.seq+1,timer:null}; }
   if(id==='cfm-overlay'){ _cfmFn=null; }
   if(!_openModals().length){
     if(_lastFocus&&document.contains(_lastFocus)){ try{ _lastFocus.focus(); }catch(e){} }
@@ -2250,7 +2293,7 @@ $('cfm-ok').addEventListener('click',function(){
 const PAGE_TITLES={
   overview:'Account lookup', detail:'Account detail', devices:'Device lookup',
   failures:'Okta login failures', entrafailures:'Entra login failures',
-  timeline:'Activity timeline', sessions:'Session kill', zscaler:'Zscaler policy',
+  timeline:'Activity timeline', sessions:'Sessions', zscaler:'Zscaler policy',
   expiry:'Password expiry', offboarding:'Offboarding audit', threat:'Threat monitor',
   summary:'Case summary', provisioning:'User provisioning', projects:'User projects'
 };
@@ -2268,6 +2311,7 @@ var _ws='accounts', _page='overview';
 function showView(id){
   $$('.view').forEach(function(v){ v.classList.toggle('active', v.id===id); });
   var w=$('work'); if(w)w.scrollTop=0;
+  if(typeof identityContext==='function')identityContext();
 }
 function setWorkspace(ws){
   _ws=ws;
@@ -2285,7 +2329,8 @@ function setWorkspace(ws){
 /* The single entry point for navigation. Everything — rail buttons, tool cards,
    pane tool links, the hash router, the deep-link handler — comes through here,
    so there is exactly one place where a page key can fail to resolve. */
-function go(page){
+function go(page,query){
+  var devicePreviousUrl = window.IdentityDeviceContext ? IdentityDeviceContext.beforeNavigate() : null;
   /* Navigating with a dialog open left its backdrop covering the new view. The
      rail and header sit below it (z auto / 60 vs 400), so the operator landed
      on a page that swallowed every click with no visible cause. A same-document
@@ -2294,21 +2339,24 @@ function go(page){
   MODAL_IDS.forEach(function(id){
     var m=$(id); if(m&&m.classList.contains('show'))closeModal(id);
   });
+  if(window.upCloseModal)window.upCloseModal();
   if(!PAGE_TITLES[page]){
     /* The old go() had no default branch: an unknown key silently did nothing
        and left the operator on whatever was already open. */
     toast('Unknown destination "'+page+'"','warn'); page='overview';
   }
   _page=page;
+  if(typeof identityPendingTask!=='undefined'&&page!=='overview'&&page!=='detail')identityPendingTask='';
+  if(typeof identityContext==='function')identityContext();
   setWorkspace(WS_OF[page]||'accounts');
   if(page==='overview'){ showView('view-overview'); loadLanding(); }
   else if(page==='detail'){
     if(!_D&&!_curQuery){ go('overview'); return; }
     showView('view-detail');
   }
-  else if(page==='provisioning'){ showView('view-provisioning'); if(window.adpInit)window.adpInit(); }
+  else if(page==='provisioning'){ showView('view-provisioning'); if(window.adpInit)window.adpInit(); if(_D&&window.adpUseIdentity)window.adpUseIdentity(_D); }
   else if(page==='projects'){ showView('view-projects'); if(window.upInit)window.upInit(); }
-  else { showView('view-tool'); openTool(page); }
+  else { showView('view-tool'); openTool(page,query); }
   /* routeFromHash already understands #user/<query>; nothing ever WROTE it, so
      the selected account vanished on reload and the URL was not shareable.
      replaceState does not fire hashchange, so this cannot re-enter runSearch. */
@@ -2316,6 +2364,7 @@ function go(page){
   if(want&&location.hash.replace(/^#/,'')!==want){
     try{ history.replaceState(null,'','#'+want); }catch(e){}
   }
+  if(window.IdentityDeviceContext)IdentityDeviceContext.afterNavigate(devicePreviousUrl);
 }
 
 /* rbac-client's public object is window.itRbac and its DOM pass is
@@ -2330,7 +2379,7 @@ function _rbacApply(root){
 const PANE_TOOLS={
   activity:[
     {p:'timeline',   n:'Activity timeline', d:'Okta system-log events for one account.', ic:'clock', user:true},
-    {p:'sessions',   n:'Session kill',      d:'Review sign-in events and revoke every Okta session.', ic:'kill', user:true},
+    {p:'sessions',   n:'Sessions',      d:'Review sign-in events and revoke every Okta session.', ic:'kill', user:true},
     {p:'failures',   n:'Okta login failures', d:'Password-spray and failed-auth signals across the org.', ic:'alert'},
     {p:'entrafailures',n:'Entra login failures', d:'Failed Entra sign-ins in the last 24h, grouped by user.', ic:'alert'}
   ],
@@ -2366,16 +2415,20 @@ function renderToolPane(ws){
   var host=$(ws==='activity'?'activityTools':'securityTools'); if(!host)return;
   host.innerHTML=list.map(function(t){
     var b='';
-    if(t.p==='failures'&&_badge.spray!=null)b=' <span class="tl-badge">'+_badge.spray+'</span>';
-    if(t.p==='entrafailures'&&_badge.entra!=null)b=' <span class="tl-badge">'+_badge.entra+'</span>';
+    if(t.p==='failures')b=' <span class="tl-badge" title="'+(identityFeedCurrent('sdops_spray')?'Recorded windows':'Source coverage unavailable')+'">'+(_badge.spray==null?'?':_badge.spray)+'</span>';
+    if(t.p==='entrafailures')b=' <span class="tl-badge" title="'+(identityFeedCurrent('entra_signin_logs')?'Recorded failures':'Source coverage unavailable')+'">'+(_badge.entra==null?'?':_badge.entra)+'</span>';
     if(t.p==='threat'&&_badge.invest!=null)b=' <span class="tl-badge">'+_badge.invest+'</span>';
     return toolLinkHtml(t,_page===t.p,b);
   }).join('');
   var ctx=$(ws==='activity'?'activityCtx':'securityCtx');
   if(ctx){
-    if(_D||_curQuery){
-      var label=(_D&&(_D.displayName||_D.samAccountName))||_curQuery;
-      ctx.innerHTML='<span class="sdot '+( _D?statusOf(_D).c:'unk')+'"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Scoped to <b style="color:var(--text-2)">'+x(label)+'</b></span>'
+    if(TOOLS[_page]&&!TOOLS[_page].user&&_page!=='summary'){
+      ctx.innerHTML='<strong>Organization-wide</strong><span class="ls">This view is not filtered to the selected person.</span>';
+    }else if(_D||_curQuery||(TOOLS[_page]&&TOOLS[_page].user&&_toolQ)){
+      var query=TOOLS[_page]&&TOOLS[_page].user?_toolQ:'';
+      var same=!query||[_D&&_D.email,_D&&_D.upn,_D&&_D.samAccountName,_curQuery].some(function(v){return v&&v.toLowerCase()===query.toLowerCase();});
+      var label=same?((_D&&(_D.displayName||_D.samAccountName))||_curQuery):query;
+      ctx.innerHTML='<span class="sdot '+(same&&_D?statusOf(_D).c:'unk')+'"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Person: <b style="color:var(--text-2)">'+x(label)+'</b></span>'
         +'<button class="see-all" type="button" data-act="clear-scope" style="margin-left:auto">Clear</button>';
     }else{
       ctx.innerHTML='<span class="sdot unk"></span><span>No account selected — user-scoped tools will ask for one.</span>';
@@ -2394,8 +2447,8 @@ function renderDevPane(){
 var DEV_RECENT=[];
 
 /* off-canvas pane (narrow viewports) */
-function openPane(){ $('pane').classList.add('open'); $('paneScrim').classList.add('show'); $('paneToggle').setAttribute('aria-expanded','true'); }
-function closePane(){ var p=$('pane'); if(p)p.classList.remove('open'); var s=$('paneScrim'); if(s)s.classList.remove('show'); var t=$('paneToggle'); if(t)t.setAttribute('aria-expanded','false'); }
+function openPane(){ $('pane').classList.add('open'); $('paneScrim').classList.add('show'); $('paneToggle').setAttribute('aria-expanded','true'); if(typeof identitySyncPane==='function')identitySyncPane(); }
+function closePane(){ var p=$('pane'); if(p)p.classList.remove('open'); var s=$('paneScrim'); if(s)s.classList.remove('show'); var t=$('paneToggle'); if(t)t.setAttribute('aria-expanded','false'); if(typeof identitySyncPane==='function')identitySyncPane(); }
 
 /* ═══════════ 6 · ACCOUNT LIST (persistent, column 2) ═══════════
    Recent is this session's lookups. Locked and All are read from
@@ -2433,7 +2486,7 @@ function acctRows(){
       name:a.displayName||a.samAccountName||'',
       sub:a.samAccountName||a.upn||a.email||'',
       upn:a.upn||a.email||'',
-      dot:locked?'bad':'unk',
+      dot:locked?'info':'unk',
       dotTip:locked?('Lockout stamp set '+ft(a.lockoutTime)+' — open the account for authoritative state')
                    :'Status not measured in this list — open the account to check',
       badge:(a.badPwdCount>0?'<span class="badge warn" style="font-size:9.5px;padding:1px 5px">'+a.badPwdCount+'</span>':'')
@@ -2462,7 +2515,7 @@ function renderAcctList(){
   if(!rows.length){
     host.innerHTML=stateBox('empty',
       ACCT_VIEW==='recent'?'No lookups yet':(q?'No matches in this list':'Nothing to show'),
-      ACCT_VIEW==='recent'?'Search above to look up an account; it will be listed here.':(q?'Clear the filter to see the full list.':''),true);
+      ACCT_VIEW==='recent'?'Use account search to find a person. Recent people appear here.':(q?'Clear the filter to see the full list.':''),true);
   }else{
     host.innerHTML=rows.map(function(r){
       var sel=cur&&[r.id,r.sub,r.upn].filter(Boolean).some(function(v){ return String(v).toLowerCase()===cur; });
@@ -2555,7 +2608,7 @@ function statusOf(d){
   if(as.enabled==null)return {t:'State not read',c:'unk'};
   var rs=(d&&d.riskScore)||0;
   if(rs>=60)return {t:'At risk',c:'warn'};
-  return {t:'Healthy',c:'good'};
+  return {t:'Enabled',c:'good'};
 }
 function dedupMfa(l){ if(!Array.isArray(l))return []; var s=[]; l.forEach(function(f){ var k=(f&&f.label)||'Unknown'; if(s.indexOf(k)<0)s.push(k); }); return s; }
 /* MFA has THREE states, not two: enrolled factors, a measured zero, and "we
@@ -2616,8 +2669,12 @@ function factRow(k,v,color){
 /* ═══════════ 8 · LOOKUP ═══════════ */
 async function runSearch(q){
   q=(q||'').trim(); if(!q)return;
+  MODAL_IDS.forEach(function(id){ if($(id).classList.contains('show'))closeModal(id); });
+  if(window.upCloseModal)window.upCloseModal();
   var g=newGen();
+  if(window.IdentityDeviceContext)IdentityDeviceContext.beginPerson(q);
   _curQuery=q; _D=null;
+  if(typeof identityContext==='function')identityContext();
   _detailDevices=_detailR7=_detailForti=_detailApps=_detailZcc=_detailTimeline=null; _tlBusy=false;
   _zsPill=null; _DIAG=null;
   if(_ws!=='accounts')setWorkspace('accounts');
@@ -2647,17 +2704,20 @@ async function runSearch(q){
       return;
     }
     _D=d;
+    if(typeof identityContext==='function')identityContext();
     pushRecent(d,q);
     hydrateHeader();
     renderDetailBody();
     renderToolPane(_ws);
     /* FortiGate resolves against active_employees by sAMAccountName; handing it
        a raw email always came back "no employee record". Rapid7 keys on email. */
-    loadDetailDevices(q,g);
+    loadDetailDevices(d.samAccountName||q,g);
     loadDetailRapid7(q,g);
     loadDetailForti(d.samAccountName||q,g);
     loadZscaler((d.email||d.upn||q),g);
     loadDetailApps((d.email||d.upn||d.samAccountName||q),g);
+    if(typeof identityAccountLoaded==='function')identityAccountLoaded();
+    if(window.IdentityDeviceContext)IdentityDeviceContext.loadedPerson();
   }catch(e){
     if(_stale(g)||(e&&e.name==='AbortError'))return;
     $('aheadHost').innerHTML='';
@@ -2673,12 +2733,12 @@ function hydrateHeader(){
      stamp reports when the DATA was read, not when the page painted, and says
      plainly when the answer came out of the cache. */
   var ss=$('snapStamp'), at=d.queriedAt||null;
-  var hhmm=at?(function(){ var t=new Date(at); return isNaN(t.getTime())?'—':t.toISOString().slice(11,19)+'Z'; })():'—';
+  var hhmm=at?(ago(at)||'just now'):'age unavailable';
   ss.className='badge '+(d.fromCache?'warn':'neutral')+' mono';
-  ss.innerHTML='<span class="bdot"></span>'+(d.fromCache?'CACHED ':'SNAPSHOT ')+hhmm;
+  ss.innerHTML='<span class="bdot"></span>'+(d.fromCache?'Cached · ':'Snapshot · ')+x(hhmm);
   ss.title=d.fromCache
     ? ('Served from the API cache — Active Directory was read at '+ft(at)+' ('+(ago(at)||'moments ago')+'), not just now.')
-    : ('Active Directory was read at '+ft(at)+'. Re-run the lookup to refresh.');
+    : ('Active Directory was read at '+ft(at)+' (local time); UTC '+(at||'unknown')+'. Re-run the lookup to refresh.');
   var photo=d.email||d.upn||'';
   $('aheadHost').innerHTML=
    '<div class="ahead">'
@@ -2732,13 +2792,15 @@ function hydrateHeader(){
 }
 function renderVerdict(){
   var d=_D||{}, as=d.accountStatus||{}, host=$('verdictHost');
+  if(_DIAG&&_DIAG.done){ var result=identityDiagResult(_DIAG); host.innerHTML='<div class="verdict '+result.color+'"><div><h4>'+x(result.title)+'</h4><p>'+x(result.detail)+'</p></div><button class="btn btn-ghost btn-sm" data-act="diag-review" type="button">Review checks</button></div>'; return; }
+  if(as.enabled==null||!d.password){ host.innerHTML=stateBox('unk','Account checks incomplete','Directory or password state was not returned. Run diagnostics to review coverage.',true); return; }
   var rc=rootCauseList(d)[0]||null;
   var crit=(as.enabled===false)||as.lockedOut||(d.password&&d.password.expired);
   if(!crit&&!rc){
     host.innerHTML='<div class="verdict good"><div class="verdict-ic" style="background:var(--good-dim);color:var(--good)">'
      +'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8.5l3.5 3.5L14 4"/></svg></div>'
-     +'<div><h4>No blocking issues detected</h4><p>The AD account is enabled and unlocked and the password is valid. '
-     +x(mfaState(d.okta).unknown?'MFA could not be read, so it was not evaluated.':'This does not evaluate business entitlements.')+'</p></div></div>';
+     +'<div><h4>Initial account checks passed</h4><p>The AD account is enabled and unlocked and the password is valid. '
+     +x(mfaState(d.okta).unknown?'MFA could not be read, so it was not evaluated.':'Run diagnostics for source coverage and sign-in checks. This does not confirm business entitlements.')+'</p></div></div>';
     return;
   }
   var msg=(as.enabled===false)?'Account is disabled in AD'
@@ -2918,7 +2980,7 @@ function ovContent(){
      GET /api/v1/users/{id}/sessions with 405 — only DELETE exists on that path,
      so there is no list-live-sessions API and the count was the seeded 0 on
      every account ever looked up. A tile that can never be measured is not a
-     tile; sign-in activity lives in Session kill / Timeline, which read the
+     tile; sign-in activity lives in Sessions / Timeline, which read the
      system log. Assigned applications IS measured, so it takes the slot.
      The GET was removed from okta-lookup.js on 2026-09-10; the lookup payload
      no longer carries activeSessions/sessionsStatus at all. */
@@ -2957,7 +3019,7 @@ function ovContent(){
       stateBox('empty','No findings','A clean result here covers AD state, password policy and MFA only.',true));
   }
 
-  out+=panel('Quick facts','Straight from the directory record.',
+  out+='<details class="support-evidence"><summary>Directory details</summary>'+panel('Quick facts','Straight from the directory record.',
     '<div class="g-2"><div class="facts">'
       +factRow('sAMAccountName','<span class="mono">'+x(d.samAccountName||'—')+'</span>')
       +factRow('UPN','<span class="mono">'+x(d.upn||'—')+'</span>')
@@ -2970,7 +3032,7 @@ function ovContent(){
       +factRow('Created',x(ft(d.whenCreated)))
       +factRow('Last changed',x(ft(d.whenChanged)))
       +factRow('OU',x(d.ouLocation||'—'))
-    +'</div></div>');
+    +'</div></div>')+'</details>';
   return out;
 }
 
@@ -3089,8 +3151,20 @@ function accountContent(){
 }
 
 /* ── DEVICES ──────────────────────────────────────────────────────────── */
-function devicesContent(){
-  var s=_detailDevices;
+function deviceDisplayModel(record,result){
+  var raw=record.model==null?'':String(record.model).trim();
+  if(!/^(?:[-—–]+|unknown|none|null|n\/?a|not (?:applicable|available|specified))?$/i.test(raw))return raw;
+  // Only reuse evidence from a confirmed group containing this exact source row.
+  // Duplicate or unverified records must not borrow another device's model.
+  var matches=((result&&result.deviceGroups)||[]).filter(function(g){
+    return g.match&&g.match.status==='confirmed'&&(g.records||[]).some(function(r){
+      return r.source===record.source&&r.serial===record.serial&&r.deviceName===record.deviceName;
+    });
+  });
+  return matches.length===1 ? matches[0].model||'' : '';
+}
+function devicesContent(result, standalone){
+  var s=arguments.length?result:_detailDevices;
   if(s===null)return panel('Devices','',stateBox('load','Reading Intune, Kandji, ManageEngine and AWS…'));
   if(s&&s.__err)return panel('Devices','',stateBox('unk','Device inventory could not be read',x(s.__err)
     +' — this is not a finding of “no devices”.',true)
@@ -3117,28 +3191,28 @@ function devicesContent(){
       :cs==='notapplicable'?'Not applicable'
       :String(comp);
     return '<tr><td><div class="dt-user"><span class="dt-av">'+x(initials(v.deviceName||'?'))+'</span>'
-      +'<div><div>'+x(v.deviceName||'—')+'</div><div class="ls">'+x(v.model||v.type||'')+'</div></div></div></td>'
+      +'<div><div>'+x(v.deviceName||'—')+'</div><div class="ls">'+x(deviceDisplayModel(v,s)||v.type||'')+'</div></div></div></td>'
       +'<td>'+x(v.type||'—')+'</td>'
       +'<td>'+x([v.os,v.osVersion].filter(Boolean).join(' ')||'—')+'</td>'
       +'<td><span class="mono">'+x(v.serial||v.mac||'—')+'</span></td>'
       +'<td><span class="sdot '+cdot+'"></span> '+x(ctxt)+'</td>'
-      +'<td>'+x(v.lastCheckin?ft(v.lastCheckin):(v.lastSeen?ft(v.lastSeen):'—'))+'</td>'
+      +'<td>'+x(v.lastCheckin?ago(v.lastCheckin):(v.lastSeen?ago(v.lastSeen):'Age not reported'))+'<div class="ls">'+x(v.lastCheckin?ft(v.lastCheckin):(v.lastSeen?ft(v.lastSeen):'—'))+'</div></td>'
       +'<td><span class="chip">'+x(v.source||'—')+'</span></td></tr>';
   });
-  var body=table([{t:'Device',w:'26%'},{t:'Type'},{t:'OS'},{t:'Serial / MAC'},{t:'Compliance'},{t:'Last check-in'},{t:'Source'}],
+  var body=table([{t:'Device',w:'26%'},{t:'Type'},{t:'OS'},{t:'Serial / MAC'},{t:'Last reported compliance'},{t:'Last check-in'},{t:'Source'}],
     rows,'No devices found in Intune, Kandji, ManageEngine or AWS for this user.');
   if(unavail&&unavail.length){
     body+='<div class="note warn"><strong>Partial result.</strong> '+x(unavail.join('; '))
       +'. Devices from those sources are missing from this table, so the count is a floor, not a total.</div>';
   }
-  return panel('Devices',sub,body,
-    '<button class="btn btn-ghost btn-sm" type="button" data-act="dev-retry">Refresh</button>');
+  return (window.IdentityDeviceContext ? IdentityDeviceContext.placeholder(s) : '')+panel('Devices',sub,body,
+    '<button class="btn btn-ghost btn-sm" type="button" data-act="'+(standalone?'tool-run':'dev-retry')+'">Refresh</button>');
 }
 
 /* ── NETWORK & ACCESS ─────────────────────────────────────────────────── */
 function networkContent(){
   var d=_D||{}, zia=(d.zscaler||{}).zia||{status:'unconfigured'}, zpa=(d.zscaler||{}).zpa||{status:'unconfigured'};
-  var out='';
+  var out=window.IdentityDeviceNetwork?IdentityDeviceNetwork.placeholder():'';
   var zbody;
   if(zia.status==='found'){
     var gl=(zia.groups||[]);
@@ -3481,6 +3555,7 @@ function switchTab(id){
   });
   buildTab(id);
   $$('#secRail .sec-link').forEach(function(b){ b.classList.toggle('active',b.getAttribute('data-sec')===id.replace(/^t-/,'s-')); });
+  if(window.IdentityDeviceNetwork)IdentityDeviceNetwork.afterTab();
 }
 function buildScroll(){
   var host=$('scrollBody');
@@ -3494,6 +3569,7 @@ function buildScroll(){
    mode is on screen. Re-paint them after every build instead of leaving a
    permanent spinner where a fetch already resolved. */
 function afterSectionRender(root){
+  if(window.IdentityDeviceNetwork)IdentityDeviceNetwork.render();
   var h;
   if((h=root.querySelector('#fortiHost')))h.innerHTML=fortiHtml(_detailForti);
   if((h=root.querySelector('#zccHost')))h.innerHTML=zccHtml(_detailZcc);
@@ -3554,6 +3630,7 @@ async function loadDetailDevices(q,g){
     else{ _detailDevices=await jread(r); }
   }catch(e){ if(_stale(g)||(e&&e.name==='AbortError'))return; _detailDevices={__err:_whyErr(e)}; }
   if(_stale(g))return;
+  if(window.IdentityDeviceContext)IdentityDeviceContext.accept(_detailDevices,q,g);
   var n=(_detailDevices&&_detailDevices.devices)?_detailDevices.devices.length:null;
   var tn=$('tn-devices'); if(tn)tn.textContent=(n==null?'':String(n));
   if(_detailDevices&&_detailDevices.__err)_idDegraded('devices','Device inventory unavailable',_detailDevices.__err);
@@ -3568,7 +3645,7 @@ async function loadDetailRapid7(q,g){
   }catch(e){ if(_stale(g)||(e&&e.name==='AbortError'))return; _detailR7={__err:_whyErr(e)}; }
   if(_stale(g))return;
   var n=(_detailR7&&_detailR7.events)?_detailR7.events.length:null;
-  var tn=$('tn-security'); if(tn)tn.textContent=(n==null?'':String(n));
+  var tn=$('tn-security'); if(tn)tn.textContent=(n==null?'':String(n)+' events');
   _slot('r7Host',r7Html(_detailR7));
 }
 async function loadDetailForti(user,g){
@@ -3622,8 +3699,10 @@ function _actionBusy(el,on,label){
   else{ el.disabled=false; if(el.dataset.prev){ el.innerHTML=el.dataset.prev; delete el.dataset.prev; } }
 }
 /* Re-read the account after a write. Real read, not a timer. */
-async function refreshAccount(){
+async function refreshAccount(expected){
+  if(expected&&_identity().toLowerCase()!==expected.toLowerCase())return false;
   var q=_curQuery; if(!q)return;
+  _DIAG=null; _diagRun++; renderVerdict();
   var g=newGen();
   try{
     var r=await gfetch('/api/identity/lookup?q='+encodeURIComponent(q)+'&_='+_gen);
@@ -3631,7 +3710,12 @@ async function refreshAccount(){
     if(!r.ok){ toast('Account re-read failed — the screen may be out of date ('+_httpErr(r)+')','warn'); return false; }
     _D=await jread(r);
     if(_stale(g))return false;
+    _detailDevices=_detailR7=_detailForti=_detailApps=_detailZcc=_detailTimeline=null; _zsPill=null;
+    pushRecent(_D,q);
+    if(typeof identityContext==='function')identityContext();
     hydrateHeader(); repaint(); renderAcctList();
+    loadDetailDevices(q,g); loadDetailRapid7(q,g); loadDetailForti(_D.samAccountName||q,g);
+    loadZscaler(_D.email||_D.upn||q,g); loadDetailApps(_D.email||_D.upn||q,g);
     return true;
   }catch(e){ if(_stale(g)||(e&&e.name==='AbortError'))return false;
     toast('Account re-read failed — the screen may be out of date ('+_whyErr(e)+')','warn'); return false; }
@@ -3652,7 +3736,7 @@ async function doUnlock(btn){
       if(!r.ok){ toast('Unlock failed: '+(d.message||d.error||_httpErr(r)),'err'); return; }
       if(d.success===false){ toast('Unlock did not complete: '+(d.message||d.error||'the server reported failure'),'err'); return; }
       toast(d.message||('Unlock command accepted for '+id));
-      var ok=await refreshAccount();
+      var ok=await refreshAccount(id);
       if(ok&&_D&&_D.accountStatus&&_D.accountStatus.lockedOut)
         toast('The account still reads as locked out after the unlock — check replication on the other DCs.','warn');
     }catch(e){ toast('Unlock failed: '+_whyErr(e),'err'); }
@@ -3660,10 +3744,10 @@ async function doUnlock(btn){
   });
 }
 
-var _resetSam='';
+var _resetSam='', _resetSeq=0;
 function openResetModal(){
   var id=_identity(); if(!id){ toast('No account selected','warn'); return; }
-  _resetSam=id;
+  _resetSam=id; _resetSeq++;
   $('rpm-title').textContent='Reset password';
   $('rpm-sub').textContent=id;
   $('rpm-pwd').value=''; $('rpm-force').checked=true;
@@ -3691,6 +3775,7 @@ function genPwd(){
   revealPwd(true);
 }
 async function doReset(){
+  var request=_resetSeq;
   var id=_resetSam, pwd=$('rpm-pwd').value, force=$('rpm-force').checked;
   if(!id)return;
   if(pwd.length<12){ toast('Password must be at least 12 characters','warn'); $('rpm-pwd').focus(); return; }
@@ -3702,9 +3787,9 @@ async function doReset(){
     var d=await jread(r);
     if(!r.ok){ toast('Reset failed: '+(d.message||d.error||_httpErr(r)),'err'); return; }
     if(d.success===false){ toast('Reset did not complete: '+(d.message||d.error||'the server reported failure'),'err'); return; }
-    closeModal('rpm-overlay');
+    if(request===_resetSeq)closeModal('rpm-overlay');
     toast(d.message||('Password reset for '+id+(force?' — user must change at next sign-in':'')));
-    await refreshAccount();
+    await refreshAccount(id);
   }catch(e){ toast('Reset failed: '+_whyErr(e),'err'); }
   finally{ _actionBusy(btn,false); }
 }
@@ -3721,7 +3806,7 @@ var _gam={q:'',picked:null,results:[],seq:0,timer:null};
 function openGroupAdd(){
   var id=(_D&&_D.samAccountName)||_identity();
   if(!id){ toast('No account selected','warn'); return; }
-  _gam={q:'',picked:null,results:[],seq:_gam.seq,timer:null};
+  _gam={target:id,q:'',picked:null,results:[],seq:_gam.seq+1,timer:null};
   $('gam-title').textContent='Add to AD group';
   $('gam-sub').textContent=id;
   $('gam-search').value='';
@@ -3733,8 +3818,9 @@ function openGroupAdd(){
 }
 async function gamSearch(q){
   q=(q||'').trim(); _gam.q=q; _gam.picked=null; $('gam-picked').innerHTML=''; $('gam-picked').hidden=true; $('gam-ok').disabled=true;
+  var seq=++_gam.seq;
   if(q.length<2){ _gam.results=[]; $('gam-results').innerHTML=stateBox('empty','Type at least two characters to search Active Directory security groups',null,true); return; }
-  var seq=++_gam.seq;                                        /* per-keystroke sequence guard */
+  /* Per-query sequence includes cleared searches and closed dialogs. */
   $('gam-results').innerHTML=stateBox('load','Searching groups…',null,true);
   try{
     var r=await fetch('/api/identity/group-search?q='+encodeURIComponent(q)+'&limit=40');
@@ -3769,7 +3855,8 @@ function gamPick(i){
   gamRender();
 }
 async function doGroupAdd(){
-  var id=(_D&&_D.samAccountName)||_identity(), g=_gam.picked;
+  var target=_gam;
+  var id=target.target, g=target.picked;
   if(!id||!g)return;
   var btn=$('gam-ok');
   _actionBusy(btn,true,'Adding…');
@@ -3780,9 +3867,9 @@ async function doGroupAdd(){
     if(r.status===403&&d.blocked){ toast('Refused: '+(d.error||'that is a privileged group'),'err'); return; }
     if(!r.ok){ toast('Group add failed: '+(d.error||d.message||_httpErr(r)),'err'); return; }
     if(d.success===false){ toast('Group add did not complete: '+(d.error||'the server reported failure'),'err'); return; }
-    closeModal('gam-overlay');
+    if(target===_gam)closeModal('gam-overlay');
     toast(d.already?(id+' was already a member of '+g.name):('Added '+id+' to '+g.name));
-    await refreshAccount();
+    await refreshAccount(id);
   }catch(e){ toast('Group add failed: '+_whyErr(e),'err'); }
   finally{ _actionBusy(btn,false); }
 }
@@ -3798,6 +3885,7 @@ async function openSyncModal(){
   var sam=d.samAccountName||_curQuery;
   if(!sam){ toast('No account selected','warn'); return; }
   _sync={sam:sam,upn:d.upn||d.email||'',data:null};
+  sharedDialog('sync');
   $('ssm-title').textContent='Replication & sync';
   $('ssm-sub').textContent=sam;
   $('ssm-body').innerHTML=stateBox('load','Reading each domain controller and the Entra record…');
@@ -3805,12 +3893,15 @@ async function openSyncModal(){
   await loadSyncStatus();
 }
 async function loadSyncStatus(){
+  var request=++_syncSeq, modal=_ssmSeq, target=_sync;
+  function current(){return request===_syncSeq&&modal===_ssmSeq&&target===_sync&&$('ssm-overlay').dataset.kind==='sync';}
   try{
     var r=await fetch('/api/identity/sync-status?identity='+encodeURIComponent(_sync.sam)+'&upn='+encodeURIComponent(_sync.upn));
     var d=await jread(r);
+    if(!current())return;
     if(!r.ok){ $('ssm-body').innerHTML=stateBox('err','Sync status could not be read',x(d.error||d.message||_httpErr(r))); return; }
     _sync.data=d; renderSync();
-  }catch(e){ $('ssm-body').innerHTML=stateBox('err','Sync status could not be read',x(_whyErr(e))); }
+  }catch(e){ if(!current())return; $('ssm-body').innerHTML=stateBox('err','Sync status could not be read',x(_whyErr(e))); }
 }
 function renderSync(){
   var d=_sync.data||{}, ad=d.ad||{}, en=d.entra||{};
@@ -3867,24 +3958,27 @@ function renderSync(){
   _rbacApply($('ssm-body'));
 }
 async function doSyncAd(btn){
+  var target=_sync, modal=_ssmSeq;
+  function current(){return target===_sync&&modal===_ssmSeq&&$('ssm-overlay').dataset.kind==='sync';}
+  function output(html){if(current())_slot('syncOut',html);}
   confirmAction({
     title:'Force AD replication?',
-    sub:_sync.sam,
-    body:'This replicates the single directory object for <strong>'+x(_sync.sam)+'</strong> from the write DC to every other domain controller. It is recorded in the audit log.',
+    sub:target.sam,
+    body:'This replicates the single directory object for <strong>'+x(target.sam)+'</strong> from the write DC to every other domain controller. It is recorded in the audit log.',
     ok:'Replicate'
   }, async function(){
-    _slot('syncOut',stateBox('load','Replicating to each domain controller…',null,true));
+    output(stateBox('load','Replicating to each domain controller…',null,true));
     try{
-      var r=await fetch('/api/identity/sync/ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:_sync.sam})});
+      var r=await fetch('/api/identity/sync/ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:target.sam})});
       var d=await jread(r);
-      if(r.status===504){ _slot('syncOut',stateBox('unk','Replication timed out','The DCs did not finish within 60 seconds. Some destinations may still have been updated — re-read the status to see.',true)); return; }
-      if(!r.ok){ _slot('syncOut',stateBox('err','Replication failed',x(d.error||_httpErr(r)))); return; }
+      if(r.status===504){ output(stateBox('unk','Replication timed out','The DCs did not finish within 60 seconds. Some destinations may still have been updated — re-read the status to see.',true)); return; }
+      if(!r.ok){ output(stateBox('err','Replication failed',x(d.error||_httpErr(r)))); return; }
       /* sync-actions.py answers HTTP 200 with {success:false,error} and NO results
          array when it cannot resolve the DN or pywinrm is missing. Falling through
          to the results branch turned a hard failure into the softer "the server
          reported no per-destination results", and dropped the reason entirely.
          doSyncEntra has always had this guard; this path did not. */
-      if(d&&d.success===false){ _slot('syncOut',stateBox('err','Replication failed',x(d.error||'the server reported failure'))); return; }
+      if(d&&d.success===false){ output(stateBox('err','Replication failed',x(d.error||'the server reported failure'))); return; }
       var res=_asArray(d.results), bad=res.filter(function(o){ return !o.ok; });
       var out='<div class="ssm-rows">'+res.map(function(o){
         return '<div class="ssm-row"><span class="ssm-dot '+(o.ok?'good':'bad')+'"></span><div><div>'+x(o.dest||'?')+'</div>'
@@ -3893,39 +3987,43 @@ async function doSyncAd(btn){
       if(!res.length)out=stateBox('unk','The server reported no per-destination results','Treat the replication as requested, not as confirmed.',true);
       else if(bad.length)out+='<div class="note warn"><strong>Partial.</strong> '+bad.length+' of '+res.length+' destinations failed.</div>';
       else out+='<div class="note">All '+res.length+' destinations replicated.</div>';
-      _slot('syncOut',out);
-      await loadSyncStatus(); _slot('syncOut',out);
-      await refreshAccount();
-    }catch(e){ _slot('syncOut',stateBox('err','Replication failed',x(_whyErr(e)))); }
+      output(out);
+      if(current())await loadSyncStatus(); output(out);
+      await refreshAccount(target.sam);
+    }catch(e){ output(stateBox('err','Replication failed',x(_whyErr(e)))); }
   });
 }
 async function doSyncEntra(){
+  var target=_sync, modal=_ssmSeq;
+  function current(){return target===_sync&&modal===_ssmSeq&&$('ssm-overlay').dataset.kind==='sync';}
+  function output(html){if(current())_slot('syncOut',html);}
   confirmAction({
     title:'Trigger an Entra delta sync?',
     sub:'Tenant-wide — not limited to this user',
     body:'This starts an AAD Connect <strong>delta</strong> sync cycle for the whole tenant. It is not scoped to '
-      +x(_sync.sam)+'. The cycle also runs on its own schedule; the server refuses repeat triggers inside 5 minutes.',
+      +x(target.sam)+'. The cycle also runs on its own schedule; the server refuses repeat triggers inside 5 minutes.',
     ok:'Start delta sync'
   }, async function(){
-    _slot('syncOut',stateBox('load','Asking AAD Connect to start a delta cycle…',null,true));
+    output(stateBox('load','Asking AAD Connect to start a delta cycle…',null,true));
     try{
-      var r=await fetch('/api/identity/sync/entra',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:_sync.sam})});
+      var r=await fetch('/api/identity/sync/entra',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:target.sam})});
       var d=await jread(r);
-      if(r.status===429){ _slot('syncOut',stateBox('unk','Not triggered — debounced',x(d.error||('Wait '+(d.waitSec||300)+'s before triggering again.')),true)); return; }
-      if(r.status===504){ _slot('syncOut',stateBox('unk','The trigger timed out','AAD Connect did not answer within 45 seconds. The cycle may still have started.',true)); return; }
-      if(!r.ok){ _slot('syncOut',stateBox('err','Delta sync could not be triggered',x(d.error||_httpErr(r)))); return; }
-      if(d.success===false){ _slot('syncOut',stateBox('err','Delta sync could not be triggered',x(d.error||'the server reported failure'))); return; }
-      _slot('syncOut',stateBox(d.alreadyRunning?'unk':'empty',
+      if(r.status===429){ output(stateBox('unk','Not triggered — debounced',x(d.error||('Wait '+(d.waitSec||300)+'s before triggering again.')),true)); return; }
+      if(r.status===504){ output(stateBox('unk','The trigger timed out','AAD Connect did not answer within 45 seconds. The cycle may still have started.',true)); return; }
+      if(!r.ok){ output(stateBox('err','Delta sync could not be triggered',x(d.error||_httpErr(r)))); return; }
+      if(d.success===false){ output(stateBox('err','Delta sync could not be triggered',x(d.error||'the server reported failure'))); return; }
+      output(stateBox(d.alreadyRunning?'unk':'empty',
         d.alreadyRunning?'A sync cycle was already in progress':'Delta sync cycle started',
         d.alreadyRunning?'AAD Connect was mid-cycle, so no new cycle was queued.'
           :('AAD Connect reported: '+(d.result||'started')+'. Entra can take several minutes to reflect the change.'),true));
-    }catch(e){ _slot('syncOut',stateBox('err','Delta sync could not be triggered',x(_whyErr(e)))); }
+    }catch(e){ output(stateBox('err','Delta sync could not be triggered',x(_whyErr(e)))); }
   });
 }
 
 /* ── Find lockout source ─────────────────────────────────────────────── */
 async function doLockoutSource(){
   var id=_identity(); if(!id){ toast('No account selected','warn'); return; }
+  var request=++_lockoutSeq;
   openModal('lsm-overlay');
   $('lsm-title').textContent='Lockout source';
   $('lsm-sub').textContent=id;
@@ -3933,6 +4031,7 @@ async function doLockoutSource(){
   try{
     var r=await fetch('/api/identity/lockout-source',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:id})});
     var d=await jread(r);
+    if(request!==_lockoutSeq)return;
     if(r.status===504){ $('lsm-body').innerHTML=stateBox('unk','The search timed out','The domain controllers did not answer within 40 seconds. Nothing was ruled out — try again, or narrow the search on the DC that recorded the lockout.',true); return; }
     if(!r.ok){ $('lsm-body').innerHTML=stateBox('err','Lockout source search failed',x(d.message||d.error||d.detail||_httpErr(r))); return; }
     var evs=_asArray(d.events||d.sources||d.results||[]);
@@ -3955,22 +4054,25 @@ async function doLockoutSource(){
         +'<div class="ls">'+x([dc?('recorded on '+dc):'',tm?ft(tm):''].filter(Boolean).join(' · '))+'</div></div></div>';
     }).join('')+'</div>'
     +'<div class="note">The caller is the machine that presented the bad credential. A phone, a mapped drive or a stale service account on that machine is the usual cause.</div>';
-  }catch(e){ $('lsm-body').innerHTML=stateBox('err','Lockout source search failed',x(_whyErr(e))); }
+  }catch(e){ if(request!==_lockoutSeq)return; $('lsm-body').innerHTML=stateBox('err','Lockout source search failed',x(_whyErr(e))); }
 }
 
 /* ── Okta sessions (view + revoke) ───────────────────────────────────── */
 async function openSessions(){
   var user=(_D&&(_D.email||_D.upn))||_curQuery; if(!user){ toast('No account selected','warn'); return; }
+  sharedDialog('sessions');
   openModal('ssm-overlay');
+  var modal=_ssmSeq;
   $('ssm-title').textContent='Okta sign-in sessions';
   $('ssm-sub').textContent=user;
   $('ssm-body').innerHTML=stateBox('load','Reading the Okta system log…');
   try{
     var r=await fetch('/api/identity/okta-sessions?q='+encodeURIComponent(user));
     var d=await jread(r);
+    if(modal!==_ssmSeq)return;
     if(!r.ok){ $('ssm-body').innerHTML=stateBox('err','Sessions could not be read',x(d.message||d.error||_httpErr(r))); return; }
     renderSessions(d);
-  }catch(e){ $('ssm-body').innerHTML=stateBox('err','Sessions could not be read',x(_whyErr(e))); }
+  }catch(e){ if(modal!==_ssmSeq)return; $('ssm-body').innerHTML=stateBox('err','Sessions could not be read',x(_whyErr(e))); }
 }
 function sessionsHtml(d){
   var ss=_asArray(d.sessions);
@@ -4022,6 +4124,7 @@ async function killSessions(userId,label){
   /* `label` comes from the rendered session list, so the dialog names the user
      those sessions belong to -- which is not always the selected account: the
      Sessions tool can be pointed at someone else entirely. */
+  var selected=_identity(), generation=_gen, modal=_ssmSeq, toolRun=_toolSeq;
   var user=label||(_D&&(_D.email||_D.upn))||_curQuery;
   if(!userId){ await openSessions(); toast('Open the session list first — the Okta user id comes from it.','warn'); return; }
   confirmAction({
@@ -4036,8 +4139,9 @@ async function killSessions(userId,label){
       if(!r.ok){ toast('Revoke failed: '+(d.message||d.error||_httpErr(r)),'err'); return; }
       if(d.success===false){ toast('Revoke did not complete: '+(d.message||d.error||'the server reported failure'),'err'); return; }
       toast(d.message||'All Okta sessions cleared');
-      if($('ssm-overlay').classList.contains('show'))await openSessions();
-      await refreshAccount();
+      if(modal===_ssmSeq&&$('ssm-overlay').classList.contains('show')&&$('ssm-overlay').dataset.kind==='sessions')await openSessions();
+      if(_page==='sessions'&&toolRun===_toolSeq)runTool();
+      if(generation===_gen)await refreshAccount(selected);
     }catch(e){ toast('Revoke failed: '+_whyErr(e),'err'); }
   });
 }
@@ -4058,7 +4162,8 @@ function summaryText(){
   L.push('  Manager        : '+(d.manager||'—'));
   L.push('  OU             : '+(d.ouLocation||'—'));
   L.push('');
-  L.push('STATE: '+st.t);
+  L.push('DIRECTORY STATE: '+st.t);
+  if(_DIAG&&_DIAG.done){ var verdict=identityDiagResult(_DIAG); L.push('CHECKS: '+verdict.title,verdict.detail); }
   /* This text is pasted into tickets. An absent field must not read as a
      measured "yes"/"no" there any more than it does on screen. */
   L.push('  Enabled        : '+(as.enabled==null?'not reported':(as.enabled===false?'NO':'yes')));
@@ -4086,12 +4191,15 @@ function summaryText(){
   risks.forEach(function(r){ L.push('  ['+String(r.level||'info').toUpperCase()+'] '+(r.message||r.code)+(r.detail?(' — '+r.detail):'')); });
   if(_detailDevices&&_detailDevices.devices){
     L.push('');
-    L.push('DEVICES ('+_detailDevices.devices.length+(_detailDevices.unavailable?', PARTIAL — '+_detailDevices.unavailable.join('; '):'')+')');
+    L.push('DEVICES ('+_detailDevices.devices.length+(_detailDevices.unavailable&&_detailDevices.unavailable.length?', PARTIAL — '+_detailDevices.unavailable.join('; '):'')+')');
     _detailDevices.devices.forEach(function(v){ L.push('  '+(v.deviceName||'?')+' · '+(v.type||'?')+' · '+[v.os,v.osVersion].filter(Boolean).join(' ')+' · '+(v.source||'')); });
   }
+  if(window.IdentityDeviceContext)L=L.concat(IdentityDeviceContext.summaryLines());
+  if(window.IdentityDeviceNetwork)L=L.concat(IdentityDeviceNetwork.summaryLines());
+  if(window.IdentityDeviceLive)L=L.concat(IdentityDeviceLive.summaryLines());
   if(_DIAG&&_DIAG.done){
     L.push('');
-    L.push('DIAGNOSTICS');
+    L.push('DIAGNOSTICS — '+_DIAG.at);
     _DIAG.steps.forEach(function(s){ L.push('  ['+String(s.state||'?').toUpperCase()+'] '+s.name+' — '+(s.detail||'')); });
   }
   L.push('');
@@ -4118,6 +4226,7 @@ async function copySummary(btn){
   }
 }
 function showSummaryModal(t){
+  sharedDialog('summary');
   $('ssm-title').textContent='Case summary';
   $('ssm-sub').textContent=_identity();
   $('ssm-body').innerHTML='<textarea class="sum-ta" readonly rows="18">'+x(t)+'</textarea>';
@@ -4159,23 +4268,27 @@ function diagRow(s){
     +'<div class="ssm-g" aria-hidden="true">'+g+'</div></div>';
 }
 function _naSuffix(c){ return c.na?(' · '+c.na+' not applicable'):''; }
+function identityDiagResult(diag){
+  var c={pass:0,warn:0,fail:0,unk:0,na:0};
+  (diag.steps||[]).forEach(function(v){ if(c[v.state]!=null)c[v.state]++; });
+  var title=c.fail?(c.fail+' failed check'+(c.fail===1?'':'s')+(c.unk?' · checks incomplete':''))
+    :c.unk?'Checks incomplete':c.warn?(c.warn+' warning'+(c.warn===1?'':'s')):'Completed checks passed';
+  return {title:title,color:c.fail?'bad':c.unk?'unk':c.warn?'warn':'good',
+    detail:c.pass+' passed · '+c.warn+' warning'+(c.warn===1?'':'s')+' · '+c.unk+' unavailable'+(c.na?' · '+c.na+' not applicable':'')
+      +'. '+(c.unk?'Unavailable checks are not clean results.':c.fail?'Review failed checks before taking action.':'No blocker found in completed checks. This does not confirm every business entitlement.')};
+}
 function diagPaint(){
+  if($('ssm-overlay').dataset.kind&&$('ssm-overlay').dataset.kind!=='diagnostics')return;
   if(!_DIAG)return;
   var d=_DIAG;
   var counts={pass:0,warn:0,fail:0,unk:0,na:0};
   d.steps.forEach(function(s){ if(counts[s.state]!=null)counts[s.state]++; });
-  var head;
-  if(!d.done)head=stateBox('load','Running '+d.steps.length+' checks…',null,true);
-  else if(counts.fail)head='<div class="verdict bad" style="margin:0 0 12px"><div class="verdict-ic" style="background:var(--bad-dim);color:var(--bad)">!</div>'
-    +'<div><h4>'+counts.fail+' check'+(counts.fail===1?'':'s')+' failed</h4><p>'+counts.pass+' passed · '+counts.warn+' warning'+(counts.warn===1?'':'s')+' · '+counts.unk+' could not be measured'+_naSuffix(counts)+'.</p></div></div>';
-  else if(counts.warn)head='<div class="verdict warn" style="margin:0 0 12px"><div class="verdict-ic" style="background:var(--warn-dim);color:var(--warn)">▲</div>'
-    +'<div><h4>'+counts.warn+' warning'+(counts.warn===1?'':'s')+'</h4><p>Nothing is blocking sign-in. '+counts.pass+' passed · '+counts.unk+' could not be measured'+_naSuffix(counts)+'.</p></div></div>';
-  else if(counts.unk)head='<div class="verdict unk" style="margin:0 0 12px"><div class="verdict-ic" style="background:var(--unk-dim);color:var(--unk)">?</div>'
-    +'<div><h4>Incomplete — '+counts.unk+' check'+(counts.unk===1?'':'s')+' could not run</h4><p>'+counts.pass+' passed'+_naSuffix(counts)+'. The unmeasured checks are not clean results.</p></div></div>';
-  else head='<div class="verdict good" style="margin:0 0 12px"><div class="verdict-ic" style="background:var(--good-dim);color:var(--good)">✓</div>'
-    +'<div><h4>All '+counts.pass+' check'+(counts.pass===1?'':'s')+' passed</h4><p>Every provider that applies to this account answered and reported a healthy state'
-    +(counts.na?'. '+counts.na+' check'+(counts.na===1?' does':'s do')+' not apply here':'')+'.</p></div></div>';
-  $('ssm-body').innerHTML=head+'<div class="ssm-rows">'+d.steps.map(diagRow).join('')+'</div>'
+  var result=identityDiagResult(d);
+  var head=!d.done?stateBox('load','Running '+d.steps.length+' checks…',null,true)
+    :'<div class="verdict '+result.color+'" style="margin:0 0 12px"><div><h4>'+x(result.title)+'</h4><p>'+x(result.detail)+'</p></div></div>';
+  var priority={fail:0,unk:1,warn:2,pass:3,na:4};
+  var ordered=d.done?d.steps.slice().sort(function(a,b){return priority[a.state]-priority[b.state];}):d.steps;
+  $('ssm-body').innerHTML=head+'<div class="ssm-rows">'+ordered.map(diagRow).join('')+'</div>'
     +(d.done?'<div class="ssm-act"><div class="grow"></div>'
       +'<button class="btn btn-ghost btn-sm" type="button" data-act="diag-copy">Copy result</button>'
       +'<button class="btn btn-ghost btn-sm" type="button" data-act="diag">Run again</button></div>':'');
@@ -4184,7 +4297,8 @@ function _dstep(i,state,detail){ if(!_DIAG)return; _DIAG.steps[i].state=state; _
 async function runDiagnostics(){
   var d=_D;
   if(!d){ toast('Select an account first','warn'); return; }
-  var g=_gen;                                  /* pin to the account on screen */
+  var g=_gen, run=++_diagRun;
+  function current(){return !_stale(g)&&run===_diagRun;} /* Pin both account and diagnostic run. */
   var sam=d.samAccountName||_curQuery, mail=d.email||d.upn||sam;
   var names=['Active Directory account state','Password policy','Okta profile','Multi-factor authentication',
              'Directory replication','Entra ID record','Device inventory','Zscaler Client Connector',
@@ -4192,6 +4306,7 @@ async function runDiagnostics(){
   if(d.accountStatus&&d.accountStatus.lockedOut)names.push('Lockout source');
   _DIAG={done:false,at:new Date().toISOString(),who:sam,
          steps:names.map(function(n){ return {name:n,state:'run',detail:''}; })};
+  sharedDialog('diagnostics');
   $('ssm-title').textContent='Diagnostics';
   $('ssm-sub').textContent=sam;
   openModal('ssm-overlay');
@@ -4240,7 +4355,7 @@ async function runDiagnostics(){
   /* ── 5-6: replication + Entra, one request ── */
   try{
     var r=await gfetch('/api/identity/sync-status?identity='+encodeURIComponent(sam)+'&upn='+encodeURIComponent(d.upn||d.email||''));
-    if(_stale(g))return;
+    if(!current())return;
     var sd=await jread(r);
     if(!r.ok){ _dstep(4,'unk','Could not read per-DC state: '+_httpErr(r)); _dstep(5,'unk','Not read.'); }
     else{
@@ -4268,20 +4383,20 @@ async function runDiagnostics(){
         :(en.found===false?'No Entra user matches this UPN.'
         :(en.error?('Entra could not be read: '+en.error)
         :(en.accountEnabled==null?'An Entra user matched this UPN but Graph returned no accountEnabled value — the account state was not measured.'
-        :(_enStale?('Entra shows this account '+(en.accountEnabled===false?'DISABLED':'enabled')+', but directory sync last ran '
-            +ago(en.onPremisesLastSyncDateTime)+' ('+ft(en.onPremisesLastSyncDateTime)+'). AD Connect normally runs every 30 minutes, so this record is a stale snapshot and may not reflect the account\u2019s current on-premises state.')
+        :(_enStale?('Entra shows this account '+(en.accountEnabled===false?'DISABLED':'enabled')+', and its last reported on-premises sync was '
+            +ago(en.onPremisesLastSyncDateTime)+' ('+ft(en.onPremisesLastSyncDateTime)+'). This is per-account sync metadata, not the AD Connect job heartbeat. Compare with the current AD record before changing access.')
         :('Entra account '+(en.accountEnabled===false?'DISABLED':'enabled')
           +(en.onPremisesLastSyncDateTime?(', last synced '+ago(en.onPremisesLastSyncDateTime)):', cloud-only \u2014 not directory-synced')+'.'))))));
     }
-  }catch(e){ if(_stale(g)||(e&&e.name==='AbortError'))return; _dstep(4,'unk','Could not read per-DC state: '+_whyErr(e)); _dstep(5,'unk','Not read.'); }
+  }catch(e){ if(!current()||(e&&e.name==='AbortError'))return; _dstep(4,'unk','Could not read per-DC state: '+_whyErr(e)); _dstep(5,'unk','Not read.'); }
 
   /* ── 7: devices — reuse the enricher result rather than re-querying ── */
   var dv=_detailDevices;
   if(dv===null){
-    try{ var rd=await gfetch('/api/identity/devices?q='+encodeURIComponent(sam)); if(_stale(g))return;
-      dv=rd.ok?await jread(rd):{__err:_httpErr(rd)}; }catch(e){ if(_stale(g))return; dv={__err:_whyErr(e)}; }
+    try{ var rd=await gfetch('/api/identity/devices?q='+encodeURIComponent(sam)); if(!current())return;
+      dv=rd.ok?await jread(rd):{__err:_httpErr(rd)}; }catch(e){ if(!current())return; dv={__err:_whyErr(e)}; }
   }
-  if(_stale(g))return;
+  if(!current())return;
   _dstep(6, (dv&&dv.__err)?'unk':((dv.unavailable&&dv.unavailable.length)?'unk':((dv.devices||[]).length?'pass':'warn')),
     (dv&&dv.__err)?('Device inventory could not be read: '+dv.__err)
     :((dv.unavailable&&dv.unavailable.length)?((dv.devices||[]).length+' device(s) found, but '+dv.unavailable.join('; ')+' — the count is a floor, not a total.')
@@ -4291,10 +4406,10 @@ async function runDiagnostics(){
   /* ── 8: ZCC ── */
   var zc=_detailZcc;
   if(zc===null){
-    try{ var rz=await gfetch('/api/zscaler/zcc/devices?q='+encodeURIComponent(mail),{cache:'no-store'}); if(_stale(g))return;
-      zc=rz.ok?await jread(rz):{__err:_httpErr(rz)}; }catch(e){ if(_stale(g))return; zc={__err:_whyErr(e)}; }
+    try{ var rz=await gfetch('/api/zscaler/zcc/devices?q='+encodeURIComponent(mail),{cache:'no-store'}); if(!current())return;
+      zc=rz.ok?await jread(rz):{__err:_httpErr(rz)}; }catch(e){ if(!current())return; zc={__err:_whyErr(e)}; }
   }
-  if(_stale(g))return;
+  if(!current())return;
   var zdev=(zc&&zc.devices)||[];
   _dstep(7,(zc&&zc.__err)?'unk':(zdev.length?'pass':'warn'),
     (zc&&zc.__err)?('ZCC could not be read: '+zc.__err)
@@ -4304,10 +4419,10 @@ async function runDiagnostics(){
   /* ── 9: Rapid7 ── */
   var r7=_detailR7;
   if(r7===null){
-    try{ var rr=await gfetch('/api/rapid7/auth-activity?username='+encodeURIComponent(sam)+'&hours=24'); if(_stale(g))return;
-      r7=rr.ok?await jread(rr):{__err:_httpErr(rr)}; }catch(e){ if(_stale(g))return; r7={__err:_whyErr(e)}; }
+    try{ var rr=await gfetch('/api/rapid7/auth-activity?username='+encodeURIComponent(sam)+'&hours=24'); if(!current())return;
+      r7=rr.ok?await jread(rr):{__err:_httpErr(rr)}; }catch(e){ if(!current())return; r7={__err:_whyErr(e)}; }
   }
-  if(_stale(g))return;
+  if(!current())return;
   var bad7=((r7&&r7.logsets)||[]).filter(function(l){ return l.error; });
   _dstep(8,(r7&&r7.__err)?'unk':(bad7.length?'unk':'pass'),
     (r7&&r7.__err)?('Rapid7 could not be queried: '+r7.__err)
@@ -4317,10 +4432,10 @@ async function runDiagnostics(){
   /* ── 10: FortiGate ── */
   var ft_=_detailForti;
   if(ft_===null){
-    try{ var rf=await gfetch('/api/fortinet/user-check?username='+encodeURIComponent(sam)); if(_stale(g))return;
-      ft_=rf.ok?await jread(rf):{__err:_httpErr(rf)}; }catch(e){ if(_stale(g))return; ft_={__err:_whyErr(e)}; }
+    try{ var rf=await gfetch('/api/fortinet/user-check?username='+encodeURIComponent(sam)); if(!current())return;
+      ft_=rf.ok?await jread(rf):{__err:_httpErr(rf)}; }catch(e){ if(!current())return; ft_={__err:_whyErr(e)}; }
   }
-  if(_stale(g))return;
+  if(!current())return;
   /* fortinet-lookup.js short-circuits with an `error` string in three different
      senses: `remote` means the office firewall does not apply to this employee,
      `plano` means that site's integration has not been built, and anything else
@@ -4348,7 +4463,7 @@ async function runDiagnostics(){
   /* ── 11: Okta sign-in history ── */
   try{
     var rs=await gfetch('/api/identity/okta-sessions?q='+encodeURIComponent(mail));
-    if(_stale(g))return;
+    if(!current())return;
     var sj=await jread(rs);
     /* Steps 3 and 4 already established whether Okta holds this account at all.
        Without a profile there is no sign-in history to have -- warning that Okta
@@ -4363,13 +4478,13 @@ async function runDiagnostics(){
       :((sj.unavailable&&sj.unavailable.length)?_asArray(sj.unavailable).join('; ')
       :(_asArray(sj.sessions).length?(_asArray(sj.sessions).length+' sign-in event(s) recorded by Okta in the last 7 days.')
       :'Okta recorded no sign-in events for this account in the last 7 days.')))));
-  }catch(e){ if(_stale(g)||(e&&e.name==='AbortError'))return; _dstep(10,'unk','Sign-in history could not be read: '+_whyErr(e)); }
+  }catch(e){ if(!current()||(e&&e.name==='AbortError'))return; _dstep(10,'unk','Sign-in history could not be read: '+_whyErr(e)); }
 
   /* ── 12: lockout source, only when the account is actually locked ── */
   if(as.lockedOut){
     try{
       var rl=await fetch('/api/identity/lockout-source',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity:sam})});
-      if(_stale(g))return;
+      if(!current())return;
       var lj=await jread(rl);
       var evs=_asArray(lj.events||lj.sources||lj.results);
       /* lj.error arrives with HTTP 200 when the WinRM/PowerShell call itself
@@ -4383,10 +4498,11 @@ async function runDiagnostics(){
         :(callers.length?('Bad credential came from '+callers.join(', ')+'.')
         :(evs.length?(evs.length+' lockout event(s) found, but none recorded a caller machine name.')
         :'No 4740 events found in the retained security logs. That does not rule a source out — logs roll over.')))));
-    }catch(e){ if(_stale(g))return; _dstep(11,'unk','Search failed: '+_whyErr(e)); }
+    }catch(e){ if(!current())return; _dstep(11,'unk','Search failed: '+_whyErr(e)); }
   }
-  if(_stale(g))return;
-  _DIAG.done=true; diagPaint();
+  if(!current())return;
+  _DIAG.done=true;
+  renderVerdict(); diagPaint();
   /* Feed the enricher caches so the tabs show what diagnostics already read. */
   if(_detailDevices===null)_detailDevices=dv;
   if(_detailZcc===null)_detailZcc=zc;
@@ -4396,7 +4512,8 @@ async function runDiagnostics(){
 }
 function diagText(){
   if(!_DIAG)return '';
-  var L=['IDENTITY DIAGNOSTICS — '+_DIAG.who,'Run at: '+_DIAG.at,''];
+  var overall=identityDiagResult(_DIAG);
+  var L=['IDENTITY DIAGNOSTICS — '+_DIAG.who,'Run at: '+_DIAG.at,overall.title,overall.detail,''];
   _DIAG.steps.forEach(function(s){ L.push('['+String(s.state).toUpperCase().padEnd(4)+'] '+s.name+' — '+(s.detail||'')); });
   L.push('','Legend: PASS measured healthy · WARN measured, needs attention · FAIL measured broken · UNK could not be measured (not a pass) · NA does not apply to this account (not a pass)');
   return L.join('\n');
@@ -4419,7 +4536,7 @@ var TOOLS={
   failures:{title:'Okta Login Failures & Spray',sub:'Password-spray windows recorded by the SecOps collectors.',user:false},
   entrafailures:{title:'Entra Login Failures',sub:'Failed Entra ID sign-ins grouped by user, from the synced sign-in log.',user:false},
   timeline:{title:'Activity Timeline',sub:'Okta system-log activity for one user.',user:true},
-  sessions:{title:'Session Kill',sub:'Okta sign-in history for a user, and revoke every live session.',user:true},
+  sessions:{title:'Sessions',sub:'Okta sign-in history for a user, and revoke every live session.',user:true},
   zscaler:{title:'Zscaler Policy Check',sub:'ZPA access policies matched for a user and the applications they reach.',user:true},
   expiry:{title:'Password Expiry',sub:'AD credentials expiring soon, most urgent first.',user:false},
   offboarding:{title:'Offboarding Audit',sub:'De-provisioning check across AD, Okta, devices and access.',user:true},
@@ -4429,7 +4546,7 @@ var TOOLS={
 var _tool='', _toolQ='', _toolSeq=0, _toolOpts={};
 function toolUser(){ return _toolQ||(_D&&(_D.email||_D.upn||_D.samAccountName))||_curQuery||''; }
 
-function openTool(page){
+function openTool(page,query){
   var cfg=TOOLS[page]; if(!cfg){ go('overview'); return; }
   _tool=page; _page=page;
   _toolOpts={hours:24,days:7,r7status:'OPEN',r7days:7};
@@ -4438,6 +4555,7 @@ function openTool(page){
   $('toolSub').textContent=cfg.sub;
   $('toolActions').innerHTML=toolActionsHtml(page,cfg);
   var pre=cfg.user?((_D&&(_D.email||_D.upn||_D.samAccountName))||_curQuery||''):'';
+  if(query!==undefined)pre=query;
   _toolQ=pre;
   var qi=$('toolQ'); if(qi){ qi.value=pre; attachTypeahead(qi,function(id){ _toolQ=id; qi.value=id; runTool(); }); }
   if(page==='summary'){ renderSummaryTool(); return; }
@@ -4485,8 +4603,12 @@ async function runTool(){
     $('toolBody').innerHTML=stateBox('empty','No user selected','Enter a username, email or UPN above, then run the tool.');
     return;
   }
+  if(page==='devices'&&toolUser()){
+    var query=toolUser(); DEV_RECENT=DEV_RECENT.filter(function(v){return v!==query;}); DEV_RECENT.unshift(query); DEV_RECENT.splice(6); renderDevPane();
+  }
+  renderToolPane(_ws);
   var seq=++_toolSeq;
-  $('toolBody').innerHTML=stateBox('load','Running '+cfg.title.toLowerCase()+'…');
+  $('toolBody').innerHTML=stateBox('load',(page==='sessions'?'Loading sign-in history…':'Loading '+cfg.title.toLowerCase()+'…'));
   try{
     var html=await TOOL_RUN[page](seq);
     if(seq!==_toolSeq)return;                                /* superseded by a newer run */
@@ -4516,7 +4638,8 @@ function _terr(d,what){
 var TOOL_RUN={
   /* ── Device Lookup ── */
   devices:async function(seq){
-    var d=await _tget('/api/identity/devices?q='+encodeURIComponent(toolUser()),seq);
+    var deviceQuery=toolUser(), deviceGeneration=_gen;
+    var d=await _tget('/api/identity/devices?q='+encodeURIComponent(deviceQuery),seq);
     if(d.__super)return '';
     if(d.__err)return _terr(d,'the device inventory');
     var list=d.devices||[];
@@ -4524,17 +4647,19 @@ var TOOL_RUN={
       +metric('Devices',num(list.length),d.resolvedUser?('for '+x(d.resolvedUser.username)):'keyed on the search term')
       +metric('Sources',String(new Set(list.map(function(v){return v.source;})).size),'inventories that returned rows')
       +metric('Compliance reported',String(list.filter(function(v){return v.compliance!=null;}).length),'of '+list.length+' devices')
-      +metric('Coverage',(d.unavailable&&d.unavailable.length)?'<span style="color:var(--warn)">Partial</span>':'Complete',
-        (d.unavailable&&d.unavailable.length)?x(d.unavailable.length+' source(s) unavailable'):'all sources answered')
+      +metric('Source availability',(d.unavailable&&d.unavailable.length)?'<span style="color:var(--warn)">Partial</span>':'Complete',
+        (d.unavailable&&d.unavailable.length)?x(d.unavailable.length+' source(s) unavailable'):'requests answered; record age varies')
       +'</div>';
     /* only cache as the selected account's devices when the tool is actually
        running on the selected account -- _toolQ empty means exactly that. */
     if(!_toolQ)_detailDevices=d;
-    return head+devicesContent().replace(/^<section class="panel">[\s\S]*?<div class="panel-bd">/,'<section class="panel"><div class="panel-bd">');
+    if(window.IdentityDeviceContext)IdentityDeviceContext.accept(d,deviceQuery,deviceGeneration);
+    return head+devicesContent(d,true);
   },
 
   /* ── Okta login failures & password spray ── */
   failures:async function(seq){
+    await identityFreshnessReady;
     var hours=_toolOpts.hours;
     var d=await _tget('/api/identity/spray-alerts?hours='+hours,seq);
     if(d.__super)return '';
@@ -4542,10 +4667,10 @@ var TOOL_RUN={
     var al=_asArray(d.alerts);
     var users=new Set(); al.forEach(function(a){ _asArray(a.sampleUsers).forEach(function(u){ users.add(String(u).toLowerCase()); }); });
     var head='<div class="metrics" style="margin-bottom:12px">'
-      +metric('Spray windows',num(al.length),(al.length>=100?'<span style="color:var(--warn)">query cap reached</span>':'in the selected window'))
-      +metric('Source IPs',String(new Set(al.map(function(a){return a.srcIp;})).size),'distinct')
-      +metric('Sampled users',num(users.size),'from the stored samples, not a full list')
-      +metric('Peak attempts',num(al.reduce(function(m,a){ return Math.max(m,a.totalAttempts||0); },0)),'in a single window')
+      +metric('Recorded spray windows',identityFeedMetric('sdops_spray',al.length),(al.length>=100?'<span style="color:var(--warn)">query cap reached</span>':'in the selected window'))
+      +metric('Source IPs',identityFeedMetric('sdops_spray',new Set(al.map(function(a){return a.srcIp;})).size),'distinct')
+      +metric('Sampled users',identityFeedMetric('sdops_spray',users.size),'from the stored samples, not a full list')
+      +metric('Peak attempts',identityFeedMetric('sdops_spray',al.reduce(function(m,a){ return Math.max(m,a.totalAttempts||0); },0)),'in a single window')
       +'</div>';
     var rows=al.map(function(a){
       var sev=(a.distinctUsers>=20||a.totalAttempts>=500)?'bad':((a.distinctUsers>=5)?'warn':'unk');
@@ -4559,25 +4684,26 @@ var TOOL_RUN={
         +'<td>'+x(ft(a.lastSeen))+'<div class="ls">'+x(ago(a.lastSeen))+'</div></td></tr>';
     });
     var body=table([{t:'Source IP',w:'20%'},{t:'Feed / window'},{t:'Users'},{t:'Attempts'},{t:'Sampled users',w:'24%'},{t:'Last seen'}],
-      rows,'No spray windows recorded in the selected period.');
+      rows,identityFeedCurrent('sdops_spray')?'No spray windows recorded in the selected period.':'No rows returned. Recent password-spray activity cannot be assessed because source coverage is unavailable.');
     if(al.length>=100)body+='<div class="note warn">The query returns at most 100 windows. Older or lower-volume windows in this period are not listed.</div>';
     body+='<div class="note">Windows come from the <span class="mono">sdops_spray</span> table written by the SecOps collectors — '
       +'fast windows are '+x(d.windowMinutes||60)+' minutes wide. <strong>Sampled users are a sample</strong>, not the complete set of targets.</div>';
-    return head+panel('Spray windows','',body);
+    return identityFeedNotice('sdops_spray')+head+panel('Spray windows','',body);
   },
 
   /* ── Entra login failures ── */
   entrafailures:async function(seq){
+    await identityFreshnessReady;
     var hours=_toolOpts.hours;
     var d=await _tget('/api/identity/entra-failures?hours='+hours,seq);
     if(d.__super)return '';
     if(d.__err)return _terr(d,'Entra sign-in failures');
     var f=_asArray(d.failures);
     var head='<div class="metrics" style="margin-bottom:12px">'
-      +metric('Users affected',num(f.length),f.length>=200?'<span style="color:var(--warn)">query cap reached</span>':'in the selected window')
-      +metric('Total failures',num(f.reduce(function(t,r){ return t+(Number(r.Failures)||0); },0)),'summed across users')
+      +metric('Users in returned records',identityFeedMetric('entra_signin_logs',f.length),f.length>=200?'<span style="color:var(--warn)">query cap reached</span>':'in the selected window')
+      +metric('Failures in returned records',identityFeedMetric('entra_signin_logs',f.reduce(function(t,r){ return t+(Number(r.Failures)||0); },0)),'summed across users')
       +metric('Worst account',f.length?x(String(f[0].User||f[0].UPN||'—')):'—',f.length?(num(f[0].Failures)+' failures'):'')
-      +metric('Read at',d.queriedAt?x(new Date(d.queriedAt).toISOString().slice(11,19)+'Z'):'—',d.fromCache?'<span style="color:var(--warn)">served from cache</span>':'live query')
+      +metric('Read at',d.queriedAt?x(ago(d.queriedAt)):'—',d.fromCache?'<span style="color:var(--warn)">served from cache</span>':'database queried; source age shown above')
       +'</div>';
     var rows=f.map(function(r){
       var n=Number(r.Failures)||0;
@@ -4591,11 +4717,11 @@ var TOOL_RUN={
         +'<td>'+x(ft(r['Last attempt']))+'</td></tr>';
     });
     var body=table([{t:'User',w:'28%'},{t:'Failures'},{t:'IPs'},{t:'Error codes'},{t:'Reason',w:'22%'},{t:'Last attempt'}],
-      rows,'No failed Entra sign-ins recorded in this window.');
+      rows,identityFeedCurrent('entra_signin_logs')?'No failed Entra sign-ins recorded in this window.':'No rows returned. Recent sign-in activity cannot be assessed because source coverage is unavailable.');
     if(f.length>=200)body+='<div class="note warn">The query returns at most 200 users. Accounts with fewer failures are not listed.</div>';
     body+='<div class="note">Read from <span class="mono">entra_signin_logs</span>, populated by the Entra sync job — not a live Graph call. '
       +'If that job is behind, recent failures will be missing.</div>';
-    return head+panel('Failed sign-ins','',body);
+    return identityFeedNotice('entra_signin_logs')+head+panel('Failed sign-ins','',body);
   },
 
   /* ── Activity timeline ── */
@@ -4607,7 +4733,7 @@ var TOOL_RUN={
       'Since '+x(ft(d.since))+' · '+num(d.count||0)+' event'+((d.count===1)?'':'s'),tlHtml(d));
   },
 
-  /* ── Session kill ── */
+  /* ── Sessions ── */
   sessions:async function(seq){
     var d=await _tget('/api/identity/okta-sessions?q='+encodeURIComponent(toolUser()),seq);
     if(d.__super)return '';
@@ -4833,23 +4959,41 @@ function attachTypeahead(input,onPick){
     dd=document.createElement('div'); dd.className='ta-dd'; dd.id=input.id+'-dd'; dd.hidden=true;
     (input.parentNode||input).appendChild(dd);
   }
-  var timer=null, rows=[], sel=-1, mySeq=0;
-  function hide(){ dd.hidden=true; dd.innerHTML=''; rows=[]; sel=-1; input.setAttribute('aria-expanded','false'); }
+  var timer=null, blurTimer=null, rows=[], sel=-1, mySeq=0, submitSeq=0;
+  dd.setAttribute('role','listbox'); dd.setAttribute('aria-label','Matching accounts'); input.setAttribute('aria-controls',dd.id);
+  async function submit(){
+    var q=input.value.trim(); if(!q)return;
+    clearTimeout(blurTimer); clearTimeout(timer); var submission=++submitSeq; var seq=++_taSeq;
+    try{
+      var res=await fetch('/api/identity/accounts?view=all&limit=8&q='+encodeURIComponent(q));
+      if(submission!==submitSeq||seq!==_taSeq||input.value.trim()!==q)return;
+      if(!res.ok){ rows=[]; dd.innerHTML='<div class="ta-empty">Directory search unavailable. Try again or enter an exact username.</div>'; dd.hidden=false; input.setAttribute('aria-expanded','true'); return; }
+      var data=await res.json(); if(submission!==submitSeq||seq!==_taSeq||input.value.trim()!==q)return;
+      rows=_asArray(data.accounts).slice(0,8);
+      var exact=rows.filter(function(r){return [r.samAccountName,r.upn,r.email].some(function(v){return v&&v.toLowerCase()===q.toLowerCase();});});
+      if(exact.length===1){ rows=exact; pick(0); return; }
+      if(rows.length===1&&!data.truncated){ pick(0); return; }
+      sel=-1; paint(); input.focus();
+    }catch(e){ if(seq!==_taSeq)return; rows=[]; dd.innerHTML='<div class="ta-empty">Directory search unavailable. Try again.</div>'; dd.hidden=false; input.setAttribute('aria-expanded','true'); }
+  }
+  input.resolveAccount=submit;
+  function hide(){ dd.hidden=true; dd.innerHTML=''; rows=[]; sel=-1; input.setAttribute('aria-expanded','false'); input.removeAttribute('aria-activedescendant'); }
   function paint(){
+    if(sel>=0)input.setAttribute('aria-activedescendant',input.id+'-option-'+sel); else input.removeAttribute('aria-activedescendant');
     if(!rows.length){
       dd.innerHTML='<div class="ta-empty">No matching account in Active Directory.</div>';
     }else{
       dd.innerHTML=rows.map(function(r,i){
-        return '<div class="ta-item'+(i===sel?' sel':'')+'" role="option" data-i="'+i+'" aria-selected="'+(i===sel?'true':'false')+'">'
+        return '<div class="ta-item'+(i===sel?' sel':'')+'" id="'+input.id+'-option-'+i+'" role="option" data-i="'+i+'" aria-selected="'+(i===sel?'true':'false')+'">'
           +'<span class="ta-name">'+x(r.displayName||r.samAccountName||'')+'</span>'
-          +'<span class="ta-sub">'+x(r.samAccountName||'')+(r.department?(' · '+r.department):'')+'</span></div>';
+          +'<span class="ta-sub">'+x(r.samAccountName||'')+(r.department?(' · '+x(r.department)):'')+'</span></div>';
       }).join('');
     }
     dd.hidden=false; input.setAttribute('aria-expanded','true');
   }
   function pick(i){
     var r=rows[i]; if(!r)return;
-    hide();
+    submitSeq++; _taSeq++; clearTimeout(timer); hide(); input.value='';
     onPick(r.samAccountName||r.upn||r.email||r.displayName);
   }
   async function query(q){
@@ -4865,32 +5009,33 @@ function attachTypeahead(input,onPick){
   }
   input.addEventListener('input',function(){
     var q=input.value.trim();
-    clearTimeout(timer);
+    submitSeq++; _taSeq++; clearTimeout(timer);
     if(q.length<2){ _taSeq++; hide(); return; }
     timer=setTimeout(function(){ query(q); },180);
   });
   input.addEventListener('keydown',function(e){
     if(e.key==='Escape'){ if(!dd.hidden){ e.stopPropagation(); hide(); } return; }
     if(dd.hidden||!rows.length){
-      if(e.key==='Enter'&&input.value.trim()){ e.preventDefault(); hide(); onPick(input.value.trim()); }
+      if(e.key==='Enter'&&input.value.trim()){ e.preventDefault(); submit(); }
       return;
     }
     if(e.key==='ArrowDown'){ e.preventDefault(); sel=(sel+1)%rows.length; paint(); }
     else if(e.key==='ArrowUp'){ e.preventDefault(); sel=(sel<=0?rows.length:sel)-1; paint(); }
-    else if(e.key==='Enter'){ e.preventDefault(); if(sel>=0)pick(sel); else { hide(); onPick(input.value.trim()); } }
+    else if(e.key==='Enter'){ e.preventDefault(); if(sel>=0)pick(sel); else { submit(); } }
   });
   dd.addEventListener('mousedown',function(e){
     var it=e.target.closest('.ta-item'); if(!it)return;
     e.preventDefault(); pick(Number(it.getAttribute('data-i')));
   });
-  input.addEventListener('blur',function(){ setTimeout(hide,120); });
+  input.addEventListener('blur',function(){ clearTimeout(timer); _taSeq++; blurTimer=setTimeout(hide,120); });
+  input.addEventListener('focus',function(){ clearTimeout(blurTimer); });
 }
 
 /* ═══════════ 17 · LANDING ═══════════ */
 var ALL_TOOLS=[
   {p:'devices',      n:'Device lookup',        d:'Endpoints assigned to a user across Intune, Kandji, ManageEngine and AWS.', ic:'device'},
   {p:'timeline',     n:'Activity timeline',    d:'Okta system-log events for one account.', ic:'clock'},
-  {p:'sessions',     n:'Session kill',         d:'Review Okta sign-in history and revoke every live session.', ic:'kill'},
+  {p:'sessions',     n:'Sessions',         d:'Review Okta sign-in history and revoke every live session.', ic:'kill'},
   {p:'failures',     n:'Okta login failures',  d:'Password-spray windows from the SecOps collectors.', ic:'alert'},
   {p:'entrafailures',n:'Entra login failures', d:'Failed Entra sign-ins grouped by user.', ic:'alert'},
   {p:'zscaler',      n:'Zscaler policy check', d:'ZPA access policies matched for a user.', ic:'shield'},
@@ -4898,8 +5043,8 @@ var ALL_TOOLS=[
   {p:'threat',       n:'Threat monitor',       d:'Open Rapid7 InsightIDR investigations.', ic:'shield'},
   {p:'offboarding',  n:'Offboarding audit',    d:'De-provisioning check across AD, Okta, Zscaler and devices.', ic:'offb'},
   {p:'summary',      n:'Case summary',         d:'A plain-text summary of the selected account for a ticket.', ic:'doc'},
-  {p:'provisioning', n:'User provisioning',    d:'Review and apply AD group changes with an explicit apply step.', ic:'doc', rbac:'user-provisioning'},
-  {p:'projects',     n:'User projects',        d:'Project-scoped access grants and their audit trail.', ic:'doc', rbac:'user-projects'}
+  {p:'provisioning', n:'Group access',    d:'Review and apply AD group changes with an explicit apply step.', ic:'doc', rbac:'user-provisioning'},
+  {p:'projects',     n:'Projects',        d:'Project-scoped access grants and their audit trail.', ic:'doc', rbac:'user-projects'}
 ];
 function renderToolGrid(){
   var g=$('toolGrid'); if(!g)return;
@@ -4939,7 +5084,7 @@ async function loadLanding(force){
   fetch('/api/identity/accounts?view=locked&limit=1').then(jread).then(function(d){
     if(d&&typeof d.total==='number'){
       _kpiSet('kpi-locked','kpi-locked-sub',num(d.total),'AD accounts carrying a lockout stamp');
-      var n=$('kpi-locked'); if(n)n.style.color=d.total>0?'var(--bad)':'';
+      var n=$('kpi-locked'); if(n)n.style.color='var(--text)';
       var t=$('ptn-locked'); if(t&&!ACCT_DATA.locked){ t.textContent=d.total; t.classList.remove('unk'); }
     }else _kpiFail('kpi-locked','kpi-locked-sub',(d&&d.error)||'no total returned');
   }).catch(function(e){ _kpiFail('kpi-locked','kpi-locked-sub',_whyErr(e)); });
@@ -4994,14 +5139,15 @@ async function loadIncidents(){
 /* The rail badges are counts, so a failed read must clear them rather than
    leaving a stale number that reads as "measured zero risk". */
 async function loadSprayBadge(){
+  await identityFreshnessReady;
   try{
     var r=await fetch('/api/identity/spray-alerts?hours=24');
-    if(r.ok){ var d=await r.json(); _badge.spray=_asArray(d.alerts).length; }
+    if(r.ok){ var d=await r.json(); _badge.spray=identityFeedCurrent('sdops_spray')?_asArray(d.alerts).length:null; }
     else _badge.spray=null;
   }catch(e){ _badge.spray=null; }
   try{
     var r2=await fetch('/api/identity/entra-failures?hours=24');
-    if(r2.ok){ var d2=await r2.json(); _badge.entra=_asArray(d2.failures).length; }
+    if(r2.ok){ var d2=await r2.json(); _badge.entra=identityFeedCurrent('entra_signin_logs')?_asArray(d2.failures).length:null; }
     else _badge.entra=null;
   }catch(e){ _badge.entra=null; }
   renderToolPane('activity');
@@ -5069,6 +5215,7 @@ function selectAccount(id){
 }
 var ACT={
   'diag':          function(){ runDiagnostics(); },
+  'diag-review':   function(){ sharedDialog('diagnostics'); $('ssm-title').textContent='Diagnostics'; $('ssm-sub').textContent=_DIAG.who; diagPaint(); openModal('ssm-overlay'); },
   'diag-copy':     function(){ copyDiag(); },
   'unlock':        function(e,el){ doUnlock(el); },
   'reset':         function(){ openResetModal(); },
@@ -5084,14 +5231,14 @@ var ACT={
   'download-summary':function(){ downloadSummary(); },
   'acct-reload':   function(){ loadAccounts(ACCT_VIEW,true); },
   'clear-recent':  function(){ RECENT=[]; $('ptn-recent').textContent='0'; renderAcctList(); renderRecentTable(); },
-  'clear-scope':   function(){ _D=null; _curQuery=''; _toolQ=''; renderToolPane(_ws); renderAcctList();
+  'clear-scope':   function(){ _D=null; _curQuery=''; _toolQ=''; if(window.IdentityDeviceContext)IdentityDeviceContext.clear(); if(typeof identityContext==='function')identityContext(); renderToolPane(_ws); renderAcctList();
                                if(_page!=='overview'&&TOOLS[_page]&&TOOLS[_page].user)openTool(_page); },
   'dev-retry':     function(){ if(_D||_curQuery)loadDetailDevices(_curQuery||_identity(),_gen); },
   'r7-retry':      function(){ if(_D||_curQuery)loadDetailRapid7(_curQuery||_identity(),_gen); },
   'forti-retry':   function(){ if(_D)loadDetailForti(_D.samAccountName||_curQuery,_gen); },
   'apps-retry':    function(){ if(_D)loadDetailApps(_D.email||_D.upn||_D.samAccountName,_gen); },
   'tl-retry':      function(){ _detailTimeline=null; loadDetailTimeline(_gen); },
-  'zs-open':       function(){ location.href='/zscaler-command-center.html'; },
+  'zs-open':       function(){ var user=_D&&(_D.email||_D.upn||_D.samAccountName); location.href='/zscaler-command-center.html'+(user?'?q='+encodeURIComponent(user):''); },
   'tool-run':      function(){ var qi=$('toolQ'); if(qi)_toolQ=qi.value.trim(); runTool(); }
 };
 /* Close every open .menu-wrap menu, optionally sparing the one whose own toggle
@@ -5145,7 +5292,7 @@ document.addEventListener('click',function(e){
   if(acct){ selectAccount(acct.getAttribute('data-acct')); return; }
 
   var dq=t.closest('[data-devq]');
-  if(dq){ _toolQ=dq.getAttribute('data-devq'); go('devices'); return; }
+  if(dq){ var query=dq.getAttribute('data-devq'); go('devices',query); return; }
 
   var view=t.closest('.pane-tab[data-view]');
   if(view){ ACCT_VIEW=view.getAttribute('data-view'); loadAccounts(ACCT_VIEW); return; }
@@ -5177,7 +5324,8 @@ document.addEventListener('change',function(e){
 function bindStatic(){
   attachTypeahead($('topSearch'),function(v){ runSearch(v); });
   attachTypeahead($('heroSearch'),function(v){ runSearch(v); });
-  $('heroGo').addEventListener('click',function(){ var v=$('heroSearch').value.trim(); if(v)runSearch(v); });
+  $('heroGo').addEventListener('mousedown',function(e){ e.preventDefault(); });
+  $('heroGo').addEventListener('click',function(){ $('heroSearch').resolveAccount(); });
   $('acctFilter').addEventListener('input',renderAcctList);
   $('acctRefresh').addEventListener('click',function(){ loadAccounts(ACCT_VIEW,true); });
   $('clearRecent').addEventListener('click',function(){ RECENT=[]; $('ptn-recent').textContent='0'; renderAcctList(); renderRecentTable(); });
@@ -5208,7 +5356,7 @@ function bindStatic(){
     var v=this.value.trim();
     clearTimeout(_gam.timer); _gam.timer=setTimeout(function(){ gamSearch(v); },220);
   });
-  $('ssm-refresh').addEventListener('click',function(){ openSessions(); });
+  $('ssm-refresh').addEventListener('click',function(){ var kind=$('ssm-overlay').dataset.kind; if(kind==='diagnostics')runDiagnostics(); else if(kind==='summary')showSummaryModal(summaryText()); else if(kind==='sync')loadSyncStatus(); else openSessions(); });
   $$('.seg [data-mode]').forEach(function(b){ /* handled by the delegated router */ });
 }
 document.addEventListener('keydown',function(e){
@@ -5216,7 +5364,7 @@ document.addEventListener('keydown',function(e){
   if(k==='Escape')closeMenus();
   if((e.metaKey||e.ctrlKey)&&(k==='k'||k==='K')){
     e.preventDefault();
-    var s=$('topSearch'); s.focus(); s.select(); return;
+    var s=$(_page==='overview'?'heroSearch':'topSearch'); s.focus(); s.select(); return;
   }
   if((e.metaKey||e.ctrlKey)&&k==='Enter'){
     if(_page==='detail'&&_D){ e.preventDefault(); runDiagnostics(); }
@@ -5235,10 +5383,11 @@ document.addEventListener('keydown',function(e){
 });
 window.addEventListener('hashchange',function(){ routeFromHash(); });
 function routeFromHash(){
+  if(window.IdentityDeviceContext && IdentityDeviceContext.handleHash())return;
   var h=(location.hash||'').replace(/^#/,'');
   if(!h){ go('overview'); return; }
   var m=/^user\/(.+)$/.exec(h);
-  if(m){ runSearch(decodeURIComponent(m[1])); return; }
+  if(m){ try{ var query=decodeURIComponent(m[1]); }catch(e){ go('overview'); toast('This account link has an invalid address. Search for the person instead.','warn'); return; } runSearch(query); return; }
   if(h==='detail'){ if(_D||_curQuery)go('detail'); else go('overview'); return; }
   go(h);
 }
@@ -5348,7 +5497,7 @@ async function searchUser(){
   var input=el('adp_userSearch'), rd=el('adp_searchResults');
   var q=(input.value||'').trim();
   if(q.length<2){ toastA('Type at least 2 characters.','info'); input.focus(); return; }
-  var my=++seq;
+  var my=++seq; _searchRows=[];
   rd.classList.add('visible');
   rd.innerHTML='<div style="padding:12px">'+stateBox('load','Searching Active Directory…','',true)+'</div>';
   try{
@@ -5384,7 +5533,7 @@ var _searchRows=[];
 
 async function selectUser(i){
   var u=_searchRows[i]; if(!u)return;
-  user=u; qAdd.clear(); qRem.clear(); member.clear(); allGroups=[]; groupsErr=null;
+  user=u; el('support-group-tools').hidden=false; el('support-group-name').textContent=(u.displayName||u.samAccountName)+' · '+u.samAccountName; qAdd.clear(); qRem.clear(); member.clear(); allGroups=[]; groupsErr=null;
   appliedRemovals=[]; filterMode='all';
   el('adp_searchResults').classList.remove('visible');
   el('adp_searchSection').hidden=true;
@@ -5406,6 +5555,7 @@ async function selectUser(i){
   await loadGroups(u.samAccountName);
 }
 function clearSelection(){
+  el('support-group-tools').hidden=true;
   user=null; qAdd.clear(); qRem.clear(); member.clear(); allGroups=[]; groupsErr=null;
   appliedRemovals=[]; filterMode='all'; seq++;
   el('adp_searchSection').hidden=false;
@@ -5557,6 +5707,7 @@ function paintReview(){
       apply=el('adp_btnProvision'), discard=el('adp_discardAll'), sum=el('adp_provisionSummary');
   if(!box)return;
   var adds=Array.from(qAdd).sort(), rems=Array.from(qRem).sort(), n=adds.length+rems.length;
+  var review=el('support-group-review'); if(review){review.textContent='Review queue ('+n+')';review.disabled=!n;}
   box.classList.toggle('empty',n===0);
   if(cnt)cnt.textContent=n?(n+' queued'):'0 queued';
   if(body){
@@ -5724,6 +5875,10 @@ function revertAll(){
 
 /* ── wiring ─────────────────────────────────────────────────────────────── */
 var inited=false;
+function requestChangeUser(){
+  if(qAdd.size||qRem.size)confirmAction({title:'Discard queued group changes?',body:'<p>Changing person will discard '+(qAdd.size+qRem.size)+' queued changes. Nothing has been applied to AD.</p>',ok:'Discard queue and change person'},clearSelection);
+  else clearSelection();
+}
 function adpInit(){
   paintWriteGate();
   if(inited)return; inited=true;
@@ -5731,7 +5886,7 @@ function adpInit(){
   s.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); searchUser(); } });
   el('adp_searchBtn').addEventListener('click',searchUser);
   el('adp_groupFilter').addEventListener('input',paintGroups);
-  el('adp_changeUser').addEventListener('click',clearSelection);
+  el('adp_changeUser').addEventListener('click',requestChangeUser);
   el('adp_selectAllMissing').addEventListener('click',queueAllMissing);
   el('adp_discardAll').addEventListener('click',discardAll);
   el('adp_btnProvision').addEventListener('click',applyChanges);
@@ -5749,6 +5904,8 @@ function adpInit(){
   });
   /* delegated: search results, baseline chips, group checkboxes, undo buttons */
   el('view-provisioning').addEventListener('click',function(e){
+    if(e.target.closest('[data-adp-change]')){requestChangeUser();return;}
+    if(e.target.closest('[data-adp-review]')){openPane();el('adp_review').scrollIntoView({block:'nearest'});return;}
     var r=e.target.closest('[data-adpuser]');
     if(r){ selectUser(Number(r.getAttribute('data-adpuser'))); return; }
     var bc=e.target.closest('[data-adpbaseline]');
@@ -5767,6 +5924,18 @@ function adpInit(){
   paintAll();
   s.focus();
 }
+window.adpUseIdentity=async function(identity){
+  var sam=identity.samAccountName; if(!sam||busy)return;
+  if(user&&String(user.samAccountName).toLowerCase()===sam.toLowerCase())return;
+  async function use(){
+    el('adp_userSearch').value=sam; await searchUser();
+    var i=_searchRows.findIndex(function(r){return String(r.samAccountName).toLowerCase()===sam.toLowerCase();});
+    if(i>=0)await selectUser(i);
+  }
+  if(qAdd.size||qRem.size){
+    confirmAction({title:'Change the person in group review?',sub:user?user.samAccountName:'Pending group changes',body:'<p>Discard '+(qAdd.size+qRem.size)+' queued changes and review groups for <strong>'+esc(sam)+'</strong>? Nothing has been applied to AD.</p>',ok:'Discard queue and change person'},use);
+  }else await use();
+};
 window.adpInit=adpInit;
 window.adpUser=function(){ return user; };
 })();
@@ -5851,6 +6020,7 @@ function adCls(a){
   return 'ad-skipped_already_member';
 }
 async function api(path,opts){
+  if(opts&&opts.method&&opts.method!=='GET'&&!canWrite())throw new Error('Admin access to user-projects is required.');
   var r=await fetch(API+path,Object.assign({credentials:'include',headers:{'Content-Type':'application/json'}},opts||{}));
   if(!r.ok){
     var msg='HTTP '+r.status;
@@ -5908,7 +6078,7 @@ function projCard(p,archived){
     +'<div class="meta">'+(p.planned_end_date?('<span>'+(archived?'ended ':'until ')+fmtDate(p.planned_end_date)+'</span>'):'')
     +'<span class="mode-pill m-'+esc(p.default_removal_mode)+'">'+(p.default_removal_mode==='permanent'?'permanent':'expires')+'</span></div>'
     +'<div class="stats">'
-    +(archived?'':'<div class="stat"><div class="num">'+(p.active_grants||0)+'</div><div class="lbl">Active users</div></div>')
+    +(archived?'':'<div class="stat"><div class="num">'+(p.active_grants||0)+'</div><div class="lbl">Active grants</div></div>')
     +'<div class="stat"><div class="num">'+(p.total_grants||0)+'</div><div class="lbl">All-time</div></div>'
     +'<div class="stat"><div class="num">'+(p.group_count||0)+'</div><div class="lbl">Group'+((p.group_count||0)===1?'':'s')+'</div></div>'
     +'</div></button>';
@@ -5947,19 +6117,65 @@ async function renderArchived(){
 async function openProject(id){
   var my=++_seq; DRILL_ID=id; DRILL_TAB='members';
   var el=content(); el.innerHTML=spin();
-  try{ DRILL_DATA=await api('/projects/'+id); }
+  try{ var reads=await Promise.allSettled([api('/projects/'+id),api('/projects/'+id+'/history')]);
+    if(my!==_seq)return; if(reads[0].status!=='fulfilled')throw reads[0].reason;
+    DRILL_DATA=reads[0].value; DRILL_DATA.recorded_history=reads[1].status==='fulfilled'?(reads[1].value.history||[]):[];
+    DRILL_DATA.historyUnavailable=reads[1].status!=='fulfilled'; DRILL_DATA.historyTruncated=DRILL_DATA.recorded_history.length>=500; }
   catch(err){ if(my!==_seq)return; el.innerHTML=errBox('Could not load project',err.message,err.status===403?'unk':'err'); return; }
   if(my!==_seq)return;
   renderDrill();
 }
+/* Optional workspace handoff: availability never grants permissions. */
+var _governancePageCheck=null, _governancePageCheckedAt=0;
+function canOpenProjectGovernance(){
+  var roles=window.itRbac;
+  return !!(roles&&roles.isVerified&&roles.isVerified()&&roles.canAccess&&roles.canAccess('ai-governance'));
+}
+function projectGovernanceUrl(projectId){
+  var id=String(projectId==null?'':projectId);
+  if(!/^[1-9][0-9]*$/.test(id)||!Number.isSafeInteger(Number(id)))return null;
+  return '/ai-governance.html?project='+encodeURIComponent(id)+'#projects';
+}
+function governancePageAvailable(){
+  if(!canOpenProjectGovernance())return Promise.resolve(false);
+  if(_governancePageCheck&&Date.now()-_governancePageCheckedAt<30000)return _governancePageCheck;
+  _governancePageCheckedAt=Date.now();
+  var controller=new AbortController(), timer=setTimeout(function(){controller.abort();},4000);
+  _governancePageCheck=fetch('/ai-governance.html',{
+    method:'HEAD',credentials:'same-origin',redirect:'error',cache:'no-store',signal:controller.signal
+  }).then(function(response){
+    return response.status===200&&!response.redirected&&/^text\/html\b/i.test(response.headers.get('Content-Type')||'');
+  }).catch(function(){return false;}).finally(function(){clearTimeout(timer);});
+  return _governancePageCheck;
+}
+function hydrateProjectGovernance(projectId,sequence){
+  var href=projectGovernanceUrl(projectId);
+  if(!href)return;
+  var roles=window.itRbac;
+  var ready=roles&&roles.ready?roles.ready():Promise.resolve();
+  Promise.resolve(ready).then(function(){
+    if(!canOpenProjectGovernance()||_seq!==sequence||String(DRILL_ID)!==String(projectId))return false;
+    return governancePageAvailable();
+  }).then(function(available){
+    if(!available||!canOpenProjectGovernance()||_seq!==sequence||String(DRILL_ID)!==String(projectId))return;
+    var host=$id('up-governance-link');
+    if(!host||host.getAttribute('data-project')!==String(projectId))return;
+    host.innerHTML='<a class="btn btn-sm" style="margin:10px 0" href="'+href+'">AI Governance — project applications &amp; access ↗</a>';
+    host.hidden=false;
+  }).catch(function(){ /* Unverified permissions leave this optional handoff hidden. */ });
+}
+
 function renderDrill(){
   if(!DRILL_DATA)return;
-  var p=DRILL_DATA.project, groups=DRILL_DATA.groups||[], grants=DRILL_DATA.active_grants||[];
+  var p=DRILL_DATA.project, groups=DRILL_DATA.groups||[];
+  var grants=Array.from(new Map((DRILL_DATA.active_grants||[]).concat(DRILL_DATA.recorded_history||[]).map(function(g){return [g.id,g];})).values());
+  var incomplete=DRILL_DATA.historyUnavailable||DRILL_DATA.historyTruncated;
   var active=grants.filter(function(g){ return g.status==='active'; });
+  var people=new Set(active.map(function(g){return String(g.user_sam).toLowerCase();})).size;
   var closed=p.status==='closed';
   $id('topbar-title').textContent=p.name;
   $id('topbar-sub').textContent=(closed?'Archived project — read-only. ':'')
-    +active.length+' active member'+(active.length===1?'':'s')+' · '+grants.length+' grant'+(grants.length===1?'':'s')+' all-time.';
+    +people+' active people · '+grants.length+(incomplete?' returned grant records (history incomplete).':' grants all-time.');
   var nb=$id('up-new-project'); if(nb)nb.hidden=true;
 
   var head='<div class="breadcrumb"><button class="crumb btn-link" type="button" data-upact="back">'
@@ -5967,9 +6183,10 @@ function renderDrill(){
     +'<div class="detail-head"><div style="flex:1;min-width:0">'
     +'<h2>'+esc(p.name)+' <span class="status-pill s-'+esc(p.status)+'">'+esc(p.status)+'</span></h2>'
     +(p.description?'<div class="desc">'+esc(p.description)+'</div>':'')
+    +'<span id="up-governance-link" data-project="'+esc(p.id)+'" hidden></span>'
     +'<div class="meta-grid">'
     +'<div><div class="k">AD group</div><div class="v">'+(groups.length?groups.map(function(g){ return '<span class="chip">'+esc(g.ad_group_name)+'</span>'; }).join(''):'<span style="color:var(--unk)">none linked</span>')+'</div></div>'
-    +'<div><div class="k">Active users</div><div class="v">'+active.length+'</div></div>'
+    +'<div><div class="k">Active people</div><div class="v">'+people+'</div></div>'
     +'<div><div class="k">Removal</div><div class="v"><span class="mode-pill m-'+esc(p.default_removal_mode)+'">'+(p.default_removal_mode==='permanent'?'permanent':'expires')+'</span></div></div>'
     +(p.planned_end_date?'<div><div class="k">End date</div><div class="v">'+fmtDate(p.planned_end_date)+'</div></div>':'')
     +'<div><div class="k">Created</div><div class="v">'+fmtDate(p.created_at)+' by '+esc(p.created_by)+'</div></div>'
@@ -5985,14 +6202,15 @@ function renderDrill(){
         +'</div></div>')
     +'</div>';
   var tabs='<div class="tabs" role="tablist">'
-    +[['members','Members ('+active.length+')'],['grants','All grants ('+grants.length+')'],['history','History']]
+    +[['members','Active grants ('+active.length+')'],['grants',(incomplete?'Returned grants (':'All grants (')+grants.length+')'],['history','History']]
       .map(function(t){ return '<button class="tab'+(DRILL_TAB===t[0]?' active':'')+'" type="button" role="tab" aria-selected="'+(DRILL_TAB===t[0])+'" data-updtab="'+t[0]+'">'+t[1]+'</button>'; }).join('')
     +'</div>';
   var body='';
   if(DRILL_TAB==='members')body=active.length?grantsTable(active,!closed):emptyBox('&#128101;','No active members',closed?'This project was archived with no active members.':'Use “+ Add members” to add users to this project.');
   else if(DRILL_TAB==='grants')body=grants.length?grantsTable(grants,!closed):emptyBox('&#128101;','No grants yet','');
   else body='<div id="history-box">'+spin()+'</div>';
-  content().innerHTML=head+tabs+body;
+  content().innerHTML=head+tabs+(incomplete?note('warn',DRILL_DATA.historyUnavailable?'Grant history could not be read. Active grants are shown; the total is not all-time.':'Showing active grants and the newest 500 historical grants. Older grant history is not included.'):'')+body;
+  hydrateProjectGovernance(p.id,_seq);
   if(DRILL_TAB==='history')loadHistory(DRILL_ID);
   _rbacApply(content());
 }
@@ -6273,6 +6491,7 @@ async function renderSettings(){
   _rbacApply(el);
 }
 async function saveSettings(){
+  var view=_seq;
   var body={
     digest_enabled:$id('s-enabled').checked?'true':'false',
     digest_day_of_week:$id('s-dow').value,
@@ -6283,7 +6502,7 @@ async function saveSettings(){
     digest_sections:JSON.stringify($$('#content input[name="s-sec"]:checked').map(function(x){ return x.value; })),
     sensitive_group_blocklist:$id('s-blocklist').value.split('\n').map(function(x){ return x.trim(); }).filter(Boolean)
   };
-  try{ await api('/settings',{method:'PATCH',body:JSON.stringify(body)}); upToast('Settings saved.','ok'); renderSettings(); }
+  try{ await api('/settings',{method:'PATCH',body:JSON.stringify(body)}); upToast('Settings saved.','ok'); if(view===_seq&&PAGE==='settings')renderSettings(); }
   catch(err){ upToast('Save failed: '+err.message,'error'); }
 }
 function sendTestDigest(){
@@ -6299,7 +6518,9 @@ function sendTestDigest(){
 
 /* ── modal host: Escape, Tab trap, focus restore ────────────────────────── */
 function openModal(title,bodyHTML,footerHTML){
-  _upLastFocus=document.activeElement;
+  if(!modalOpen())_upLastFocus=document.activeElement;
+  _upModalSeq++;
+  _userSearchSeq++; _groupSearchSeq++;
   $id('modal-title').textContent=title;
   $id('modal-body').innerHTML=bodyHTML;
   $id('modal-footer').innerHTML=footerHTML;
@@ -6307,19 +6528,21 @@ function openModal(title,bodyHTML,footerHTML){
   _rbacApply($id('modal'));
   setTimeout(function(){
     var f=$id('modal').querySelector('input:not([type=hidden]),select,textarea,button');
-    if(f){ try{ f.focus(); }catch(e){} }
+    if(f&&modalOpen()){ try{ f.focus(); }catch(e){} }
   },20);
 }
 function closeModal(){
   var ov=$id('overlay'); if(!ov||!ov.classList.contains('show'))return;
-  ov.classList.remove('show');
+  ov.classList.remove('show'); _upModalSeq++;
   $id('modal-title').textContent='';
   $id('modal-body').innerHTML='';
   $id('modal-footer').innerHTML='';
-  clearTimeout(_tmr); clearTimeout(_grpTmr);
+  clearTimeout(_tmr); clearTimeout(_grpTmr); _userSearchSeq++; _groupSearchSeq++;
   if(_upLastFocus&&document.contains(_upLastFocus)){ try{ _upLastFocus.focus(); }catch(e){} }
   _upLastFocus=null;
 }
+window.upCloseModal=function(){ _upModalSeq++; closeModal(); };
+var _userSearchSeq=0, _groupSearchSeq=0, _upModalSeq=0;
 function modalOpen(){ var o=$id('overlay'); return !!(o&&o.classList.contains('show')); }
 function trapTab(e){
   var m=$id('modal');
@@ -6357,7 +6580,7 @@ function openNewProject(){
     +'<div><label>&nbsp;</label><div class="perm-row"><label><input type="checkbox" id="np-perm"/><span>Manual removal (no expiry)</span></label></div></div>'
     +'</div>',
     '<button class="btn btn-ghost" type="button" data-upact="close-modal">Cancel</button>'
-    +'<button class="btn btn-primary" type="button" id="np-submit" data-upact="np-submit">Create &amp; add users to AD</button>');
+    +'<button class="btn btn-primary" type="button" id="np-submit" data-upact="np-submit"'+guard()+'>Create &amp; add users to AD</button>');
 }
 function npGroupMode(){
   var other=$id('np-group-select').value==='__OTHER__';
@@ -6383,6 +6606,7 @@ function redrawChips(kind){
   var ni=$id(inpId); if(ni){ ni.value=val; if(had)ni.focus(); }
 }
 function searchUsers(kind,q){
+  var seq=++_userSearchSeq;
   clearTimeout(_tmr);
   var boxId=kind==='np'?'np-user-results':'am-user-results', box=$id(boxId);
   if(!box)return;
@@ -6391,7 +6615,7 @@ function searchUsers(kind,q){
     var b=$id(boxId); if(!b)return;
     try{
       var d=await api('/users/search?q='+encodeURIComponent(q));
-      b=$id(boxId); if(!b)return;
+      b=$id(boxId); if(!b||seq!==_userSearchSeq)return;
       var have={}; (kind==='np'?NP.users:AM.users).forEach(function(u){ have[u.sam.toLowerCase()]=1; });
       var fresh=(d.users||[]).filter(function(u){ return !have[String(u.samAccountName||'').toLowerCase()]; });
       b.innerHTML=fresh.slice(0,15).map(function(u){
@@ -6401,7 +6625,7 @@ function searchUsers(kind,q){
       }).join('')||'<div class="search-result" style="cursor:default;color:var(--muted)">No matches</div>';
       b.hidden=false;
     }catch(err){
-      b=$id(boxId); if(!b)return;
+      b=$id(boxId); if(!b||seq!==_userSearchSeq)return;
       b.innerHTML='<div class="search-result" style="cursor:default;color:var(--'+(err.status===403?'unk':'bad')+')">'
         +(err.status===403?'You do not have access to the AD user search.':'Search failed: '+esc(err.message))+'</div>';
       b.hidden=false;
@@ -6409,6 +6633,7 @@ function searchUsers(kind,q){
   },250);
 }
 function pickUser(kind,sam,display,dept){
+  clearTimeout(_tmr); _userSearchSeq++;
   var list=kind==='np'?NP.users:AM.users;
   if(list.some(function(u){ return u.sam.toLowerCase()===sam.toLowerCase(); }))return;
   list.push({sam:sam,display:display||sam,dept:dept||null});
@@ -6418,6 +6643,7 @@ function pickUser(kind,sam,display,dept){
   var b=$id(kind==='np'?'np-user-results':'am-user-results'); if(b){ b.hidden=true; b.innerHTML=''; }
 }
 function searchGroups(q){
+  var seq=++_groupSearchSeq;
   clearTimeout(_grpTmr);
   var box=$id('np-group-results'); if(!box)return;
   if(!q||q.length<2){ box.hidden=true; box.innerHTML=''; return; }
@@ -6425,7 +6651,7 @@ function searchGroups(q){
     var b=$id('np-group-results'); if(!b)return;
     try{
       var r=await fetch('/api/provisioning/search-group?q='+encodeURIComponent(q),{credentials:'include'});
-      b=$id('np-group-results'); if(!b)return;
+      b=$id('np-group-results'); if(!b||seq!==_groupSearchSeq)return;
       if(!r.ok){
         b.innerHTML='<div class="search-result" style="cursor:default;color:var(--'+((r.status===401||r.status===403)?'unk':'bad')+')">'
           +((r.status===401||r.status===403)
@@ -6434,20 +6660,21 @@ function searchGroups(q){
         b.hidden=false; return;
       }
       var d=await r.json();
-      b=$id('np-group-results'); if(!b)return;
+      b=$id('np-group-results'); if(!b||seq!==_groupSearchSeq)return;
       b.innerHTML=(d.groups||[]).slice(0,20).map(function(g){
         return '<button class="search-result" type="button" role="option" data-uppickgroup="'+esc(g.name||'')+'">'
           +'<div class="name">'+esc(g.name||'')+'</div>'+(g.description?'<div class="sub">'+esc(g.description)+'</div>':'')+'</button>';
       }).join('')||'<div class="search-result" style="cursor:default;color:var(--muted)">No matches</div>';
       b.hidden=false;
     }catch(e){
-      b=$id('np-group-results'); if(!b)return;
+      b=$id('np-group-results'); if(!b||seq!==_groupSearchSeq)return;
       b.innerHTML='<div class="search-result" style="cursor:default;color:var(--bad)">Group search failed — '+esc(_whyErr(e))+'</div>';
       b.hidden=false;
     }
   },250);
 }
 function pickGroup(name){
+  clearTimeout(_grpTmr); _groupSearchSeq++;
   $id('np-group-search').value=name;
   $id('np-group-chosen').value=name;
   $id('np-group-picked').textContent='Selected: '+name;
@@ -6464,6 +6691,7 @@ function submitNewProject(){
   if(!group||group==='__OTHER__'){ upToast('Pick an AD group.','error'); return; }
   if(!NP.users.length){ upToast('Add at least one user.','error'); return; }
   if(!perm&&!end){ upToast('An end date is required unless you tick Manual removal.','error'); return; }
+  var modal=_upModalSeq;
   var btn=$id('np-submit'); btn.disabled=true; btn.textContent='Creating…';
   (async function(){
     try{
@@ -6471,8 +6699,11 @@ function submitNewProject(){
         name:name,description:desc,ad_group_name:group,
         users:NP.users.map(function(u){ return {sam:u.sam,display:u.display,dept:u.dept}; }),
         expires_at:perm?null:end,permanent:perm})});
+      if(modal!==_upModalSeq){ upToast('Project request completed. Open Projects to review its result.','warn'); return; }
       closeModal();
+      var resultModal=_upModalSeq;
       await loadProjects().catch(function(){});
+      if(resultModal!==_upModalSeq)return;
       showActionResult('Project created',r,'created');
     }catch(err){
       upToast('Create failed: '+err.message,'error');
@@ -6545,18 +6776,22 @@ function openAddMembers(){
     +'<div class="sr-wrapper"><div id="am-user-results" class="sr-dropdown" hidden role="listbox"></div></div>'
     +'<div class="form-help">Anyone already in the group is reference-counted and reported as skipped, not added twice.</div></div>',
     '<button class="btn btn-ghost" type="button" data-upact="close-modal">Cancel</button>'
-    +'<button class="btn btn-primary" type="button" id="am-submit" data-upact="am-submit">Add &amp; grant AD access</button>');
+    +'<button class="btn btn-primary" type="button" id="am-submit" data-upact="am-submit"'+guard()+'>Add &amp; grant AD access</button>');
 }
 function submitAddMembers(){
   if(!AM.users.length){ upToast('Add at least one user.','error'); return; }
+  var modal=_upModalSeq;
   var btn=$id('am-submit'); btn.disabled=true; btn.textContent='Adding…';
   var id=DRILL_ID;
   (async function(){
     try{
       var r=await api('/projects/'+id+'/add-members',{method:'POST',body:JSON.stringify({
         users:AM.users.map(function(u){ return {sam:u.sam,display:u.display,dept:u.dept}; })})});
+      if(modal!==_upModalSeq){ upToast('Member request completed. Reopen the project to review its result.','warn'); return; }
       closeModal();
+      var resultModal=_upModalSeq;
       await openProject(id);            /* re-read before reporting */
+      if(resultModal!==_upModalSeq)return;
       showActionResult('Members added',r,'added');
     }catch(err){
       upToast('Add failed: '+err.message,'error');
@@ -6584,9 +6819,10 @@ function openAttach(sam,display,dept,groupName){
     +'<select id="att-project" style="width:100%">'+eligible.map(function(p){ return '<option value="'+p.id+'">'+esc(p.name)+'</option>'; }).join('')+'</select>'
     +'<div class="form-help">Only a project that actually uses this AD group will accept the attach; the server rejects the rest.</div></div>',
     '<button class="btn btn-ghost" type="button" data-upact="close-modal">Cancel</button>'
-    +'<button class="btn btn-primary" type="button" id="att-submit" data-upact="attach-go" data-sam="'+esc(sam)+'" data-display="'+esc(display||'')+'" data-dept="'+esc(dept||'')+'" data-group="'+esc(groupName)+'">Attach</button>');
+    +'<button class="btn btn-primary" type="button" id="att-submit" data-upact="attach-go" data-sam="'+esc(sam)+'" data-display="'+esc(display||'')+'" data-dept="'+esc(dept||'')+'" data-group="'+esc(groupName)+'"'+guard()+'>Attach</button>');
 }
 function submitAttach(sam,display,dept,groupName){
+  var modal=_upModalSeq;
   var pid=parseInt($id('att-project').value,10);
   if(!pid){ upToast('Pick a project.','error'); return; }
   var btn=$id('att-submit'); btn.disabled=true; btn.textContent='Attaching…';
@@ -6594,6 +6830,7 @@ function submitAttach(sam,display,dept,groupName){
     try{
       await api('/projects/'+pid+'/attach-grant',{method:'POST',body:JSON.stringify({
         user_sam:sam,user_display_name:display||null,user_dept:dept||null,ad_group_name:groupName})});
+      if(modal!==_upModalSeq){ upToast('Project request completed. Reopen the project to review its result.','warn'); return; }
       closeModal();
       upToast('Attached '+sam+' to the project.','ok');
       loadAuditByGroup();
@@ -6612,15 +6849,17 @@ function confirmRevoke(id,sam,group){
     +'<div class="form-row" style="margin-top:12px"><label for="rv-notes">Reason (optional)</label>'
     +'<textarea id="rv-notes" rows="2" placeholder="Why revoke?"></textarea></div>',
     '<button class="btn btn-ghost" type="button" data-upact="close-modal">Cancel</button>'
-    +'<button class="btn btn-danger" type="button" id="rv-go" data-upact="revoke-go" data-grant="'+id+'">Revoke</button>');
+    +'<button class="btn btn-danger" type="button" id="rv-go" data-upact="revoke-go" data-grant="'+id+'"'+guard()+'>Revoke</button>');
 }
 function doRevoke(id){
+  var modal=_upModalSeq;
   var ta=$id('rv-notes');
   var notes=ta?(ta.value||'').trim()||null:null;   /* guarded — the old page threw if the modal had re-rendered */
   var btn=$id('rv-go'); if(btn){ btn.disabled=true; btn.textContent='Revoking…'; }
   (async function(){
     try{
       var r=await api('/grants/'+id+'/revoke',{method:'POST',body:JSON.stringify({notes:notes})});
+      if(modal!==_upModalSeq){ upToast('Project request completed. Reopen the project to review its result.','warn'); return; }
       closeModal();
       var act=(r&&r.ad_action)||(r&&r.ad_actions&&r.ad_actions[0]&&r.ad_actions[0].action);
       upToast(act==='failed'?'Grant closed here, but the AD removal failed — check History.'
@@ -6655,13 +6894,15 @@ function confirmArchive(){
     +(groups.length>1?note('warn','<span>This project links '+groups.length+' AD groups; removals apply to all of them.</span>'):'')
     +'<p style="font-size:11.5px;color:var(--muted)">Archived projects remain readable on the Archived tab.</p>',
     '<button class="btn btn-ghost" type="button" data-upact="close-modal">Cancel</button>'
-    +'<button class="btn btn-danger" type="button" id="ar-go" data-upact="archive-go" data-proj="'+p.id+'">Archive project</button>');
+    +'<button class="btn btn-danger" type="button" id="ar-go" data-upact="archive-go" data-proj="'+p.id+'"'+guard()+'>Archive project</button>');
 }
 function doArchive(id){
+  var modal=_upModalSeq;
   var btn=$id('ar-go'); if(btn){ btn.disabled=true; btn.textContent='Archiving…'; }
   (async function(){
     try{
       var r=await api('/projects/'+id+'/archive',{method:'POST'});
+      if(modal!==_upModalSeq){ upToast('Project request completed. Reopen the project to review its result.','warn'); return; }
       closeModal();
       DRILL_ID=null; DRILL_DATA=null;
       setPage('projects');
@@ -6774,6 +7015,8 @@ window.upInit=function(){
   if(!_booted){ _booted=true; bind(); }
   var nb=$id('up-new-project'); if(nb)nb.hidden=(PAGE!=='projects');
   setPage(PAGE||'projects');
+  var governanceProject=new URLSearchParams(location.search).get('project');
+  if(governanceProject&&/^[1-9][0-9]*$/.test(governanceProject))openProject(Number(governanceProject));
   refreshGrantsBadge();
 };
 })();
@@ -6784,7 +7027,40 @@ window.upInit=function(){
      chip, it-version fills every [data-version-slot]. Same three files, same
      attributes, same order as before the redesign. -->
 <script src="/it-topbar.js" defer></script>
-<script src="/feed-freshness.js" data-page="identity-diag" defer></script>
+<script src="/identity-device-context.js?v=stage3b-20261016" defer></script>
+<script src="/identity-device-network.js?v=dev-final-uat-20261016a" defer></script>
+<script src="/identity-device-live.js?v=dev-b3-copy-fallback-20261017a" defer></script>
+<script src="/identity-diag-support.js?v=stage3b-20261016" defer></script>
 <script src="/it-version.js" data-app-key="identity-diag" defer></script>
+
+
+<!-- Shared screenshot-led welcome; its animation never changes the workspace data. -->
+<script type="application/json" id="workspace-whats-new-content">{"title": "How to use Identity support", "description": "Find the person. Choose the support task. Follow the account and device evidence. Three steps to get started in People & Devices.", "seenKey": "corpit:identity:how-to:2026-10-19-v1", "steps": [{"image": "/assets/identity-whats-new-motion/find-person.webp?v=20261018-motion1", "focus": [[26.778, 44.79, 71.13, 10.915], [1.046, 20.777, 6.799, 7.368]], "title": "1. Find the person", "label": "Find", "description": "Search by name, username or email to open the account. People you look up appear in Recent, so you can return to them quickly. Start with the person whose issue you are investigating.", "alt": "Real DEV account search and Recent accounts panel. The search field and Recent tab are highlighted."}, {"image": "/assets/identity-whats-new-motion/choose-task.webp?v=20261018-motion1", "focus": [[1.788, 35.043, 97.318, 47.802]], "title": "2. Choose the support task", "label": "Choose", "description": "Choose Can’t sign in, Device issue, Missing access or Offboarding review. Pick a task first, or look up the person and continue from there. The task gives you a starting point for the issue.", "alt": "Real DEV task shortcuts for sign-in, device issues, missing access and offboarding."}, {"image": "/assets/identity-whats-new-motion/explore-workspace.webp?v=20261018-motion1", "focus": [[0.824, 8.721, 13.412, 81.944]], "title": "3. Follow the account and device evidence", "label": "Investigate", "description": "Use the left navigation to move between Devices, Sign-ins, Security and Group access. Review the available evidence and its source dates before choosing a next action. Available tools follow your access permissions.", "alt": "Real DEV left navigation showing Devices, Sign-ins, Security and Group access."}], "guide": true}</script>
+<dialog id="workspace-whats-new" class="cwn" data-workspace-tour="identity" aria-labelledby="cwn-title" aria-describedby="cwn-description">
+  <button class="cwn-close" type="button" data-cwn-close aria-label="Close tour"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>
+  <div class="cwn-body">
+    <div class="cwn-screen">
+      <p class="cwn-progress"><span class="cwn-emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/><path d="M20 2v4M18 4h4"/></svg></span><span data-cwn-progress aria-live="polite" aria-atomic="true">A quick tour</span></p>
+      <h2 class="cwn-title" id="cwn-title" tabindex="-1">How to use Identity support</h2>
+      <p class="cwn-description" id="cwn-description">Find the person. Choose the support task. Follow the account and device evidence. Three steps to get started in People &amp; Devices.</p>
+      <div class="cwn-stage" aria-hidden="true"><div class="cwn-mini"><img src="/assets/identity-whats-new-motion/find-person.webp?v=20261018-motion1" alt="" width="1200" height="460"><span>Find</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/identity-whats-new-motion/choose-task.webp?v=20261018-motion1" alt="" width="1200" height="460"><span>Choose</span><i class="cwn-mini-sheen"></i></div><div class="cwn-mini"><img src="/assets/identity-whats-new-motion/explore-workspace.webp?v=20261018-motion1" alt="" width="1200" height="460"><span>Investigate</span><i class="cwn-mini-sheen"></i></div><div class="cwn-ai-flow" aria-hidden="true"><i class="cwn-ai-orbit"></i><div class="cwn-ai-node"><b>01</b><span>Find</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>02</b><span>Choose</span></div><i class="cwn-ai-wire"><em></em></i><div class="cwn-ai-node"><b>03</b><span>Investigate</span></div></div></div>
+      <p class="cwn-welcome-note">Three quick stops. Explore at your own pace.<br>Reopen anytime from <strong>How to use</strong>.</p>
+      <figure class="cwn-preview" hidden>
+        <div class="cwn-image-wrap"><div class="cwn-shot"><img alt="" width="1200" height="460"><div class="cwn-focuses" aria-hidden="true"></div></div></div>
+        <figcaption>Real DEV screenshots. Counts are a snapshot; available tools follow your access.</figcaption>
+      </figure>
+    </div>
+  </div>
+  <footer class="cwn-footer">
+    <div class="cwn-track" aria-hidden="true" hidden><span></span><span></span><span></span><i class="cwn-indicator"></i></div>
+    <button class="btn btn-ghost cwn-button" type="button" data-cwn-later>Maybe later</button>
+    <div class="cwn-actions">
+      <button class="btn btn-ghost cwn-button" type="button" data-cwn-back hidden>Back</button>
+      <button class="btn btn-primary cwn-button cwn-next" type="button" data-cwn-next autofocus><span>Show me how</span><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8h10M9 4l4 4-4 4"/></svg></button>
+    </div>
+  </footer>
+</dialog>
+<script src="/workspace-whats-new.js?v=20261019-account-guides1" defer></script>
+
 </body>
 </html>

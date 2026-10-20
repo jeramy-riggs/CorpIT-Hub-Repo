@@ -1185,6 +1185,9 @@
 <script src="/rbac-client.js"></script>
 <script src="/it-observe.js" data-app-key="ad-management"></script>
 <link rel="stylesheet" href="/it-depth.css">
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/ad-management-portal.css?v=ad-polish-20261017">
+<link rel="stylesheet" href="/ad-housekeeping-workbench.css?v=93794d0684d0">
 </head>
 <body data-dp="ad-management">
 <!-- The cluster must live OUTSIDE both mode scopes. This page's only header
@@ -1201,7 +1204,8 @@
      Cross-page nav links removed (it-nav.js handles that)
      Hidden .pills-bar removed (was a dead duplicate nav)
      ═══════════════════════════════════════════════════════════════════════ -->
-<aside class="sb" id="hkSidebar">
+<aside class="sb" id="hkSidebar" aria-label="Housekeeping tools">
+  <button type="button" class="ad-sidebar-close" onclick="toggleHkSidebar()" aria-label="Close housekeeping menu">×</button>
   <div class="sb-brand">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0EA5E9" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
     <h1>AD Management <span>Housekeeping</span></h1>
@@ -1220,7 +1224,7 @@
 
   <!-- Risk summary — clickable filters -->
   <div class="sb-risk" id="sbRisk">
-    <div class="sb-label">Total flagged</div>
+    <div class="sb-label">User findings · current scope</div>
     <button type="button" class="sb-risk-row" onclick="filterByRiskSidebar('high')" title="Filter Users tab to High risk">
       <span class="sb-risk-dot high"></span>
       <span class="sb-risk-label">High</span>
@@ -1242,7 +1246,7 @@
   <div class="sb-activity" id="sbActivity">
     <div class="sb-label">Recent activity</div>
     <div class="sb-activity-list" id="sbActivityList"></div>
-    <a class="sb-activity-link" onclick="switchTab('audit')">View all &rarr;</a>
+    <button type="button" class="sb-activity-link" onclick="switchTab('audit')">View audit log &rarr;</button>
   </div>
 
   <div class="sb-foot"></div>
@@ -1264,13 +1268,13 @@
 
     <!-- Scope tabs — three buckets: actual users (primary), service & shared, other -->
     <div class="scope-row" id="scopeRow">
-      <button type="button" class="scope-tab active" data-scope="users" onclick="setScope('users')">
+      <button type="button" class="scope-tab active" aria-pressed="true" data-scope="users" onclick="setScope('users')">
         Users <span class="scope-count" id="scope-count-users">—</span>
       </button>
-      <button type="button" class="scope-tab" data-scope="service-shared" onclick="setScope('service-shared')">
+      <button type="button" class="scope-tab" aria-pressed="false" data-scope="service-shared" onclick="setScope('service-shared')">
         Service &amp; shared <span class="scope-count" id="scope-count-service-shared">—</span>
       </button>
-      <button type="button" class="scope-tab" data-scope="other" onclick="setScope('other')">
+      <button type="button" class="scope-tab" aria-pressed="false" data-scope="other" onclick="setScope('other')">
         Other <span class="scope-count" id="scope-count-other">—</span>
       </button>
       <span class="cached-pill idle" id="cachedPill" title="Last scan freshness">
@@ -1285,10 +1289,11 @@
 
     <!-- Informational banner — shown only on service-shared / other scopes -->
     <div class="scope-banner" id="scopeBanner"></div>
+    <div class="ad-scan-feedback" id="scanFeedback" role="status" hidden></div>
 
     <!-- Summary Cards -->
     <div class="cards" id="cards">
-      <div class="card risk-high" data-cat="privileged" onclick="focusCategory('privileged')"><div class="card-count" id="c-priv">—</div><div class="card-label">Privileged Risk</div><div class="card-bar"></div></div>
+      <div class="card risk-high" data-cat="privileged" onclick="focusCategory('privileged')"><div class="card-count" id="c-priv">—</div><div class="card-label">Privileged Risk · all scopes</div><div class="card-bar"></div></div>
       <div class="card risk-med" data-cat="stale" onclick="focusCategory('stale')"><div class="card-count" id="c-stale">—</div><div class="card-label">Stale Users</div><div class="card-bar"></div></div>
       <div class="card risk-med" data-cat="expired" onclick="focusCategory('expired')"><div class="card-count" id="c-expired">—</div><div class="card-label">Expired Accounts</div><div class="card-bar"></div></div>
       <div class="card risk-low" data-cat="disabled" onclick="focusCategory('disabled')"><div class="card-count" id="c-disabled">—</div><div class="card-label">Disabled Users</div><div class="card-bar"></div></div>
@@ -1299,19 +1304,20 @@
     </div>
 
     <!-- Tabs -->
-    <div class="tabs" id="mainTabs">
-      <div class="tab active" data-tab="users" onclick="switchTab('users')">Users <span class="tab-count" id="tc-users">0</span></div>
-      <div class="tab" data-tab="groups" onclick="switchTab('groups')">Groups <span class="tab-count" id="tc-groups">0</span></div>
-      <div class="tab" data-tab="computers" onclick="switchTab('computers')">Computers <span class="tab-count" id="tc-computers">0</span></div>
-      <div class="tab" data-tab="smbx" onclick="switchTab('smbx')" title="Stale shared mailboxes">Shared Mailboxes <span class="tab-count" id="tc-smbx">—</span></div>
-      <div class="tab" data-tab="audit" onclick="switchTab('audit')">Audit Log</div>
-      <div class="tab" data-tab="recovery" onclick="switchTab('recovery')">Recovery</div>
+    <div class="tabs" id="mainTabs" role="tablist" aria-label="Housekeeping sections">
+      <button type="button" class="tab active" id="hk-tab-users" role="tab" aria-selected="true" aria-controls="pane-users" tabindex="0" data-tab="users" onclick="switchTab('users')">Users <span class="tab-count" id="tc-users">0</span></button>
+      <button type="button" class="tab" id="hk-tab-groups" role="tab" aria-selected="false" aria-controls="pane-groups" tabindex="-1" data-tab="groups" onclick="switchTab('groups')">Groups <span class="tab-count" id="tc-groups">0</span></button>
+      <button type="button" class="tab" id="hk-tab-computers" role="tab" aria-selected="false" aria-controls="pane-computers" tabindex="-1" data-tab="computers" onclick="switchTab('computers')">Computers <span class="tab-count" id="tc-computers">0</span></button>
+      <button type="button" class="tab" id="hk-tab-smbx" role="tab" aria-selected="false" aria-controls="pane-smbx" tabindex="-1" data-tab="smbx" onclick="switchTab('smbx')" title="Stale shared mailboxes">Shared Mailboxes <span class="tab-count" id="tc-smbx">—</span></button>
+      <button type="button" class="tab" id="hk-tab-audit" role="tab" aria-selected="false" aria-controls="pane-audit" tabindex="-1" data-tab="audit" onclick="switchTab('audit')">Audit Log</button>
+      <button type="button" class="tab" id="hk-tab-recovery" role="tab" aria-selected="false" aria-controls="pane-recovery" tabindex="-1" data-tab="recovery" onclick="switchTab('recovery')">Recovery</button>
     </div>
 
     <!-- Users Pane -->
-    <div class="pane active" id="pane-users">
+    <div class="pane active" id="pane-users" role="tabpanel" aria-labelledby="hk-tab-users">
+      <div class="hk-workbench" id="hkWorkbench"></div>
       <div class="filter-row">
-        <select class="filter-input" id="userCatFilter" onchange="renderUsers()" style="flex:0 0 180px">
+        <select class="filter-input" id="userCatFilter" aria-label="User finding category" onchange="renderUsers()" style="flex:0 0 180px">
           <option value="all">All Categories</option>
           <option value="stale">Stale Users</option>
           <option value="disabled">Disabled Users</option>
@@ -1320,41 +1326,50 @@
           <option value="nogroup">No-Group Users</option>
           <option value="privileged">Privileged Risk</option>
         </select>
-        <input class="filter-input" id="userSearchFilter" placeholder="Search by name or username..." oninput="renderUsersDebounced()">
-        <select class="filter-input" id="userRiskFilter" onchange="renderUsers()" style="flex:0 0 120px">
+        <input class="filter-input" id="userSearchFilter" aria-label="Search user findings" placeholder="Search name, username, email or OU…" oninput="renderUsersDebounced()">
+        <select class="filter-input" id="userRiskFilter" aria-label="User risk level" onchange="renderUsers()" style="flex:0 0 120px">
           <option value="all">All Risk</option>
           <option value="high">High</option>
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
-        <button class="btn btn-ghost btn-sm" id="btnExportUsers" onclick="exportUsersCsv()" title="Export currently visible rows (respects all filters)">
+        <div class="ad-filter-tools"><button class="btn btn-ghost btn-sm" id="btnExportUsers" onclick="exportUsersCsv()" title="Export all matching rows, across pages (respects all filters)">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export CSV
         </button>
-      </div>
-      <div class="tbl-wrap"><table><thead><tr>
-        <th>Risk</th><th>Name</th><th>Username</th><th>Category</th><th>Reason</th><th>Last Logon</th><th>OU</th><th>Actions</th>
+      <select class="filter-input ad-sort" id="usersSort" aria-label="Sort users" onchange="renderFindingView('users')"><option value="risk">Risk: high first</option><option value="name">Name: A–Z</option><option value="oldest">Last logon: oldest first</option></select><button type="button" class="btn btn-ghost btn-sm" id="usersReset" onclick="resetFindingFilters('users')">Reset</button></div></div>
+      <div class="hk-active-filters" id="hkActiveFilters" hidden></div>
+      <div class="hk-priv-scopes" id="hkPrivScopes" role="group" aria-label="Privileged findings by account scope" hidden></div>
+      <p class="hk-scope-note" id="hkUserScopeNote"></p>
+      <div class="ad-results" id="usersResults" role="status" aria-live="polite"></div>
+      <div class="tbl-wrap" tabindex="0" aria-label="Users findings, scroll for more columns"><table><thead><tr>
+        <th>Risk</th><th>Name</th><th>Username</th><th id="hkUserCategoryHead">Category</th><th id="hkUserReasonHead">Reason</th><th>Last Logon</th><th>OU</th><th>Actions</th>
       </tr></thead><tbody id="usersBody"></tbody></table></div>
+      <div class="ad-pager" id="usersPager"></div>
     </div>
 
     <!-- Groups Pane -->
-    <div class="pane" id="pane-groups">
-      <div class="filter-row"><input class="filter-input" id="groupSearchFilter" placeholder="Search groups..." oninput="renderGroupsDebounced()"></div>
-      <div class="tbl-wrap"><table><thead><tr>
+    <div class="pane" id="pane-groups" role="tabpanel" aria-labelledby="hk-tab-groups">
+      <div class="filter-row"><input class="filter-input" id="groupSearchFilter" aria-label="Search groups" placeholder="Search groups..." oninput="renderGroupsDebounced()"><button type="button" class="btn btn-ghost btn-sm" id="btnExportGroups" onclick="exportFindingCsv('groups')" title="Export all matching findings, across pages">Export CSV</button><select class="filter-input ad-sort" id="groupsSort" aria-label="Sort groups" onchange="renderFindingView('groups')"><option value="name">Name: A–Z</option><option value="changed">Last changed: oldest first</option><option value="risk">Risk: high first</option></select><button type="button" class="btn btn-ghost btn-sm" id="groupsReset" onclick="resetFindingFilters('groups')">Reset</button></div>
+      <div class="ad-results" id="groupsResults" role="status" aria-live="polite"></div>
+      <div class="tbl-wrap" tabindex="0" aria-label="Groups findings, scroll for more columns"><table><thead><tr>
         <th>Risk</th><th>Group Name</th><th>Description</th><th>Members</th><th>OU</th><th>Last Changed</th>
       </tr></thead><tbody id="groupsBody"></tbody></table></div>
+      <div class="ad-pager" id="groupsPager"></div>
     </div>
 
     <!-- Computers Pane -->
-    <div class="pane" id="pane-computers">
-      <div class="filter-row"><input class="filter-input" id="compSearchFilter" placeholder="Search computers..." oninput="renderComputersDebounced()"></div>
-      <div class="tbl-wrap"><table><thead><tr>
+    <div class="pane" id="pane-computers" role="tabpanel" aria-labelledby="hk-tab-computers">
+      <div class="filter-row"><input class="filter-input" id="compSearchFilter" aria-label="Search computers" placeholder="Search computer, OS or OU…" oninput="renderComputersDebounced()"><button type="button" class="btn btn-ghost btn-sm" id="btnExportComputers" onclick="exportFindingCsv('computers')" title="Export all matching findings, across pages">Export CSV</button><select class="filter-input ad-sort" id="computersSort" aria-label="Sort computers" onchange="renderFindingView('computers')"><option value="stale">Days stale: highest first</option><option value="name">Computer: A–Z</option><option value="risk">Risk: high first</option></select><button type="button" class="btn btn-ghost btn-sm" id="computersReset" onclick="resetFindingFilters('computers')">Reset</button></div>
+      <div class="ad-results" id="computersResults" role="status" aria-live="polite"></div>
+      <div class="tbl-wrap" tabindex="0" aria-label="Computers findings, scroll for more columns"><table><thead><tr>
         <th>Risk</th><th>Computer</th><th>OS</th><th>Last Logon</th><th>Days Stale</th><th>OU</th><th>Actions</th>
       </tr></thead><tbody id="compBody"></tbody></table></div>
+      <div class="ad-pager" id="computersPager"></div>
     </div>
 
     <!-- Shared Mailboxes Pane -->
-    <div class="pane" id="pane-smbx">
+    <div class="pane" id="pane-smbx" role="tabpanel" aria-labelledby="hk-tab-smbx">
       <div id="smbxBanner"></div>
       <div class="smbx-head">
         <span class="smbx-stat" data-st="stale" onclick="smbxSetStatus('stale')">Stale <b id="smbxCntStale">—</b></span>
@@ -1368,17 +1383,17 @@
         <span class="smbx-fresh" id="smbxFresh"></span>
       </div>
       <div class="filter-row">
-        <select class="filter-input" id="smbxStatusFilter" onchange="renderSmbx()" style="flex:0 0 130px">
+        <select class="filter-input" id="smbxStatusFilter" aria-label="Mailbox status" onchange="renderSmbx()" style="flex:0 0 130px">
           <option value="all">All statuses</option><option value="stale">Stale</option><option value="active">Active</option><option value="unknown">Unknown</option>
         </select>
-        <select class="filter-input" id="smbxSourceFilter" onchange="renderSmbx()" style="flex:0 0 150px">
+        <select class="filter-input" id="smbxSourceFilter" aria-label="Mailbox source" onchange="renderSmbx()" style="flex:0 0 150px">
           <option value="all">All sources</option><option value="synced">Synced from AD</option><option value="cloud">Cloud only</option>
         </select>
-        <select class="filter-input" id="smbxExtraFilter" onchange="renderSmbx()" style="flex:0 0 170px">
+        <select class="filter-input" id="smbxExtraFilter" aria-label="Mailbox delegates and visibility" onchange="renderSmbx()" style="flex:0 0 170px">
           <option value="all">Any delegates / GAL</option><option value="deleg">Has delegates</option><option value="nodeleg">No delegates</option>
           <option value="visible">Visible in GAL</option><option value="hidden">Hidden from GAL</option>
         </select>
-        <input class="filter-input" id="smbxSearch" placeholder="Search name, address or delegate..." oninput="renderSmbxDebounced()">
+        <input class="filter-input" id="smbxSearch" aria-label="Search mailboxes" placeholder="Search name, address or delegate..." oninput="renderSmbxDebounced()">
         <button class="btn btn-ghost btn-sm" onclick="loadSmbx(true)" title="Reload and refresh the AD lookup">Refresh</button>
         <button class="btn btn-ghost btn-sm" onclick="exportSmbxCsv()" title="Export currently visible rows (respects all filters)">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1393,7 +1408,7 @@
     </div>
 
     <!-- Audit Pane -->
-    <div class="pane" id="pane-audit">
+    <div class="pane" id="pane-audit" role="tabpanel" aria-labelledby="hk-tab-audit">
       <div class="filter-row"><button class="btn btn-ghost btn-sm" onclick="loadAudit()">Refresh</button></div>
       <div class="tbl-wrap"><table><thead><tr>
         <th>Time</th><th>Action</th><th>Type</th><th>Object</th><th>By</th><th>Notes</th><th>Reverted</th><th></th>
@@ -1401,9 +1416,9 @@
     </div>
 
     <!-- Recovery Pane -->
-    <div class="pane" id="pane-recovery">
+    <div class="pane" id="pane-recovery" role="tabpanel" aria-labelledby="hk-tab-recovery">
       <div class="filter-row">
-        <button class="btn btn-ghost btn-sm" onclick="loadRecycleBin()">Load Recycle Bin</button>
+        <button class="btn btn-ghost btn-sm" id="btnLoadRecycleBin" onclick="loadRecycleBin()">Load Recycle Bin</button>
         <span style="font-size:11px;color:var(--text3)">Restores deleted AD objects. Requires the AD Recycle Bin to be enabled in the domain.</span>
       </div>
       <div class="tbl-wrap"><table><thead><tr>
@@ -1415,21 +1430,22 @@
 
 <!-- Detail Modal -->
 <div class="modal-overlay" id="detailModal">
-  <div class="modal" id="detailContent"></div>
+  <div class="modal" id="detailContent" role="dialog" aria-modal="true" aria-label="Account details" tabindex="-1"></div>
 </div>
 
 <!-- Confirm Modal -->
 <div class="confirm-overlay" id="confirmModal">
-  <div class="confirm-box" id="confirmContent"></div>
+  <div class="confirm-box" id="confirmContent" role="dialog" aria-modal="true" aria-label="Confirm directory action" tabindex="-1"></div>
 </div>
 
-<div class="toast-c" id="toastC"></div>
+<div class="toast-c" id="toastC" role="status" aria-live="polite"></div>
 </div><!-- /#modeHousekeeping -->
 
 <!-- ═══ MODE: GPO AUDIT (guest, super-admin only) — hidden by default; all CSS scoped to .gpo-scope ═══ -->
 <div id="gpoScope" class="gpo-scope mode-hidden">
 <!-- ═══ LEFT NAV RAIL (M365 / Intune style) ═══ -->
-<aside class="railnav" id="railnav">
+<aside class="railnav" id="railnav" aria-label="GPO audit navigation">
+  <button type="button" class="ad-sidebar-close" onclick="toggleSidebar()" aria-label="Close GPO menu">×</button>
   <div class="brand">
     <span class="dot"></span>
     <h1>AD Management<span>GPO Audit</span></h1>
@@ -1472,6 +1488,11 @@
   </header>
   <div class="content-area">
     <main class="main">
+    <div class="section-note" style="margin-bottom:12px">
+      <label for="gpoAutoRefresh">Saved snapshot auto-check</label>
+      <select class="filter-select" id="gpoAutoRefresh" aria-label="Saved snapshot auto-check interval"><option value="0">Off</option><option value="1">Every minute</option><option value="5" selected>Every 5 minutes</option><option value="15">Every 15 minutes</option></select>
+      <span id="gpoAutoStatus" role="status" aria-live="polite">Checks pause outside visible GPO Audit. No AD collection or policy changes.</span>
+    </div>
     <div class="page-head">
       <div>
         <h1 id="pageTitle" style="font-size:20px;font-weight:600;letter-spacing:-.2px">Overview</h1>
@@ -1509,7 +1530,7 @@
           <div class="ov-tile bad" tabindex="0" onclick="filterFindings('SETTING_CONFLICT')"><div class="v" id="ov-conflicts">–</div><div class="l">Conflicts</div></div>
           <div class="ov-tile warn" tabindex="0" onclick="filterFindings('STALE')"><div class="v" id="ov-stale">–</div><div class="l">Stale &gt;2y</div></div>
           <div class="ov-tile" tabindex="0" onclick="filterFindings('EMPTY')"><div class="v" id="ov-empty">–</div><div class="l">Empty</div></div>
-          <div class="ov-tile good" tabindex="0" onclick="gpoSwitchTab('intune')"><div class="v" id="ov-intune">–</div><div class="l">Intune-ready</div></div>
+          <div class="ov-tile good" tabindex="0" onclick="gpoSwitchTab('intune')"><div class="v" id="ov-intune">–</div><div class="l">Estimated Intune fit</div></div>
         </div>
 
         <div class="v2-grid v2-cols-2" style="margin-bottom:16px">
@@ -1668,7 +1689,7 @@
     <section class="panel" id="panel-intune" role="tabpanel">
       <div class="card" style="margin-bottom:16px">
         <div class="card-head">
-          <h2>Intune migration readiness</h2>
+          <h2>Intune migration readiness</h2><button class="topbar-btn" onclick="openGpoPlan()">Cleanup &amp; migration guide</button><a class="topbar-btn" href="/patch-status.html#migration">Shared migration register</a>
           <span class="section-note">Per-setting portability, rolled up per GPO · read-only advisory</span>
         </div>
         <div id="intuneSummary" style="padding:16px"><div class="empty-state">Upload a report to compute Intune readiness.</div></div>
@@ -1680,10 +1701,10 @@
             <input class="filter-input" id="intuneSearch" placeholder="Search GPO…">
             <select class="filter-select" id="intuneRating">
               <option value="">All ratings</option>
-              <option value="ready">Ready</option>
+              <option value="ready">Likely candidates</option>
               <option value="mostly">Mostly ready</option>
               <option value="partial">Partial</option>
-              <option value="stays">Stays in AD</option>
+              <option value="stays">Review / alternatives</option>
             </select>
             <select class="sort-select" id="intuneSort" title="Sort">
               <option value="readiness">Sort: Readiness</option>
@@ -1727,7 +1748,7 @@
     <!-- ═══ Compare Panel (trends + diff + history) ═══ -->
     <section class="panel" id="panel-compare" role="tabpanel">
       <div class="card" style="margin-bottom:16px">
-        <div class="card-head"><h2>Trend</h2><span class="section-note">Hygiene score &amp; findings over time</span></div>
+        <div class="card-head"><h2>Trend</h2><span class="section-note">Saved findings over time</span></div>
         <div id="trendStrip" style="padding:16px"></div>
       </div>
       <div class="card" style="margin-bottom:16px">
@@ -1739,6 +1760,8 @@
             <div class="fld"><label for="cmpTo">To (current)</label><select class="filter-select" id="cmpTo"></select></div>
             <button class="sidebar-btn" style="width:auto;padding:8px 18px" onclick="runDiff()">Compare</button>
           </div>
+          <label class="section-note"><input type="checkbox" id="cmpLatest" checked> Follow latest two saved snapshots</label><br>
+          <label class="section-note"><input type="checkbox" id="cmpAuto" checked> Automatically compare selected saved snapshots</label>
           <div id="diffResult" style="margin-top:8px"></div>
         </div>
       </div>
@@ -1767,7 +1790,7 @@
 
 <!-- ═══ Drawer ═══ -->
 <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
-<aside class="drawer" id="drawer">
+<aside class="drawer" id="drawer" inert aria-hidden="true">
   <div class="drawer-head">
     <div>
       <h2 id="drawerTitle">GPO Detail</h2>
@@ -1812,6 +1835,7 @@ var allUserItems=[];
 // frontend fallback for older payloads or items that lack the field.
 // ═══════════════════════════════════════════════════════════════════════════
 var activeScope='users';
+var scopeCounts=null;   // per-scope card counts from the last recomputeCounts()
 var lastScanMeta={cached:false,cachedAt:0,scanning:false,loaded:false};
 
 var SERVICE_SHARED_OUS={'SERVICE ACCOUNTS':1,'SAAS SERVICE ACCOUNTS':1,'SPECIALTY ACCOUNTS':1,'TEST OU':1,'0365 SHARED MAILBOXES':1};
@@ -1841,12 +1865,15 @@ function toggleHkSidebar(){
 function setScope(s){
   if(s!=='users'&&s!=='service-shared'&&s!=='other')return;
   activeScope=s;
-  document.querySelectorAll('.scope-tab').forEach(function(t){t.classList.toggle('active',t.dataset.scope===s)});
+  document.querySelectorAll('#scopeRow .scope-tab').forEach(function(t){t.classList.toggle('active',t.dataset.scope===s);t.setAttribute('aria-pressed',String(t.dataset.scope===s))});
+  document.getElementById('userSearchFilter').value='';
+  document.getElementById('userRiskFilter').value='all';
+  switchTab('users');
   document.getElementById('cards').classList.toggle('cards-muted',s==='service-shared');
   // Reset Users tab category filter back to All when switching scope (otherwise "Stale Users" filter from previous scope would pre-filter the new scope, which is confusing)
   var catF=document.getElementById('userCatFilter');
   if(catF)catF.value='all';
-  document.querySelectorAll('.card').forEach(function(c){c.classList.remove('active-card')});
+  document.querySelectorAll('#cards .card').forEach(function(c){c.classList.remove('active-card')});
   // Banner copy per scope
   var banner=document.getElementById('scopeBanner');
   if(s==='service-shared'){
@@ -1858,6 +1885,7 @@ function setScope(s){
   }else{
     banner.classList.remove('visible');
   }
+  if(!lastScanMeta.loaded)return;
   recomputeCounts();
   renderUsers();
   updateSidebarRiskTotals();
@@ -1898,7 +1926,12 @@ function recomputeCounts(){
 
   // Active-scope card values (user-related)
   var c=counts[activeScope]||counts.other;
-  document.getElementById('c-priv').textContent=c.priv;
+  // Privileged risk counts every scope: a stale or disabled admin is a finding whatever kind of account it is, and
+  // these usually sit in Service & shared / Other, so a count of the Users scope alone read 0.
+  scopeCounts=counts;
+  var privAll=counts.users.priv+counts['service-shared'].priv+counts.other.priv;
+  document.getElementById('c-priv').textContent=privAll;
+  document.getElementById('c-priv').parentNode.title=privAll?('Users '+counts.users.priv+' · Service & shared '+counts['service-shared'].priv+' · Other '+counts.other.priv):'';
   document.getElementById('c-stale').textContent=c.stale;
   document.getElementById('c-expired').textContent=c.expired;
   document.getElementById('c-disabled').textContent=c.disabled;
@@ -1932,13 +1965,15 @@ function updateCachedPill(){
   if(!pill||!txt)return;
   pill.classList.remove('idle','fresh','cached','scanning');
   if(lastScanMeta.scanning){pill.classList.add('scanning');txt.textContent='Scanning…';return;}
+  if(lastScanMeta.error){pill.classList.add('cached');txt.textContent='Scan failed'+(lastScanMeta.loaded?' · showing previous results':'');return;}
   if(!lastScanMeta.loaded){pill.classList.add('idle');txt.textContent='Not yet scanned';return;}
   if(lastScanMeta.cached){
     pill.classList.add('cached');
     txt.textContent='Cached '+fmtAgo(lastScanMeta.cachedAt);
   }else{
     pill.classList.add('fresh');
-    txt.textContent='Fresh scan';
+    txt.textContent='Scanned '+fmtAgo(lastScanMeta.cachedAt);
+    pill.title='Last successful user scan: '+new Date(lastScanMeta.cachedAt).toLocaleString();
   }
 }
 // Refresh the "cached X min ago" text every 30s without re-fetching
@@ -1981,27 +2016,40 @@ function esc(s){if(!s)return'';return String(s).replace(/[&<>"']/g,function(c){r
 function jsArg(v){return esc(JSON.stringify(String(v==null?'':v)));}
 function showToast(m,t){var c=document.getElementById('toastC'),e=document.createElement('div');e.className='toast '+(t||'info');e.textContent=m;c.appendChild(e);setTimeout(function(){e.style.opacity='0';setTimeout(function(){e.remove()},300)},5000);}
 function riskBadge(r){var cls=r==='high'?'risk-h':r==='medium'?'risk-m':'risk-l';return '<span class="risk '+cls+'">'+r+'</span>';}
+// AD generalized time ("20240512170000.0Z") -> ISO; anything else passes through.
+function adTimeToIso(t){var m=/^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)/.exec(t||'');return m?m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':'+m[5]+':'+m[6]+'Z':t;}
 function fmtDate(iso){if(!iso)return'—';var d=new Date(iso);return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
 function fmtDateTime(iso){if(!iso)return'—';var d=new Date(iso);return d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}
 
 // ── Tabs ──
 function switchTab(t){
-  document.querySelectorAll('.tab').forEach(function(e){e.classList.toggle('active',e.dataset.tab===t)});
-  document.querySelectorAll('.pane').forEach(function(e){e.classList.toggle('active',e.id==='pane-'+t)});
+  document.querySelectorAll('#mainTabs .tab').forEach(function(e){var on=e.dataset.tab===t;e.classList.toggle('active',on);e.setAttribute('aria-selected',String(on));e.tabIndex=on?0:-1;});
+  document.querySelectorAll('#modeHousekeeping .pane').forEach(function(e){e.classList.toggle('active',e.id==='pane-'+t)});
+  document.querySelectorAll('#cards .card').forEach(function(c){var cat=c.dataset.cat;var on=t==='groups'?cat==='emptygrp':t==='computers'?cat==='stalepc':t==='users'&&cat===document.getElementById('userCatFilter').value;c.classList.toggle('active-card',on);c.setAttribute('aria-pressed',String(on));});
   if(t==='audit')loadAudit();
   if(t==='smbx'&&!smbx.loaded)loadSmbx(false);
 }
 
 function focusCategory(cat){
-  switchTab(cat==='emptygrp'?'groups':cat==='stalepc'?'computers':'users');
+  // The privileged card counts every scope, so open the scope that holds them when this one has none.
+  if(cat==='privileged'&&scopeCounts&&!scopeCounts[activeScope].priv){
+    var best=['users','service-shared','other'].sort(function(a,b){return scopeCounts[b].priv-scopeCounts[a].priv})[0];
+    if(scopeCounts[best].priv)setScope(best);
+  }
+  var section=cat==='emptygrp'?'groups':cat==='stalepc'?'computers':'users';
+  resetFindingFilters(section);
+  switchTab(section);
   if(cat!=='emptygrp'&&cat!=='stalepc'){document.getElementById('userCatFilter').value=cat;renderUsers();}
-  document.querySelectorAll('.card').forEach(function(c){c.classList.toggle('active-card',c.dataset.cat===cat)});
+  document.querySelectorAll('#cards .card').forEach(function(c){var on=c.dataset.cat===cat;c.classList.toggle('active-card',on);c.setAttribute('aria-pressed',String(on))});
 }
 
 // ── Scan ──
 // `force=true` adds ?force=1 to bypass the 5-min server cache.
 // Cache freshness is shown in the cached pill at top of the page.
 async function runScan(force){
+  if(lastScanMeta.scanning)return;
+  var feedback=document.getElementById('scanFeedback');feedback.hidden=true;
+  lastScanMeta.error=null;
   var btn=document.getElementById('btnScan'),refresh=document.getElementById('btnRefresh'),status=document.getElementById('scanStatus');
   if(btn){btn.disabled=true;btn.innerHTML='<div class="spinner"></div> Scanning...';}
   if(refresh)refresh.disabled=true;
@@ -2011,9 +2059,9 @@ async function runScan(force){
   var qs=force?'?force=1':'';
   try{
     var [uRes,gRes,cRes]=await Promise.all([
-      fetchWithTimeout(API+'/scan/users'+qs,30000).then(function(r){return r.json()}),
-      fetchWithTimeout(API+'/scan/groups'+qs,30000).then(function(r){return r.json()}),
-      fetchWithTimeout(API+'/scan/computers'+qs,30000).then(function(r){return r.json()})
+      fetchWithTimeout(API+'/scan/users'+qs,30000).then(readScanResponse),
+      fetchWithTimeout(API+'/scan/groups'+qs,30000).then(readScanResponse),
+      fetchWithTimeout(API+'/scan/computers'+qs,30000).then(readScanResponse)
     ]);
 
     // Surface backend errors clearly instead of silently 500-ing
@@ -2046,14 +2094,120 @@ async function runScan(force){
     // For a cached load, no toast — silent is the goal
   }catch(err){
     showToast('Scan failed: '+err.message,'error');status.textContent='Scan failed';
-    lastScanMeta.scanning=false;updateCachedPill();
+    lastScanMeta.scanning=false;lastScanMeta.error=err.message;updateCachedPill();
+    feedback.textContent='Scan failed: '+(err.name==='AbortError'?'The request timed out.':err.message)+(lastScanMeta.loaded?' Previous scan results remain visible.':' No scan results are available.');
+    feedback.hidden=false;
   }finally{
     if(btn){btn.disabled=false;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Run Scan';}
     if(refresh)refresh.disabled=false;
   }
 }
 
+async function readScanResponse(r){
+  if(!r.ok)throw new Error(r.status===401||r.status===403?'Your session or permissions do not allow this scan. Reload to sign in again.':'Scan request returned HTTP '+r.status+'.');
+  return r.json();
+}
+
 function addItems(obj,cat){if(!obj||!obj.items)return;obj.items.forEach(function(i){i._cat=cat;allUserItems.push(i)});}
+
+// Finding views: one filter/sort path shared by tables and complete filtered exports.
+var findingViews={users:{page:1,size:25,key:''},groups:{page:1,size:25,key:''},computers:{page:1,size:25,key:''}};
+var findingSearchIds={users:'userSearchFilter',groups:'groupSearchFilter',computers:'compSearchFilter'};
+function findingSource(kind){
+  if(kind==='users')return allUserItems;
+  if(kind==='groups')return scanData.groups&&scanData.groups.emptyGroups?scanData.groups.emptyGroups.items||[]:[];
+  return scanData.computers&&scanData.computers.staleComputers?scanData.computers.staleComputers.items||[]:[];
+}
+function filteredFindings(kind){
+  var q=document.getElementById(findingSearchIds[kind]).value.trim().toLowerCase();
+  var cat=document.getElementById('userCatFilter').value,risk=document.getElementById('userRiskFilter').value;
+  var seen=new Set();
+  var rows=findingSource(kind).filter(function(i){
+    if(kind==='users'){
+      if(classifyItemScope(i)!==activeScope)return false;
+      var key=String(i.sam||'').toLowerCase()+'\u0000'+i._cat;
+      if(seen.has(key))return false;seen.add(key);
+      if(cat!=='all'&&i._cat!==cat)return false;
+      if(risk!=='all'&&i.risk!==risk)return false;
+    }
+    var hay=kind==='users'?[i.display,i.sam,i.mail,i.department,i.title,i.reason,i.ou]:kind==='groups'?[i.name,i.description,i.ou]:[i.name,i.os,i.ou];
+    return !q||hay.join(' ').toLowerCase().includes(q);
+  });
+  var sort=document.getElementById(kind+'Sort').value;
+  function val(i){
+    if(sort==='risk')return ({high:0,medium:1,low:2})[i.risk]??9;
+    if(sort==='oldest')return i.lastLogon?Date.parse(i.lastLogon)||0:0;
+    if(sort==='changed')return i.whenChanged?Date.parse(adTimeToIso(i.whenChanged))||0:0;
+    if(sort==='stale')return -(Number(i.lastLogonDays)||0);
+    return String(i.display||i.name||i.sam||'').toLowerCase();
+  }
+  return rows.sort(function(a,b){var x=val(a),y=val(b);return (typeof x==='string'?x.localeCompare(y,undefined,{numeric:true}):x-y)||String(a.sam||a.name||'').localeCompare(String(b.sam||b.name||''));});
+}
+function renderFindingView(kind){
+  if(kind==='users')renderUsers();else if(kind==='groups')renderGroups();else renderComputers();
+}
+function pageFindings(kind,rows){
+  var view=findingViews[kind];
+  var key=[document.getElementById(findingSearchIds[kind]).value,document.getElementById(kind+'Sort').value,kind==='users'?activeScope:'',kind==='users'?document.getElementById('userCatFilter').value:'',kind==='users'?document.getElementById('userRiskFilter').value:'',kind==='users'&&window.HKWorkbench?window.HKWorkbench.isAccountView():''].join('\u0000');
+  if(view.key!==key){view.page=1;view.key=key;}
+  var pages=Math.max(1,Math.ceil(rows.length/view.size));view.page=Math.min(view.page,pages);
+  var start=(view.page-1)*view.size,end=Math.min(start+view.size,rows.length);
+  var scopeLabel=activeScope==='users'?'Users':activeScope==='service-shared'?'Service & shared':'Other';
+  var text;
+  if(kind==='users'){
+    var unique=new Set(rows.map(function(i){return String(i.sam||'').toLowerCase()})).size;
+    var findingCount=rows.reduce(function(total,i){return total+(i._findings?i._findings.length:1);},0);
+    text=findingCount+' finding'+(findingCount===1?'':'s')+' across '+unique+' account'+(unique===1?'':'s')+' · '+scopeLabel+' scope';
+  }else text=rows.length+' '+(kind==='groups'?'empty group':'stale computer')+(rows.length===1?'':'s')+' · all account scopes';
+  document.getElementById(kind+'Results').textContent=text+(rows.length?' · '+(start+1)+'–'+end+(kind==='users'&&window.HKWorkbench&&window.HKWorkbench.isAccountView()?' accounts shown':' shown'):'');
+  document.getElementById(kind+'Reset').disabled=!document.getElementById(findingSearchIds[kind]).value&&(kind!=='users'||(document.getElementById('userCatFilter').value==='all'&&document.getElementById('userRiskFilter').value==='all'))&&document.getElementById(kind+'Sort').selectedIndex===0;
+  var exportId=kind==='users'?'btnExportUsers':'btnExport'+kind.charAt(0).toUpperCase()+kind.slice(1);
+  document.getElementById(exportId).disabled=!rows.length;
+  var pager=document.getElementById(kind+'Pager');
+  // Stable controls preserve keyboard focus while changing pages.
+  if(!pager.children.length){
+    pager.innerHTML='<label>Rows per page <select class="filter-input" id="'+kind+'PageSize" aria-label="'+kind+' rows per page" onchange="setFindingPageSize(\''+kind+'\',this.value)"><option>25</option><option>50</option><option>100</option></select></label><span id="'+kind+'PageLabel"></span><div class="ad-page-buttons"><button type="button" class="btn btn-ghost btn-sm" id="'+kind+'Prev" onclick="changeFindingPage(\''+kind+'\',-1)" aria-label="Previous '+kind+' page">Previous</button><button type="button" class="btn btn-ghost btn-sm" id="'+kind+'Next" onclick="changeFindingPage(\''+kind+'\',1)" aria-label="Next '+kind+' page">Next</button></div>';
+  }
+  document.getElementById(kind+'PageSize').value=String(view.size);
+  document.getElementById(kind+'PageLabel').textContent='Page '+view.page+' of '+pages;
+  document.getElementById(kind+'Prev').disabled=view.page===1;
+  document.getElementById(kind+'Next').disabled=view.page===pages;
+  return rows.slice(start,end);
+}
+function changeFindingPage(kind,step){
+  findingViews[kind].page=Math.max(1,findingViews[kind].page+step);renderFindingView(kind);
+  var wrap=document.querySelector('#pane-'+kind+' .tbl-wrap');wrap.scrollTop=0;
+}
+function setFindingPageSize(kind,size){findingViews[kind].size=Number(size);findingViews[kind].page=1;renderFindingView(kind);}
+function resetFindingFilters(kind){
+  document.getElementById(findingSearchIds[kind]).value='';document.getElementById(kind+'Sort').selectedIndex=0;
+  if(kind==='users'){document.getElementById('userCatFilter').value='all';document.getElementById('userRiskFilter').value='all';}
+  findingViews[kind].page=1;renderFindingView(kind);
+}
+function syncFindingCards(){
+  var cat=document.getElementById('userCatFilter').value;
+  document.querySelectorAll('#cards .card').forEach(function(c){var on=c.dataset.cat===cat;c.classList.toggle('active-card',on);c.setAttribute('aria-pressed',String(on));});
+}
+function findingEmptyMessage(kind){
+  if(!lastScanMeta.loaded)return lastScanMeta.error?'Scan unavailable. Use Refresh to try again.':'Scan results will appear here.';
+  var filtered=document.getElementById(findingSearchIds[kind]).value.trim()||(kind==='users'&&(document.getElementById('userCatFilter').value!=='all'||document.getElementById('userRiskFilter').value!=='all'));
+  if(filtered)return 'No findings match these filters. Use Reset to see all findings.';
+  return kind==='users'?'No flagged accounts in this scope.':kind==='groups'?'No empty groups found.':'No stale computers found.';
+}
+function csvFindingCell(v){
+  if(v==null)return '';
+  var s=String(v);
+  if(/^\s*[=+@-]/.test(s)||/^[\t\r\n]/.test(s))s="'"+s;
+  return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+function exportFindingCsv(kind){
+  var rows=filteredFindings(kind);if(!rows.length){showToast('No matching findings to export','info');return;}
+  var headers=kind==='groups'?['Risk','Group name','Description','Members','OU','Last changed']:['Risk','Computer','OS','Last logon','Days stale','OU'];
+  var values=rows.map(function(i){return kind==='groups'?[i.risk,i.name,i.description,0,i.ou,adTimeToIso(i.whenChanged)]:[i.risk,i.name,i.os,i.lastLogon,i.lastLogonDays,i.ou];});
+  var blob=new Blob(['\ufeff'+[headers].concat(values).map(function(r){return r.map(csvFindingCell).join(',')}).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ad-housekeeping-'+kind+'-'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(function(){URL.revokeObjectURL(url)},1000);
+  showToast('Exported '+rows.length+' matching findings','success');
+}
 
 // ── Export Users (CSV) ─────────────────────────────────────────────
 // Exports exactly what renderUsers() would currently show. Mirrors that
@@ -2061,33 +2215,18 @@ function addItems(obj,cat){if(!obj||!obj.items)return;obj.items.forEach(function
 // visible in the table is what ends up in the file.
 function exportUsersCsv(){
   if(!allUserItems||!allUserItems.length){showToast('Nothing to export — run a scan first','info');return;}
-  var catF=document.getElementById('userCatFilter').value;
-  var txtF=document.getElementById('userSearchFilter').value.toLowerCase();
-  var riskF=document.getElementById('userRiskFilter').value;
-  var seen={};
-  var items=allUserItems.filter(function(i){
-    if(classifyItemScope(i)!==activeScope)return false;
-    var key=i.sam+'_'+i._cat;if(seen[key])return false;seen[key]=true;
-    if(catF!=='all'&&i._cat!==catF)return false;
-    if(riskF!=='all'&&i.risk!==riskF)return false;
-    if(txtF&&i.display.toLowerCase().indexOf(txtF)<0&&i.sam.toLowerCase().indexOf(txtF)<0)return false;
-    return true;
-  });
+  var matching=filteredFindings('users');
+  var items=window.HKWorkbench?window.HKWorkbench.userRows(matching):matching;
   if(!items.length){showToast('Nothing to export — adjust filters','info');return;}
 
   var catLabels={stale:'Stale User',disabled:'Disabled',expired:'Expired',pwdstale:'Stale Password',nogroup:'No Groups',privileged:'Privileged Risk'};
   // CSV cell escape — wrap in quotes only when a value contains a delimiter,
   // quote, or newline. Internal quotes get doubled (RFC 4180).
-  function csv(v){
-    if(v==null)return'';
-    var s=String(v);
-    if(/[",\n\r]/.test(s))return '"'+s.replace(/"/g,'""')+'"';
-    return s;
-  }
+  var csv=csvFindingCell;
 
   var headers=['Risk','Category','Display Name','Username','Email','Department','Title','Reason','Last Logon (ISO)','Days Since Last Logon','Password Last Set (ISO)','Password Days','Disabled','Group Count','OU','DN','Scope'];
   var rows=items.map(function(i){
-    return [i.risk,catLabels[i._cat]||i._cat,i.display,i.sam,i.mail,i.department,i.title,i.reason,i.lastLogon,i.lastLogonDays,i.pwdLastSet,i.pwdDays,i.disabled?'Yes':'No',i.groupCount,i.ou,i.dn,classifyItemScope(i)].map(csv).join(',');
+    return [i.risk,i._findings?i._findings.map(function(f){return catLabels[f._cat]||f._cat;}).join('; '):catLabels[i._cat]||i._cat,i.display,i.sam,i.mail,i.department,i.title,i._findings?i._findings.map(function(f){return f.reason;}).join('\n'):i.reason,i.lastLogon,i.lastLogonDays,i.pwdLastSet,i.pwdDays,i.disabled?'Yes':'No',i.groupCount,i.ou,i.dn,classifyItemScope(i)].map(csv).join(',');
   });
   // \ufeff = UTF-8 BOM so Excel auto-detects encoding (otherwise non-ASCII names render mangled)
   var csvText='\ufeff'+headers.map(csv).join(',')+'\n'+rows.join('\n');
@@ -2095,7 +2234,7 @@ function exportUsersCsv(){
   var url=URL.createObjectURL(blob);
 
   var stamp=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  var fname='ad-housekeeping-users-'+activeScope+'-'+stamp+'.csv';
+  var fname='ad-housekeeping-'+(window.HKWorkbench&&window.HKWorkbench.isAccountView()?'accounts':'users')+'-'+activeScope+'-'+stamp+'.csv';
   var a=document.createElement('a');
   a.href=url;a.download=fname;document.body.appendChild(a);a.click();
   setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},100);
@@ -2105,30 +2244,13 @@ function exportUsersCsv(){
 // ── Render Users ──
 function renderUsers(){
   var body=document.getElementById('usersBody');
-  var catF=document.getElementById('userCatFilter').value;
-  var txtF=document.getElementById('userSearchFilter').value.toLowerCase();
-  var riskF=document.getElementById('userRiskFilter').value;
-
-  var seen={};
-  var items=allUserItems.filter(function(i){
-    if(classifyItemScope(i)!==activeScope)return false;
-    var key=i.sam+'_'+i._cat;if(seen[key])return false;seen[key]=true;
-    if(catF!=='all'&&i._cat!==catF)return false;
-    if(riskF!=='all'&&i.risk!==riskF)return false;
-    if(txtF&&i.display.toLowerCase().indexOf(txtF)<0&&i.sam.toLowerCase().indexOf(txtF)<0)return false;
-    return true;
-  });
-
-  var riskOrder={high:0,medium:1,low:2};
-  items.sort(function(a,b){return(riskOrder[a.risk]||9)-(riskOrder[b.risk]||9)});
+  var matching=filteredFindings('users');
+  var items=pageFindings('users',window.HKWorkbench?window.HKWorkbench.userRows(matching):matching);
+  if(window.HKWorkbench)window.HKWorkbench.sync();
+  syncFindingCards();
 
   if(!items.length){
-    var emptyMsg;
-    if(allUserItems.length===0)emptyMsg='Run a scan to discover cleanup opportunities';
-    else if(activeScope==='service-shared')emptyMsg='No flagged service or shared accounts in this scope';
-    else if(activeScope==='other')emptyMsg='No flagged accounts in the Other scope';
-    else emptyMsg='No matches for current filters';
-    body.innerHTML='<tr><td colspan="8" class="empty-msg">'+emptyMsg+'</td></tr>';return;
+    body.innerHTML='<tr><td colspan="8" class="empty-msg">'+findingEmptyMessage('users')+'</td></tr>';return;
   }
 
   var hideAction=(activeScope==='service-shared');
@@ -2138,16 +2260,16 @@ function renderUsers(){
     if(hideAction){
       actionCell='<span style="font-size:10px;color:var(--text3)">—</span>';
     }else if(!i.disabled){
-      actionCell='<button class="btn btn-orange btn-sm" onclick="event.stopPropagation();confirmAction(\'disable-account\','+jsArg(i.sam)+','+jsArg(i.dn)+',\'user\')">Disable</button>';
+      actionCell='<button class="btn btn-orange btn-sm" data-rbac-page="ad-housekeeping" data-rbac-level="admin" onclick="event.stopPropagation();confirmAction(\'disable-account\','+jsArg(i.sam)+','+jsArg(i.dn)+',\'user\')">Disable</button>';
     }else{
-      actionCell='<button class="btn btn-green btn-sm" onclick="event.stopPropagation();confirmAction(\'enable-account\','+jsArg(i.sam)+','+jsArg(i.dn)+',\'user\')">Enable</button>';
+      actionCell='<button class="btn btn-green btn-sm" data-rbac-page="ad-housekeeping" data-rbac-level="admin" onclick="event.stopPropagation();confirmAction(\'enable-account\','+jsArg(i.sam)+','+jsArg(i.dn)+',\'user\')">Enable</button>';
     }
     return '<tr class="clickable" onclick="showUserDetail('+jsArg(i.sam)+','+jsArg(i._cat)+')">'+
       '<td>'+riskBadge(i.risk)+'</td>'+
-      '<td>'+esc(i.display)+'</td>'+
+      '<td><button type="button" class="ad-name-link" onclick="event.stopPropagation();showUserDetail('+jsArg(i.sam)+','+jsArg(i._cat)+')" aria-label="View details for '+esc(i.display||i.sam)+'">'+esc(i.display||i.sam)+'</button></td>'+
       '<td class="cell-mono">'+esc(i.sam)+'</td>'+
-      '<td><span style="font-size:10px;color:var(--text2)">'+esc(catLabels[i._cat]||i._cat)+'</span></td>'+
-      '<td class="cell-truncate" title="'+esc(i.reason)+'">'+esc(i.reason)+'</td>'+
+      '<td>'+(i._findings&&window.HKWorkbench?window.HKWorkbench.categories(i):'<span style="font-size:10px;color:var(--text2)">'+esc(catLabels[i._cat]||i._cat)+'</span>')+'</td>'+
+      '<td class="hk-review-reason" title="'+esc(i._findings&&window.HKWorkbench?window.HKWorkbench.reasons(i):i.reason)+'">'+esc(i.reason)+(i._findings&&i._findings.length>1?'<span class="hk-reason-more">+'+(i._findings.length-1)+' related finding'+(i._findings.length===2?'':'s')+' in details</span>':'')+'</td>'+
       '<td class="cell-mono">'+fmtDate(i.lastLogon)+'</td>'+
       '<td class="cell-truncate cell-mono" title="'+esc(i.ou)+'">'+esc(i.ou)+'</td>'+
       '<td>'+actionCell+'</td>'+
@@ -2159,14 +2281,11 @@ function renderUsers(){
 function renderGroups(){
   var body=document.getElementById('groupsBody');
   if(!scanData.groups||!scanData.groups.emptyGroups){body.innerHTML='<tr><td colspan="6" class="empty-msg">Run a scan first</td></tr>';return;}
-  var items=scanData.groups.emptyGroups.items||[];
-  var txtF=document.getElementById('groupSearchFilter').value.toLowerCase();
-  if(txtF)items=items.filter(function(g){return g.name.toLowerCase().indexOf(txtF)>=0||(g.description||'').toLowerCase().indexOf(txtF)>=0});
-
-  if(!items.length){body.innerHTML='<tr><td colspan="6" class="empty-msg">No empty groups found</td></tr>';return;}
+  var items=pageFindings('groups',filteredFindings('groups'));
+  if(!items.length){body.innerHTML='<tr><td colspan="6" class="empty-msg">'+findingEmptyMessage('groups')+'</td></tr>';return;}
 
   body.innerHTML=items.map(function(g){
-    return '<tr><td>'+riskBadge(g.risk)+'</td><td>'+esc(g.name)+'</td><td class="cell-truncate">'+esc(g.description)+'</td><td class="cell-mono">0</td><td class="cell-truncate cell-mono">'+esc(g.ou)+'</td><td class="cell-mono">'+esc(g.whenChanged)+'</td></tr>';
+    return '<tr><td>'+riskBadge(g.risk)+'</td><td><button type="button" class="ad-name-link" onclick="HKWorkbench.objectDetail(\'groups\','+jsArg(g.name)+')">'+esc(g.name)+'</button></td><td class="cell-truncate">'+esc(g.description)+'</td><td class="cell-mono">0</td><td class="cell-truncate cell-mono">'+esc(g.ou)+'</td><td class="cell-mono">'+esc(fmtDate(adTimeToIso(g.whenChanged)))+'</td></tr>';
   }).join('');
 }
 
@@ -2174,14 +2293,11 @@ function renderGroups(){
 function renderComputers(){
   var body=document.getElementById('compBody');
   if(!scanData.computers||!scanData.computers.staleComputers){body.innerHTML='<tr><td colspan="7" class="empty-msg">Run a scan first</td></tr>';return;}
-  var items=scanData.computers.staleComputers.items||[];
-  var txtF=document.getElementById('compSearchFilter').value.toLowerCase();
-  if(txtF)items=items.filter(function(c){return c.name.toLowerCase().indexOf(txtF)>=0});
-
-  if(!items.length){body.innerHTML='<tr><td colspan="7" class="empty-msg">No stale computers found</td></tr>';return;}
+  var items=pageFindings('computers',filteredFindings('computers'));
+  if(!items.length){body.innerHTML='<tr><td colspan="7" class="empty-msg">'+findingEmptyMessage('computers')+'</td></tr>';return;}
 
   body.innerHTML=items.map(function(c){
-    return '<tr><td>'+riskBadge(c.risk)+'</td><td class="cell-mono">'+esc(c.name)+'</td><td>'+esc(c.os)+'</td><td class="cell-mono">'+fmtDate(c.lastLogon)+'</td><td class="cell-mono">'+c.lastLogonDays+'d</td><td class="cell-truncate cell-mono">'+esc(c.ou)+'</td>'+
+    return '<tr><td>'+riskBadge(c.risk)+'</td><td class="cell-mono"><button type="button" class="ad-name-link" onclick="HKWorkbench.objectDetail(\'computers\','+jsArg(c.name)+')">'+esc(c.name)+'</button></td><td>'+esc(c.os)+'</td><td class="cell-mono">'+fmtDate(c.lastLogon)+'</td><td class="cell-mono">'+c.lastLogonDays+'d</td><td class="cell-truncate cell-mono">'+esc(c.ou)+'</td>'+
       '<td><button class="btn btn-orange btn-sm" data-rbac-page="ad-housekeeping" data-rbac-level="admin" onclick="confirmAction(\'disable-account\','+jsArg(c.name+'$')+','+jsArg(c.dn)+',\'computer\')">Disable</button></td></tr>';
   }).join('');
 }
@@ -2212,6 +2328,7 @@ function showUserDetail(sam,cat){
       )+
       '<button class="btn btn-ghost btn-sm" onclick="closeModal()">Close</button>'+
     '</div>';
+  if(window.HKWorkbench)window.HKWorkbench.enrichDetails(item);
   document.getElementById('detailModal').classList.add('visible');
 }
 
@@ -2262,11 +2379,12 @@ async function executeAction(){
 
 // ── Audit Log ──
 async function loadAudit(){
+  if(window.HKWorkbench)window.HKWorkbench.listStart('audit');
   var body=document.getElementById('auditBody');
   body.innerHTML='<tr><td colspan="8" class="loading-msg"><div class="spinner"></div> Loading...</td></tr>';
   try{
-    var res=await fetch(API+'/audit-log');var data=await res.json();
-    if(!data.entries||data.entries.length===0){body.innerHTML='<tr><td colspan="8" class="empty-msg">No audit entries yet</td></tr>';return;}
+    var res=await fetch(API+'/audit-log');if(!res.ok)throw new Error('Audit log request returned HTTP '+res.status);var data=await res.json();
+    if(!data.entries||data.entries.length===0){body.innerHTML='<tr><td colspan="8" class="empty-msg">No audit entries yet</td></tr>';if(window.HKWorkbench)window.HKWorkbench.listLoaded('audit',[]);return;}
     body.innerHTML=data.entries.map(function(e){
       return '<tr><td class="cell-mono">'+fmtDateTime(e.created_at)+'</td>'+
         '<td>'+esc(e.action_type)+'</td><td>'+esc(e.object_type)+'</td>'+
@@ -2276,7 +2394,8 @@ async function loadAudit(){
         '<td>'+(e.reverted?'<span style="color:var(--green)">Yes</span>':'—')+'</td>'+
         '<td>'+(e.reverted||e.action_type==='revert'?'':'<button class="btn btn-ghost btn-sm" data-rbac-page="ad-housekeeping" data-rbac-level="admin" onclick="revertAction('+e.id+')">Revert</button>')+'</td></tr>';
     }).join('');
-  }catch(err){body.innerHTML='<tr><td colspan="8" class="empty-msg">Error: '+esc(err.message)+'</td></tr>';}
+    if(window.HKWorkbench)window.HKWorkbench.listLoaded('audit',data.entries);
+  }catch(err){if(window.HKWorkbench)window.HKWorkbench.listFailed('audit',err.message);body.innerHTML='<tr><td colspan="8" class="empty-msg">Error: '+esc(err.message)+'</td></tr>';}
 }
 
 async function revertAction(id){
@@ -2391,7 +2510,7 @@ function renderSmbx(){
   var body=document.getElementById('smbxBody');
   if(!smbx.data)return;
   var st=document.getElementById('smbxStatusFilter').value;
-  document.querySelectorAll('#pane-smbx .smbx-stat').forEach(function(e){e.classList.toggle('on',e.dataset.st===st)});
+  document.querySelectorAll('#pane-smbx .smbx-stat').forEach(function(e){e.classList.toggle('on',e.dataset.st===st);e.setAttribute('aria-pressed',String(e.dataset.st===st))});
   var s=smbx.sort,rows=smbxFiltered().slice().sort(function(a,b){
     var x=smbxSortVal(a,s.k),y=smbxSortVal(b,s.k);
     if(x===y)return 0;if(x==null)return 1;if(y==null)return -1;   // unknown counts last either way
@@ -2550,20 +2669,22 @@ function exportSmbxCsv(){
 }
 
 // ── Recycle Bin ──
+var recoveryLookupInFlight=false;
 async function loadRecycleBin(){
+  if(recoveryLookupInFlight)return;
+  recoveryLookupInFlight=true;
+  var loadButton=document.getElementById('btnLoadRecycleBin');loadButton.disabled=true;
+  if(window.HKWorkbench)window.HKWorkbench.listStart('recovery');
   var body=document.getElementById('recycleBody');
   body.innerHTML='<tr><td colspan="5" class="loading-msg"><div class="spinner"></div> Querying Recycle Bin...</td></tr>';
   try{
-    var res=await fetch(API+'/recycle-bin');var data=await res.json();
-    if(!data.success){body.innerHTML='<tr><td colspan="5" class="empty-msg">Error: '+esc(data.error)+'</td></tr>';return;}
-    if(!data.items||data.items.length===0){body.innerHTML='<tr><td colspan="5" class="empty-msg">Recycle Bin is empty</td></tr>';return;}
-    body.innerHTML=data.items.map(function(i){
-      return '<tr><td>'+esc(i.name)+'</td><td>'+esc(i.objectClass)+'</td>'+
-        '<td class="cell-truncate cell-mono">'+esc(i.lastKnownParent)+'</td>'+
-        '<td class="cell-mono">'+fmtDate(i.whenChanged)+'</td>'+
-        '<td><button class="btn btn-green btn-sm" data-rbac-page="ad-housekeeping" data-rbac-level="admin" onclick="restoreObject('+jsArg(i.dn)+','+jsArg(i.name)+')">Restore</button></td></tr>';
-    }).join('');
-  }catch(err){body.innerHTML='<tr><td colspan="5" class="empty-msg">Error: '+esc(err.message)+'</td></tr>';}
+    var res=await fetchWithTimeout(API+'/recycle-bin',65000);var data=await res.json();if(!res.ok)throw new Error(window.HKWorkbench?window.HKWorkbench.readError('Recycle Bin',res.status,data):'Recycle Bin request returned HTTP '+res.status);
+    if(!data.success){if(window.HKWorkbench)window.HKWorkbench.listFailed('recovery',data.error||'Request failed');body.innerHTML='<tr><td colspan="5" class="empty-msg">Error: '+esc(data.error)+'</td></tr>';return;}
+    if(data.complete!==true||data.truncated||!Array.isArray(data.items))throw new Error('The directory lookup was incomplete. Try loading again.');
+    body.innerHTML='';
+    if(window.HKWorkbench)window.HKWorkbench.listLoaded('recovery',data.items,data);
+  }catch(err){var message=err.name==='AbortError'?'Recovery lookup timed out. Try again.':err.message;if(window.HKWorkbench)window.HKWorkbench.listFailed('recovery',message);body.innerHTML='<tr><td colspan="5" class="empty-msg">Error: '+esc(message)+'</td></tr>';}
+  finally{recoveryLookupInFlight=false;loadButton.disabled=false;}
 }
 
 async function restoreObject(dn,name){
@@ -2595,7 +2716,7 @@ function filterByRiskSidebar(risk){
   switchTab('users');
   document.getElementById('userCatFilter').value='all';
   document.getElementById('userRiskFilter').value=risk;
-  document.querySelectorAll('.card').forEach(function(c){c.classList.remove('active-card')});
+  document.getElementById('userSearchFilter').value='';
   renderUsers();
 }
 
@@ -2612,17 +2733,6 @@ function updateSidebarRiskTotals(){
     else if(i.risk==='medium')m++;
     else l++;
   });
-  // Groups + computers — scope-independent (not user objects)
-  if(scanData.groups&&scanData.groups.emptyGroups&&scanData.groups.emptyGroups.items){
-    scanData.groups.emptyGroups.items.forEach(function(g){
-      if(g.risk==='high')h++; else if(g.risk==='medium')m++; else l++;
-    });
-  }
-  if(scanData.computers&&scanData.computers.staleComputers&&scanData.computers.staleComputers.items){
-    scanData.computers.staleComputers.items.forEach(function(c){
-      if(c.risk==='high')h++; else if(c.risk==='medium')m++; else l++;
-    });
-  }
   document.getElementById('sbCntHigh').textContent=h;
   document.getElementById('sbCntMed').textContent=m;
   document.getElementById('sbCntLow').textContent=l;
@@ -2799,25 +2909,107 @@ function gpoSwitchTab(name) {
 function toggleSidebar() { document.getElementById('railnav')?.classList.toggle('open'); }
 
 // ── API helpers ───────────────────────────────────────────────────────
+// Short-lived GET cache also coalesces concurrent reads. Writes always bypass it.
+function createGpoReadCache(now = Date.now, ttl = 15000) {
+  const entries = new Map(); let generation = 0;
+  return {
+    clear() { generation++; entries.clear(); },
+    read(key, work) {
+      const old = entries.get(key);
+      if (old && (old.pending || old.expires > now())) return old.promise;
+      const epoch = generation;
+      const entry = { pending: true, expires: 0 };
+      entry.promise = Promise.resolve().then(work).then(value => {
+        if (epoch === generation && entries.get(key) === entry) {
+          entry.pending = false; entry.expires = now() + ttl;
+        }
+        return value;
+      }, error => { if (entries.get(key) === entry) entries.delete(key); throw error; });
+      entries.set(key, entry);
+      if (entries.size > 150) entries.delete(entries.keys().next().value);
+      return entry.promise;
+    }
+  };
+}
+const gpoReads = createGpoReadCache();
 async function api(path, opts) {
-  const res = await fetch(API + path, opts);
-  const data = await res.json().catch(() => ({ ok: false, error: { message: 'Bad JSON' } }));
-  if (!res.ok || !data.ok) throw new Error((data.error && data.error.message) || res.statusText);
-  return data;
+  const read = !opts || !opts.method || opts.method.toUpperCase() === 'GET';
+  const work = async () => {
+    const controller = new AbortController();
+    const timer = read ? setTimeout(() => controller.abort(), 30000) : null;
+    try {
+      const res = await fetch(API + path, read ? { ...opts, signal: controller.signal } : opts);
+      const data = await res.json().catch(() => ({ ok: false, error: { message: 'Bad JSON' } }));
+      if (!res.ok || !data.ok) throw new Error((data.error && data.error.message) || res.statusText);
+      if (!read) gpoReads.clear();
+      return data;
+    } finally { clearTimeout(timer); }
+  };
+  return read ? gpoReads.read(path, work) : work();
 }
 
-// ── Refresh everything ────────────────────────────────────────────────
-async function refreshAll() {
-  document.getElementById('refreshIcon').textContent = '⟳';
+// ── Refresh saved snapshot data only ──────────────────────────────────
+let refreshPending = null, lastGpoCheck = 0, gpoNeedsRefresh = false;
+function refreshAll() {
+  if (refreshPending) return refreshPending;
+  gpoReads.clear();
+  gpoNeedsRefresh = true;
+  refreshPending = (async () => {
+    document.getElementById('refreshIcon').textContent = '⟳';
+    try {
+      const readiness = api('/intune-readiness').then(response => ({ response }), error => ({ error }));
+      const panels = [['Snapshot status', loadStats], ['Inventory', loadInventory], ['Findings', loadFindings], ['WMI filters', loadWmi], ['Snapshot history', loadUploads], ['Recommendations', loadRecs]];
+      const outcomes = await Promise.all(panels.map(async ([name, load]) => (await load()) === false ? name : null));
+      const issues = outcomes.filter(Boolean);
+      if (await loadSnapshotReadiness(await readiness) === false) issues.push('Readiness');
+      if (await renderOverview() === false) issues.push('Overview');
+      gpoNeedsRefresh = issues.length > 0;
+      renderCompareControls();
+      if (document.getElementById('panel-compare').classList.contains('active') && autoCompareEnabled()) await runDiff();
+      lastGpoCheck = Date.now();
+      setText('gpoAutoStatus', gpoNeedsRefresh ? 'Refresh incomplete: ' + issues.join(', ') + '. Retry Refresh; automatic checks will retry when enabled.' : diffFailed && autoCompareEnabled() && document.getElementById('panel-compare').classList.contains('active') ? 'Snapshot checked; comparison unavailable. Retry Compare.' : 'Saved snapshot checked ' + new Date().toLocaleTimeString());
+    } catch (e) {
+      gpoNeedsRefresh = true;
+      setText('gpoAutoStatus', 'Refresh failed: ' + e.message);
+    } finally { lastGpoCheck = Date.now(); document.getElementById('refreshIcon').textContent = '↻'; }
+  })().finally(() => { refreshPending = null; });
+  return refreshPending;
+}
+function savedGpoPreference(key, fallback) { try { return localStorage.getItem(key) ?? fallback; } catch (_) { return fallback; } }
+function saveGpoPreference(key, value) { try { localStorage.setItem(key, value); } catch (_) {} }
+function gpoAutoEligible() {
+  return __gpoInited && document.visibilityState === 'visible' && location.hash === '#gpo' &&
+    !document.getElementById('gpoScope').classList.contains('mode-hidden') && !document.querySelector('#gpoScope .gpo-modal-backdrop.open, #gpoScope .drawer.open');
+}
+async function checkGpoAutomation() {
+  const minutes = Number(document.getElementById('gpoAutoRefresh').value);
+  if (!minutes || !gpoAutoEligible() || refreshPending || Date.now() - lastGpoCheck < minutes * 60000) return;
+  // Cheap poll; re-read all panels only if the active snapshot or its history changed.
+  lastGpoCheck = Date.now(); gpoReads.clear();
   try {
-    await Promise.all([loadStats(), loadInventory(), loadFindings(), loadWmi(), loadUploads()]);
-    renderOverview();
-    renderCompareControls();
-  } catch (e) {
-    console.error('refresh error', e);
-  } finally {
-    document.getElementById('refreshIcon').textContent = '↻';
-  }
+    const [stats, uploads] = await Promise.all([api('/stats'), api('/uploads')]);
+    if (gpoNeedsRefresh || statsFailed || String(stats.data?.upload_id) !== String(state.stats?.upload_id) || JSON.stringify(uploads.data) !== JSON.stringify(state.uploads)) await refreshAll();
+    else if (diffFailed && autoCompareEnabled() && document.getElementById('panel-compare').classList.contains('active')) {
+      await runDiff();
+      setText('gpoAutoStatus', diffFailed ? 'Comparison still unavailable. Retry Compare.' : 'Saved snapshot unchanged · comparison checked ' + new Date().toLocaleTimeString());
+    } else setText('gpoAutoStatus', 'Saved snapshot unchanged · checked ' + new Date().toLocaleTimeString());
+  } catch (e) { setText('gpoAutoStatus', 'Automatic check failed: ' + e.message); }
+}
+function initGpoAutomation() {
+  const el = document.getElementById('gpoAutoRefresh');
+  const saved = savedGpoPreference('gpo.autoRefreshMinutes', '5');
+  el.value = ['0','1','5','15'].includes(saved) ? saved : '5';
+  el.addEventListener('change', () => { saveGpoPreference('gpo.autoRefreshMinutes', el.value); setText('gpoAutoStatus', el.value === '0' ? 'Automatic refresh off.' : 'Automatic checks enabled while GPO Audit is visible.'); });
+  const cmp = document.getElementById('cmpAuto'); cmp.checked = savedGpoPreference('gpo.autoCompare', 'true') === 'true';
+  cmp.addEventListener('change', () => { saveGpoPreference('gpo.autoCompare', String(cmp.checked)); if (cmp.checked) runDiff(); });
+  const latest = document.getElementById('cmpLatest');
+  latest.addEventListener('change', () => { renderCompareControls(); if (cmp.checked) runDiff(); });
+  ['cmpFrom','cmpTo'].forEach(id => document.getElementById(id).addEventListener('change', () => {
+    latest.checked = false; diffFailed = false;
+    diffRequest++; setText('diffResult', 'Selection changed. Compare these snapshots.'); if (cmp.checked) runDiff();
+  }));
+  setInterval(checkGpoAutomation, 15000);
+  document.addEventListener('visibilitychange', checkGpoAutomation);
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────
@@ -2835,6 +3027,7 @@ async function loadStats() {
     const sub = document.getElementById('pageSub');
     if (sub) sub.textContent = 'Snapshot status unavailable — ' + e.message;
     if (window.ITObserve) ITObserve.degraded('gpo-stats', 'Snapshot status unavailable', e.message);
+    return false;
   }
 }
 function renderStats() {
@@ -2856,6 +3049,7 @@ async function loadInventory() {
     renderInventory();
   } catch (e) {
     document.getElementById('invBody').innerHTML = `<tr><td colspan="7" class="empty-state">Error: ${escapeHtml(e.message)}</td></tr>`;
+    return false;
   }
 }
 function renderInventory() {
@@ -2896,6 +3090,9 @@ function renderInventory() {
     const cmp = av < bv ? -1 : av > bv ? 1 : 0;
     return s.dir === 'asc' ? cmp : -cmp;
   });
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="7" class="empty-state">No GPOs match these filters. Clear the search or choose All GPOs.</td></tr>'; return;
+  }
   body.innerHTML = rows.map(r => {
     const sections = [];
     if (r.computer_enabled) sections.push('<span class="badge ok">Computer</span>');
@@ -2946,6 +3143,7 @@ async function loadFindings() {
     renderFindings();
   } catch (e) {
     document.getElementById('findBody').innerHTML = `<div class="empty-state">Error: ${escapeHtml(e.message)}</div>`;
+    return false;
   }
 }
 function renderFindings() {
@@ -3048,6 +3246,7 @@ async function loadWmi() {
     const c = document.getElementById('tc-wmi');
     if (c) c.textContent = '\u2013';   // en dash = not measured, never 0
     if (window.ITObserve) ITObserve.degraded('gpo-wmi', 'Could not load WMI filters', e.message);
+    return false;
   }
 }
 
@@ -3061,6 +3260,7 @@ async function loadUploads() {
     const body = document.getElementById('snapBody');
     if (body) body.innerHTML = '<tr><td colspan="8" class="empty-state">Could not load snapshots — ' + escapeHtml(e.message) + '</td></tr>';
     if (window.ITObserve) ITObserve.degraded('gpo-uploads', 'Could not load snapshots', e.message);
+    return false;
   }
 }
 function renderUploads() {
@@ -3112,7 +3312,9 @@ async function deleteUpload(id) {
 }
 
 // ── Drawer ────────────────────────────────────────────────────────────
+let drawerRequest = 0;
 async function openDrawer(guid) {
+  const request = ++drawerRequest;
   const drawer = document.getElementById('drawer');
   const backdrop = document.getElementById('drawerBackdrop');
   const body = document.getElementById('drawerBody');
@@ -3123,10 +3325,12 @@ async function openDrawer(guid) {
   backdrop.classList.add('open');
   try {
     const { data } = await api(`/gpo/${encodeURIComponent(guid)}`);
+    if (request !== drawerRequest) return;
     if (!data || !data.gpo) { body.innerHTML = '<div class="empty-state">Not found.</div>'; return; }
     const g = data.gpo;
     document.getElementById('drawerTitle').textContent = g.name;
     let html = '';
+    html += `<button class="sidebar-btn" onclick="openGpoPlan('${escapeAttr(g.guid)}')">Cleanup &amp; migration plan</button>`;
     html += '<h3>Metadata</h3>';
     html += `<div class="kv">
       <div><b>GUID</b>${escapeHtml(g.guid)}</div>
@@ -3166,10 +3370,12 @@ async function openDrawer(guid) {
       : '<div class="empty-state">No settings.</div>';
     body.innerHTML = html;
   } catch (e) {
+    if (request !== drawerRequest) return;
     body.innerHTML = `<div class="empty-state">Error: ${escapeHtml(e.message)}</div>`;
   }
 }
 function closeDrawer() {
+  ++drawerRequest;
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerBackdrop').classList.remove('open');
 }
@@ -3252,6 +3458,7 @@ async function loadRecs() {
     renderRecs();
   } catch (e) {
     document.getElementById('recsBody').innerHTML = `<div class="empty-state">Error: ${escapeHtml(e.message)}</div>`;
+    return false;
   }
 }
 function renderRecs() {
@@ -3318,6 +3525,7 @@ function renderRecRow(r, i) {
       <div class="rec-body">
         ${(r.applyable && r.applyAction === 'remove_gpo') ? renderApplyBar(r) : ''}
         ${r.summary ? `<p>${escapeHtml(r.summary)}</p>` : ''}
+        <button class="topbar-btn" onclick="openGpoPlan('${escapeAttr((state.inventory.filter(g => g.name === r.gpo_name).length === 1 ? state.inventory.find(g => g.name === r.gpo_name).guid : ''))}')">Cleanup review plan</button>
         ${r.setting ? renderSettingCard(r.setting) : ''}
         ${(r.affectedGPOs && r.affectedGPOs.length) ? renderAffectedGPOs(r.affectedGPOs) : ''}
         ${r.whyItMatters ? `<h4>Why it matters</h4><div class="rec-why">${escapeHtml(r.whyItMatters)}</div>` : ''}
@@ -3431,13 +3639,6 @@ function formatEffort(totalMin) {
 document.getElementById('recsPriority').addEventListener('change', renderRecs);
 document.getElementById('recsSearch').addEventListener('input', renderRecs);
 
-// Hook into the master refresh so recs reload when the snapshot changes
-const _origRefreshAll = refreshAll;
-refreshAll = async function() {
-  await _origRefreshAll.call(this);
-  try { await loadRecs(); } catch (e) { console.warn('recs load failed', e); }
-};
-
 // ═══════════════════════════════════════════════════════════════════════
 // v2 — Overview, Intune readiness, Compare, shared UI helpers
 // ═══════════════════════════════════════════════════════════════════════
@@ -3454,9 +3655,9 @@ async function renderOverview() {
   if (!state.stats) { empty.classList.remove('hidden'); content.classList.add('hidden'); return; }
   empty.classList.add('hidden'); content.classList.remove('hidden');
 
-  let findings = [];
+  let findings = [], overviewComplete = true;
   try { const { data } = await api('/findings'); findings = data || []; ovState.allFindings = findings; }
-  catch (e) { findings = state.findings || []; }
+  catch (e) { overviewComplete = false; findings = state.findings || []; }
 
   const inv = state.inventory || [];
   const t = state.stats.totals || {};
@@ -3498,6 +3699,7 @@ async function renderOverview() {
   paintAgeHisto(inv);
   paintTopOffenders(findings);
   paintOverviewReadiness();
+  return overviewComplete;
 }
 
 function paintScore(score) {
@@ -3517,7 +3719,7 @@ function paintScore(score) {
 function paintScoreTrend(score) {
   const el = document.getElementById('scoreTrend');
   if (!el) return;
-  el.innerHTML = '<span style="color:var(--text3)">Score trend across snapshots unlocks with the /api/gpo/trends endpoint.</span>';
+  el.innerHTML = '<span style="color:var(--text3)">Trend history is not available yet.</span>';
 }
 
 function paintDonut(svgId, legendId, segs) {
@@ -3600,31 +3802,31 @@ function paintOverviewReadiness() {
   el.innerHTML = `
     <div class="rd-bar" style="height:16px;margin-bottom:12px">${bar}</div>
     <div class="donut-legend">
-      <div class="li"><span class="sw" style="background:var(--green)"></span>Ready<b>${s.ready}</b></div>
+      <div class="li"><span class="sw" style="background:var(--green)"></span>Likely candidates<b>${s.ready}</b></div>
       <div class="li"><span class="sw" style="background:var(--teal)"></span>Mostly ready<b>${s.mostly}</b></div>
       <div class="li"><span class="sw" style="background:var(--yellow)"></span>Partial<b>${s.partial}</b></div>
-      <div class="li"><span class="sw" style="background:var(--salmon)"></span>Stays in AD<b>${s.stays}</b></div>
+      <div class="li"><span class="sw" style="background:var(--salmon)"></span>Review / alternatives<b>${s.stays}</b></div>
     </div>`;
 }
 
 // ── Intune readiness ───────────────────────────────────────────────────
 function classifySetting(s) {
-  const path = (s.category_path || '').toLowerCase();
-  const type = (s.setting_type || '').toLowerCase();
-  const name = (s.setting_name || '').toLowerCase();
+  const normalize = value => String(value || '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_/-]+/g, ' ').toLowerCase();
+  const path = normalize(s.category_path), type = normalize(s.setting_type), name = normalize(s.setting_name);
   const hay = path + ' ' + type + ' ' + name;
-  if (/script/.test(hay) && /logon|logoff|startup|shutdown|script/.test(hay) && !/administrative templates/.test(path))
-    return { tier: 'no', reason: 'Scripts → Intune platform scripts / remediations' };
-  if (/folder redirection/.test(hay)) return { tier: 'no', reason: 'Folder Redirection → OneDrive Known Folder Move' };
-  if (/software installation|software settings/.test(hay) || /\bmsi\b/.test(hay)) return { tier: 'no', reason: 'Software Installation → Intune apps' };
-  if (/drive ?map|mapped drive|network drive/.test(hay)) return { tier: 'no', reason: 'Drive Maps → scripts (no CSP)' };
-  if (/scheduled task/.test(hay)) return { tier: 'no', reason: 'Scheduled Tasks → remediations' };
-  if (/printer/.test(hay)) return { tier: 'no', reason: 'Printers → Universal Print' };
-  if (/administrative templates|admx/.test(path)) return { tier: 'ready', reason: 'Administrative Template → Settings Catalog' };
-  if (/user rights assignment/.test(hay)) return { tier: 'partial', reason: 'User Rights Assignment (partial CSP)' };
-  if (/security options|account polic|password polic|account lockout|audit polic|windows firewall|system services/.test(hay)) return { tier: 'ready', reason: 'Security setting with CSP equivalent' };
-  if (/preferences/.test(path)) return { tier: 'partial', reason: 'Group Policy Preference (varies)' };
-  if (/internet explorer|control panel/.test(hay)) return { tier: 'partial', reason: 'Legacy/Control-Panel setting (partial)' };
+  // The collector stores Administrative Templates as admin_template; category paths omit that prefix.
+  if (/^admin(?:istrative)? templates?$/.test(type) || /administrative templates|admx/.test(path))
+    return { tier: 'ready', reason: 'Settings Catalog candidate — verify exact Microsoft mapping' };
+  if (/folder redirection/.test(hay)) return { tier: 'no', reason: 'Review OneDrive Known Folder Move as an alternative' };
+  if (/software installation|software settings/.test(hay) || /\bmsi\b/.test(hay)) return { tier: 'no', reason: 'Review Intune app deployment as an alternative' };
+  if (/drive ?map|mapped drive|network drive/.test(hay)) return { tier: 'no', reason: 'Drive maps need a separately reviewed alternative' };
+  if (/scheduled task/.test(hay)) return { tier: 'no', reason: 'Scheduled tasks need a separately reviewed alternative' };
+  if (/script/.test(type + ' ' + path)) return { tier: 'no', reason: 'Review platform scripts or remediations as an alternative' };
+  if (/printer/.test(type + ' ' + path)) return { tier: 'no', reason: 'Review Universal Print or another printer deployment approach' };
+  if (/user rights assignment/.test(hay)) return { tier: 'partial', reason: 'User rights candidate — verify supported rights, principals and scope' };
+  if (/security options|account polic|password|account lockout|\baudit\b|windows firewall|system services/.test(hay)) return { tier: 'ready', reason: 'Security policy candidate — verify CSP, scope and value' };
+  if (/preferences/.test(type + ' ' + path)) return { tier: 'partial', reason: 'Group Policy Preference — verify an alternative' };
+  if (/internet explorer|control panel/.test(hay)) return { tier: 'partial', reason: 'Legacy setting — review a supported replacement' };
   return { tier: 'review', reason: 'Unrecognized — manual review' };
 }
 
@@ -3649,49 +3851,31 @@ function summarizeIntune(results) {
 }
 function normalizeIntune(data) { return data.summary ? data : summarizeIntune(data.gpos || []); }
 
-async function onIntuneTab() {
-  const summary = document.getElementById('intuneSummary');
-  const body = document.getElementById('intuneBody');
-  if (!state.stats) { summary.innerHTML = '<div class="empty-state">Upload a report first.</div>'; body.innerHTML = '<div class="empty-state">No data.</div>'; return; }
-  if (intuneState.result) { renderIntune(); return; }
+async function loadSnapshotReadiness(preloaded) {
   try {
-    const { data } = await api('/intune-readiness');
-    if (data && data.gpos) { intuneState.result = normalizeIntune(data); renderIntune(); return; }
-  } catch (e) { /* endpoint not live — offer client compute */ }
-  summary.innerHTML = `
-    <div class="pending-state">
-      <span class="pi">◑</span>
-      Readiness classifies every setting in the active snapshot. The fast path is the <code>/api/gpo/intune-readiness</code> endpoint (Phase 3);
-      until it's live I can compute it now in your browser by reading each GPO's settings.
-      <div style="margin-top:14px"><button class="sidebar-btn" style="width:auto;padding:9px 20px;margin:0 auto" onclick="computeIntuneClient()">Compute readiness now</button></div>
-    </div>`;
-  body.innerHTML = '<div class="empty-state">Run the analysis to populate the leaderboard.</div>';
+    if (statsFailed) throw new Error('Snapshot status unavailable.');
+    if (preloaded?.error) throw preloaded.error;
+    const response = preloaded?.response || await api('/intune-readiness');
+    if (String(response.upload_id || '') !== String(state.stats?.upload_id || '')) throw new Error('Snapshot changed during refresh; press Refresh to retry.');
+    intuneState.result = response.data ? { ...normalizeIntune(response.data), upload_id: response.upload_id } : null;
+    intuneState.error = null;
+    if (intuneState.result) renderIntune();
+    else { setText('intuneSummary', 'No saved snapshot available.'); setText('intuneBody', 'No data.'); }
+  } catch (e) {
+    intuneState.result = null; intuneState.error = e.message;
+    setText('intuneSummary', 'Readiness unavailable: ' + e.message);
+    setText('intuneBody', 'Retry Refresh to analyze the saved snapshot.');
+    return false;
+  }
 }
-
-async function computeIntuneClient() {
-  if (intuneState.computing) return;
-  intuneState.computing = true;
-  const inv = state.inventory || [];
-  const summary = document.getElementById('intuneSummary');
-  const results = [];
-  let done = 0;
-  const queue = inv.slice();
-  const worker = async () => {
-    while (queue.length) {
-      const g = queue.shift();
-      try { const { data } = await api('/gpo/' + encodeURIComponent(g.guid)); results.push(rollupGpo(g, (data && data.settings) || [])); }
-      catch (e) { results.push(rollupGpo(g, [])); }
-      done++;
-      summary.innerHTML = `<div class="pending-state"><span class="spinner"></span>&nbsp;&nbsp;Analyzing settings… <b>${done}/${inv.length}</b></div>`;
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(6, inv.length || 1) }, worker));
-  intuneState.result = summarizeIntune(results);
-  intuneState.computing = false;
-  renderIntune();
-  setText('ov-intune', intuneState.result.summary.readyPct + '%');
-  paintOverviewReadiness();
+async function onIntuneTab() {
+  if (refreshPending) await refreshPending;
+  if (!intuneState.result) await loadSnapshotReadiness();
+  if (intuneState.result) renderIntune();
+  else if (!state.stats) setText('intuneSummary', 'No saved snapshot available.');
 }
+// Kept for existing inline/legacy callers; now uses the complete bulk snapshot read.
+async function computeIntuneClient() { gpoReads.clear(); await loadSnapshotReadiness(); paintOverviewReadiness(); }
 
 function renderIntune() {
   const res = intuneState.result; if (!res) return;
@@ -3699,13 +3883,13 @@ function renderIntune() {
   setText('tc-intune', res.gpos.length);
   document.getElementById('intuneSummary').innerHTML = `
     <div class="ov-stats" style="grid-template-columns:repeat(5,minmax(0,1fr))">
-      <div class="ov-tile good"><div class="v">${s.ready}</div><div class="l">Ready</div></div>
+      <div class="ov-tile good"><div class="v">${s.ready}</div><div class="l">Likely candidates</div></div>
       <div class="ov-tile cyan"><div class="v">${s.mostly}</div><div class="l">Mostly ready</div></div>
       <div class="ov-tile warn"><div class="v">${s.partial}</div><div class="l">Partial</div></div>
-      <div class="ov-tile"><div class="v">${s.stays}</div><div class="l">Stays in AD</div></div>
-      <div class="ov-tile good"><div class="v">${s.readyPct}%</div><div class="l">Settings portable</div></div>
+      <div class="ov-tile"><div class="v">${s.stays}</div><div class="l">Review / alternatives</div></div>
+      <div class="ov-tile good"><div class="v">${s.readyPct}%</div><div class="l">Estimated setting fit</div></div>
     </div>
-    <div class="section-note" style="margin-top:10px">Estimate from ${s.totalSettings} classified settings. The <code>/intune-readiness</code> endpoint (Phase 3) will make this authoritative &amp; complete, and unlock Convert &amp; Push (Phase 6).</div>`;
+    <div class="section-note" style="margin-top:10px">Estimate from all ${s.totalSettings} saved settings in snapshot #${res.upload_id}. Category-based scoring suggests review order; Microsoft Group Policy analytics must verify support, values, scope and OS requirements before migration. Plans do not create or assign policies.</div>`;
   renderIntuneLeaderboard();
 }
 
@@ -3720,7 +3904,7 @@ function renderIntuneLeaderboard() {
   rows.sort((a, b) => sort === 'name' ? (a.name || '').localeCompare(b.name || '') : sort === 'settings' ? b.total - a.total : b.readiness - a.readiness);
   const body = document.getElementById('intuneBody');
   if (!rows.length) { body.innerHTML = '<div class="empty-state">No GPOs match.</div>'; return; }
-  const label = { ready: 'Ready', mostly: 'Mostly ready', partial: 'Partial', stays: 'Stays in AD' };
+  const label = { ready: 'Likely candidates', mostly: 'Mostly ready', partial: 'Partial', stays: 'Review / alternatives' };
   const rowHtml = r => {
     const tot = r.total || 1;
     const seg = (v, cls) => v ? `<span class="seg ${cls}" style="width:${(v / tot * 100).toFixed(1)}%"></span>` : '';
@@ -3731,11 +3915,11 @@ function renderIntuneLeaderboard() {
       <div>${bar}</div>
       <div><span class="rating ${r.rating}">${label[r.rating]}</span></div>
       <div style="font-family:var(--mono);color:var(--text);text-align:right">${r.readiness}%</div>
-      <div style="text-align:right"><button class="rec-apply-btn" style="padding:5px 11px" onclick="event.stopPropagation();analyzeIntune('${escapeAttr(r.guid)}')">Analyze</button></div>
+      <div style="text-align:right"><button class="rec-apply-btn" style="padding:5px 11px" onclick="event.stopPropagation();openGpoPlan('${escapeAttr(r.guid)}')">Plan</button></div>
     </div>`;
   };
   if (!search && !rating) {
-    const waves = [{ key: 'ready', num: 1, t: 'Ready — clean lift-and-shift' }, { key: 'mostly', num: 2, t: 'Mostly ready — minor rework' }, { key: 'partial', num: 3, t: 'Partial — needs alternatives' }, { key: 'stays', num: 4, t: 'Stays in AD — not portable' }];
+    const waves = [{ key: 'ready', num: 1, t: 'Likely candidates — verify mappings' }, { key: 'mostly', num: 2, t: 'Mostly ready — minor rework' }, { key: 'partial', num: 3, t: 'Partial — needs alternatives' }, { key: 'stays', num: 4, t: 'Low estimate / empty — review before deciding' }];
     body.innerHTML = waves.map(w => {
       const items = rows.filter(r => r.rating === w.key);
       if (!items.length) return '';
@@ -3767,7 +3951,7 @@ function intuneAlternative(name, category) {
   return 'Settings Catalog custom OMA-URI or platform script (review)';
 }
 
-// Step 1: Analyze a GPO with Microsoft Group Policy analytics (read-only)
+// Explicit manual submission creates a Microsoft Group Policy analytics report.
 async function analyzeIntune(guid) {
   const g = ((intuneState.result && intuneState.result.gpos) || []).find(x => x.guid === guid);
   const name = g ? g.name : guid;
@@ -3807,7 +3991,7 @@ async function analyzeIntune(guid) {
         <div class="ov-tile"><div class="v">${(d.total || 0) - (d.supported || 0)}</div><div class="l">Not supported</div></div>
         <div class="ov-tile cyan"><div class="v">${d.percent}%</div><div class="l">Portable</div></div>
       </div>
-      <div class="section-note" style="margin-bottom:6px">Source: Microsoft Group Policy analytics. Read-only — nothing created in Intune.</div>
+      <div class="section-note" style="margin-bottom:6px">Source: Microsoft Group Policy analytics. Submitting creates an analysis report in Intune; configuration policies and assignments are separate actions.</div>
       <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin:12px 0 6px">MDM-supported (${sup.length})</h4>
       ${supList}
       <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin:14px 0 6px">Not supported — with alternatives (${uns.length})</h4>
@@ -3822,16 +4006,25 @@ function renderCompareControls() {
   const ups = (state.uploads || []).slice().sort((a, b) => new Date(a.uploaded_at) - new Date(b.uploaded_at));
   const from = document.getElementById('cmpFrom'), to = document.getElementById('cmpTo');
   if (from && to) {
+    const priorFrom = from.value, priorTo = to.value;
     const opts = ups.map(u => `<option value="${u.id}">#${u.id} · ${formatDate(u.uploaded_at)} · ${u.finding_count} findings</option>`).join('');
     from.innerHTML = opts; to.innerHTML = opts;
-    if (ups.length >= 2) { from.value = ups[ups.length - 2].id; to.value = ups[ups.length - 1].id; }
+    if (ups.length >= 2) {
+      const latest = document.getElementById('cmpLatest').checked;
+      from.value = !latest && ups.some(u => String(u.id) === priorFrom) ? priorFrom : ups[ups.length - 2].id;
+      to.value = !latest && ups.some(u => String(u.id) === priorTo) ? priorTo : ups[ups.length - 1].id;
+    }
+    if ((priorFrom || priorTo) && (from.value !== priorFrom || to.value !== priorTo)) {
+      diffRequest++; diffFailed = false;
+      setText('diffResult', 'Snapshot pair changed. Compare these snapshots.');
+    }
   }
   const el = document.getElementById('trendStrip');
   if (!el) return;
   if (ups.length < 2) { el.innerHTML = '<div class="pending-state" style="padding:20px"><span class="pi">📈</span>Need at least two snapshots to show a trend.</div>'; return; }
   el.innerHTML = `<div class="trend-strip">
     <div style="flex:1;min-width:260px"><div class="section-note" style="margin-bottom:8px">Findings per snapshot (${ups.length})</div>${sparkline(ups.map(u => u.finding_count || 0), 'var(--accent)')}</div>
-    <div style="font-size:12px;color:var(--text2);max-width:280px">Hygiene-score &amp; readiness trends unlock with the <code>/api/gpo/trends</code> endpoint (Phase 4). This strip uses finding counts from snapshot history.</div>
+    <div style="font-size:12px;color:var(--text2);max-width:280px">Finding counts from saved snapshot history. Compare two snapshots below to review added, removed and changed GPOs and findings.</div>
   </div>`;
 }
 
@@ -3845,21 +4038,24 @@ function sparkline(vals, color) {
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline class="area" points="${area}" style="fill:${color};stroke:none"></polyline><polyline points="${pts}" style="stroke:${color}"></polyline></svg>`;
 }
 
-function onCompareTab() { renderCompareControls(); }
+function autoCompareEnabled() { return document.getElementById('cmpAuto').checked; }
+function onCompareTab() { renderCompareControls(); if (autoCompareEnabled()) runDiff(); }
+let diffRequest = 0, diffFailed = false;
 
 async function runDiff() {
+  const request = ++diffRequest;
+  diffFailed = false;
   const from = document.getElementById('cmpFrom').value, to = document.getElementById('cmpTo').value;
   const out = document.getElementById('diffResult');
   if (!from || !to) { out.innerHTML = '<div class="empty-state">Pick two snapshots.</div>'; return; }
   if (from === to) { out.innerHTML = '<div class="empty-state">Choose two different snapshots.</div>'; return; }
   out.innerHTML = '<div class="empty-state"><span class="spinner"></span>&nbsp;&nbsp;Comparing…</div>';
   try {
-    const r = await fetch(API + `/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
-    const data = await r.json();
-    if (!r.ok || !data.ok) throw new Error((data.error && data.error.message) || ('HTTP ' + r.status));
+    const data = await api(`/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    if (request !== diffRequest) return;
     renderDiff(data.data);
   } catch (e) {
-    out.innerHTML = `<div class="pending-state"><span class="pi">⇄</span>Snapshot diff needs the <code>/api/gpo/diff</code> endpoint (Phase 4). Once live, this shows GPOs added/removed, findings resolved vs. new, and score deltas.<div class="section-note" style="margin-top:8px">(${escapeHtml(e.message)})</div></div>`;
+    if (request === diffRequest) { diffFailed = true; out.innerHTML = `<div class="empty-state">Comparison unavailable: ${escapeHtml(e.message)}. Retry Compare.</div>`; }
   }
 }
 
@@ -3893,8 +4089,16 @@ function confirmDialog(opts) {
       <div class="gpo-modal-foot"><button data-act="cancel">Cancel</button><button class="${opts.danger ? 'danger' : ''}" data-act="ok">${escapeHtml(opts.confirmLabel || 'Confirm')}</button></div>
     </div>`;
     gpoRoot().appendChild(bd);
-    const done = v => { document.removeEventListener('keydown', onKey); bd.remove(); resolve(v); };
-    const onKey = e => { if (e.key === 'Escape') done(false); if (e.key === 'Enter') done(true); };
+    const opener = document.activeElement;
+    const done = v => { document.removeEventListener('keydown', onKey); bd.remove(); if(opener?.isConnected)opener.focus(); resolve(v); };
+    const onKey = e => {
+      if (e.key === 'Escape') { e.preventDefault(); done(false); }
+      if (e.key === 'Tab') {
+        const nodes=Array.from(bd.querySelectorAll('button')),i=nodes.indexOf(document.activeElement);
+        if(e.shiftKey&&i<=0){e.preventDefault();nodes[nodes.length-1].focus();}
+        else if(!e.shiftKey&&(i<0||i===nodes.length-1)){e.preventDefault();nodes[0].focus();}
+      }
+    };
     document.addEventListener('keydown', onKey);
     bd.addEventListener('click', e => { if (e.target === bd) done(false); });
     bd.querySelector('.close').onclick = () => done(false);
@@ -3967,6 +4171,7 @@ function autoLookback(prevActive) {
 
   const PV_TTL = 60;
   let activePreview = null;     // { token, gpo, command, expiresAt, findingId, intervalId }
+  let previewRequest = 0, applying = false;
 
   // ── Apply bar (rendered inside open rec body via renderRecRow) ─────
   window.renderApplyBar = function(r) {
@@ -3983,6 +4188,10 @@ function autoLookback(prevActive) {
 
   // ── Modal lifecycle ────────────────────────────────────────────────
   window.openApplyModal = async function(findingId) {
+    if (applying) return;
+    const request = ++previewRequest;
+    if (activePreview?.intervalId) clearInterval(activePreview.intervalId);
+    activePreview = null;
     const backdrop = document.getElementById('applyModalBackdrop');
     const body     = document.getElementById('applyModalBody');
     const foot     = document.getElementById('applyModalFoot');
@@ -4000,6 +4209,7 @@ function autoLookback(prevActive) {
         body: JSON.stringify({ finding_id: findingId })
       });
       const data = await r.json();
+      if (request !== previewRequest) return;
       if (!data.ok) {
         const msg = (data.error && data.error.message) || ('HTTP ' + r.status);
         renderModalError('Preview failed', msg);
@@ -4015,11 +4225,14 @@ function autoLookback(prevActive) {
       };
       renderModalPreview(data);
     } catch (e) {
+      if (request !== previewRequest) return;
       renderModalError('Preview failed', e.message || String(e));
     }
   };
 
   window.closeApplyModal = function() {
+    if (applying) return;
+    ++previewRequest;
     const backdrop = document.getElementById('applyModalBackdrop');
     backdrop.classList.remove('open');
     document.removeEventListener('keydown', onModalKey);
@@ -4097,11 +4310,18 @@ function autoLookback(prevActive) {
   };
 
   window.executeApply = async function() {
-    if (!activePreview) return;
+    if (!activePreview || applying) return;
+    const preview = activePreview;
     const exec = document.getElementById('executeBtn');
     const cancelBtn = exec && exec.previousElementSibling;
     const input = document.getElementById('gpo_confirmInput');
-    if (exec) exec.disabled = true;
+    if (!exec || exec.disabled) return;
+    applying = true;
+    const closeBtn = document.querySelector('#applyModalBackdrop .close');
+    if(closeBtn)closeBtn.disabled=true;
+    if(cancelBtn)cancelBtn.disabled=true;
+    clearInterval(preview.intervalId);
+    exec.disabled = true;
     if (input) input.disabled = true;
     document.getElementById('applyModalBody').insertAdjacentHTML('beforeend',
       '<p id="execStatus" style="margin-top:14px;color:var(--cyan)">Running… (Backup-GPO, then Remove-GPO)</p>');
@@ -4111,7 +4331,7 @@ function autoLookback(prevActive) {
         method:'POST', credentials:'include',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          preview_token: activePreview.token,
+          preview_token: preview.token,
           confirmation_text: input ? input.value : ''
         })
       });
@@ -4126,7 +4346,7 @@ function autoLookback(prevActive) {
         body.insertAdjacentHTML('beforeend', `
           <div class="gpo-result success">
             <h5>✓ Applied</h5>
-            <p>GPO <strong>${escapeHtml(activePreview.gpo.name)}</strong> backed up and removed.</p>
+            <p>GPO <strong>${escapeHtml(preview.gpo.name)}</strong> backed up and removed.</p>
             ${data.backupId ? `<p style="font-family:var(--mono); font-size:11px; color:var(--text2)">Backup ID: ${escapeHtml(data.backupId)}<br>Restore: <code>Restore-GPO -BackupId ${escapeHtml(data.backupId)} -Path 'C:\\GPOBackups'</code></p>` : ''}
           </div>`);
         document.getElementById('applyModalFoot').innerHTML =
@@ -4140,6 +4360,10 @@ function autoLookback(prevActive) {
       }
     } catch (e) {
       renderModalError('Execute failed', e.message || String(e));
+    } finally {
+      applying = false;
+      activePreview = null;
+      if(closeBtn)closeBtn.disabled=false;
     }
   };
 
@@ -4273,8 +4497,130 @@ function autoLookback(prevActive) {
 })();
 
 
+// Read-only planning: metadata and all settings come from the saved snapshot.
+function gpoPlanSteps() {
+  return [
+    ['Record scope and ownership', 'Confirm the owner, purpose, OU links, enabled/enforced state, inheritance, security filtering and WMI filters. A finding or old modification date alone is not approval to remove a GPO.'],
+    ['Capture recovery evidence', 'Before any future change, back up the GPO in GPMC and record links, link order and filtering separately. An XML report is evidence for analysis, not a restorable GPO backup. Record the backup location and recovery owner.'],
+    ['Choose the smallest cleanup', 'For an unlinked or empty GPO, validate dependencies and business intent. For stale settings, confirm they are still needed. For conflicts, compare effective policy on representative devices and agree the winning value. Consider a reversible pilot unlink or disabling an unused section before deletion.'],
+    ['Validate a pilot', 'Use an approved test OU and representative devices/users. Record before/after effective policy, sign-in, application and security checks. Some preferences and scripts leave settings behind; removing a link may not reverse their effects.'],
+    ['Verify Intune mappings', 'Export a per-GPO XML report in GPMC. Import it into Microsoft Group Policy analytics, then inspect support, value, user/device scope, CSP and minimum OS for each setting. Heuristic candidates in this page are not verified mappings.'],
+    ['Prepare policy drafts', 'In Microsoft analytics, migrate supported settings into a Settings Catalog policy. Review names, values, unsupported items and scope tags. Keep assignments empty during review. Split user and device settings and unrelated workloads when appropriate.'],
+    ['Plan the transition', 'Define a pilot group, exclusions, owner, success criteria and rollback. Check overlapping GPO and MDM settings and workload ownership. Validate effective results before a separately approved wider assignment or GPO retirement.'],
+    ['Document rollback and closure', 'Record how to remove pilot assignments and restore the prior GPO/link configuration. Retest effective settings; do not assume unassignment restores previous values. Compare saved snapshots after an approved collection and monitor the agreed observation period before deletion.']
+  ];
+}
+function buildGpoDraft(g, detail, snapshot, review) {
+  return {
+    schema: 'corpit.gpo-review-plan.v1', environment: 'DEV', generatedAt: new Date().toISOString(), snapshot,
+    purpose: 'Review worksheet only; not a Microsoft Graph or Intune import payload.',
+    gpo: detail?.gpo || (g ? { guid: g.guid, name: g.name } : null), links: detail?.links || [], findings: detail?.findings || [],
+    checklist: gpoPlanSteps().map(([title, guidance], i) => ({ title, guidance, reviewed: !!review?.[i] })),
+    policyDraft: g ? {
+      displayName: 'REVIEW - ' + g.name, platform: 'windows', assignments: [], status: 'mapping-verification-required',
+      owner: '', pilotGroup: '', exclusions: [], successCriteria: '', rollbackOwner: '',
+      verifiedMappingCount: 0,
+      settings: (g.settings || []).map(s => ({
+        source: { scope: s.scope, type: s.setting_type, name: s.setting_name, category: s.category_path, state: s.setting_state, value: s.setting_value },
+        heuristicTier: s.tier, suggestedApproach: s.reason, mappingVerified: false,
+        targetSettingDefinitionId: null, targetCspOrOmaUri: null, targetValue: null, minimumOs: null,
+        verificationEvidence: null, reviewStatus: 'Verify in Microsoft Group Policy analytics before selecting target setting or value'
+      }))
+    } : null
+  };
+}
+function gpoCsvCell(value) {
+  let text = String(value ?? '');
+  if (/^[\s\uFEFF]*[=+@-]/.test(text)) text = "'" + text;
+  return '"' + text.replace(/"/g, '""') + '"';
+}
+function downloadGpoPlan(name, content, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function openGpoPlan(guid) {
+  const opener = document.activeElement;
+  const bd = document.createElement('div'); bd.className = 'gpo-modal-backdrop open';
+  bd.innerHTML = `<div class="gpo-modal" role="dialog" aria-modal="true" aria-labelledby="gpoPlanTitle" style="width:min(1000px,94vw)">
+    <div class="gpo-modal-head"><span class="title" id="gpoPlanTitle">Cleanup &amp; Intune review plan</span><button class="close" aria-label="Close plan">×</button></div>
+    <div class="gpo-modal-body"><div class="empty-state">Loading saved snapshot evidence…</div></div>
+    <div class="gpo-modal-foot"><button data-plan="close">Close</button></div></div>`;
+  gpoRoot().appendChild(bd);
+  const close = () => { bd.remove(); if (opener?.isConnected) opener.focus(); };
+  bd.querySelector('.close').onclick = close; bd.querySelector('[data-plan=close]').onclick = close;
+  bd.addEventListener('click', e => { if (e.target === bd) close(); });
+  bd.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.stopPropagation(); close(); }
+    if (e.key === 'Tab') {
+      const items = [...bd.querySelectorAll('button,input,select,a[href]')].filter(x => !x.disabled && x.getClientRects().length);
+      if (!items.length) return;
+      if (e.shiftKey && document.activeElement === items[0]) { e.preventDefault(); items.at(-1).focus(); }
+      else if (!e.shiftKey && document.activeElement === items.at(-1)) { e.preventDefault(); items[0].focus(); }
+    }
+  });
+  bd.querySelector('.close').focus();
+  const body = bd.querySelector('.gpo-modal-body');
+  try {
+    let g = null, detail = null, snapshot = state.stats?.upload_id;
+    if (guid) {
+      const [readiness, response] = await Promise.all([api('/intune-readiness'), api('/gpo/' + encodeURIComponent(guid))]);
+      g = readiness.data?.gpos.find(x => x.guid === guid); detail = response.data; snapshot = readiness.upload_id;
+      if (!g || !detail?.gpo || String(detail.gpo.upload_id) !== String(snapshot)) throw new Error('Snapshot changed; close this plan and Refresh before retrying.');
+    }
+    if (!bd.isConnected) return;
+    const review = {};
+    body.innerHTML = `<p class="section-note">Saved snapshot #${escapeHtml(String(snapshot ?? 'none'))}. Read-only planning; checklist marks apply only to this open plan. No cleanup or tenant action runs here.</p>
+      ${g ? `<h3>${escapeHtml(g.name)}</h3><p>${g.total} settings · ${g.readiness}% heuristic estimate · ${detail.links.length} recorded links · ${detail.findings.length} findings.</p>
+      <div class="section-note">Security filtering: ${escapeHtml(detail.gpo.security_trustees || 'Not recorded')} · WMI: ${escapeHtml(detail.gpo.wmi_filter_name || 'None recorded')}. Revalidate live scope before any future change.</div>` : '<p>Select a GPO’s Plan button or open a detail drawer for a plan with its settings, links and findings.</p>'}
+      ${g ? `<details><summary>Snapshot evidence: links and findings</summary><h4>Recorded links</h4>${detail.links.map(l => `<div class="setting-row" style="display:block">${escapeHtml(l.som_path || l.som_name || 'Unknown scope')} · ${l.link_enabled ? 'Enabled' : 'Disabled'} · ${l.enforced ? 'Enforced' : 'Not enforced'}</div>`).join('') || '<p>No links recorded.</p>'}<h4>Findings to investigate</h4>${detail.findings.map(f => `<div class="setting-row" style="display:block"><b>${escapeHtml(f.code)} · ${escapeHtml(f.title)}</b><p>${escapeHtml(f.detail || '')}</p></div>`).join('') || '<p>No findings recorded. This does not confirm safe removal.</p>'}</details>` : ''}
+      <p>${g ? `<a class="topbar-btn" href="/patch-status.html#migration?gpo=${encodeURIComponent(g.guid)}">Open shared migration record</a> · Save the owner, stage, linked Intune profiles and pilot group in the shared register. The worksheet below remains session-only.` : '<a class="topbar-btn" href="/patch-status.html#migration">Open shared migration register</a>'}</p>
+      <h3>Cleanup and transition checklist</h3>
+      ${gpoPlanSteps().map(([title, text], i) => `<div class="setting-row" style="display:block"><label><input type="checkbox" data-review="${i}" aria-label="${escapeAttr(title)}"> <b>${escapeHtml(title)}</b></label><p>${escapeHtml(text)}</p></div>`).join('')}
+      <h3>Draft policy review</h3>${g ? `<div class="filters"><label>Draft policy name <input class="filter-input" data-draft="displayName" value="${escapeAttr('REVIEW - ' + g.name)}"></label><label>Review owner <input class="filter-input" data-draft="owner" placeholder="Owner"></label><label>Pilot group (planning only) <input class="filter-input" data-draft="pilotGroup" placeholder="Unassigned"></label><label>Success criteria <input class="filter-input" data-draft="successCriteria" placeholder="Validation checks"></label><label>Rollback owner <input class="filter-input" data-draft="rollbackOwner" placeholder="Recovery owner"></label></div>` : ''}<p>${g ? 'A draft worksheet includes every saved setting and source value. No verified Microsoft mappings are stored in this snapshot. Target IDs and values stay unset until verified; this is not a deployable policy payload.' : 'Per-GPO drafts are available from the leaderboard or detail drawer.'}</p>
+      ${g ? `<label>Search setting worksheet <input class="filter-input" data-plan="search" placeholder="Name, path, scope, approach…"></label><div data-plan="count" role="status"></div><div data-plan="settings"></div><div><button data-plan="prev">Previous settings</button> <button data-plan="next">Next settings</button></div>` : ''}
+      <p><a href="https://learn.microsoft.com/en-us/intune/device-configuration/import-group-policy-analytics" target="_blank" rel="noopener">Microsoft: import and analyze GPOs</a> · <a href="https://learn.microsoft.com/en-us/intune/device-configuration/settings-catalog/tutorial-group-policy-migration" target="_blank" rel="noopener">Create a Settings Catalog policy</a> · <a href="https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/group-policy/group-policy-backup-restore" target="_blank" rel="noopener">GPO backup and recovery</a></p>
+      <div class="list-toolbar">${g ? '<button class="topbar-btn" data-plan="microsoft">Microsoft analysis…</button>' : ''}<button class="topbar-btn" data-plan="export">Download review plan${g ? ' + policy draft' : ''} (JSON)</button>${g ? '<button class="topbar-btn" data-plan="csv">Export all settings (CSV)</button>' : ''}</div>`;
+    body.querySelectorAll('[data-review]').forEach(el => el.addEventListener('change', () => { review[el.dataset.review] = el.checked; }));
+    const filename = 'gpo-' + (guid || 'guide') + '-snapshot-' + (snapshot || 'none');
+    body.querySelector('[data-plan=export]').onclick = () => {
+      const plan = buildGpoDraft(g, detail, snapshot, review);
+      body.querySelectorAll('[data-draft]').forEach(el => { if (plan.policyDraft) plan.policyDraft[el.dataset.draft] = el.value.trim(); });
+      downloadGpoPlan(filename + '-review.json', JSON.stringify(plan, null, 2), 'application/json');
+    };
+    if (g) {
+      body.querySelector('[data-plan=microsoft]').onclick = async () => {
+        const approved = await confirmDialog({ title: 'Submit to Microsoft analysis?', body: 'This manual action reads a current GPO report from AD and creates an analysis report in Microsoft Intune. It is separate from saved-snapshot automation and does not create configuration policies. Continue?', confirmLabel: 'Submit analysis' });
+        if (approved && bd.isConnected) { close(); analyzeIntune(guid); }
+        else if (bd.isConnected) body.querySelector('[data-plan=microsoft]').focus();
+      };
+      let page = 0;
+      const search = body.querySelector('[data-plan=search]');
+      const draw = () => {
+        const q = search.value.trim().toLowerCase();
+        const rows = g.settings.filter(s => [s.setting_name,s.category_path,s.scope,s.reason].some(v => String(v || '').toLowerCase().includes(q)));
+        page = Math.max(0, Math.min(page, Math.ceil(rows.length / 50) - 1));
+        body.querySelector('[data-plan=count]').textContent = `${rows.length} matching / ${g.total} total · showing ${rows.length ? page * 50 + 1 : 0}–${Math.min(rows.length, (page + 1) * 50)}`;
+        body.querySelector('[data-plan=settings]').innerHTML = rows.slice(page * 50, (page + 1) * 50).map(s => `<div class="setting-row" style="display:block"><b>${escapeHtml(s.setting_name || s.setting_type || 'Unnamed setting')}</b><div>${escapeHtml(s.scope || 'Scope not recorded')} · ${escapeHtml(s.category_path || '')}</div><div>State: ${escapeHtml(s.setting_state ?? 'Not recorded')} · Value: ${escapeHtml(s.setting_value ?? 'Not recorded')}</div><div class="section-note">Suggested review: ${escapeHtml(s.reason)} · mapping unverified</div></div>`).join('') || '<div class="empty-state">No matching settings.</div>';
+        body.querySelector('[data-plan=prev]').disabled = page === 0;
+        body.querySelector('[data-plan=next]').disabled = (page + 1) * 50 >= rows.length;
+      };
+      search.oninput = () => { page = 0; draw(); };
+      body.querySelector('[data-plan=prev]').onclick = () => { page--; draw(); };
+      body.querySelector('[data-plan=next]').onclick = () => { page++; draw(); };
+      body.querySelector('[data-plan=csv]').onclick = () => {
+        const columns = ['GPO','Snapshot','Scope','Type','Setting','Category','State','Source value','Heuristic tier','Suggested review','Mapping verified'];
+        const rows = g.settings.map(x => [g.name,snapshot,x.scope,x.setting_type,x.setting_name,x.category_path,x.setting_state,x.setting_value,x.tier,x.reason,'No']);
+        downloadGpoPlan(filename + '-settings.csv', '\uFEFF' + [columns,...rows].map(row => row.map(gpoCsvCell).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+      };
+      draw();
+    }
+  } catch (e) { if (bd.isConnected) body.innerHTML = `<div class="empty-state">Plan unavailable: ${escapeHtml(e.message)}. Close and retry Refresh.</div>`; }
+}
+
 // ── merged-page exports: every gpo function referenced by inline on* handlers
 // (the Phase-2 IIFE above already exported its own window.* handlers)
+window.openGpoPlan = openGpoPlan;
 window.gpoSwitchTab = gpoSwitchTab;
 window.toggleSidebar = toggleSidebar;
 window.refreshFromAD = refreshFromAD;
@@ -4296,7 +4642,8 @@ var __gpoInited = false;
 window.__gpoInit = function(){
   if (__gpoInited) return;
   __gpoInited = true;
-  refreshAll();   // the hooked version (also loads recommendations)
+  initGpoAutomation();
+  refreshAll();
 };
 })();
 </script>
@@ -4320,6 +4667,7 @@ window.__gpoInit = function(){
   var bGpo = document.getElementById('modeBtnGpo');
   var superAdmin = false;
   var authResolved = false;
+  var linkedPlanOpened = false;
 
   function requestedMode(){
     return location.hash === '#gpo' ? 'gpo' : 'housekeeping';
@@ -4341,6 +4689,13 @@ window.__gpoInit = function(){
     bHk.setAttribute('aria-selected', String(!isGpo));
     bGpo.setAttribute('aria-selected', String(isGpo));
     if (isGpo && typeof window.__gpoInit === 'function') window.__gpoInit();
+    // A plan deep link is opened only after the existing super-admin gate passes.
+    var planGuid = new URLSearchParams(location.search).get('gpoPlan');
+    if (isGpo && !linkedPlanOpened && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planGuid || '') && typeof window.openGpoPlan === 'function') {
+      linkedPlanOpened = true;
+      window.gpoSwitchTab('intune');
+      window.openGpoPlan(planGuid.toLowerCase());
+    }
   }
 
   bHk.addEventListener('click', function(){
@@ -4371,7 +4726,78 @@ window.__gpoInit = function(){
     });
 })();
 </script>
+<script src="/ad-housekeeping-workbench.js?v=cc30a81f8d7d" defer></script>
 <script src="/it-version.js" data-app-key="ad-housekeeping" defer></script>
 <script src="/it-topbar.js" defer></script>
+<script>
+// Page-scoped keyboard behavior; preserve the existing action and RBAC paths.
+(function(){
+  var tabs=Array.from(document.querySelectorAll('#mainTabs .tab'));
+  document.getElementById('mainTabs').addEventListener('keydown',function(e){
+    if(!['ArrowRight','ArrowLeft','Home','End'].includes(e.key))return;
+    var i=tabs.indexOf(e.target);if(i<0)return;e.preventDefault();
+    var n=e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:tabs.length-1))%tabs.length;
+    tabs[n].click();tabs[n].focus();
+  });
+  document.querySelectorAll('#cards .card, #pane-smbx .smbx-stat').forEach(function(el){
+    el.setAttribute('role','button');el.tabIndex=0;el.setAttribute('aria-pressed','false');
+    el.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click();}});
+  });
+  document.getElementById('pane-smbx').querySelector('.filter-row').insertAdjacentHTML('beforeend','<button type="button" class="btn btn-ghost btn-sm" id="smbxReset">Reset</button>');
+  document.getElementById('smbxReset').onclick=function(){
+    ['smbxStatusFilter','smbxSourceFilter','smbxExtraFilter'].forEach(function(id){document.getElementById(id).value='all'});document.getElementById('smbxSearch').value='';renderSmbx();
+  };
+  document.querySelectorAll('#smbxHead th[data-k], #invTable th[data-sort]').forEach(function(th){
+    th.tabIndex=0;th.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();th.click();}});
+  });
+  var dialogs=['detailModal','confirmModal'].map(function(id){return document.getElementById(id)});
+  dialogs.forEach(function(overlay){
+    var opener=null;
+    new MutationObserver(function(){
+      if(overlay.classList.contains('visible')){if(!overlay.contains(document.activeElement)){opener=document.activeElement;overlay.firstElementChild.focus();}}
+      else if(opener&&opener.isConnected){opener.focus();opener=null;}
+    }).observe(overlay,{attributes:true,attributeFilter:['class']});
+    overlay.addEventListener('keydown',function(e){
+      if(e.key!=='Tab')return;
+      var nodes=Array.from(overlay.querySelectorAll('button:not(:disabled), input:not(:disabled),select:not(:disabled),a[href],[tabindex="0"]')).filter(function(n){return n.getClientRects().length});
+      if(!nodes.length){e.preventDefault();return;}
+      var i=nodes.indexOf(document.activeElement);
+      if(e.shiftKey&&(i===0||i===-1)){e.preventDefault();nodes[nodes.length-1].focus();}
+      else if(!e.shiftKey&&(i===nodes.length-1||i===-1)){e.preventDefault();nodes[0].focus();}
+    });
+  });
+  ['drawer','applyModalBackdrop'].forEach(function(id){
+    var overlay=document.getElementById(id),modal=overlay.querySelector('.gpo-modal')||overlay,opener=null,opened=false;
+    modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.tabIndex=-1;
+    modal.setAttribute('aria-labelledby',id==='drawer'?'drawerTitle':'applyModalTitle');
+    function sync(){
+      var on=overlay.classList.contains('open');
+      overlay.inert=!on;overlay.setAttribute('aria-hidden',String(!on));
+      if(on&&!opened){opener=document.activeElement;modal.focus();}
+      if(!on&&opened&&opener?.isConnected)opener.focus();opened=on;
+    }
+    sync();new MutationObserver(sync).observe(overlay,{attributes:true,attributeFilter:['class']});
+    overlay.addEventListener('keydown',function(e){
+      if(e.key!=='Tab')return;
+      var ns=Array.from(modal.querySelectorAll('button:not(:disabled),input:not(:disabled),a[href],[tabindex="0"]')).filter(function(n){return n.getClientRects().length}),i=ns.indexOf(document.activeElement);
+      if(!ns.length){e.preventDefault();return;}
+      if(e.shiftKey&&i<=0){e.preventDefault();ns[ns.length-1].focus();}
+      else if(!e.shiftKey&&(i<0||i===ns.length-1)){e.preventDefault();ns[0].focus();}
+    });
+  });
+  document.addEventListener('click',function(e){
+    var sb=document.getElementById('hkSidebar');
+    if(sb.classList.contains('open')&&!sb.contains(e.target)&&!e.target.closest('.hk-toggle'))toggleHkSidebar();
+    var rail=document.getElementById('railnav');
+    if(rail.classList.contains('open')&&!rail.contains(e.target)&&!e.target.closest('.sb-toggle'))toggleSidebar();
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape')return;
+    var sb=document.getElementById('hkSidebar');if(sb.classList.contains('open')){toggleHkSidebar();document.querySelector('.hk-toggle').focus();}
+    var rail=document.getElementById('railnav');if(rail.classList.contains('open')){toggleSidebar();document.querySelector('.sb-toggle').focus();}
+  });
+})();
+
+</script>
 </body>
 </html>

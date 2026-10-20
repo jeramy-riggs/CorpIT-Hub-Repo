@@ -1,0 +1,376 @@
+/* Operations Hub (landing.html): AI Governance portal skin. Presentation only; loads after the inline <style>.
+   Same facelift as IT Asset Console, Zscaler Command, AI Governance and SharePoint Governance:
+   dark governance top bar, the governance banner as the hero, Nunito, flat raised surfaces, green primary.
+   The landing page has no theme toggle and is light-only, so this carries the governance LIGHT palette.
+   Layout is untouched: no grid, size or position changes, only colour, type, radius and elevation.
+   Tone tokens (--green/--purple/--rose/...) are left alone: they are the colours an admin picks in the console.
+   The palette blend below softens their surface tints without changing their hue or meaning. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+
+:root {
+  --lp-font: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --lp-ease: cubic-bezier(.23, 1, .32, 1);
+
+  --page: #eff1f3;
+  --surface: #fff;
+  --line: #e4e8ed; --line-2: #dfe3e8;
+  --ink: #17212e; --muted: #5d6b7e; --dim: #7f8d9e;
+  --lp-surface2: #f6f8fa; --lp-surface3: #eef1f4; --lp-border: #cdd4dc;
+
+  /* the page's own pinned blue becomes the governance accent */
+  --hub-blue: #147299; --blue-dk: #105c7b; --blue-tint: #e3f0f5;
+  --lp-tint: #1472991a; --lp-tint-2: #1472992b;
+
+  --shadow-strip: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --shadow-panel: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+}
+/* Stat-strip and recent tiles tinted "blue" keep the console's blue swatch, not the accent. */
+.t-blue { background: #E4F2FD; color: #1C77FA; }
+
+html, body { background: var(--page); }
+body { font-family: var(--lp-font); color: var(--ink); }
+::selection { background: #7dc9e740; }
+:focus-visible { outline-color: var(--hub-blue); }
+
+/* ── top bar: governance chrome ───────────────────────────────────── */
+.hdr { background: #161c28; box-shadow: inset 0 -1px 0 #303746; }
+.hdr :focus-visible { outline-color: #a5d877; }
+.brand-sq {
+  background: linear-gradient(140deg, #3d7924, #78be20); color: #0b1a05;
+  box-shadow: inset 0 1px 0 #ffffff33;
+}
+.brand-tx b { font-weight: 850; letter-spacing: .2px; }
+.brand-tx i { font-weight: 800; letter-spacing: .14em; color: #9aa6b5; }
+.nav-i { color: #b8c2cf; font-weight: 650; }
+.nav-i::after { background: #78be20; }
+.nav-i.is-active { color: #a5d877; font-weight: 750; }
+@media (hover:hover) and (pointer:fine) {
+  .nav-i:hover { color: #fff; }
+  .nav-i.is-active:hover { color: #a5d877; }
+  .hdr-btn:hover { background: #202936; }
+}
+.hdr-btn { color: #c1cad6; }
+.statpill { font-weight: 700; }
+.hdr .ittb {
+  --ittb-fg: #e6edf7; --ittb-muted: #b7c5d7; --ittb-surface: #263241;
+  --ittb-panel: #142533; --ittb-panel-2: #203645; --ittb-line: #43546a;
+  --ittb-av-bg: #294b7c; font-family: inherit;
+}
+.hdr .ittb .ittb-av { background: #294b7c; border-color: #43546a; font-weight: 750; }
+
+/* ── hero: the governance banner ──────────────────────────────────── */
+.hero {
+  background-color: #060e18;
+  background-image: url('/ai-governance-portal-banner.webp?v=1');
+  background-size: cover; background-position: center 47%;
+  border-bottom: 3px solid #78be20;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+.hero::after { background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840); }
+.hero-h1 { font-weight: 850; letter-spacing: -.7px; text-shadow: none; }
+.hero-sub { font-weight: 500; color: #e0e8ef; text-shadow: none; }
+.hero-meta { font-weight: 650; color: #e0e8ef; text-shadow: none; }
+.hero-search { border-radius: 9px; box-shadow: 0 2px 6px #00000033; }
+.hs-ph { color: #5f6d80; }
+.hero-search svg { color: #5f6d80; }
+.hs-kbd kbd { background: var(--lp-surface2); border-color: var(--line-2); color: var(--muted); font-family: var(--lp-font); font-weight: 750; }
+@media (hover:hover) and (pointer:fine) {
+  .hero-search:hover { box-shadow: 0 0 0 3px #a5d87740, 0 6px 20px -8px #00000066; }
+}
+
+/* ── stats strip: a raised command bar on the banner's lower edge ── */
+.stats {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 13px;
+  box-shadow: var(--shadow-strip);
+}
+/* Square cells so the hairline dividers stay straight; the strip clips hover fills to its own corners. */
+.stats { overflow: hidden; }
+.stat, .stat:focus-visible { border-radius: 0; }
+.stat:focus-visible { outline-offset: -3px; }
+@media (hover:hover) and (pointer:fine) { .stat:hover { background: var(--lp-surface2); } }
+.stat+.stat { box-shadow: inset 1px 0 0 var(--line); }
+.stat-n { font-weight: 850; letter-spacing: -.4px; color: var(--ink); }
+.stat-l { font-weight: 650; color: var(--muted); }
+@media (max-width:1240px) {
+  .stat:nth-child(n+5) { box-shadow: inset 1px 0 0 var(--line), inset 0 1px 0 var(--line); }
+  .stat:nth-child(5) { box-shadow: inset 0 1px 0 var(--line); }
+}
+@media (max-width:960px) {
+  .stat+.stat { box-shadow: none; }
+  .stat:nth-child(2n) { box-shadow: inset 1px 0 0 var(--line); }
+  .stat:nth-child(n+3) { box-shadow: inset 0 1px 0 var(--line); }
+  .stat:nth-child(4) { box-shadow: inset 1px 0 0 var(--line), inset 0 1px 0 var(--line); }
+}
+@media (max-width:960px) and (min-width:721px) {
+  .stat:nth-child(2n+4) { box-shadow: inset 1px 0 0 var(--line), inset 0 1px 0 var(--line); }
+}
+@media (max-width:720px) {
+  .stat+.stat { box-shadow: inset 0 1px 0 var(--line) !important; }
+}
+
+/* ── workday + buttons: quiet surfaces, green primary ─────────────── */
+.workday h2 { font-weight: 850; letter-spacing: -.4px; }
+.workday p { font-weight: 500; }
+.btn {
+  border-radius: 7px; font-weight: 750;
+  background: var(--lp-surface2); border-color: var(--line-2); color: var(--ink); box-shadow: none;
+}
+.btn svg { color: var(--hub-blue); }
+@media (hover:hover) and (pointer:fine) {
+  .btn:hover { background: var(--lp-surface3); border-color: var(--hub-blue); box-shadow: none; }
+}
+.btn-pri { background: #3d7924; border-color: #3d7924; color: #fff; box-shadow: none; }
+.btn-pri svg { color: #fff; }
+@media (hover:hover) and (pointer:fine) {
+  .btn-pri:hover { background: #31631c; border-color: #31631c; box-shadow: none; }
+}
+
+/* ── panels ───────────────────────────────────────────────────────── */
+.panel { border-color: var(--line); border-radius: 13px; }
+.p-head h3 { font-weight: 850; letter-spacing: -.3px; }
+.p-sub { font-weight: 500; }
+.p-link { font-weight: 750; }
+.badge { font-weight: 750; border-radius: 6px; background: #fbe4e6; color: #b33440; }
+.badge.is-calm { background: #e5f0dd; color: #3d7924; }
+.badge.is-unk { background: var(--lp-surface3); color: var(--muted); }
+
+.pq-row { background: var(--surface); border-color: var(--line); border-radius: 9px; }
+@media (hover:hover) and (pointer:fine) {
+  .pq-row:hover { background: var(--lp-surface2); border-color: var(--lp-border); box-shadow: var(--shadow-panel); }
+}
+.pq-t, .sd-t, .tile-t, .env-t, .recent-t { font-weight: 800; letter-spacing: -.2px; }
+.pq-b { color: var(--dim); }
+.sd-m b { font-weight: 850; }
+.sd-sep { background: var(--line-2); }
+@media (hover:hover) and (pointer:fine) { .sd-m a:hover { background: var(--lp-tint); } }
+
+.tile { border-radius: 10px; }
+.tile-t { color: var(--ink); }
+.tile-s { color: var(--muted); }
+.tile-go { font-weight: 750; }
+.ql-edit, .ql-done { border-radius: 7px; font-weight: 750; border-color: var(--line-2); }
+@media (hover:hover) and (pointer:fine) {
+  .ql-edit:hover, .ql-done:hover { background: var(--lp-surface2); border-color: var(--lp-border); }
+}
+.ql-edit[aria-expanded="true"] { background: var(--lp-tint); border-color: #14729955; color: var(--blue-dk); }
+.ql-manage { font-weight: 750; }
+
+.env-i { border-left-color: var(--line); }
+@media (hover:hover) and (pointer:fine) { .env-i:hover { background: var(--lp-surface2); } }
+.env-n { font-weight: 750; }
+.env-v { font-weight: 650; }
+.s-ok .env-dot { background: #3d7924; } .s-ok .env-v { color: #3d7924; }
+.s-warn .env-dot { background: #c69320; } .s-warn .env-v { color: #8b641f; }
+.s-bad .env-dot { background: #d64550; } .s-bad .env-v { color: #b33440; }
+.recent-ch { color: var(--dim); }
+
+.sk, .uc-skel i { background: #e8ecf0; }
+
+/* ── command palette, dialogs, look-up-user card ──────────────────── */
+.scrim { background: rgba(15, 27, 45, .45); }
+.cmd, .dlg { border-radius: 14px; box-shadow: 0 2px 4px #10182814, 0 28px 60px -18px #10182859; }
+.cmd-top, .cmd-foot { border-color: var(--line); }
+.cmd-foot { background: var(--lp-surface2); }
+.cmd-grp { font-weight: 800; letter-spacing: .06em; color: var(--dim); }
+/* Arrow-key selection is a keyboard action: it moves instantly, no fade. */
+.cmd-it { transition: none; }
+.cmd-it[aria-selected="true"] { background: var(--lp-tint-2); box-shadow: inset 3px 0 0 #78be20; }
+.cmd-t { font-weight: 750; }
+.cmd-esc, .cmd-foot kbd { background: var(--lp-surface2); border-color: var(--line-2); color: var(--muted); font-family: var(--lp-font); }
+.dlg-top h2 { font-weight: 850; letter-spacing: -.3px; }
+.dlg-x { border-radius: 7px; }
+@media (hover:hover) and (pointer:fine) { .dlg-x:hover { background: var(--lp-surface3); } }
+/* Look-up-user: the search box used to sit flush on the dialog's bottom edge (.dlg-body has no bottom padding). */
+.rp .dlg-body { padding-bottom: 16px; }
+.fld label { font-weight: 750; }
+.fld input, .fld textarea, .rp-srch, .rp-in, .rp-ta, .rp-pwd, .rp-gen { border-color: var(--line-2); border-radius: 7px; }
+.fld input:focus, .fld textarea:focus, .rp-srch:focus, .rp-in:focus, .rp-ta:focus, .rp-pwd:focus {
+  border-color: var(--hub-blue); box-shadow: 0 0 0 3px var(--lp-tint-2);
+}
+.dlg-msg { border-radius: 7px; }
+.dlg-msg.ok { background: #e5f0dd; color: #2f5e1c; }
+.rp-dd { border-color: var(--line-2); }
+.rp-di.hi { background: var(--lp-tint); box-shadow: inset 3px 0 0 #78be20; }
+@media (hover:hover) and (pointer:fine) { .rp-di:hover { background: var(--lp-surface2); } }
+.rp-di .n, .rp-card .cn { font-weight: 750; }
+.rp-card, .uc-sec { background: var(--lp-surface2); border-color: var(--line); border-radius: 9px; }
+.rp-lbl, .uc-sec h4 { font-weight: 800; letter-spacing: .05em; }
+.rp-btn { border-radius: 7px; font-weight: 750; }
+.rp-btn.unlock { background: var(--hub-blue); }
+.rp-btn.ticket, .rp-btn.done { background: #3d7924; }
+@media (hover:hover) and (pointer:fine) {
+  .rp-btn.unlock:hover { background: var(--blue-dk); }
+  .rp-btn.ticket:hover { background: #31631c; }
+}
+.uc-pill { font-weight: 800; border-radius: 5px; }
+.uc-fb { border-radius: 7px; font-weight: 750; border-color: var(--line-2); background: var(--lp-surface2); box-shadow: none; }
+.uc-fb.pri { background: #3d7924; border-color: #3d7924; }
+@media (hover:hover) and (pointer:fine) {
+  .uc-fb:hover { border-color: var(--hub-blue); }
+  .uc-fb.pri:hover { background: #31631c; border-color: #31631c; }
+}
+
+/* Numbers everywhere keep tabular figures in the governance face. */
+.stat-n, .sd-m b, .wx-site .wx-t { font-variant-numeric: tabular-nums; }
+
+@media print {
+  .hero { background: none; box-shadow: none; border-bottom: 2px solid #3d7924; }
+  .hero::after { display: none; }
+  .hero-in, .hero-h1, .hero-sub, .hero-meta { color: #17212e; }
+  .stats, .panel { box-shadow: none; }
+}
+
+/* Desktop depth pass, 2026-10-18. Existing palette, artwork, typography and
+   geometry stay intact. Only Quick launch moves: operational readings stay
+   still. No load choreography or perpetual motion on this daily workspace. */
+@media screen {
+  :root {
+    --shadow-strip: 0 1px 2px #10182814, 0 6px 12px -6px #10182826,
+      0 24px 40px -22px #10182852, inset 0 1px 0 #ffffff;
+    --shadow-panel: 0 1px 2px #1018280a, 0 4px 8px -6px #10182824,
+      0 16px 28px -24px #10182840, inset 0 1px 0 #ffffff;
+  }
+
+  .hdr { box-shadow: inset 0 -1px 0 #303746, 0 2px 8px #060e1826; }
+  .hero { box-shadow: inset 0 1px 0 #ffffff0d, inset 0 -38px 40px -32px #060e1899; }
+  .hero-search {
+    box-shadow: 0 1px 2px #00000026, 0 8px 18px -8px #00000066,
+      inset 0 1px 0 #ffffff;
+  }
+
+  /* Shallow inset highlights give the existing tinted icon wells an edge. */
+  .stat-ic, .pq-ic, .sd-ic, .env-ic, .recent-ic, .tile-ic {
+    box-shadow: inset 0 1px 0 #ffffffb3, inset 0 -1px 1px #10182808;
+  }
+  .pq-row { box-shadow: 0 1px 2px #10182805; }
+  .tile {
+    box-shadow: inset 0 1px 0 #ffffff99, inset 0 0 0 1px #10182808,
+      0 2px 3px -2px #10182826;
+    transition: transform 160ms var(--ease-out);
+  }
+  /* Fade an inset light edge instead of animating a painted shadow. This
+     pseudo-element never catches a click, including console edit controls. */
+  .tile::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    pointer-events: none; opacity: 0;
+    box-shadow: inset 0 0 0 1px #14729940, inset 0 1px 0 #ffffffcc,
+      inset 0 -8px 14px -12px #14729980;
+    transition: opacity 160ms ease;
+  }
+  .btn {
+    box-shadow: inset 0 1px 0 #ffffffb3, 0 1px 2px #1018280f,
+      0 3px 5px -4px #10182840;
+  }
+  .btn-pri { box-shadow: inset 0 1px 0 #ffffff26, 0 1px 2px #173b1426, 0 4px 7px -5px #173b1480; }
+  .btn:active:not(:disabled) { transform: scale(.985); }
+
+  /* Inert mail metrics must not look pressable. */
+  .stat:not([href]):hover { background: transparent; }
+  .stat:not([href]):active, .stat[href]:active { transform: none; }
+  .stat[href] { transition: none; }
+  .stat[href]:focus-visible { outline: 2px solid var(--hub-blue); }
+  .tile:focus-visible::after { opacity: 1; }
+
+  @media (hover: hover) and (pointer: fine) {
+    .tile:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 #ffffff99, inset 0 0 0 1px #10182808, 0 2px 3px -2px #10182826; }
+    .tile:hover::after { opacity: 1; }
+    .tile:active { transform: translateY(0) scale(.995); }
+    .pq-row:hover { box-shadow: 0 1px 2px #1018280a, 0 4px 10px -8px #10182840; }
+    .btn:hover { box-shadow: inset 0 1px 0 #ffffffb3, 0 1px 2px #10182814, 0 4px 8px -6px #10182840; }
+    .btn-pri:hover { box-shadow: inset 0 1px 0 #ffffff26, 0 1px 2px #173b1426, 0 4px 7px -5px #173b1480; }
+  }
+
+  /* Keyboard navigation is immediate. Reduced motion keeps the light-edge
+     feedback while removing the tile lift and existing arrow/press motion. */
+  .tile:focus-visible { transition: none; transform: none; }
+  .tile:focus-visible .tile-go svg { transform: none; }
+  /* Keep the five status labels clear of View all on smaller desktops.
+     Reuse the page's existing stacked bottom row a little earlier. */
+  @media (min-width: 1241px) and (max-width: 1400px) {
+    .bottom { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tile, .tile:hover, .tile:active, .btn:active:not(:disabled),
+    .hero-search:active, .recent:active { transform: none; }
+    .tile .tile-go svg, .tile:hover .tile-go svg,
+    .pq-row:hover .p-link svg { transform: none; }
+    .tile::after { transition-duration: 160ms !important; }
+  }
+}
+
+
+/* Palette blend: sage neutrals bridge the existing green brand and blue
+   artwork. Keep the same skin, type, imagery, tone choices and geometry. */
+@media screen {
+  :root {
+    --page: #edf2f0;
+    --surface: #fcfdfc;
+    --line: #dfe7e3; --line-2: #d8e2dd;
+    --ink: #21343b; --muted: #52666c; --dim: #62767b;
+    --lp-surface2: #f2f6f3; --lp-surface3: #e9f0ec; --lp-border: #bdcfc6;
+    --hub-blue: #286b72; --blue-dk: #20575d; --blue-tint: #e7f1ef;
+    --lp-tint: #286b7212; --lp-tint-2: #286b7224;
+    --lp-primary: #49743e; --lp-primary-hover: #3b6032;
+    --lp-leaf: #92b474; --lp-leaf-light: #c0d7ad;
+    --lp-chrome: #19272e;
+  }
+  .hdr { background: var(--lp-chrome); }
+  .brand-sq { background: linear-gradient(140deg, var(--lp-primary), var(--lp-leaf)); }
+  .nav-i::after { background: var(--lp-leaf); }
+  .nav-i.is-active { color: var(--lp-leaf-light); }
+  .hdr :focus-visible { outline-color: var(--lp-leaf-light); }
+  .hero { border-bottom-color: var(--lp-leaf); }
+  .hero-search { background: var(--surface); }
+  .hs-ph, .hero-search svg { color: var(--muted); }
+  .hdr .ittb .ittb-av { background: #34525a; border-color: #587078; }
+
+  .btn-pri, .rp-btn.ticket, .rp-btn.done, .uc-fb.pri {
+    background: var(--lp-primary); border-color: var(--lp-primary);
+  }
+  .dlg-msg.ok { background: #e8f0e2; color: #3b6032; }
+  .s-ok .env-dot { background: var(--lp-primary); }
+  .s-ok .env-v { color: var(--lp-primary-hover); }
+  .badge { background: #f6e8e8; color: #a23f49; }
+  .badge.is-unk { background: var(--lp-surface3); color: var(--muted); }
+  .badge.is-calm { background: #e8f0e2; color: #3b6032; }
+
+  /* Keep console tone identities; blend their backgrounds toward the same
+     neutral surface. Illustration tiles and full-colour logos are untouched. */
+  .stat-ic.t-blue, .recent-ic.t-blue { background: #e7f0f1; color: #367783; }
+  .stat-ic.t-green, .env-ic.t-green { background: #e8f1e9; color: #4a7a59; }
+  .stat-ic.t-purple, .sd-ic.t-purple { background: #eeedf5; color: #70629c; }
+  .stat-ic.t-rose, .pq-ic.t-rose { background: #f6e9ed; color: #b34c67; }
+  .stat-ic.t-amber, .pq-ic.t-amber { background: #f6f0e3; color: #966e27; }
+  .stat-ic.t-orange, .pq-ic.t-orange { background: #f7ece4; color: #b16a3a; }
+  .tile.plain[class] {
+    background-color: color-mix(in srgb, var(--surface) 48%, var(--tile-tint));
+  }
+  .tile.plain.t-blue { --tile-tint: var(--blue-tint); }
+  .tile.plain.t-green { --tile-tint: var(--green-tint); }
+  .tile.plain.t-purple { --tile-tint: var(--purple-tint); }
+  .tile.plain.t-rose { --tile-tint: var(--rose-tint); }
+  .tile.plain.t-amber { --tile-tint: var(--amber-tint); }
+  .tile.plain.t-orange { --tile-tint: var(--orange-tint); }
+  .tile.plain.t-teal { --tile-tint: var(--teal-tint); }
+  .tile.plain.t-red { --tile-tint: var(--red-tint); }
+  .tile.plain.t-slate { --tile-tint: var(--slate-tint); }
+  .tile::after {
+    box-shadow: inset 0 0 0 1px #286b7240, inset 0 1px 0 #ffffffcc,
+      inset 0 -8px 14px -12px #286b7280;
+  }
+  .ql-edit[aria-expanded="true"] { border-color: #286b7255; }
+  .cmd-it[aria-selected="true"], .rp-di.hi { box-shadow: inset 3px 0 0 var(--lp-leaf); }
+  @media (hover: hover) and (pointer: fine) {
+    .nav-i.is-active:hover { color: var(--lp-leaf-light); }
+    .btn-pri:hover, .rp-btn.ticket:hover, .uc-fb.pri:hover {
+      background: var(--lp-primary-hover); border-color: var(--lp-primary-hover);
+    }
+    .hero-search:hover { box-shadow: 0 0 0 3px #92b47440, 0 6px 20px -8px #00000066; }
+  }
+}

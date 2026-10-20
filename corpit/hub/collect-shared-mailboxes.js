@@ -8,7 +8,7 @@
 //
 // The EXO half is collect-shared-mailboxes.ps1 (GAL app certificate, Get-* cmdlets only). It needs to read
 // SMBX_EXO_ENV (default /opt/gal-directory/.env) and the .pfx beside it, so it runs where those exist (corpit A/B).
-// A full run takes roughly 2 h for ~800 mailboxes. Rows of mailboxes that no longer exist are pruned only after
+// A full run takes about 3.5 h for ~800 mailboxes (~15 s each; measured 10-14 on A). Rows of mailboxes that no longer exist are pruned only after
 // a complete, unlimited run. Graph "Last Activity Date" is copied from sentinel_mailbox_usage (collect-m365-reports.js).
 require('dotenv').config({ path: __dirname + '/.env' });
 const fs = require('fs');

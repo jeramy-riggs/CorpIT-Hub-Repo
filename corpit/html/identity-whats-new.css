@@ -1,0 +1,47 @@
+/* Scoped welcome and tour; use the existing CorpIT skin and theme tokens. */
+#identity-whats-new {
+  width: 740px;
+  max-width: calc(100vw - 64px);
+  max-height: calc(100vh - 64px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font);
+}
+#identity-whats-new::backdrop { background: var(--scrim); }
+#identity-whats-new[open] { animation: identity-welcome-in 180ms cubic-bezier(.23,1,.32,1); }
+.iwn-body { padding: 30px 30px 24px; }
+.iwn-close {
+  position: absolute; right: 18px; top: 16px;
+  width: 30px; height: 30px; padding: 0;
+  display: grid; place-items: center;
+  border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-2); cursor: pointer;
+}
+.iwn-close:hover { background: var(--surface-3); color: var(--text); }
+#identity-whats-new .iwn-progress { min-height: 20px; margin-bottom: 10px; color: var(--text-2); font-size: 12px; }
+#identity-whats-new .iwn-title { margin: 0 34px 10px 0; font: 800 25px/1.25 var(--display); letter-spacing: -.4px; }
+#identity-whats-new .iwn-description { margin: 0; max-width: 65ch; color: var(--text-2); font-size: 14px; line-height: 1.65; }
+.iwn-preview { margin: 22px 0 0; }
+.iwn-image-wrap {
+  height: 258px; position: relative; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--radius-sm); background: #071520;
+}
+.iwn-image-wrap img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.iwn-preview figcaption { margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+.iwn-welcome-note { margin-top: 22px; padding-left: 12px; border-left: 2px solid var(--accent); color: var(--text-2); font-size: 13px; line-height: 1.6; }
+.iwn-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 30px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.iwn-actions { display: flex; gap: 8px; margin-left: auto; }
+#identity-whats-new .btn { min-height: 34px; padding: 0 14px; font-size: 13px; }
+.iwn-dots { display: flex; gap: 6px; }
+.iwn-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--line-3); }
+.iwn-dots .current { background: var(--accent); }
+#identity-whats-new [hidden] { display: none !important; }
+#identity-whats-new-link { white-space: nowrap; }
+@keyframes identity-welcome-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { #identity-whats-new[open] { animation: none; } }

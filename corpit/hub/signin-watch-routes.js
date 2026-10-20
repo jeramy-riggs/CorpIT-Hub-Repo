@@ -10,6 +10,7 @@ const router = express.Router();
 const mysql = require('mysql2/promise');
 const { validCidr, ipInCidr, fmtDateTimeSql } = require('./signin-watch-lib');
 const { dispatch, testChannel } = require('./alert-dispatch');
+const { requestRapid7Xref } = require('./rapid7-session-proxy');
 
 // Links that leave this process and reach a person (SDP ticket bodies here,
 // alert cards in alert-dispatch.js) must name THIS host. ALLOWED_ORIGIN is the
@@ -55,6 +56,21 @@ const createRbac = require('./rbac-middleware');
 const rbac = createRbac(pool);
 router.use(rbac.requireSuperAdmin);
 
+// settingsfold W6 2026-10-12: every settings write below also writes its own
+// rbac_audit_log row (page signin-watch, action settings_saved / settings_deleted /
+// settings_test_sent|failed) naming WHAT changed, old -> new. requireSuperAdmin's
+// superadmin_access row only says a write was attempted. Recorded on success only;
+// channel config_json / mention_config (webhook URLs) are recorded as "(changed)".
+const SA = require('./settings-audit');
+const SW_PAGE = 'signin-watch';
+const SW_WL_COLS = 'id, upn, active, watch_okta, watch_entra, note, tier, pause_ticket_display';
+const SW_WL_KEYS = ['active', 'watch_okta', 'watch_entra', 'note', 'tier'];
+const SW_NET_COLS = 'id, label, cidr, type, note, enabled';
+const SW_NET_KEYS = ['label', 'cidr', 'type', 'note', 'enabled'];
+const SW_CH_COLS = 'id, name, type, fire_on, tier_filter, auto_investigate, enabled, config_json, mention_config';
+const SW_CH_KEYS = ['name', 'type', 'fire_on', 'tier_filter', 'auto_investigate', 'enabled', 'config_json', 'mention_config'];
+const SW_CH_SECRET = ['config_json', 'mention_config'];
+
 function bad(res, msg) { return res.status(400).json({ ok: false, error: msg }); }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -87,6 +103,7 @@ router.post('/watchlist', async (req, res) => {
   if (!EMAIL_RE.test(upn)) return bad(res, 'invalid upn');
   try {
     const tier = (b.tier === 'vip') ? 'vip' : 'standard';
+    const before = await SA.snap(pool, 'SELECT ' + SW_WL_COLS + ' FROM signin_watchlist WHERE upn = ?', [upn]);
     await pool.query(
       `INSERT INTO signin_watchlist (upn, watch_okta, watch_entra, note, added_by, active, tier)
        VALUES (?, ?, ?, ?, ?, 1, ?)
@@ -94,6 +111,9 @@ router.post('/watchlist', async (req, res) => {
          note = VALUES(note), active = 1, tier = VALUES(tier)`,
       [upn, b.watch_okta === false ? 0 : 1, b.watch_entra === false ? 0 : 1,
        (b.note || '').slice(0, 500) || null, req.user.email, tier]);
+    const after = await SA.snap(pool, 'SELECT ' + SW_WL_COLS + ' FROM signin_watchlist WHERE upn = ?', [upn]);
+    await SA.record(rbac, req, SW_PAGE, 'settings_saved', SA.entry({ what: 'watchlist',
+      id: after ? after.id : undefined, subject: upn, before, after, keys: SW_WL_KEYS }));
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -109,14 +129,26 @@ router.patch('/watchlist/:id', async (req, res) => {
   if (!sets.length) return bad(res, 'nothing to update');
   vals.push(parseInt(req.params.id, 10));
   try {
+    const id = vals[vals.length - 1];
+    const before = await SA.snap(pool, 'SELECT ' + SW_WL_COLS + ' FROM signin_watchlist WHERE id = ?', [id]);
     const [r] = await pool.query(`UPDATE signin_watchlist SET ${sets.join(', ')} WHERE id = ?`, vals);
+    if (r.affectedRows > 0) {
+      const after = await SA.snap(pool, 'SELECT ' + SW_WL_COLS + ' FROM signin_watchlist WHERE id = ?', [id]);
+      await SA.record(rbac, req, SW_PAGE, 'settings_saved', SA.entry({ what: 'watchlist', op: 'update', id,
+        subject: (after || before || {}).upn, before, after, keys: SW_WL_KEYS.filter(k => k in b) }));
+    }
     res.json({ ok: true, changed: r.affectedRows });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 router.delete('/watchlist/:id', async (req, res) => {
   try {
+    const id = parseInt(req.params.id, 10);
+    const before = await SA.snap(pool, 'SELECT ' + SW_WL_COLS + ' FROM signin_watchlist WHERE id = ?', [id]);
     const [r] = await pool.query('DELETE FROM signin_watchlist WHERE id = ?', [parseInt(req.params.id, 10)]);
+    if (r.affectedRows > 0)
+      await SA.record(rbac, req, SW_PAGE, 'settings_deleted', SA.entry({ what: 'watchlist', op: 'delete', id,
+        subject: before ? before.upn : undefined, before, after: null, keys: SW_WL_KEYS }));
     res.json({ ok: true, deleted: r.affectedRows });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -192,16 +224,25 @@ router.post('/watchlist/:id/pause', async (req, res) => {
       associate: req.body.associate_existing !== false,
       associate_days: req.body.associate_days,
     });
+    if (!pr.skipped)
+      await SA.record(rbac, req, SW_PAGE, 'settings_saved', SA.entry({ what: 'watchlist', op: 'pause', id,
+        subject: rows[0].upn, extra: { ticket: pr.display || String(t.display_id || t.id), associated: pr.associated || 0 } }));
     res.json({ ok: true, ticket: t, associated: pr.associated || 0 });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 router.post('/watchlist/:id/resume', async (req, res) => {
   try {
+    const id = parseInt(req.params.id, 10);
+    const before = await SA.snap(pool, 'SELECT ' + SW_WL_COLS + ' FROM signin_watchlist WHERE id = ?', [id]);
     const [r] = await pool.query(
       `UPDATE signin_watchlist SET pause_ticket_id = NULL, pause_ticket_display = NULL,
          pause_ticket_url = NULL, paused_by = NULL, paused_at = NULL WHERE id = ?`,
       [parseInt(req.params.id, 10)]);
+    if (r.affectedRows > 0)
+      await SA.record(rbac, req, SW_PAGE, 'settings_saved', SA.entry({ what: 'watchlist', op: 'resume', id,
+        subject: before ? before.upn : undefined,
+        extra: { was_paused_on: before === undefined ? '(unknown)' : (before && before.pause_ticket_display) || null } }));
     res.json({ ok: true, changed: r.affectedRows });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -223,11 +264,15 @@ router.post('/networks', async (req, res) => {
   if (!NET_TYPES.has(b.type)) return bad(res, 'invalid type');
   if (!b.label || !String(b.label).trim()) return bad(res, 'label required');
   try {
+    const before = await SA.snap(pool, 'SELECT ' + SW_NET_COLS + ' FROM trusted_networks WHERE cidr = ?', [cidr]);
     await pool.query(
       `INSERT INTO trusted_networks (label, cidr, type, note, created_by, enabled)
        VALUES (?, ?, ?, ?, ?, 1)
        ON DUPLICATE KEY UPDATE label = VALUES(label), type = VALUES(type), note = VALUES(note), enabled = 1`,
       [String(b.label).slice(0, 120), cidr, b.type, (b.note || '').slice(0, 500) || null, req.user.email]);
+    const after = await SA.snap(pool, 'SELECT ' + SW_NET_COLS + ' FROM trusted_networks WHERE cidr = ?', [cidr]);
+    await SA.record(rbac, req, SW_PAGE, 'settings_saved', SA.entry({ what: 'trusted_network',
+      id: after ? after.id : undefined, subject: cidr, before, after, keys: SW_NET_KEYS }));
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -243,14 +288,26 @@ router.patch('/networks/:id', async (req, res) => {
   if (!sets.length) return bad(res, 'nothing to update');
   vals.push(parseInt(req.params.id, 10));
   try {
+    const id = vals[vals.length - 1];
+    const before = await SA.snap(pool, 'SELECT ' + SW_NET_COLS + ' FROM trusted_networks WHERE id = ?', [id]);
     const [r] = await pool.query(`UPDATE trusted_networks SET ${sets.join(', ')} WHERE id = ?`, vals);
+    if (r.affectedRows > 0) {
+      const after = await SA.snap(pool, 'SELECT ' + SW_NET_COLS + ' FROM trusted_networks WHERE id = ?', [id]);
+      await SA.record(rbac, req, SW_PAGE, 'settings_saved', SA.entry({ what: 'trusted_network', op: 'update', id,
+        subject: (after || before || {}).cidr, before, after, keys: SW_NET_KEYS.filter(k => k in b) }));
+    }
     res.json({ ok: true, changed: r.affectedRows });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 router.delete('/networks/:id', async (req, res) => {
   try {
+    const id = parseInt(req.params.id, 10);
+    const before = await SA.snap(pool, 'SELECT ' + SW_NET_COLS + ' FROM trusted_networks WHERE id = ?', [id]);
     const [r] = await pool.query('DELETE FROM trusted_networks WHERE id = ?', [parseInt(req.params.id, 10)]);
+    if (r.affectedRows > 0)
+      await SA.record(rbac, req, SW_PAGE, 'settings_deleted', SA.entry({ what: 'trusted_network', op: 'delete', id,
+        subject: before ? before.cidr : undefined, before, after: null, keys: SW_NET_KEYS }));
     res.json({ ok: true, deleted: r.affectedRows });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -401,9 +458,13 @@ router.post('/channels', async (req, res) => {
       if (typeof mc === 'string') { try { mc = JSON.parse(mc); } catch (e) { return bad(res, 'mention_config is not valid JSON'); } }
       if (mc && typeof mc === 'object') mention = JSON.stringify(mc);
     }
-    await pool.query(
+    const [ins] = await pool.query(
       'INSERT INTO alert_channels (name, type, config_json, fire_on, tier_filter, mention_config, auto_investigate, created_by, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
       [String(b.name).slice(0, 120), b.type, JSON.stringify(cfg), b.fire_on || 'all', tierFilter, mention, autoInv, req.user.email]);
+    const after = await SA.snap(pool, 'SELECT ' + SW_CH_COLS + ' FROM alert_channels WHERE id = ?', [ins.insertId]);
+    await SA.record(rbac, req, SW_PAGE, 'settings_saved', SA.entry({ what: 'alert_channel', op: 'create',
+      id: ins.insertId, subject: after ? after.name : String(b.name).slice(0, 120), before: null, after,
+      keys: SW_CH_KEYS, secretKeys: SW_CH_SECRET }));
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -430,21 +491,37 @@ router.patch('/channels/:id', async (req, res) => {
   if (!sets.length) return bad(res, 'nothing to update');
   vals.push(parseInt(req.params.id, 10));
   try {
+    const id = vals[vals.length - 1];
+    const before = await SA.snap(pool, 'SELECT ' + SW_CH_COLS + ' FROM alert_channels WHERE id = ?', [id]);
     const [r] = await pool.query(`UPDATE alert_channels SET ${sets.join(', ')} WHERE id = ?`, vals);
+    if (r.affectedRows > 0) {
+      const after = await SA.snap(pool, 'SELECT ' + SW_CH_COLS + ' FROM alert_channels WHERE id = ?', [id]);
+      await SA.record(rbac, req, SW_PAGE, 'settings_saved', SA.entry({ what: 'alert_channel', op: 'update', id,
+        subject: (after || before || {}).name, before, after, keys: SW_CH_KEYS.filter(k => k in b), secretKeys: SW_CH_SECRET }));
+    }
     res.json({ ok: true, changed: r.affectedRows });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 router.delete('/channels/:id', async (req, res) => {
   try {
+    const id = parseInt(req.params.id, 10);
+    const before = await SA.snap(pool, 'SELECT ' + SW_CH_COLS + ' FROM alert_channels WHERE id = ?', [id]);
     const [r] = await pool.query('DELETE FROM alert_channels WHERE id = ?', [parseInt(req.params.id, 10)]);
+    if (r.affectedRows > 0)
+      await SA.record(rbac, req, SW_PAGE, 'settings_deleted', SA.entry({ what: 'alert_channel', op: 'delete', id,
+        subject: before ? before.name : undefined, before, after: null, keys: SW_CH_KEYS, secretKeys: SW_CH_SECRET }));
     res.json({ ok: true, deleted: r.affectedRows });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 router.post('/channels/:id/test', async (req, res) => {
   try {
+    const id = parseInt(req.params.id, 10);
     const result = await testChannel(pool, parseInt(req.params.id, 10), req.user.email);
+    const ch = await SA.snap(pool, 'SELECT name FROM alert_channels WHERE id = ?', [id]);
+    await SA.record(rbac, req, SW_PAGE, result && result.ok ? 'settings_test_sent' : 'settings_test_failed',
+      SA.entry({ what: 'alert_channel', op: 'test', id, subject: ch ? ch.name : undefined, extra: { ok: !!(result && result.ok) } }));
     res.json({ ok: result.ok, detail: result.detail });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
@@ -889,22 +966,29 @@ router.buildInvestigationSnapshot = buildInvestigationSnapshot;
 // ── v2.2.0: Rapid7 cross-user IP correlation ─────────────────────────
 // Proxies to /api/rapid7/ip-xref and annotates results with watchlist membership
 router.get('/rapid7-ip-xref', async (req, res) => {
-  const ip = (req.query.ip || '').trim();
-  const hours = req.query.hours || '720';
-  const subnet = req.query.subnet || '1'; // default: subnet match
-  if (!ip) return bad(res, 'ip required');
+  const ip = typeof req.query.ip === 'string' ? req.query.ip.trim() : '';
+  const hours = req.query.hours === undefined ? '720' : req.query.hours;
+  const subnet = req.query.subnet === undefined ? '1' : req.query.subnet;
+  if (!require('net').isIP(ip)) return bad(res, 'A valid IPv4 or IPv6 address is required');
+  if (typeof hours !== 'string' || !/^[1-9]\d{0,3}$/.test(hours) || Number(hours) > 2160) {
+    return bad(res, 'hours must be between 1 and 2160');
+  }
+  if (subnet !== '0' && subnet !== '1') return bad(res, 'subnet must be 0 or 1');
 
   try {
-    // Call the Rapid7 ip-xref endpoint internally
-    const r7Url = `http://localhost:3001/api/rapid7/ip-xref?ip=${encodeURIComponent(ip)}&hours=${hours}&subnet=${subnet}`;
-    const r7Resp = await fetch(r7Url, {
-      headers: { Authorization: req.headers.authorization || '' },
-      signal: AbortSignal.timeout(30000),
-    });
-    const r7Data = await r7Resp.json();
+    // This is a second authenticated request to the SAME API. Desktop clients
+    // authenticate with it_session; forwarding only Authorization lost their
+    // session. Host must also survive for host-scoped session verification.
+    const params = new URLSearchParams({ ip, hours, subnet });
+    const r7Resp = await requestRapid7Xref(params, req.headers);
+    const r7Data = r7Resp.data;
 
-    if (!r7Data.ok && !r7Data.users) {
-      return res.status(r7Resp.status).json({ ok: false, error: r7Data.error || 'Rapid7 error', detail: r7Data.detail });
+    if (!r7Resp.ok || !r7Data || r7Data.ok !== true || !Array.isArray(r7Data.users)) {
+      // The OUTER request already passed the session and super-admin gates.
+      // A downstream failure is an enrichment error, not an expired browser
+      // session. In particular, do not trigger global logout with its 401.
+      return res.status(502).json({ ok: false, error: 'Rapid7 enrichment unavailable',
+        upstream_status: r7Resp.status });
     }
 
     // Cross-reference found usernames against our watchlist
@@ -940,7 +1024,9 @@ router.get('/rapid7-ip-xref', async (req, res) => {
       logsets: r7Data.logsets,
     });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
+    res.status(timedOut ? 504 : 502).json({ ok: false,
+      error: timedOut ? 'Rapid7 enrichment timed out' : 'Rapid7 enrichment unavailable' });
   }
 });
 

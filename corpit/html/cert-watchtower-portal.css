@@ -1,0 +1,206 @@
+/* Cert Watchtower: AI Governance portal skin. Presentation only; loads after the inline styles and it-depth.css.
+   Shares the governance banner and Nunito face with SharePoint, Zscaler, Identity, AD Management and the IT Asset Console.
+   The page header becomes a full-bleed banner; the tab strip is the raised bar sitting on its lower edge.
+   it-theme.js writes --accent INLINE on :root, so page tokens are set on body, which outranks it. */
+@font-face {
+  font-family: "Governance Nunito";
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('/ai-governance-portal-nunito.woff2?v=1') format('woff2');
+}
+
+/* ── Tokens ── */
+:root:not([data-theme=light]) body[data-dp="cert-watchtower"] {
+  --bg: #071520; --bg-card: #142533; --bg-card-hover: #1a2f40; --bg-modal: #182c3c;
+  --border: #2a3d4d; --border-strong: #37505f;
+  --text: #ebf1f6; --text-dim: #a4b5c5; --text-faint: #91a3b5;
+  --accent: #7dc9e7; --accent-hover: #a9dcf0; --accent-soft: #7dc9e71f; --on-accent: #071520;
+  --ok: #9bd64a; --info: #7dc9e7; --warning: #f0d08b; --critical: #ffa1ac; --expired: #ff8a97; --unreachable: #c9b8ff;
+  --cw-raised: #182c3c; --cw-edge: #1f3445; --cw-tint: #7dc9e71a; --cw-tint-2: #7dc9e72e;
+  --cw-scrim: rgba(3, 9, 15, .72);
+  --cw-elev-1: inset 0 1px 0 #ffffff0b, 0 1px 2px #00000059, 0 12px 28px -16px #000000a6;
+  --cw-elev-2: inset 0 1px 0 #ffffff10, 0 2px 4px #00000066, 0 22px 44px -18px #000000bf;
+  --shadow: var(--cw-elev-2);
+  /* it-depth.css material, re-pointed to the governance elevation: flat faces, one lit edge, a soft cast shadow. */
+  --dp-face: none; --dp-face-2: none; --dp-grain: none; --dp-wash: none; --dp-bar: none; --dp-rail: none;
+  --dp-sheen: inset 0 1px 0 #ffffff0b; --dp-sheen-2: inset 0 1px 0 #ffffff10;
+  --dp-relief: inset 0 1px 0 #ffffff0b; --dp-relief-2: inset 0 1px 0 #ffffff10;
+  --dp-lift-1: 0 1px 2px #00000059; --dp-lift-2: 0 2px 4px #00000066, 0 12px 28px -16px #000000a6;
+  --dp-lift-3: 0 2px 4px #00000066, 0 26px 52px -18px #000000cc;
+  --dp-well: inset 0 1px 2px #00000040; --dp-well-2: inset 0 1px 3px #00000066;
+  --dp-thead: inset 0 -1px 0 #1f3445; --dp-edge: 0 0 #0000;
+}
+:root[data-theme=light] body[data-dp="cert-watchtower"] {
+  --bg: #eff1f3; --bg-card: #fff; --bg-card-hover: #f6f8fa; --bg-modal: #fff;
+  --border: #cdd4dc; --border-strong: #b3bfc9;
+  --text: #17212e; --text-dim: #5d6b7e; --text-faint: #5f6d80;
+  --accent: #147299; --accent-hover: #0f5d7d; --accent-soft: #1472991a; --on-accent: #fff;
+  --ok: #3d7924; --info: #147299; --warning: #8b641f; --critical: #b33440; --expired: #96242f; --unreachable: #6d28d9;
+  --cw-raised: #f6f8fa; --cw-edge: #e4e8ed; --cw-tint: #1472991a; --cw-tint-2: #1472992b;
+  --cw-scrim: rgba(15, 27, 45, .45);
+  --cw-elev-1: 0 1px 2px #1018280f, 0 8px 20px -12px #1018281f;
+  --cw-elev-2: 0 2px 4px #10182814, 0 18px 36px -16px #1018282e;
+  --shadow: var(--cw-elev-2);
+  --dp-face: none; --dp-face-2: none; --dp-grain: none; --dp-wash: none; --dp-bar: none; --dp-rail: none;
+  --dp-sheen: 0 0 #0000; --dp-sheen-2: 0 0 #0000; --dp-relief: 0 0 #0000; --dp-relief-2: 0 0 #0000;
+  --dp-lift-1: 0 1px 2px #1018280f; --dp-lift-2: 0 2px 4px #10182814, 0 8px 20px -12px #1018281f;
+  --dp-lift-3: 0 2px 4px #10182814, 0 22px 44px -16px #10182833;
+  --dp-well: inset 0 1px 2px #1018280f; --dp-well-2: inset 0 1px 3px #1018281a;
+  --dp-thead: inset 0 -1px 0 #e4e8ed; --dp-edge: 0 0 #0000;
+}
+body[data-dp="cert-watchtower"] {
+  --sans: "Governance Nunito", "Nunito", "Segoe UI", system-ui, sans-serif;
+  --ease: cubic-bezier(.23, 1, .32, 1);
+  --cw-t: 160ms cubic-bezier(.23, 1, .32, 1);
+  --cw-lift: 26px;
+  --cw-col: 1336px;
+  background-color: var(--bg);
+}
+/* The it-depth wash and grain; the governance canvas is flat. */
+html:has(body[data-dp="cert-watchtower"]) { background: var(--bg, #071520); }
+body[data-dp="cert-watchtower"] { background-image: none; }
+body[data-dp="cert-watchtower"] ::selection { background: #7dc9e740; }
+
+/* ── Layout: the container goes full width so the banner can run edge to edge; everything under it keeps the old 1400px column. ── */
+body[data-dp="cert-watchtower"] .container { max-width: none; padding: 0 0 80px; }
+body[data-dp="cert-watchtower"] .container > * { width: min(var(--cw-col), calc(100% - 64px)); margin-inline: auto; }
+
+/* ── Banner ── */
+body[data-dp="cert-watchtower"] header.page-head {
+  width: auto; margin: 0; align-items: flex-end; gap: 16px;
+  padding: 36px max(32px, calc((100% - var(--cw-col)) / 2)) calc(var(--cw-lift) + 24px);
+  border-bottom: 3px solid #78be20;
+  background: linear-gradient(95deg, #060e18ed, #060e18a8 50%, #060e1840),
+    url('/ai-governance-portal-banner.webp?v=1') center 47% / cover;
+  box-shadow: inset 0 -24px 34px -26px #41b6e6;
+}
+body[data-dp="cert-watchtower"] .breadcrumb { color: #d5dee7; font-size: 12.5px; font-weight: 700; }
+body[data-dp="cert-watchtower"] .breadcrumb a { color: #a9dcf0; }
+body[data-dp="cert-watchtower"] header.page-head h1 {
+  color: #fff; font-size: 29px; font-weight: 850; letter-spacing: -.7px; line-height: 1.15; margin-top: 6px;
+}
+body[data-dp="cert-watchtower"] header.page-head .btn-ghost {
+  background: #172c3cbb; color: #fff; border-color: #b3c5d299;
+}
+
+/* ── Tabs: the raised bar on the banner edge; the open tab is a tinted chip with a governance-green underline. ── */
+body[data-dp="cert-watchtower"] nav.tabs {
+  position: relative; z-index: 1; margin-top: calc(-1 * var(--cw-lift)); margin-bottom: 20px;
+  gap: 2px; padding: 6px; border: 1px solid var(--cw-edge); border-radius: 13px;
+  background: var(--bg-card); box-shadow: var(--cw-elev-1);
+}
+body[data-dp="cert-watchtower"] .tab {
+  border-radius: 8px; padding: 8px 14px; font-weight: 750; font-size: 13px;
+  transition: color var(--cw-t), background-color var(--cw-t), transform var(--cw-t);
+}
+body[data-dp="cert-watchtower"] .tab.active { background: var(--cw-tint-2); }
+body[data-dp="cert-watchtower"] .tab.active::after { left: 12px; right: 12px; bottom: 0; border-radius: 2px; background: #78be20; }
+body[data-dp="cert-watchtower"] .tab .badge { font-weight: 800; font-variant-numeric: tabular-nums; }
+body[data-dp="cert-watchtower"] .tab .badge.crit { background: color-mix(in srgb, var(--critical) 16%, transparent); }
+body[data-dp="cert-watchtower"] .tab .badge.warn { background: color-mix(in srgb, var(--warning) 16%, transparent); }
+
+/* ── Meta line, toolbar, inputs ── */
+body[data-dp="cert-watchtower"] .meta-line { font-weight: 650; font-variant-numeric: tabular-nums; }
+body[data-dp="cert-watchtower"] .meta-line strong { font-weight: 850; }
+body[data-dp="cert-watchtower"] .search,
+body[data-dp="cert-watchtower"] .form-row input[type="text"],
+body[data-dp="cert-watchtower"] .form-row input[type="email"],
+body[data-dp="cert-watchtower"] .form-row input[type="number"],
+body[data-dp="cert-watchtower"] .form-row textarea,
+body[data-dp="cert-watchtower"] .form-row select {
+  border-color: var(--border); border-radius: 7px;
+  transition: border-color var(--cw-t), box-shadow var(--cw-t);
+}
+body[data-dp="cert-watchtower"] .search:focus,
+body[data-dp="cert-watchtower"] .form-row input:focus,
+body[data-dp="cert-watchtower"] .form-row textarea:focus,
+body[data-dp="cert-watchtower"] .form-row select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--cw-tint-2); }
+body[data-dp="cert-watchtower"] .form-row label { font-weight: 750; }
+
+/* ── Controls: the primary action is governance green; filters are quiet pills, the selected one a tinted chip. ── */
+body[data-dp="cert-watchtower"] .btn {
+  font-weight: 750; border-radius: 7px; background-image: none; box-shadow: none;
+  transition: background-color var(--cw-t), border-color var(--cw-t), color var(--cw-t), transform var(--cw-t);
+}
+body[data-dp="cert-watchtower"] .btn-primary { background: #3d7924; border-color: #3d7924; color: #fff; }
+body[data-dp="cert-watchtower"] .btn-danger { border-color: color-mix(in srgb, var(--critical) 45%, transparent); }
+body[data-dp="cert-watchtower"] .pill {
+  font-weight: 750; background-image: none; box-shadow: none;
+  transition: background-color var(--cw-t), border-color var(--cw-t), color var(--cw-t), transform var(--cw-t);
+}
+body[data-dp="cert-watchtower"] .pill.active { background: var(--cw-tint-2); border-color: var(--accent); color: var(--text); box-shadow: none; }
+body[data-dp="cert-watchtower"] .toggle input:checked + .track { background: #3d7924; }
+body[data-dp="cert-watchtower"] .btn:focus-visible,
+body[data-dp="cert-watchtower"] .pill:focus-visible,
+body[data-dp="cert-watchtower"] .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Cards and tables ── */
+body[data-dp="cert-watchtower"] .card,
+body[data-dp="cert-watchtower"] .cloud-cert-card {
+  border-color: var(--cw-edge); border-radius: 13px; background: var(--bg-card); background-image: none; box-shadow: var(--cw-elev-1);
+}
+body[data-dp="cert-watchtower"] .card h2 { font-weight: 850; letter-spacing: -.2px; }
+body[data-dp="cert-watchtower"] th,
+body[data-dp="cert-watchtower"] .cert-select-table th {
+  background: var(--cw-raised); color: var(--text-dim); font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
+}
+body[data-dp="cert-watchtower"] th, body[data-dp="cert-watchtower"] td { border-bottom-color: var(--cw-edge); }
+body[data-dp="cert-watchtower"] tbody tr:hover,
+body[data-dp="cert-watchtower"] .alert-row:hover { background: var(--cw-tint); }
+body[data-dp="cert-watchtower"] td.numeric { font-weight: 750; }
+body[data-dp="cert-watchtower"] .section-title,
+body[data-dp="cert-watchtower"] .cloud-services-section h3 { font-weight: 800; letter-spacing: .06em; }
+body[data-dp="cert-watchtower"] .cloud-cert-info .name { font-weight: 800; }
+body[data-dp="cert-watchtower"] .alert-row { border-bottom-color: var(--cw-edge); }
+
+/* ── Status pills: one tint per state, drawn from the state colour itself. ── */
+body[data-dp="cert-watchtower"] .status {
+  border-radius: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+body[data-dp="cert-watchtower"] .status-none { background: color-mix(in srgb, currentColor 8%, transparent); }
+
+/* ── Overlays ── */
+body[data-dp="cert-watchtower"] .modal-backdrop { background: var(--cw-scrim); }
+body[data-dp="cert-watchtower"] .modal {
+  border-color: var(--border-strong); border-radius: 14px; background: var(--bg-modal); background-image: none; box-shadow: var(--cw-elev-2);
+}
+body[data-dp="cert-watchtower"] .modal-head h2 { font-weight: 850; letter-spacing: -.2px; }
+body[data-dp="cert-watchtower"] .toast { border-radius: 11px; font-weight: 650; background-image: none; box-shadow: var(--cw-elev-2); }
+
+/* ── Press feedback, hover (fine pointers only), reduced motion. ── */
+body[data-dp="cert-watchtower"] .btn:not(:disabled):active,
+body[data-dp="cert-watchtower"] .pill:active,
+body[data-dp="cert-watchtower"] .tab:active { transform: scale(.97); box-shadow: none; }
+@media (hover: hover) and (pointer: fine) {
+  body[data-dp="cert-watchtower"] .btn:not(.btn-primary):not(.btn-ghost):hover { background: var(--bg-card-hover); border-color: var(--border-strong); }
+  body[data-dp="cert-watchtower"] .btn-primary:hover { background: #31631c; border-color: #31631c; }
+  body[data-dp="cert-watchtower"] header.page-head .btn-ghost:hover { background: #1d3a4ecc; border-color: #a5d877; color: #fff; }
+  body[data-dp="cert-watchtower"] .pill:not(.active):hover { color: var(--text); border-color: var(--border-strong); box-shadow: none; }
+  body[data-dp="cert-watchtower"] .tab:not(.active):hover { background: var(--cw-tint); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-dp="cert-watchtower"] .btn:not(:disabled):active,
+  body[data-dp="cert-watchtower"] .pill:active,
+  body[data-dp="cert-watchtower"] .tab:active { transform: none; }
+  body[data-dp="cert-watchtower"] .panel.active,
+  body[data-dp="cert-watchtower"] .modal,
+  body[data-dp="cert-watchtower"] .modal-backdrop { animation: none; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  body[data-dp="cert-watchtower"] { --cw-lift: 18px; }
+  body[data-dp="cert-watchtower"] .container > * { width: calc(100% - 32px); }
+  /* The fixed #it-topbar dock sits over the banner's top-right corner; start the heading below it. */
+  body[data-dp="cert-watchtower"] header.page-head { padding: 64px 16px calc(var(--cw-lift) + 18px); flex-wrap: wrap; }
+  body[data-dp="cert-watchtower"] header.page-head h1 { font-size: 25px; }
+  body[data-dp="cert-watchtower"] .search { min-width: 0; flex-basis: 100%; }
+}
+
+@media print {
+  body[data-dp="cert-watchtower"] header.page-head { background: none; box-shadow: none; border-bottom: 1px solid #ccc; }
+  body[data-dp="cert-watchtower"] header.page-head h1, body[data-dp="cert-watchtower"] .breadcrumb { color: #000; }
+  body[data-dp="cert-watchtower"] nav.tabs { box-shadow: none; margin-top: 0; }
+}
