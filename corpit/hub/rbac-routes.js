@@ -887,6 +887,109 @@ router.put('/users/:email/access', async (req, res) => {
 // Phase 1.5: Editable role / tier definitions
 // =====================================================================
 
+// ── POST /pages — register a page key, with its role grants ───────────
+// regpagekit 2026-10-20. A page's code checks its key with requirePage, and a key
+// with no rbac_pages row answers 403 UNKNOWN_PAGE to everyone but super admins. Until
+// now the row could only be added by hand SQL (the launch pad's schema step refuses
+// INSERT and /api/saas-admin/pages is proxied nowhere), so a page that shipped
+// without it stayed super-admin-only. Super admin only: this sits under
+// router.use(rbac.requireSuperAdmin).
+//
+// The grants go in the SAME transaction as the row, one explicit row per role,
+// because a role's default_access applies to every page it has no row for: tier2's
+// default is admin, so a bare page row would hand tier2 admin on the new page the
+// moment it exists. Every role must be given a level (none|read|admin); a role
+// left out is refused rather than silently inheriting its default.
+const REG_PAGE_KEY_RE  = /^[a-z0-9][a-z0-9-]{1,62}$/;
+const REG_URL_PATH_RE  = /^\/[A-Za-z0-9][A-Za-z0-9._\/-]{0,253}$/;
+const REG_CATEGORIES   = ['app', 'sop', 'admin'];
+const REG_POLICIES     = ['matrix', 'authenticated'];
+const REG_STATUSES     = ['active', 'beta', 'draft'];
+router.post('/pages', express.json({ limit: '16kb' }), async (req, res) => {
+  const b = req.body || {};
+  const refuse = (code, error) => res.status(400).json({ error, code });
+  const pageKey     = String(b.page_key || '').trim().toLowerCase();
+  const displayName = String(b.display_name || '').trim();
+  const urlPath     = String(b.url_path || '').trim();
+  const category    = b.category === undefined ? 'app' : String(b.category);
+  const policy      = b.access_policy === undefined ? 'matrix' : String(b.access_policy);
+  const status      = b.status === undefined ? 'active' : String(b.status);
+  const description = String(b.description || '').trim() || null;
+  const order       = (b.display_order === undefined || b.display_order === '') ? 100 : Number(b.display_order);
+  const adminActs   = b.has_admin_actions ? 1 : 0;
+  const navVisible  = b.nav_visible ? 1 : 0;
+
+  if (!REG_PAGE_KEY_RE.test(pageKey)) return refuse('BAD_PAGE_KEY', 'page_key: 2-63 lowercase letters, digits and hyphens, starting with a letter or digit');
+  if (portalOwner.owns(pageKey)) return portalOwner.reject(res);
+  if (!displayName || displayName.length > 128) return refuse('BAD_INPUT', 'display_name is required (max 128)');
+  if (!REG_URL_PATH_RE.test(urlPath) || urlPath.includes('..') || urlPath.includes('//')) {
+    return refuse('BAD_URL_PATH', 'url_path must be a path on this site, like /ai-governance.html');
+  }
+  if (!REG_CATEGORIES.includes(category)) return refuse('BAD_INPUT', 'category must be app, sop or admin');
+  if (!REG_POLICIES.includes(policy))     return refuse('BAD_INPUT', 'access_policy must be matrix or authenticated');
+  if (!REG_STATUSES.includes(status))     return refuse('BAD_INPUT', 'status must be active, beta or draft');
+  if (description && description.length > 1000) return refuse('BAD_INPUT', 'description too long (max 1000)');
+  if (!Number.isInteger(order) || order < 0 || order > 100000) return refuse('BAD_INPUT', 'display_order must be a whole number from 0 to 100000');
+  if (!b.grants || typeof b.grants !== 'object' || Array.isArray(b.grants)) {
+    return refuse('BAD_GRANT', 'grants must be an object of role_key -> none|read|admin, one entry per role');
+  }
+  const grants = {};
+  for (const [rk, lvl] of Object.entries(b.grants)) {
+    if (!ACCESS_LEVELS.includes(lvl)) return refuse('BAD_GRANT', `grant for ${rk} must be none, read or admin`);
+    grants[rk] = lvl;
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [roleRows] = await conn.query('SELECT role_key FROM rbac_roles ORDER BY role_key');
+    const roleKeys = roleRows.map(r => r.role_key);
+    const unknown = Object.keys(grants).filter(k => !roleKeys.includes(k));
+    const missing = roleKeys.filter(k => !Object.prototype.hasOwnProperty.call(grants, k));
+    if (unknown.length || missing.length) {
+      await conn.rollback();
+      return res.status(400).json({
+        error: [unknown.length && `unknown role(s): ${unknown.join(', ')}`,
+                missing.length && `give every role a level; missing: ${missing.join(', ')}`].filter(Boolean).join('. '),
+        code: 'BAD_GRANT', unknown, missing,
+      });
+    }
+    await conn.execute(
+      `INSERT INTO rbac_pages
+         (page_key, display_name, url_path, category, has_admin_actions, access_policy,
+          description, display_order, status, nav_visible)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [pageKey, displayName, urlPath, category, adminActs, policy, description, order, status, navVisible]
+    );
+    const rows = roleKeys.map(rk => [rk, pageKey, grants[rk]]);
+    await conn.execute(
+      `INSERT INTO rbac_role_pages (role_key, page_key, access_level)
+       VALUES ${rows.map(() => '(?, ?, ?)').join(', ')}`,
+      [].concat(...rows)
+    );
+    await conn.commit();
+  } catch (err) {
+    try { await conn.rollback(); } catch (e) { /* already rolled back */ }
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: `page_key ${pageKey} is already registered`, code: 'DUPLICATE_PAGE' });
+    }
+    console.error('[rbac-routes] POST /pages failed:', err.message);
+    return res.status(500).json({ error: 'Internal error', code: 'INTERNAL' });
+  } finally {
+    conn.release();
+  }
+
+  const page = { page_key: pageKey, display_name: displayName, url_path: urlPath, category,
+    has_admin_actions: adminActs, access_policy: policy, description, display_order: order,
+    status, nav_visible: navVisible };
+  try {
+    await rbac.audit(req, 'page_registered', null, pageKey, { page, grants });
+  } catch (err) {
+    console.error('[rbac-routes] page_registered audit failed:', err.message);
+  }
+  res.status(201).json({ ok: true, page, grants });
+});
+
 // ── GET /roles — list all roles with grants and usage counts ──────────
 router.get('/roles', async (req, res) => {
   try {
