@@ -14,7 +14,7 @@ function identityFeedMetric(key, count) {
 function identityFeedDescription(f) {
   if (!f) return 'Source freshness could not be checked.';
   var sourceDate = f.newest ? ' Latest recorded source event: ' + ft(f.newest) + '.' : '';
-  if (f.collectionMode === 'manual_test') return 'DEV test snapshot; recurring collection is not enabled here.' + sourceDate;
+  if (f.collectionMode === 'manual_test') return 'Test snapshot; recurring collection is not enabled here.' + sourceDate;
   if (f.state === 'stale') return 'Source events are old; recent activity cannot be assessed.' + sourceDate;
   if (f.state === 'empty') return 'No source records have been collected on this host.';
   if (f.state !== 'ok') return 'Source freshness could not be checked.' + sourceDate;

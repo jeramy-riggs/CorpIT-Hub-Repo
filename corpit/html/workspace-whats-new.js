@@ -1,7 +1,7 @@
 /* Native dialogs, real screenshots, and interruptible onboarding motion. */
 (function () {
   'use strict';
-  if (location.hostname !== 'dev-corpit.nrpi.local') return;
+  if (location.hostname !== 'dev-corpit.nrpi.local' && location.hostname !== 'corpit.nrpi.local') return;
   var dialog = document.querySelector('dialog[data-workspace-tour]');
   var trigger = document.getElementById('workspace-whats-new-link');
   var content = document.getElementById('workspace-whats-new-content');

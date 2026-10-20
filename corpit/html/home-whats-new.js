@@ -16,7 +16,7 @@
  function write(key,value){if(!key)return;try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value);}catch(_){}}
  function canSee(scene){
   if(scene.dataset.workspace==='intune'){
-   if(location.hostname!=='dev-corpit.nrpi.local')return false;
+   if(location.hostname!=='dev-corpit.nrpi.local'&&location.hostname!=='corpit.nrpi.local')return false;
    var rb=window.itRbac,me=rb&&rb.state()==='ok'?rb.me():null;
    return !!(me&&me.email&&(me.isSuperAdmin===true||(me.isActive===true&&Array.isArray(me.roles)&&me.roles.indexOf('tier2')!==-1)));
   }

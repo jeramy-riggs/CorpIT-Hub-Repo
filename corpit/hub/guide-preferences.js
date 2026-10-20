@@ -7,8 +7,8 @@ const PREFIX = 'guide_dismissed_';
 
 function register(router, { pool, who, needUser }) {
   function self(req, res) {
-    if (process.env.DEV_SERVER !== '1' ||
-        !['dev-corpit.nrpi.local', 'dev-myprofile.nrpi.local'].includes(req.hostname)) {
+    // devlabelkit 10-20: guides run on prod too (rbac_user_prefs exists on prod).
+    if (!['dev-corpit.nrpi.local', 'dev-myprofile.nrpi.local', 'corpit.nrpi.local', 'myprofile.nrpi.local'].includes(req.hostname)) {
       res.status(404).json({ error: 'Not found' }); return false;
     }
     res.set('Cache-Control', 'no-store, private');

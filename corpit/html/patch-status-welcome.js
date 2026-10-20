@@ -1,7 +1,7 @@
-/* DEV-only entry point. Intune Health's existing access gate owns authorization. */
+/* Entry point. Intune Health's existing access gate owns authorization. */
 (function () {
   'use strict';
-  if (location.hostname !== 'dev-corpit.nrpi.local') return;
+  if (location.hostname !== 'dev-corpit.nrpi.local' && location.hostname !== 'corpit.nrpi.local') return;
   var workspace = document.getElementById('ps-work');
   var trigger = document.getElementById('workspace-whats-new-link');
   var dialog = document.getElementById('workspace-whats-new');
@@ -19,7 +19,7 @@
     if (initialized) return;
     initialized = true;
     var engine = document.createElement('script');
-    engine.src = '/workspace-whats-new.js?v=20261019-account-guides1';
+    engine.src = '/workspace-whats-new.js?v=20261019-account-guides2';
     engine.onload = function () { trigger.hidden = workspace.hidden; };
     document.body.appendChild(engine);
   }
