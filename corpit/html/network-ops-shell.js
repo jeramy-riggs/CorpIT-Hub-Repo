@@ -59,7 +59,7 @@
     document.body.classList.add('cmd','noc');
     var side='<aside class="nside" id="nSide">'+
       '<div class="nbrand"><span class="mk">'+svg(I.logo)+'</span>'+
-        '<span><b>IT Command</b><span>NRPI network</span></span></div>'+
+        '<span><b>CorpIT</b><span>Network operations</span></span></div>'+
       '<nav class="nnav" aria-label="Workspaces">'+
         NAV.map(function(g){
           return '<div class="ngroup">'+E(g.group)+'</div>'+
