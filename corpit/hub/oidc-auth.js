@@ -316,9 +316,43 @@ function jtiSeen(jti) {
   return false;
 }
 
+// CORPIT-SELF-ORIGIN-HOST (F18): Host only, never X-Forwarded-Host. Every nginx
+// /api/auth/ location sets Host $host, but corpit's /hub-api/ proxy passes the
+// client's own X-Forwarded-Host through, so trusting it let a caller pick which
+// audience (and which handoff key) /accept verified against. Normalised the way
+// mp-signin.js does it: lower case, no port, no trailing dot.
 function selfOrigin(req) {
-  const host = req.headers['x-forwarded-host'] || req.headers.host || '';
-  return 'https://' + String(host).split(',')[0].trim();
+  const host = String(req.headers.host || '').trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '');
+  return 'https://' + host;
+}
+
+// CORPIT-HANDOFF-BIND-ALL (F47): every handoff is bound to the browser that asked
+// for it, not just dev ones. The target host sets a nonce cookie and puts the same
+// nonce in the return path; the auth origin signs that path into the handoff but
+// never sees the HttpOnly cookie, so a leaked /accept URL cannot sign in a
+// different browser as its subject. A few recent nonces are kept so two tabs
+// signing in at once do not knock each other out.
+// The backup console is the one audience this hub never accepts for: its own app
+// on ITAM runs /accept and its own bind check, so it is left out of all this.
+const HANDOFF_BIND_KEEP = 4;
+function needsBind(origin) { return origin !== BACKUP_HANDOFF_ORIGIN; }
+function bindNonces(req) {
+  const out = [];
+  for (const raw of readCookieAll(req, HANDOFF_BIND_COOKIE)) {
+    for (const n of String(raw || '').split('.')) if (/^[A-Za-z0-9_-]{43}$/.test(n)) out.push(n);
+  }
+  return out;
+}
+function boundReturn(req, res, here, path) {
+  const nonce = b64url(crypto.randomBytes(32));
+  const rd = new URL(path, here);
+  rd.searchParams.set(HANDOFF_BIND_PARAM, nonce);
+  const keep = bindNonces(req).filter(n => n !== nonce).slice(-(HANDOFF_BIND_KEEP - 1));
+  res.cookie(HANDOFF_BIND_COOKIE, keep.concat(nonce).join('.'), { ...TX_COOKIE_OPTS, maxAge: TX_TTL_MS });
+  return here + rd.pathname + rd.search;
+}
+function hasBindParam(origin, path) {
+  try { return !!new URL(path, origin).searchParams.get(HANDOFF_BIND_PARAM); } catch (e) { return false; }
 }
 
 // ── GET /api/auth/login ───────────────────────────────────────────────────────
@@ -336,22 +370,19 @@ router.get('/login', (req, res) => {
   // will read it back in /callback. Any other vhost hands the whole sign-in over
   // and gets its session on the return trip via the handoff token.
   if (here !== AUTH_ORIGIN) {
-    if (DEV_ORIGIN_RE.test(target.origin) && target.origin !== here) {
+    // CORPIT-HANDOFF-BIND-ALL: a sign-in for another host starts on THAT host, so
+    // the bind cookie lands in the browser that will receive the handoff.
+    if (target.origin !== here && needsBind(target.origin)) {
       return res.redirect(302, target.origin + '/api/auth/login?rd=' + encodeURIComponent(target.path));
     }
-    let back = target.origin + target.path;
-    if (DEV_ORIGIN_RE.test(here) && target.origin === here) {
-      // Bind a DEV handoff to the browser that started it. The auth origin
-      // carries this nonce inside the signed return path but never sees the
-      // HttpOnly target-host cookie, so a stolen handoff URL cannot sign in a
-      // different browser as its subject.
-      const nonce = b64url(crypto.randomBytes(32));
-      const rd = new URL(target.path, here);
-      rd.searchParams.set(HANDOFF_BIND_PARAM, nonce);
-      back = here + rd.pathname + rd.search;
-      res.cookie(HANDOFF_BIND_COOKIE, nonce, { ...TX_COOKIE_OPTS, maxAge: TX_TTL_MS });
-    }
+    const back = target.origin === here ? boundReturn(req, res, here, target.path) : target.origin + target.path;
     return res.redirect(302, AUTH_ORIGIN + '/api/auth/login?rd=' + encodeURIComponent(back));
+  }
+  // CORPIT-HANDOFF-BIND-ALL: on the auth host, a return to another host that does
+  // not yet carry a bind nonce goes to that host first to pick one up. It comes
+  // back with the nonce in the path, so this does not loop.
+  if (target.origin !== here && needsBind(target.origin) && !hasBindParam(target.origin, target.path)) {
+    return res.redirect(302, target.origin + '/api/auth/login?rd=' + encodeURIComponent(target.path));
   }
 
   const verifier  = b64url(crypto.randomBytes(64));
@@ -506,18 +537,19 @@ router.get('/accept', (req, res) => {
   const here = selfOrigin(req);
   const p = verifyHandoff(req.query.t, here);
   if (!p) return res.redirect(302, '/login.html?sso=handoff_invalid');
-  let boundPath = p.rd;
-  if (DEV_ORIGIN_RE.test(here)) {
-    let rd;
-    try { rd = new URL(String(p.rd || ''), here); } catch (e) { rd = null; }
-    const nonce = rd && rd.origin === here ? rd.searchParams.get(HANDOFF_BIND_PARAM) : null;
-    if (!nonce || !readCookieAll(req, HANDOFF_BIND_COOKIE).some(raw => safeEqual(raw, nonce))) {
-      return res.redirect(302, '/login.html?sso=handoff_unbound');
-    }
-    res.clearCookie(HANDOFF_BIND_COOKIE, TX_COOKIE_OPTS);
-    rd.searchParams.delete(HANDOFF_BIND_PARAM);
-    boundPath = rd.pathname + rd.search;
+  // CORPIT-HANDOFF-BIND-ALL (F47): required on every host, not only dev ones.
+  let rd;
+  try { rd = new URL(String(p.rd || ''), here); } catch (e) { rd = null; }
+  const nonce = rd && rd.origin === here ? rd.searchParams.get(HANDOFF_BIND_PARAM) : null;
+  const held = bindNonces(req);
+  if (!nonce || !held.some(n => safeEqual(n, nonce))) {
+    return res.redirect(302, '/login.html?sso=handoff_unbound');
   }
+  const rest = held.filter(n => n !== nonce);
+  if (rest.length) res.cookie(HANDOFF_BIND_COOKIE, rest.join('.'), { ...TX_COOKIE_OPTS, maxAge: TX_TTL_MS });
+  else res.clearCookie(HANDOFF_BIND_COOKIE, TX_COOKIE_OPTS);
+  rd.searchParams.delete(HANDOFF_BIND_PARAM);
+  const boundPath = rd.pathname + rd.search;
   if (jtiSeen(p.jti)) return res.redirect(302, '/login.html?sso=handoff_replayed');
 
   const token = sessionAuth.mintSessionToken(p.sub, p.name,
@@ -581,4 +613,4 @@ router.get('/status', (req, res) => {
 
 module.exports = router;
 module.exports.isConfigured = isConfigured;
-if (process.env.OIDC_TEST_EXPORTS === '1') { module.exports._t = { parseReturn, mintHandoff, verifyHandoff }; }
+if (process.env.OIDC_TEST_EXPORTS === '1') { module.exports._t = { parseReturn, mintHandoff, verifyHandoff, selfOrigin }; }
