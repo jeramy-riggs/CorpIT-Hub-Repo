@@ -91,7 +91,7 @@ def main():
     keep = {}
     try:
         for sip, idx in db.execute(
-            "SELECT switch_ip, ifindex FROM net_ports WHERE oper='up' OR in_err>0 OR out_err>0 OR crc>0"):
+            "SELECT switch_ip, ifindex FROM net_ports WHERE oper='up' OR in_err>0 OR out_err>0 OR crc>0 OR out_disc>0"):
             keep.setdefault(sip, set()).add(idx)
     except Exception:
         keep = {}

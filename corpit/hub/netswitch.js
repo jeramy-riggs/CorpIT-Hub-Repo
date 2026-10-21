@@ -22,6 +22,7 @@ const express = require('express');
 const path    = require('path');
 const Database = require('better-sqlite3');
 const offload  = require('./sqlite-offload');   // read-only SQLite off the event loop
+const { attachIssueActivity } = require('./netswitch-activity');
 const { execFile } = require('child_process');
 const mysql = require('mysql2/promise');
 let _assetPool = null;
@@ -178,6 +179,7 @@ module.exports = function buildNetswitchRouter(deps) {
         `SELECT ip,name,site,model,serial,ios,uptime_days,if_total,if_up,core,location,
                 reachable,ios_current,last_seen FROM net_switches ORDER BY site,core DESC,name`).all();
       let issues = [], scan = {}, counts = null;
+      let scanError = false, activityError = false;
       try {
         // The list is paged. The counts are not: a caller rendering
         // issues.length as "all faults" would be short by whatever the cap cut.
@@ -197,9 +199,25 @@ module.exports = function buildNetswitchRouter(deps) {
         }
         counts.capped = counts.total > issues.length;
         parseDiag(issues);
+        // This is a sampled trend, not a live switch query. Keep it distinct
+        // from the collector's severity, which uses lifetime counter values.
+        const now = Math.floor(Date.now() / 1000);
+        try {
+          const samples = db.prepare(
+            `SELECT s.switch_ip,s.ifindex,s.ts,s.oper,s.in_err,s.out_err,s.crc,s.out_disc
+               FROM net_port_stats s
+               JOIN net_port_issues i
+                 ON i.switch_ip=s.switch_ip AND i.ifindex=s.ifindex
+              WHERE s.ts >= ?`).all(now - 7200);
+          attachIssueActivity(issues, samples, now);
+        } catch (_) {
+          // Older caches can lack history; retain findings and scan metadata.
+          activityError = true;
+          attachIssueActivity(issues, [], now);
+        }
         const m = db.prepare('SELECT k,v FROM net_scan_meta').all();
         for (const {k,v} of m) scan[k] = /^\d+$/.test(v) ? Number(v) : v;
-      } catch (_) { /* scan table not built yet */ }
+      } catch (_) { scanError = true; }
       const meta = readMeta(db);
       const up = devices.filter(d => d.reachable).length;
       const ports = devices.reduce((a,d)=>a+(d.if_total||0),0);
@@ -213,7 +231,7 @@ module.exports = function buildNetswitchRouter(deps) {
                   warn:counts?counts.warn:issues.filter(i=>i.severity==='warn').length,
                   info:counts?counts.info:issues.filter(i=>i.severity==='info').length,
                   scan_age: scan.last_scan ? Math.round(Date.now()/1000 - scan.last_scan) : null },
-        scan, devices, issues, counts });
+        scan, scan_error:scanError, activity_error:activityError, devices, issues, counts });
     } catch (e) {
       if (e && e.code === 'SQLITE_CANTOPEN')
         return res.status(503).json({ ok:false, error:'CACHE_UNAVAILABLE' });

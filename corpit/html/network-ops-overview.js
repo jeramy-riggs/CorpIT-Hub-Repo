@@ -3,13 +3,16 @@ window.NetworkOpsModules.overview=function(ctx){
 'use strict';
 var NOC=ctx.chrome,workspace=ctx;
 
-NOC.act('<button class="nbtn rel icon" id="oh-nAlerts" aria-label="Faults needing action">'+
+NOC.act('<button class="nbtn rel icon" id="oh-nAlerts" aria-label="Review port findings">'+
   NOC.icon('bell')+'<span class="badge" id="oh-alertN" hidden>0</span></button>'+
   '<button class="nbtn" id="oh-nRefresh">'+NOC.icon('refresh')+'Refresh</button>');
 
 var esc=NOC.esc, ago=NOC.ago;
-var S={issues:[],devices:[],counts:null,sum:{},meta:{},noc:null,claims:{},cleared:0,
+var S={issues:[],devices:[],counts:null,sum:{},meta:{},scan:{},scanError:false,activityError:false,noc:null,claims:{},cleared:0,
        filter:'all',range:7,fw:null,watch:[],q:'',busy:false};
+document.getElementById('oh-fqIcon').textContent='Port findings';
+document.getElementById('oh-faultSearch').setAttribute('aria-label','Search port findings');
+document.getElementById('oh-faultSearch').setAttribute('placeholder','Search switch, IP, port, finding or description…');
 
 async function jget(u){return ctx.json(u);}
 /* ── issue helpers: the diagnosis is authored by the collector, not here ── */
@@ -23,6 +26,37 @@ function causeOf(i){
   if(t&&c.indexOf(t)===0)c=c.slice(t.length).replace(/^[\s—–:-]+/,'');
   return c;}
 function refOf(i){return i.switch_ip+':'+i.port;}
+function secondsSince(ts){return ts?Math.max(0,Math.floor(Date.now()/1000)-ts):null;}
+function activityRank(i){return ({rising:0,link_changed:1,link_down:2,stable:3,link_steady:3,
+  link_up:4,reset:5,insufficient:6,stale:7,not_tracked:8,unavailable:9})[i.activity&&i.activity.state]??9;}
+function activityCell(i){
+  var a=i.activity||{},state=a.state||'unavailable';
+  var elapsed=a.window_seconds?Math.round(a.window_seconds/60)+'m sampled':'';
+  var link=a.latest_oper?'link '+a.latest_oper:'';
+  var changes=a.link_changes?String(a.link_changes)+' link changes':'';
+  var when=a.last_ts?'last '+ago(secondsSince(a.last_ts)):'';
+  var detail=[elapsed,link,changes,when].filter(Boolean).join(' · ');
+  if(state==='rising'){
+    var parts=[];
+    if(a.d_crc>0)parts.push('+'+Number(a.d_crc).toLocaleString()+' CRC');
+    if(a.d_out_disc>0)parts.push('+'+Number(a.d_out_disc).toLocaleString()+' discards');
+    if(a.d_in_err>0&&!(a.d_crc>0))parts.push('+'+Number(a.d_in_err).toLocaleString()+' input errors');
+    if(a.d_out_err>0)parts.push('+'+Number(a.d_out_err).toLocaleString()+' output errors');
+    return '<b>'+esc(parts.join(' · ')||'Counters rose')+'</b><span class="s">'+esc(detail)+'</span>';
+  }
+  var label={stable:'Finding counter unchanged',link_changed:'Link changed',link_down:'Still down',
+             link_steady:'No link change',link_up:'Link now up',not_tracked:'Change not sampled',
+             reset:'Counter reset',insufficient:'Need another sample',
+             stale:'Sample stale',unavailable:'No samples'}[state]||'No samples';
+  var other=[];
+  if(state==='stable'){
+    if(a.finding_counter!=='crc'&&a.d_crc>0)other.push('+'+Number(a.d_crc).toLocaleString()+' other CRC');
+    if(a.finding_counter!=='out_disc'&&a.d_out_disc>0)other.push('+'+Number(a.d_out_disc).toLocaleString()+' other discards');
+    if(a.finding_counter!=='in_err'&&a.finding_counter!=='crc'&&a.d_in_err>0)other.push('+'+Number(a.d_in_err).toLocaleString()+' other input errors');
+    if(a.finding_counter!=='out_err'&&a.d_out_err>0)other.push('+'+Number(a.d_out_err).toLocaleString()+' other output errors');
+  }
+  return '<span>'+esc(label)+'</span><span class="s">'+esc(other.concat(detail?[detail]:[]).join(' · '))+'</span>';
+}
 function ini(n){n=String(n||'').split('@')[0];var w=n.split(/[._\- ]+/).filter(Boolean);
   return ((w[0]||'?')[0]+(w[1]?w[1][0]:'')).toUpperCase();}
 
@@ -42,26 +76,32 @@ function renderKpis(){
   var s=scopeSummary(), n=(S.noc&&S.noc.summary)||{};
   var crit=sevTotal('critical');
   var warn=sevTotal('warn');
+  var criticalRows=scopedIssues().filter(function(i){return i.severity==='critical';});
+  var risingCritical=criticalRows.filter(function(i){return i.activity&&i.activity.state==='rising';}).length;
+  var steadyCritical=criticalRows.filter(function(i){return i.activity&&i.activity.state==='stable';}).length;
+  var unverifiedCritical=crit-risingCritical-steadyCritical;
+  var criticalSummary=S.scanError?'finding scan unavailable':crit?(risingCritical+' rising · '+steadyCritical+' unchanged'+
+    (unverifiedCritical?' · '+unverifiedCritical+' unverified':'')):'none above threshold';
   var pPct=s.ports?Math.round(s.ports_up/s.ports*100):0;
   var swPct=s.switches?Math.round(s.switches_up/s.switches*100):0;
   var apTot=(n.totalOnline||0)+(n.totalOffline||0);
   document.getElementById('oh-kpis').innerHTML=
-    kpi({k:'Critical',v:crit,tone:crit?'bad':'good',icon:'pulse',
-         s:crit?'needs action now':'nothing critical',href:'critical'})+
-    kpi({k:'Warnings',v:warn,tone:warn?'warn':'good',
-         s:warn?'watch these':'all clear',href:'warn'})+
+    kpi({k:'Critical findings',v:S.scanError?'—':crit,tone:crit?'bad':S.scanError?'warn':'good',icon:'pulse',
+         s:criticalSummary,href:'critical'})+
+    kpi({k:'Warnings',v:S.scanError?'—':warn,tone:warn||S.scanError?'warn':'good',
+         s:S.scanError?'finding scan unavailable':warn?'above threshold':'none above threshold',href:'warn'})+
     kpi({k:'Switches',v:s.switches_up+'<small>/'+s.switches+'</small>',
          tone:s.switches_down?'bad':'good',s:s.switches_down?s.switches_down+' not responding':'all responding',
          meter:swPct,mtone:s.switches_down?'bad':'good'})+
-    kpi({k:'Ports active',v:Number(s.ports_up||0).toLocaleString()+'<small>/'+
-         Number(s.ports||0).toLocaleString()+'</small>',s:pPct+'% of the fabric in use',
+    kpi({k:'Interfaces up',v:Number(s.ports_up||0).toLocaleString()+'<small>/'+
+         Number(s.ports||0).toLocaleString()+'</small>',s:pPct+'% of polled interfaces',
          meter:pPct,mtone:''})+
     kpi({k:'APs · fleet',v:apTot?(n.totalOnline+'<small>/'+apTot+'</small>'):'—',
          tone:n.totalOffline?'warn':'good',
          s:apTot?(n.totalOffline?n.totalOffline+' offline':'all online'):'Meraki unavailable',
          meter:apTot?Math.round(n.totalOnline/apTot*100):null,mtone:n.totalOffline?'warn':'good'})+
-    kpi({k:'Clients · fleet',v:n.totalClients!=null?Number(n.totalClients).toLocaleString():'—',
-         tone:'info',s:'fleet · last reported'});
+    kpi({k:'Clients seen 5m · fleet',v:n.totalClients!=null?Number(n.totalClients).toLocaleString():'—',
+         tone:'info',s:'includes recently offline clients'});
   document.querySelectorAll('#oh-kpis [data-go]').forEach(function(b){
     b.addEventListener('click',function(){S.q='';document.getElementById('oh-faultSearch').value='';S.filter=b.dataset.go;renderFaults();
       document.getElementById('oh-faults').scrollIntoView({block:'center',behavior:'smooth'});});});
@@ -71,20 +111,23 @@ function renderKpis(){
 function renderVitals(){
   var s=scopeSummary(),n=(S.noc&&S.noc.summary)||{};
   var crit=sevTotal('critical'), open=queueTotal();
+  var inventoryAge=S.meta.last_run?secondsSince(S.meta.last_run):s.scan_age;
+  var findingAge=secondsSince(S.scan.last_scan);
   NOC.vitals([
-    {k:'Scan',v:ago(S.meta.age_seconds||s.scan_age)},
+    {k:'Inventory poll',v:ago(inventoryAge)},
+    {k:'Finding scan',v:ago(findingAge),cls:findingAge>7200?'warn':''},
     {k:'Switches',v:s.switches_up+'/'+s.switches,cls:s.switches_down?'bad':'good'},
-    {k:'Ports up',v:Number(s.ports_up||0).toLocaleString()},
+    {k:'Interfaces up',v:Number(s.ports_up||0).toLocaleString()},
     {k:'APs · fleet',v:(n.totalOnline!=null?n.totalOnline+'/'+((n.totalOnline||0)+(n.totalOffline||0)):'—'),
      cls:n.totalOffline?'warn':'good'},
-    {k:'Clients · fleet',v:n.totalClients!=null?Number(n.totalClients).toLocaleString():'—'},
-    {k:'Open faults',v:open.toLocaleString(),cls:crit?'bad':(open?'warn':'good')},
+    {k:'Clients seen 5m · fleet',v:n.totalClients!=null?Number(n.totalClients).toLocaleString():'—'},
+    {k:'Port findings',v:S.scanError?'—':open.toLocaleString(),cls:crit?'bad':(open||S.scanError?'warn':'good')},
     {k:'Cleared 7d · fleet',v:S.cleared||0,cls:'good'}
   ]);
   NOC.badge('health',crit||open,crit?'bad':'warn');
   var a=document.getElementById('oh-alertN');
   if(a){ if(crit){a.hidden=false;a.textContent=crit;} else a.hidden=true; }
-  NOC.stamp('scanned '+ago(S.meta.age_seconds||s.scan_age),(S.meta.age_seconds||0)>7200);
+  NOC.stamp('inventory polled '+ago(inventoryAge),(inventoryAge||0)>7200);
 }
 
 /* ── fault queue ────────────────────────────────────────────────────────── */
@@ -114,6 +157,12 @@ function renderFaults(){
     b.addEventListener('click',function(){S.filter=b.dataset.f;renderFaults();});});
 
   var el=document.getElementById('oh-faults');
+  var findingAge=secondsSince(S.scan.last_scan);
+  var note='<div class="pnote">Finding scan '+esc(ago(findingAge))+
+    '. Severity reflects the last scan and may use accumulated counters since the switch last reset. '+
+    'Recent change tracks the counter behind each finding using samples from up to an hour before the last sample. Open a port to verify impact.'+
+    (S.scanError?' Finding data could not be read.':'')+
+    (S.activityError?' Counter history could not be read.':'')+'</div>';
   // The tabs above count the queue; this list is what the server sent. When
   // those differ the reader is looking at a slice, and has to be told which.
   var shownFor=(f==='all')?queueTotal():cnt(f);
@@ -122,21 +171,22 @@ function renderFaults(){
       shownFor.toLocaleString()+' — the server returns the most severe first. '+
       'Narrow by switch or severity to reach the rest.</div>'
     : '';
-  if(!list.length&&S.q.trim()){
-    el.innerHTML='<div class="nempty"><b>No faults match this search</b>Clear the search or use Reset filters.</div>';
+  if(!list.length&&S.q.trim()&&!S.scanError){
+    el.innerHTML=note+'<div class="nempty"><b>No findings match this search</b>Clear the search or use Reset filters.</div>';
   }else if(!list.length){
-    el.innerHTML='<div class="nempty">'+NOC.icon('pulse')+
-      '<b>'+(shownFor?'None of these arrived in this page':
-             (f==='all'?'No open faults':'Nothing at this severity'))+'</b>'+
-      (shownFor?shownFor.toLocaleString()+' fault'+(shownFor===1?'':'s')+
-                ' of this severity are open, but none were in the slice the '+
+    el.innerHTML=note+'<div class="nempty">'+NOC.icon('pulse')+
+      '<b>'+(S.scanError?'Findings unavailable':shownFor?'None of these arrived in this page':
+             (f==='all'?'No port findings':'Nothing at this severity'))+'</b>'+
+      (S.scanError?'The last finding scan could not be loaded. Try Refresh.':shownFor?shownFor.toLocaleString()+' finding'+(shownFor===1?'':'s')+
+                ' of this severity exist, but none were in the slice the '+
                 'server returned. Narrow by switch to reach them.'
               :(f==='all'?'Every port the last scan touched came back clean.'
                         :'Try another filter to see the rest of the queue.'))+'</div>';
   }else{
     var rows=list.slice().sort(function(a,b){
       var o={critical:0,warn:1,info:2};
-      return (o[a.severity]-o[b.severity])||String(a.switch).localeCompare(String(b.switch));
+      return (o[a.severity]-o[b.severity])||(activityRank(a)-activityRank(b))||
+        String(a.switch).localeCompare(String(b.switch));
     }).map(function(i){
       var ref=refOf(i), c=S.claims[ref];
       return '<tr class="click" data-ref="'+esc(ref)+'" data-ifx="'+esc(i.ifindex||'')+
@@ -152,6 +202,7 @@ function renderFaults(){
           '<span class="s">'+esc(causeOf(i))+'</span></button></td>'+
         '<td class="mono">'+esc(i.switch||'')+'</td>'+
         '<td class="mono">'+esc(i.port||'')+'</td>'+
+        '<td data-sort="'+activityRank(i)+'" class="grow">'+activityCell(i)+'</td>'+
         '<td class="grow"><span class="s" title="'+esc(i.descr||'')+'">'+esc(i.descr||'—')+'</span></td>'+
         '<td>'+(c?'<button class="owner" data-cid="'+c.id+'" title="Claimed by '+esc(c.claimed_by)+
             ' — click to release">'+esc(ini(c.claimed_by))+'</button>'
@@ -159,12 +210,13 @@ function renderFaults(){
             '">Claim</button>')+'</td>'+
         '</tr>';
     }).join('');
-    el.innerHTML='<table class="nt">'+
+    el.innerHTML=note+'<table class="nt">'+
       '<colgroup><col style="width:88px"><col class="wide"><col style="width:150px">'+
-      '<col style="width:88px"><col class="mid"><col style="width:74px"></colgroup>'+
+      '<col style="width:88px"><col style="width:180px"><col class="mid"><col style="width:74px"></colgroup>'+
       '<thead><tr>'+
-      '<th data-key="sev" data-type="num">Sev</th><th data-key="t">Fault</th>'+
+      '<th data-key="sev" data-type="num">Sev</th><th data-key="t">Finding</th>'+
       '<th data-key="sw">Switch</th><th data-key="p">Port</th>'+
+      '<th data-key="a" data-type="num">Recent change</th>'+
       '<th data-key="d">Description</th><th>Owner</th></tr></thead><tbody>'+rows+'</tbody></table>'+capNote;
     NOC.sortable(el.querySelector('table'));
     el.querySelectorAll('tr.click').forEach(function(tr){
@@ -184,7 +236,7 @@ function renderFaults(){
   var crit=cnt('critical');
   document.getElementById('oh-fFoot').innerHTML=
     '<span><b>'+list.length+'</b> shown</span>'+
-    '<span><b>'+crit+'</b> critical</span>'+
+    '<span><b>'+crit+'</b> critical at last scan</span>'+
     '<span><b>'+(S.cleared||0)+'</b> cleared this week</span>'+
     '<span style="margin-left:auto;color:var(--o-faint)">Click a row for port history and evidence</span>';
 }
@@ -227,7 +279,7 @@ function renderSites(){
     return '<a class="nrow" href="/network-switches.html?site='+encodeURIComponent(s.site)+'">'+
       '<span class="ic '+tone+'">'+NOC.icon('pin')+'</span>'+
       '<span class="bd"><span class="t">'+esc(s.site)+'</span>'+
-      '<span class="s">'+s.up+'/'+s.sw+' switches · '+s.pu.toLocaleString()+' ports up</span>'+
+      '<span class="s">'+s.up+'/'+s.sw+' switches · '+s.pu.toLocaleString()+' interfaces up</span>'+
       '<span class="nmeter" style="margin-top:5px"><i class="'+(tone==='bad'?'bad':'')+
         '" style="width:'+pct+'%"></i></span></span>'+
       '<span class="rt">'+(s.faults?'<span class="sev warn">'+s.faults+'</span>':
@@ -316,11 +368,11 @@ function renderWifi(){
       ' <span style="font-size:12px;color:var(--o-faint)">/ '+apTot+'</span></div>'+
       '<span class="nmeter"><i class="'+(n.totalOffline?'warn':'good')+'" style="width:'+
       (apTot?Math.round(n.totalOnline/apTot*100):0)+'%"></i></span></div>'+
-    '<div class="fwg"><div class="k">Clients</div><div class="v">'+
+    '<div class="fwg"><div class="k">Clients seen (5m)</div><div class="v">'+
       Number(n.totalClients||0).toLocaleString()+'</div></div>'+
     '<div class="fwg"><div class="k">Offline</div><div class="v" style="color:'+
       (n.totalOffline?'var(--o-slow)':'var(--o-sig)')+'">'+(n.totalOffline||0)+'</div></div>'+
-    '<div class="fwg"><div class="k">Avg clients / AP</div><div class="v">'+
+    '<div class="fwg"><div class="k">Avg seen / AP</div><div class="v">'+
       (n.totalOnline?Math.round((n.totalClients||0)/n.totalOnline*10)/10:'—')+'</div></div>'+
   '</div>';
 }
@@ -356,13 +408,17 @@ async function renderWatch(){
 document.getElementById('oh-fExport').addEventListener('click',function(){
   var list=faultRows();
   var q=OpsPolish.csvCell;
-  var csv=['severity,fault,switch,switch_ip,port,description,detail,owner'].concat(
+  var csv=['severity,finding,switch,switch_ip,port,description,detail,owner,finding_scan_time,activity,finding_counter,first_sample_time,last_sample_time,delta_input_errors,delta_output_errors,delta_crc,delta_discards,link_at_latest_sample,link_changes'].concat(
     list.map(function(i){var c=S.claims[refOf(i)];
+      var a=i.activity||{};
       return [i.severity,titleOf(i),i.switch,i.switch_ip,i.port,i.descr,causeOf(i),
-              c?c.claimed_by:''].map(q).join(',');})).join('\n');
+              c?c.claimed_by:'',S.scan.last_scan?new Date(S.scan.last_scan*1000).toISOString():'',
+              a.state||'unavailable',a.finding_counter||'',a.first_ts?new Date(a.first_ts*1000).toISOString():'',
+              a.last_ts?new Date(a.last_ts*1000).toISOString():'',a.d_in_err,a.d_out_err,a.d_crc,a.d_out_disc,
+              a.latest_oper||'',a.link_changes].map(q).join(',');})).join('\n');
   var a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
-  a.download='nrpi-faults.csv'; a.click(); URL.revokeObjectURL(a.href);
+  a.download='nrpi-port-findings.csv'; a.click(); URL.revokeObjectURL(a.href);
 });
 
 /* ── load ───────────────────────────────────────────────────────────────── */
@@ -381,7 +437,8 @@ async function load(){
     S.issues=ov.issues||[]; S.devices=ov.devices||[];
     // counts are read from the table; ov.issues is a capped page of it
     S.counts=ov.counts||null;
-    S.sum=ov.summary||{}; S.meta=ov.meta||{}; S.noc=noc;
+    S.sum=ov.summary||{}; S.meta=ov.meta||{}; S.scan=ov.scan||{};
+    S.scanError=!!ov.scan_error; S.activityError=!!ov.activity_error; S.noc=noc;
     S.claims={}; S.cleared=0;
     if(cl&&cl.ok){(cl.claims||[]).forEach(function(c){S.claims[c.ref]=c;});
       S.cleared=cl.cleared_week||0;}
