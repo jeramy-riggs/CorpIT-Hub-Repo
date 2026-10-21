@@ -61,7 +61,17 @@ function sendFail(res, e, extra) {
   const refused = SUDO_REFUSED.test((e && e.message) || '');
   return res.status(refused ? 403 : 500).json(Object.assign({ error: refused ? NOT_PERMITTED : (e && e.message) }, extra || {}));
 }
-const ENV_PREFIX = "cd /var/www/corpit-hub-api && env $(cat .env | grep -v '^#' | grep -v '^$' | xargs)";
+// F43 (2026-10-21): manual jobs used to run as `env $(cat .env | ... | xargs) node <job>` under
+// bash -lc, which put every .env secret on the xargs/env command lines (/proc/<pid>/cmdline).
+// The job now gets .env through spawn's env option instead: same values, re-read on every run,
+// laid over the hub's own environment exactly as `env K=V ...` did. No shell is involved.
+const HUB_DIR = '/var/www/corpit-hub-api';
+function jobEnv() {
+  let parsed = {};
+  // A missing/unreadable .env ran the job with the hub's environment alone before; keep that.
+  try { parsed = require('dotenv').parse(fs.readFileSync(path.join(HUB_DIR, '.env'))); } catch (e) {}
+  return Object.assign({}, PM2_ENV, parsed);
+}
 
 // Whitelisted manual jobs (ME sync jobs intentionally excluded — they hang).
 const JOBS = {
@@ -97,6 +107,19 @@ function fireDetached(cmd, logFile) {
     const out = fs.openSync(logFile, 'a');
     const p = spawn('/usr/bin/setsid', ['bash', '-lc', cmd], { detached: true, stdio: ['ignore', out, out], env: PM2_ENV });
     p.unref();
+    return true;
+  } catch (e) { return false; }
+}
+
+// Same detached launch as fireDetached, but argv-only (no shell) with an explicit env and cwd.
+// stdout+stderr go to the log in append mode, as the old `>> log 2>&1` did.
+function fireDetachedArgv(argv, logFile, env, cwd) {
+  try {
+    const out = fs.openSync(logFile, 'a');
+    const p = spawn('/usr/bin/setsid', argv, { detached: true, stdio: ['ignore', out, out], env: env, cwd: cwd });
+    p.on('error', function (e) { console.error('[actions] job launch failed:', e.message); });
+    p.unref();
+    fs.closeSync(out);
     return true;
   } catch (e) { return false; }
 }
@@ -139,7 +162,7 @@ router.post('/job/run', needAdmin, async function (req, res) {
   const j = JOBS[key];
   if (!j) { await audit(req, 'job_run', key, null, 'rejected', 'unknown job'); return res.status(400).json({ error: 'unknown job', allowed: Object.keys(JOBS) }); }
   const logFile = LOG_DIR + '/manual-' + key + '.log';
-  const ok = fireDetached(ENV_PREFIX + ' /usr/bin/node ' + j.script + ' >> ' + logFile + ' 2>&1', logFile);
+  const ok = fireDetachedArgv(['/usr/bin/node', j.script], logFile, jobEnv(), HUB_DIR);
   await audit(req, 'job_run', key, { long: j.long }, ok ? 'started' : 'error', null);
   res.json({ status: ok ? 'started' : 'error', job: j.label, long: j.long, log: logFile });
 });

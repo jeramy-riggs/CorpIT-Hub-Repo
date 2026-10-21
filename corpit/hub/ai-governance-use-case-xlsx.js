@@ -6,7 +6,10 @@
 // columns are recomputed from the record (ai-governance-use-case-model.js calc()).
 const zlib=require('node:zlib');
 const model=require('./ai-governance-use-case-model');
-const LIMITS={entries:2000,partBytes:40*1024*1024,totalBytes:60*1024*1024};
+// F12: parts are capped at 20 MB inflated (the real template's largest part is ~0.6 MB), and every
+// regex that reads uploaded XML stops at the next tag ([^<>], or a tempered run that ends at the
+// next opening tag of the same name), so an unclosed tag costs linear time, not quadratic.
+const LIMITS={entries:2000,partBytes:20*1024*1024,totalBytes:40*1024*1024};
 const FIRST_DATA_ROW=6,TEMPLATE_LAST_ROW=505,WIDTH=model.COLUMNS.length;
 function bad(message){throw Object.assign(new Error(message),{status:400});}
 
@@ -70,10 +73,12 @@ function writeZip(files){
 const ENT={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"};
 function unxml(s){return String(s).replace(/&(#x[0-9a-fA-F]+|#[0-9]+|amp|lt|gt|quot|apos);/g,(m,e)=>{if(e[0]!=='#')return ENT[e];const n=e[1]==='x'?parseInt(e.slice(2),16):Number(e.slice(1));return n>0&&n<=0x10FFFF?String.fromCodePoint(n):'';});}
 const unescapeX=s=>s.replace(/_x([0-9A-Fa-f]{4})_/g,(m,h)=>String.fromCharCode(parseInt(h,16)));
-function attrs(s){const a={};for(const m of String(s).matchAll(/([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g))a[m[1]]=unxml(m[2]!=null?m[2]:m[3]);return a;}
+function attrs(s){s=String(s);const a={},gone={};const re=/(?<![\w:.-])([\w:.-]+)\s*=\s*(["'])/g;let m;
+  while((m=re.exec(s))){const q=m[2],end=gone[q]?-1:s.indexOf(q,re.lastIndex);if(end<0){gone[q]=true;continue;}a[m[1]]=unxml(s.slice(re.lastIndex,end));re.lastIndex=end+1;}
+  return a;}
 // Rich-text runs are joined; phonetic (rPh) runs are not cell text.
-function text(xml){return unescapeX([...String(xml).replace(/<(?:\w+:)?rPh\b[\s\S]*?<\/(?:\w+:)?rPh>/g,'').matchAll(/<(?:\w+:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?t>/g)].map(m=>unxml(m[1])).join(''));}
-function rels(xml,base){return [...String(xml||'').matchAll(/<(?:\w+:)?Relationship\b([^>]*?)\/?>/g)].map(m=>attrs(m[1])).map(a=>({id:a.Id,type:a.Type||'',target:a.TargetMode==='External'?null:resolve(base,a.Target||'')}));}
+function text(xml){return unescapeX([...String(xml).replace(/<(?:\w+:)?rPh\b(?:(?!<(?:\w+:)?rPh\b)[\s\S])*?<\/(?:\w+:)?rPh>/g,'').matchAll(/<(?:\w+:)?t(?:\s[^<>]*)?>((?:(?!<(?:\w+:)?t[\s>])[\s\S])*?)<\/(?:\w+:)?t>/g)].map(m=>unxml(m[1])).join(''));}
+function rels(xml,base){return [...String(xml||'').matchAll(/<(?:\w+:)?Relationship\b([^<>]*?)\/?>/g)].map(m=>attrs(m[1])).map(a=>({id:a.Id,type:a.Type||'',target:a.TargetMode==='External'?null:resolve(base,a.Target||'')}));}
 function resolve(base,target){const out=[];for(const p of (target.startsWith('/')?target.slice(1):base+target).split('/')){if(p==='..')out.pop();else if(p&&p!=='.')out.push(p);}return out.join('/');}
 const squash=v=>String(v).replace(/\s+/g,' ').trim();
 function colIndex(letters){let n=0;for(const ch of letters)n=n*26+ch.charCodeAt(0)-64;return n-1;}
@@ -88,9 +93,9 @@ function open(buf){
   const wbPath=root&&root.target||'xl/workbook.xml',wb=get(wbPath);
   if(!wb)bad('The file is not an .xlsx workbook');
   const base=wbPath.replace(/[^/]*$/,''),relsPath=base+'_rels/'+wbPath.slice(base.length)+'.rels',wbRels=rels(get(relsPath),base);
-  const sheets=[...wb.matchAll(/<(?:\w+:)?sheet\b([^>]*?)\/?>/g)].map(m=>attrs(m[1])).map(a=>{const rid=Object.keys(a).find(k=>/:id$/.test(k));const r=wbRels.find(x=>x.id===a[rid]);return {name:a.name||'',path:r&&r.target};});
+  const sheets=[...wb.matchAll(/<(?:\w+:)?sheet\b([^<>]*?)\/?>/g)].map(m=>attrs(m[1])).map(a=>{const rid=Object.keys(a).find(k=>/:id$/.test(k));const r=wbRels.find(x=>x.id===a[rid]);return {name:a.name||'',path:r&&r.target};});
   const sheet=name=>sheets.find(s=>squash(s.name).toLowerCase()===name.toLowerCase());
-  return {entries,get,wb,wbPath,relsPath,wbRels,sheet,date1904:/<(?:\w+:)?workbookPr\b[^>]*\bdate1904\s*=\s*["'](?:1|true)["']/.test(wb)};
+  return {entries,get,wb,wbPath,relsPath,wbRels,sheet,date1904:/<(?:\w+:)?workbookPr\b[^<>]*\bdate1904\s*=\s*["'](?:1|true)["']/.test(wb)};
 }
 
 // ── read ──────────────────────────────────────────────────────────────
@@ -108,8 +113,8 @@ function looseDate(s){
 const num=s=>{const n=Number(s);return Number.isFinite(n)?String(Number(n.toPrecision(15))):s;};
 function cellValue(a,inner,strings){
   const t=a.t||'n';inner=inner||'';
-  if(t==='inlineStr'){const m=/<(?:\w+:)?is\b[^>]*>([\s\S]*?)<\/(?:\w+:)?is>/.exec(inner);return {v:m?text(m[1]):''};}
-  const m=/<(?:\w+:)?v(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?v>/.exec(inner),raw=m?unxml(m[1]):'';
+  if(t==='inlineStr'){const m=/<(?:\w+:)?is\b[^<>]*>((?:(?!<(?:\w+:)?is\b)[\s\S])*?)<\/(?:\w+:)?is>/.exec(inner);return {v:m?text(m[1]):''};}
+  const m=/<(?:\w+:)?v(?:\s[^<>]*)?>((?:(?!<(?:\w+:)?v[\s>])[\s\S])*?)<\/(?:\w+:)?v>/.exec(inner),raw=m?unxml(m[1]):'';
   if(t==='s'){if(raw==='')return {v:''};const s=strings[Number(raw)];if(s==null)bad('The workbook is damaged (missing shared text)');return {v:s};}
   if(t==='str')return {v:unescapeX(raw)};
   if(t==='b')return {v:raw==='1'?'TRUE':raw==='0'?'FALSE':raw};
@@ -124,13 +129,13 @@ function parseInventory(buf,{maxRows=2000}={}){
   if(!inv||!inv.path)bad('The workbook has no "Inventory" sheet. Use the AI/ML Use Inventory template.');
   const xml=book.get(inv.path);if(xml==null)bad('The workbook is damaged (Inventory sheet missing)');
   const ss=book.wbRels.find(r=>/\/sharedStrings$/.test(r.type));
-  const strings=ss&&ss.target&&book.get(ss.target)?[...book.get(ss.target).matchAll(/<(?:\w+:)?si\b[^>]*?(?:\/>|>([\s\S]*?)<\/(?:\w+:)?si>)/g)].map(m=>m[1]?text(m[1]):''):[];
+  const strings=ss&&ss.target&&book.get(ss.target)?[...book.get(ss.target).matchAll(/<(?:\w+:)?si\b[^<>]*?(?:\/>|>((?:(?!<(?:\w+:)?si\b)[\s\S])*?)<\/(?:\w+:)?si>)/g)].map(m=>m[1]?text(m[1]):''):[];
   const grid=new Map();let rowNo=0,filled=0;
-  for(const m of xml.matchAll(/<(?:\w+:)?row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?row>)/g)){
+  for(const m of xml.matchAll(/<(?:\w+:)?row\b([^<>]*?)(?:\/>|>((?:(?!<(?:\w+:)?row\b)[\s\S])*?)<\/(?:\w+:)?row>)/g)){
     const a=attrs(m[1]);rowNo=a.r?Number(a.r):rowNo+1;
     if(!Number.isSafeInteger(rowNo)||rowNo<1||rowNo>1048576)bad('The workbook is damaged (row number)');
     const cells=new Map();let col=-1;
-    for(const c of (m[2]||'').matchAll(/<(?:\w+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?c>)/g)){
+    for(const c of (m[2]||'').matchAll(/<(?:\w+:)?c\b([^<>]*?)(?:\/>|>((?:(?!<(?:\w+:)?c\b)[\s\S])*?)<\/(?:\w+:)?c>)/g)){
       const ca=attrs(c[1]);
       if(ca.r){const x=/^\$?([A-Z]{1,3})\$?(\d+)$/.exec(ca.r.toUpperCase());if(!x)bad('The workbook is damaged (cell reference)');col=colIndex(x[1]);}else col++;
       if(col<WIDTH)cells.set(col,cellValue(ca,c[2],strings));

@@ -544,14 +544,16 @@ router.get('/scan/summary', rbac.requirePage('ad-housekeeping','read'), async (r
 // ─── Routes: Actions ─────────────────────────────────────────────────────────
 
 router.post('/action', rbac.requirePage('ad-housekeeping','admin'), needSchema, async (req, res) => {
-  const { action, objectName, objectDN, objectType, params } = req.body || {};
+  const { action, objectName, objectDN, objectType } = req.body || {};
 
-  if (!action || !objectName) {
+  if (!action || !objectName || typeof objectName !== 'string' || (objectDN != null && typeof objectDN !== 'string')) {
     return res.status(400).json({ error: 'action and objectName are required' });
   }
 
-  const validActions = ['disable-account', 'enable-account', 'move-to-disabled',
-                        'remove-from-group', 'add-to-group'];
+  // Group actions are not offered here: nothing server-side picks the group for this route (the page never
+  // sends one), and a client-chosen group would let any page admin add anyone to any AD group.
+  // Revert re-adds a removed group from the audit row and calls runAction directly.
+  const validActions = ['disable-account', 'enable-account', 'move-to-disabled'];
   if (!validActions.includes(action)) {
     return res.status(400).json({ error: `Invalid action. Valid: ${validActions.join(', ')}` });
   }
@@ -563,12 +565,12 @@ router.post('/action', rbac.requirePage('ad-housekeeping','admin'), needSchema, 
   try {
     const pool = await getPool(req);
 
+    // Only server-validated fields; no client params, and the allowlisted action last so nothing overrides it.
     const payload = {
-      action,
       target: objectName,
       targetDN: objectDN || '',
       disabledOU: DISABLED_OU,
-      ...(params || {}),
+      action,
     };
 
     const result = await runAction(payload);

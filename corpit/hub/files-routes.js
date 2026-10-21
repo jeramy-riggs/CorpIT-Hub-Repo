@@ -469,9 +469,15 @@ router.get('/departments/sites', guard, async (req, res) => {
   } catch (e) { console.error('[DEPT] sites', e.message); res.status(500).json({ error: e.message }); }
 });
 
+// F45: the walker calls Graph /sites/{site_id}/... with the tenant-wide app token, so only a
+// Graph composite SharePoint site id ("<tenant>.sharepoint.com,<guid>,<guid>", as getAllSites
+// returns) is accepted. OneDrive (-my.sharepoint.com) hosts, paths and anything else are refused.
+const SP_SITE_ID_RE = /^[a-z0-9-]+\.sharepoint\.com,[0-9a-f-]{36},[0-9a-f-]{36}$/i;
+function validDeptSiteId(id) { const s = String(id == null ? '' : id); return SP_SITE_ID_RE.test(s) && !/-my\.sharepoint\.com,/i.test(s); }
 router.post('/departments/sites', guardAdmin, async (req, res) => {
   const { site_id, site_name, web_url, department_name } = req.body || {};
   if (!site_id || !site_name || !web_url) return res.status(400).json({ error: 'site_id, site_name, web_url required' });
+  if (!validDeptSiteId(site_id)) return res.status(400).json({ error: 'site_id must be a Graph SharePoint site id (<tenant>.sharepoint.com,<guid>,<guid>); OneDrive sites are not allowed' });
   try {
     await rbacPool.query(
       `INSERT INTO department_sites (site_id, site_name, web_url, department_name, is_department, source)

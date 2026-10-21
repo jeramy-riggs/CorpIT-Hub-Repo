@@ -132,6 +132,32 @@ const insCH = db.prepare(
 );
 const insCHMany = db.transaction(function (rows) { rows.forEach(function (r) { insCH.run(r); }); });
 
+// F8 (2026-10-21): a batch that fails for a non-transient reason is retried row by row; each row runs
+// in its own savepoint, so a row SQLite still refuses is dropped and counted without touching the rest.
+// Lock/IO errors are rethrown so the caller keeps its existing re-queue / log behaviour.
+function isTransient(e) { return !!(e && /^SQLITE_(BUSY|LOCKED|IOERR|FULL|NOMEM|READONLY|CANTOPEN|PROTOCOL|INTERRUPT|CORRUPT|NOTADB)/.test(String(e.code))); }
+function rowByRow(one, tag) {
+  var logged = 0;
+  return db.transaction(function (rows) {
+    var res = { inserted: 0, poison: 0 };
+    rows.forEach(function (r) {
+      try { one(r); res.inserted++; }
+      catch (e) { if (isTransient(e)) throw e; res.poison++; if (++logged <= 5) console.error(tag + ' dropped bad row:', e.message); }
+    });
+    return res;
+  });
+}
+const insEach = rowByRow(db.transaction(function (r) { ins.run(r); }), '[lss]');
+const insCHEach = rowByRow(db.transaction(function (r) { insCH.run(r); }), '[lss-ch]');
+
+// F8: sender JSON can carry arrays/objects/booleans, which better-sqlite3 refuses to bind. Strings and
+// numbers pass through unchanged (strings clamped to TXT_MAX); anything else is stored as its JSON text.
+const TXT_MAX = 8192;
+function txt(v) {
+  if (typeof v !== 'string' && typeof v !== 'number' && v !== null) v = JSON.stringify(v);
+  return typeof v === 'string' && v.length > TXT_MAX ? v.slice(0, TXT_MAX) : v;
+}
+
 function num(v) { var n = parseInt(v, 10); return isNaN(n) ? 0 : n; }
 function fnum(v) { var n = parseFloat(v); return isNaN(n) ? null : n; }
 function pickf(t) { for (var i = 1; i < arguments.length; i++) { var k = arguments[i]; if (t[k] !== undefined && t[k] !== null && t[k] !== '') return t[k]; } return null; }
@@ -143,33 +169,33 @@ function parseTs(t) {
 function mapRecord(t) {
   return {
     ts: parseTs(t),
-    user: pickf(t, 'Username', 'User') || '',
-    app: pickf(t, 'Application', 'App') || '',
-    appgroup: pickf(t, 'AppGroup') || '',
-    connector: pickf(t, 'Connector') || '',
-    connector_ip: pickf(t, 'ConnectorIP') || '',
-    host: pickf(t, 'Host') || '',
-    server_ip: pickf(t, 'ServerIP') || '',
-    client_ip: pickf(t, 'ClientPublicIP', 'ClientPrivateIP') || '',
-    status: pickf(t, 'ConnectionStatus') || '',
-    internal_reason: pickf(t, 'InternalReason', 'InternalReasonCode') || '',
+    user: txt(pickf(t, 'Username', 'User') || ''),
+    app: txt(pickf(t, 'Application', 'App') || ''),
+    appgroup: txt(pickf(t, 'AppGroup') || ''),
+    connector: txt(pickf(t, 'Connector') || ''),
+    connector_ip: txt(pickf(t, 'ConnectorIP') || ''),
+    host: txt(pickf(t, 'Host') || ''),
+    server_ip: txt(pickf(t, 'ServerIP') || ''),
+    client_ip: txt(pickf(t, 'ClientPublicIP', 'ClientPrivateIP') || ''),
+    status: txt(pickf(t, 'ConnectionStatus') || ''),
+    internal_reason: txt(pickf(t, 'InternalReason', 'InternalReasonCode') || ''),
     bytes_rx: num(pickf(t, 'ZENTotalBytesRxClient', 'ZENBytesRxClient')),
     bytes_tx: num(pickf(t, 'ZENTotalBytesTxClient', 'ZENBytesTxClient')),
     setup_ms: num(pickf(t, 'ConnectionSetupTime', 'ServerSetupTime')),
     // ── v2.1 diagnostics fields ──
-    policy: pickf(t, 'Policy', 'PolicyName') || '',
-    client_zen: pickf(t, 'ClientZEN') || '',
-    connector_zen: pickf(t, 'ConnectorZEN') || '',
-    connection_id: pickf(t, 'ConnectionID') || '',
-    session_id: pickf(t, 'SessionID') || '',
+    policy: txt(pickf(t, 'Policy', 'PolicyName') || ''),
+    client_zen: txt(pickf(t, 'ClientZEN') || ''),
+    connector_zen: txt(pickf(t, 'ConnectorZEN') || ''),
+    connection_id: txt(pickf(t, 'ConnectionID') || ''),
+    session_id: txt(pickf(t, 'SessionID') || ''),
     service_port: num(pickf(t, 'ServicePort')),
     server_port: num(pickf(t, 'ServerPort')),
     ip_protocol: num(pickf(t, 'IPProtocol')),
-    platform: pickf(t, 'Platform') || '',
-    hostname: pickf(t, 'Hostname') || '',
-    idp: pickf(t, 'Idp', 'IdP') || '',
-    client_city: pickf(t, 'ClientCity') || '',
-    client_country: pickf(t, 'ClientCountryCode') || '',
+    platform: txt(pickf(t, 'Platform') || ''),
+    hostname: txt(pickf(t, 'Hostname') || ''),
+    idp: txt(pickf(t, 'Idp', 'IdP') || ''),
+    client_city: txt(pickf(t, 'ClientCity') || ''),
+    client_country: txt(pickf(t, 'ClientCountryCode') || ''),
     policy_ms: num(pickf(t, 'PolicyProcessingTime'))
   };
 }
@@ -177,16 +203,16 @@ function mapRecord(t) {
 function mapHealth(t) {
   return {
     ts: parseTs(t),
-    connector: pickf(t, 'Connector', 'ConnectorName', 'Name') || '',
-    connector_ip: pickf(t, 'ConnectorIP', 'PrivateIP', 'IP') || '',
-    group_name: pickf(t, 'ConnectorGroup', 'AppConnectorGroup', 'GroupName') || '',
+    connector: txt(pickf(t, 'Connector', 'ConnectorName', 'Name') || ''),
+    connector_ip: txt(pickf(t, 'ConnectorIP', 'PrivateIP', 'IP') || ''),
+    group_name: txt(pickf(t, 'ConnectorGroup', 'AppConnectorGroup', 'GroupName') || ''),
     cpu: fnum(pickf(t, 'CPUUtilization', 'CpuUtilization', 'CPU', 'Cpu')),
     mem: fnum(pickf(t, 'MemUtilization', 'MemoryUtilization', 'Memory', 'Mem')),
     disk: fnum(pickf(t, 'DiskUtilization', 'Disk')),
     bytes_rx: num(pickf(t, 'TotalBytesRx', 'BytesRx', 'BytesReceived', 'RxBytes')),
     bytes_tx: num(pickf(t, 'TotalBytesTx', 'BytesTx', 'BytesTransmitted', 'TxBytes')),
-    version: pickf(t, 'Version', 'ConnectorVersion', 'SoftwareVersion') || '',
-    status: pickf(t, 'SessionStatus', 'Status', 'ConnectorStatus', 'Health') || '',
+    version: txt(pickf(t, 'Version', 'ConnectorVersion', 'SoftwareVersion') || ''),
+    status: txt(pickf(t, 'SessionStatus', 'Status', 'ConnectorStatus', 'Health') || ''),
     raw: JSON.stringify(t).slice(0, 4000)
   };
 }
@@ -199,6 +225,12 @@ function flush() {
   var batch = pending; pending = [];
   try { insMany(batch); stats.inserted += batch.length; }
   catch (e) {
+    // F8: a non-transient failure is a bad row, not a stuck DB — retry row by row and drop only the bad
+    // row(s); re-queuing it would fail every later flush. Transient errors fall through to the re-queue.
+    if (!isTransient(e)) {
+      try { var res = insEach(batch); stats.inserted += res.inserted; stats.poison = (stats.poison || 0) + res.poison; return; }
+      catch (e2) { e = e2; }
+    }
     // Re-queue instead of dropping — a locked DB used to silently lose the whole
     // batch (2,146 batches lost by 2026-08-24). Cap the buffer and shed OLDEST
     // rows if the DB stays stuck (~20k rows is roughly 20 min of stream).
@@ -272,7 +304,13 @@ function hFlush() {
   if (!hPending.length) return;
   var batch = hPending; hPending = [];
   try { insCHMany(batch); hStats.inserted += batch.length; }
-  catch (e) { console.error('[lss-ch] insert error:', e.message); }
+  catch (e) {
+    if (!isTransient(e)) {
+      try { var res = insCHEach(batch); hStats.inserted += res.inserted; hStats.poison = (hStats.poison || 0) + res.poison; return; }
+      catch (e2) { e = e2; }
+    }
+    console.error('[lss-ch] insert error:', e.message);
+  }
 }
 setInterval(hFlush, 2000).unref();
 

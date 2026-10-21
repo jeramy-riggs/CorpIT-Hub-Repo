@@ -63,10 +63,18 @@ function isLoopback(req) {
   return LOOPBACK.has(req.socket.remoteAddress) && LOOPBACK.has(req.ip);
 }
 
+// F39: compare sha256 digests (always 32 bytes), not the raw strings -- a
+// non-ASCII header has the right .length but a different byte length, and
+// timingSafeEqual threw inside the async route, exiting the process. Never throws.
 function keyOk(req) {
-  const got = String(req.get('X-Portal-Lookup-Key') || '');
-  if (!RELAY_KEY || got.length !== RELAY_KEY.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(got), Buffer.from(RELAY_KEY));
+  try {
+    if (!RELAY_KEY) return false;
+    const got = String(req.get('X-Portal-Lookup-Key') || '');
+    const h = (v) => crypto.createHash('sha256').update(v, 'utf8').digest();
+    return crypto.timingSafeEqual(h(got), h(RELAY_KEY));
+  } catch (e) {
+    return false;
+  }
 }
 
 const _hits = [];

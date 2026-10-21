@@ -22,7 +22,13 @@ router.use(rbac.loadCurrentUser);
 
 const PAGE_KEY = 'ai-usage-credits';
 const read = rbac.requirePage(PAGE_KEY, 'read');
-const { resolveScope, scopeWhere, scopePredicate, resolveScopeForRequest } = require('./scope-lib');
+const { resolveScope, scopeWhere, scopePredicate, resolveScopeForRequest, scopeEmailSet } = require('./scope-lib');
+/* DATA SCOPE on per-person routes (F28, 2026-10-21). Same idiom as insights-routes.js
+ * /shared/*: null = org-wide (no filter, output unchanged), an empty Set when the scope is
+ * undetermined (deny - fails closed), else the emails the caller may see. Applied to every
+ * route below that returns a person's email or name. */
+const scopedEmails = async (req) => scopeEmailSet(pool, (await resolveScopeForRequest(pool, req)).scope);
+const inScope = (allow, email) => allow === null || allow.has(String(email || '').toLowerCase());
 
 async function q(sql, params = []) { const [rows] = await pool.query(sql, params); return rows; }
 const clampDays = (v, d = 30) => Math.max(1, Math.min(400, parseInt(v, 10) || d));
@@ -331,7 +337,8 @@ router.get('/breakdown', read, async (req, res) => {
 router.get('/members', read, async (req, res) => {
   try {
     const month = monthOf(req.query.month) || new Date().toISOString().slice(0, 7);
-    const rows = await q(
+    const allow = await scopedEmails(req);
+    const rows = (await q(
       `SELECT c.email,
               MAX(c.display_name)                              AS api_name,
               SUM(c.amount_cents)/100                          AS spend,
@@ -352,7 +359,7 @@ router.get('/members', read, async (req, res) => {
         WHERE DATE_FORMAT(c.day,'%Y-%m') = ?
         GROUP BY c.email, o.name, u.display_name, o.department, u.department,
                  o.manager, m.display_name, lim.custom_limit, lim.group_limit, u.entra_id
-        ORDER BY spend DESC`, [month]);
+        ORDER BY spend DESC`, [month])).filter((r) => inScope(allow, r.email));
 
     // Requests as well as spend: a product that bills at $0 (research) still has real
     // per-member usage, and a spend-only map attributes it to nobody at all.
@@ -427,6 +434,10 @@ router.get('/members', read, async (req, res) => {
 router.get('/productivity', read, async (req, res) => {
   try {
     const days = clampDays(req.query.days, 30);
+    const allow = await scopedEmails(req);
+    // scoped callers: totals cover their own people only (org-wide SQL is untouched)
+    const sw = allow === null ? '' : (allow.size ? ' AND email IN (?)' : ' AND 1=0');
+    const sp = allow === null || !allow.size ? [] : [[...allow]];
     const [tot] = await q(
       `SELECT SUM(cc_sessions) cc_sessions, SUM(cc_commits) commits, SUM(cc_prs) prs,
               SUM(cc_loc_added) loc_added, SUM(cc_loc_removed) loc_removed,
@@ -434,8 +445,8 @@ router.get('/productivity', read, async (req, res) => {
               SUM(cowork_sessions) cowork_sessions, SUM(cowork_actions) cowork_actions,
               SUM(cowork_file_edits) cowork_file_edits, SUM(chat_messages) chat_messages,
               SUM(web_search_count) web_searches
-         FROM claude_user_activity_daily WHERE day > DATE_SUB(CURDATE(), INTERVAL ? DAY)`, [days]);
-    const people = await q(
+         FROM claude_user_activity_daily WHERE day > DATE_SUB(CURDATE(), INTERVAL ? DAY)${sw}`, [days, ...sp]);
+    const people = (await q(
       `SELECT a.email,
               COALESCE(o.name, u.display_name) AS name,
               COALESCE(o.department, u.department) AS department,
@@ -452,7 +463,8 @@ router.get('/productivity', read, async (req, res) => {
        HAVING cc_sessions > 0 OR cowork_sessions > 0 OR chat_messages > 0
         -- inside an ORDER BY expression MySQL resolves these as raw columns rather than
         -- the SELECT aliases, which trips only_full_group_by; aggregate explicitly
-        ORDER BY (SUM(a.cc_sessions) + SUM(a.cowork_sessions)) DESC, SUM(a.chat_messages) DESC`, [days]);
+        ORDER BY (SUM(a.cc_sessions) + SUM(a.cowork_sessions)) DESC, SUM(a.chat_messages) DESC`, [days]))
+      .filter((r) => inScope(allow, r.email));
     // cc_edits_rejected has never been populated: the Analytics API does not return
     // tool_actions.*.rejected_count for this org, and the collector's num() folds the
     // missing field to 0, which is indistinguishable from "nothing was rejected". So
@@ -559,8 +571,10 @@ router.get('/tokens', read, async (req, res) => {
         WHERE ${tf('u.')}
         GROUP BY u.product, c.spend ORDER BY tokens DESC`, [...tp, ...tp]);
 
-    // top members by tokens, with their spend alongside so the two can disagree visibly
-    const topUsers = await q(
+    // top members by tokens, with their spend alongside so the two can disagree visibly.
+    // Scoped callers: top 15 of THEIR people (the LIMIT moves after the scope filter).
+    const allow = await scopedEmails(req);
+    const topUsers = (await q(
       `SELECT t.email, MAX(t.display_name) api_name,
               COALESCE(o.name, e.display_name, MAX(t.display_name)) name,
               COALESCE(o.department, e.department) department,
@@ -576,7 +590,8 @@ router.get('/tokens', read, async (req, res) => {
                      WHERE ${tf('')} GROUP BY email) c ON c.email = t.email
         WHERE ${tf('t.')} AND t.email IS NOT NULL
         GROUP BY t.email, o.name, e.display_name, o.department, e.department, c.spend
-        ORDER BY tokens DESC LIMIT 15`, [...tp, ...tp]);
+        ORDER BY tokens DESC${allow === null ? ' LIMIT 15' : ''}`, [...tp, ...tp]))
+      .filter((r) => inScope(allow, r.email)).slice(0, 15);
 
     // all-history monthly tokens, so this month reads against its own trend
     const byMonth = await q(
@@ -664,8 +679,10 @@ router.get('/models', read, async (req, res) => {
         GROUP BY t.email, o.name, e.display_name, o.department, e.department, t.model`, tp);
 
     // fold members: one object per person, spend summed raw then rounded once per model
+    const allow = await scopedEmails(req);
     const mm = new Map();
     for (const r of memberRows) {
+      if (!inScope(allow, r.email)) continue;
       let m = mm.get(r.email);
       if (!m) { m = { email: r.email, name: r.name, department: r.department, models: {}, spendRaw: 0, requests: 0, tokens: 0 }; mm.set(r.email, m); }
       m.models[r.model] = (m.models[r.model] || 0) + Number(r.spend);
@@ -874,7 +891,7 @@ router.get('/sessions', read, async (req, res) => {
       }
       return String(v).slice(0, 10);
     };
-    const members = rows.map((r) => {
+    const allMembers = rows.map((r) => {
       const L = liveLim ? (liveLim.byEmail[r.email] || null) : null;
       // Departed = the API marked the actor deleted, or they are no longer on the roster.
       // Their spend is real and stays on the books; their SEAT and their LIMIT do not —
@@ -946,6 +963,16 @@ router.get('/sessions', read, async (req, res) => {
           : suggestLimit(histMap[r.email], histMonths, effective)),
       };
     });
+    // DATA SCOPE (F28): every total and department below is built from `members`, so it
+    // follows the scope. The window seat charge is org-wide; a scoped caller gets their
+    // members' share of it (same ratio, so the department seatScale is unchanged), and the
+    // org seat count is nulled, as /api/insights/shared/ai-usage does.
+    const allow = await scopedEmails(req);
+    const members = allow === null ? allMembers : allMembers.filter((m) => inScope(allow, m.email));
+    if (allow !== null) {
+      const orgSeat = allMembers.reduce((a, m) => a + m.seatCost, 0);
+      seatCostWindow = orgSeat > 0 ? n2(seatCostWindow * members.reduce((a, m) => a + m.seatCost, 0) / orgSeat) : 0;
+    }
 
     const activeM = members.filter((m) => m.active);
     const sum = (f) => members.reduce((a, m) => a + (m[f] || 0), 0);
@@ -1023,7 +1050,7 @@ router.get('/sessions', read, async (req, res) => {
         codeSessions: sum('codeSessions'),
         tokens: sum('tokens'),
         spend: n2(sum('spendRaw')),
-        assignedSeats,
+        assignedSeats: allow === null ? assignedSeats : null,
         seatsBilled: members.filter((m) => m.holdsSeat).length,
         // monthly run rate (what we pay this month) vs the window's actual seat charge
         seatCostMonthly: n2(sum('seatCost')),
@@ -1103,6 +1130,8 @@ router.get('/insights', read, async (req, res) => {
     const month = monthOf(req.query.month) || new Date().toISOString().slice(0, 7);
     const limitPct = Math.max(1, Math.min(100, parseInt(req.query.limitPct, 10) || 80));
     const idleDays = clampDays(req.query.idleDays, 30);
+    // DATA SCOPE (F28): nearLimit, idle and movers name people; budget and models are org totals.
+    const allow = await scopedEmails(req);
 
     // ---- budget risk -------------------------------------------------------
     const [mtd] = await q(
@@ -1165,11 +1194,12 @@ router.get('/insights', read, async (req, res) => {
         GROUP BY c.email,o.name,u.display_name,o.department,u.department,lim.custom_limit
        HAVING customLimit > 0 AND (SUM(c.amount_cents)/100)/customLimit*100 >= ?
         ORDER BY (SUM(c.amount_cents)/100)/lim.custom_limit DESC`, [month, limitPct]);
+    nearLimit = nearLimit.filter((r) => inScope(allow, r.email));
 
     // ---- idle seats ---------------------------------------------------------
     // Roster = last import (the only roster we have without read:members), minus
     // anyone with spend or recorded activity inside the window.
-    const idle = await q(
+    const idle = (await q(
       `SELECT r.email, COALESCE(o.name,u.display_name,r.name_raw) AS name,
               COALESCE(o.department,u.department) AS department,
               u.account_enabled AS accountEnabled,
@@ -1191,7 +1221,7 @@ router.get('/insights', read, async (req, res) => {
                 SELECT DISTINCT email FROM claude_user_activity_daily
                  WHERE day > DATE_SUB(CURDATE(), INTERVAL ? DAY)
                    AND (chat_messages>0 OR cc_sessions>0 OR cowork_sessions>0))
-        ORDER BY lifetimeSpend ASC, name`, [idleDays, idleDays]);
+        ORDER BY lifetimeSpend ASC, name`, [idleDays, idleDays])).filter((r) => inScope(allow, r.email));
 
     // ---- model efficiency ---------------------------------------------------
     // Cost per request and per million tokens, so an expensive model doing cheap
@@ -1221,7 +1251,7 @@ router.get('/insights', read, async (req, res) => {
     });
 
     // ---- week-over-week movers ----------------------------------------------
-    const movers = await q(
+    const movers = (await q(
       `SELECT c.email, COALESCE(o.name,u.display_name,MAX(c.display_name)) AS name,
               SUM(CASE WHEN c.day > DATE_SUB(CURDATE(), INTERVAL 7 DAY)
                        THEN c.amount_cents ELSE 0 END)/100 AS thisWeek,
@@ -1238,7 +1268,8 @@ router.get('/insights', read, async (req, res) => {
                            THEN c.amount_cents ELSE 0 END)
                   - SUM(CASE WHEN c.day > DATE_SUB(CURDATE(), INTERVAL 14 DAY)
                               AND c.day <= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-                             THEN c.amount_cents ELSE 0 END)) DESC LIMIT 10`);
+                             THEN c.amount_cents ELSE 0 END)) DESC${allow === null ? ' LIMIT 10' : ''}`))
+      .filter((r) => inScope(allow, r.email)).slice(0, 10);
 
     res.json({
       month, limitPct, idleDays,
@@ -1274,12 +1305,13 @@ router.get('/limit-requests', read, async (req, res) => {
     // cut off by a row limit.
     const available = !!(ok && CL.isFresh(ok.ran_at));
     const cutoffSql = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 19).replace('T', ' ');
-    const rows = available ? await q(
+    const allow = await scopedEmails(req);   // DATA SCOPE (F28): each request names a person
+    const rows = (available ? await q(
       `SELECT id, user_id, email, display_name, status, period, created_at, resolved_at, resolved_by,
               current_limit_cents, current_source_type, ptd_spend_cents, fetched_at
          FROM claude_limit_request
         WHERE status='pending' OR COALESCE(resolved_at, created_at) >= ?
-        ORDER BY created_at DESC`, [cutoffSql]) : [];
+        ORDER BY created_at DESC`, [cutoffSql]) : []).filter((r) => inScope(allow, r.email));
     const fmt = (r) => ({
       id: r.id, email: r.email, name: r.display_name, status: r.status, period: r.period,
       createdAt: r.created_at ? new Date(CL.parseTs(r.created_at)).toISOString() : null,
@@ -1457,13 +1489,14 @@ router.get('/rollup/coverage', read, async (req, res) => {
         FROM ai_user_org o
         JOIN claude_user_cost_daily c ON o.email = LOWER(c.email)${pw}
        GROUP BY o.resolution`, pp);
-    const unresolved = await q(`
+    const allow = await scopedEmails(req);   // DATA SCOPE (F28): the unresolved list names people
+    const unresolved = (await q(`
       SELECT o.email, COALESCE(NULLIF(o.display_name,''), o.email) name,
              ROUND(IFNULL(SUM(c.amount_cents),0)/100, 2) usd
         FROM ai_user_org o
         LEFT JOIN claude_user_cost_daily c ON o.email = LOWER(c.email)${pw}
        WHERE o.resolution = 'unresolved'
-       GROUP BY o.email, name ORDER BY usd DESC`, pp);
+       GROUP BY o.email, name ORDER BY usd DESC`, pp)).filter((r) => inScope(allow, r.email));
     const [roster] = await q(`SELECT COUNT(*) n, MAX(loaded_at) loaded FROM hr_roster`);
     const total = rows.reduce((s, r) => s + Number(r.cents || 0), 0);
     res.json({

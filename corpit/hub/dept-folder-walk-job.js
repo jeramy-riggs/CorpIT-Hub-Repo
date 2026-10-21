@@ -56,6 +56,12 @@ async function gget(u) {
   throw new Error('retries ' + u);
 }
 
+// F45: only walk Graph composite SharePoint site ids ("<tenant>.sharepoint.com,<guid>,<guid>"),
+// never a OneDrive (-my) host or a path, so a bad manual department_sites row is never fetched.
+// Same rule as POST /api/files/departments/sites in files-routes.js.
+const SP_SITE_ID_RE = /^[a-z0-9-]+\.sharepoint\.com,[0-9a-f-]{36},[0-9a-f-]{36}$/i;
+function validDeptSiteId(id) { const s = String(id == null ? '' : id); return SP_SITE_ID_RE.test(s) && !/-my\.sharepoint\.com,/i.test(s); }
+
 function isSP(s) { try { const u = new URL(s.webUrl); return u.hostname.endsWith('.sharepoint.com') && !u.hostname.endsWith('-my.sharepoint.com') && !/^\/personal\//i.test(u.pathname); } catch { return false; } }
 
 async function listSites() {
@@ -178,6 +184,7 @@ async function resolveModFromChildFile(siteId, driveId, folderId) {
     const ds = deptRows[i];
     const siteStart = Date.now();
     try {
+      if (!validDeptSiteId(ds.site_id)) { skipped++; console.log(`[DEPT-WALK] invalid site_id for ${ds.site_name} (not a SharePoint site id) - skipped: ${JSON.stringify(String(ds.site_id).slice(0, 120))}`); continue; }
       const drive = await getPrimaryDrive(ds.site_id);
       if (!drive) { skipped++; console.log(`[DEPT-WALK] no drive for ${ds.site_name}`); continue; }
       const { biggest, pages, bailed } = await walkSite(ds.site_id, drive, siteStart);

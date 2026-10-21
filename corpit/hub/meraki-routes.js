@@ -34,7 +34,7 @@ let nocCacheTime = 0;
 const CACHE_TTL  = 30 * 1000; // 30 seconds
 
 // ── Health check ──────────────────────────────────────────────────────────────
-router.get('/health', async (req, res) => {
+router.get('/health', rbac.requirePage('meraki-noc','read'), async (req, res) => {
   const token = process.env.MERAKI_API_KEY;
   if (!token) {
     return res.json({ status: 'unconfigured', message: 'MERAKI_API_KEY not set in .env' });

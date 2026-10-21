@@ -75,9 +75,16 @@ function isLoopback(req) {
 }
 
 function keyOk(req) {
-  const got = String(req.get('X-Portal-Mail-Key') || '');
-  if (!RELAY_KEY || got.length !== RELAY_KEY.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(got), Buffer.from(RELAY_KEY));
+  // Compare digests: a non-ASCII header has a different byte length than its
+  // .length, and timingSafeEqual throws on unequal lengths inside an async route.
+  try {
+    if (!RELAY_KEY) return false;
+    const got = String(req.get('X-Portal-Mail-Key') || '');
+    const h = (v) => crypto.createHash('sha256').update(v, 'utf8').digest();
+    return crypto.timingSafeEqual(h(got), h(RELAY_KEY));
+  } catch (e) {
+    return false;
+  }
 }
 
 const _sends = [];

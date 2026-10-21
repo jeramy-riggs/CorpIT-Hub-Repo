@@ -39,8 +39,12 @@ function dbConfig() {
   return cfg;
 }
 
+// F46: spreadsheet apps execute a cell that begins with a formula sigil (=, +, -, @, or
+// TAB/CR, after optional whitespace/control chars), quoted or not. Prefix text cells with
+// ' so they stay text. Same guard as files-routes.js csvCell; numbers are left as numbers.
 function csvCell(v) {
-  const s = String(v == null ? '' : v);
+  let s = String(v == null ? '' : v);
+  if (typeof v !== 'number' && /^[\s\u0000-\u001f]*[=+\-@]|^[\t\r]/u.test(s)) s = "'" + s;
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 

@@ -3651,18 +3651,18 @@ CC.loadSslErr=async function(force){
   // by reason
   var rs=d.byReason||[],mxR=Math.max.apply(null,rs.map(function(x){return x.c;}).concat([1]));
   $('ssl-reason-meta').textContent=rs.length+' reasons';
-  $('ssl-byreason').innerHTML=rs.length?('<table class="mt"><thead><tr><th>Reason</th><th>Users</th><th>Sites</th><th style="width:32%">Count</th></tr></thead><tbody>'+rs.map(function(x){return '<tr style="cursor:pointer" onclick="CC.sslDrill(\'reason\',\''+encodeURIComponent(x.reason)+'\')"><td><b>'+esc(x.reason)+'</b></td><td class="mono">'+x.users+'</td><td class="mono">'+x.sites+'</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:7px;border-radius:4px;background:rgba(245,158,11,.12)"><div style="height:7px;border-radius:4px;background:#F59E0B;width:'+Math.max(2,Math.round(x.c/mxR*100))+'%"></div></div><span class="mono" style="font-size:11.5px">'+x.c+'</span></div></td></tr>';}).join('')+'</tbody></table>'):'<div class="empty">None.</div>';
+  $('ssl-byreason').innerHTML=rs.length?('<table class="mt"><thead><tr><th>Reason</th><th>Users</th><th>Sites</th><th style="width:32%">Count</th></tr></thead><tbody>'+rs.map(function(x){return '<tr style="cursor:pointer" onclick="CC.sslDrill(\'reason\',\''+gxEnc(x.reason)+'\')"><td><b>'+esc(x.reason)+'</b></td><td class="mono">'+x.users+'</td><td class="mono">'+x.sites+'</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:7px;border-radius:4px;background:rgba(245,158,11,.12)"><div style="height:7px;border-radius:4px;background:#F59E0B;width:'+Math.max(2,Math.round(x.c/mxR*100))+'%"></div></div><span class="mono" style="font-size:11.5px">'+x.c+'</span></div></td></tr>';}).join('')+'</tbody></table>'):'<div class="empty">None.</div>';
   // by category
   var cats=d.byCategory||[];
   $('ssl-bycat').innerHTML=cats.length?('<table class="mt"><thead><tr><th>URL Category</th><th>Count</th></tr></thead><tbody>'+cats.map(function(x){return '<tr><td>'+esc(x.url_category)+'</td><td class="mono">'+x.c+'</td></tr>';}).join('')+'</tbody></table>'):'<div class="empty">No category data.</div>';
   // users
   var us=d.byUser||[];
   $('ssl-user-meta').textContent=us.length+' users';
-  $('ssl-byuser').innerHTML=us.length?('<table class="mt"><thead><tr><th>User</th><th>Sites</th><th>Errors</th></tr></thead><tbody>'+us.map(function(x){return '<tr style="cursor:pointer" onclick="CC.sslDrill(\'user\',\''+encodeURIComponent(x.user)+'\')"><td><b>'+esc(x.user)+'</b></td><td class="mono">'+x.sites+'</td><td class="mono">'+x.c+'</td></tr>';}).join('')+'</tbody></table>'):'<div class="empty">None.</div>';
+  $('ssl-byuser').innerHTML=us.length?('<table class="mt"><thead><tr><th>User</th><th>Sites</th><th>Errors</th></tr></thead><tbody>'+us.map(function(x){return '<tr style="cursor:pointer" onclick="CC.sslDrill(\'user\',\''+gxEnc(x.user)+'\')"><td><b>'+esc(x.user)+'</b></td><td class="mono">'+x.sites+'</td><td class="mono">'+x.c+'</td></tr>';}).join('')+'</tbody></table>'):'<div class="empty">None.</div>';
   // sites
   var ss=d.bySite||[];
   $('ssl-site-meta').textContent=ss.length+' sites';
-  $('ssl-bysite').innerHTML=ss.length?('<table class="mt"><thead><tr><th>Site</th><th>Users</th><th>Errors</th></tr></thead><tbody>'+ss.map(function(x){return '<tr style="cursor:pointer" onclick="CC.sslDrill(\'host\',\''+encodeURIComponent(x.host)+'\')"><td class="mono" style="font-size:12px"><b>'+esc(x.host)+'</b></td><td class="mono">'+x.users+'</td><td class="mono">'+x.c+'</td></tr>';}).join('')+'</tbody></table>'):'<div class="empty">None.</div>';
+  $('ssl-bysite').innerHTML=ss.length?('<table class="mt"><thead><tr><th>Site</th><th>Users</th><th>Errors</th></tr></thead><tbody>'+ss.map(function(x){return '<tr style="cursor:pointer" onclick="CC.sslDrill(\'host\',\''+gxEnc(x.host)+'\')"><td class="mono" style="font-size:12px"><b>'+esc(x.host)+'</b></td><td class="mono">'+x.users+'</td><td class="mono">'+x.c+'</td></tr>';}).join('')+'</tbody></table>'):'<div class="empty">None.</div>';
 };
 CC.sslShort=function(s){s=String(s||'');return s.length>26?s.slice(0,24)+'…':s;};
 CC.sslClearDetail=function(){var c=$('ssl-detail-card');if(c)c.style.display='none';};

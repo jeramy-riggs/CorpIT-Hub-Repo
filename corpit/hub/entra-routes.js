@@ -601,7 +601,8 @@ router.post('/matches/:id/stage', rbac.requirePage('app-migration','admin'), wra
 
 // Manually create a match (pair an Okta app with a specific Entra app)
 router.post('/matches/create', rbac.requirePage('app-migration','admin'), wrap(async (req, res) => {
-  const { okta_app_id, entra_app_id, notes, by } = req.body || {};
+  const { okta_app_id, entra_app_id, notes } = req.body || {};
+  const by = (req.user && req.user.email) || 'unknown';   // session identity, not a body field
   if (!okta_app_id || !entra_app_id) {
     return fail(res, 'MISSING_FIELDS', 'okta_app_id and entra_app_id required', 400);
   }
@@ -620,7 +621,7 @@ router.post('/matches/create', rbac.requirePage('app-migration','admin'), wrap(a
        (okta_app_id, okta_app_label, entra_app_id, entra_app_display_name,
         match_confidence, match_method, notes, last_verified_at, created_by)
      VALUES (?,?,?,?,'manual_confirmed','manual', ?, NOW(), ?)`,
-    [okta_app_id, okta.label, entra_app_id, entra.display_name, notes || null, by || 'unknown']
+    [okta_app_id, okta.label, entra_app_id, entra.display_name, notes || null, by]
   );
   ok(res, { id: result.insertId, match_confidence: 'manual_confirmed' });
 }));

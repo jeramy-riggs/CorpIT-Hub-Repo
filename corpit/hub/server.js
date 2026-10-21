@@ -320,7 +320,12 @@ const requireInventoryAdmin = rbacGate.requirePage('it-inventory', 'admin');
 // still works; everything else falls through to the 403 below.
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 app.use('/api', function (req, res, next) {
-  var p = req.originalUrl.split('?')[0].replace(/\/+$/, '') || '/';
+  // F37: strip trailing '/' with a linear scan; /\/+$/ backtracked quadratically on a long
+  // '/' run before any auth. F5: lowercase, because Express routes case-insensitively and
+  // every Set below holds lowercase paths -- /api/Kandji-Sync/sync skipped API_SYNC_ADMIN.
+  var p = req.originalUrl.split('?')[0];
+  var _e = p.length; while (_e > 1 && p.charCodeAt(_e - 1) === 47) _e--;
+  p = p.slice(0, _e).toLowerCase() || '/';
   if (API_PUBLIC.has(p)) return next();
   // [CORPIT-QA 2026-09-07] Flag the request as cron-authorized. This next()s
   // straight into the router, so an in-module requirePage gate would then 403 a
@@ -334,6 +339,12 @@ app.use('/api', function (req, res, next) {
   return rbacGate.loadCurrentUser(req, res, function () {
     if (!req.user) {
       return res.status(401).json({ ok: false, error: 'AUTH_REQUIRED', detail: req.tokenError || 'NO_TOKEN' });
+    }
+    // F17: a deactivated rbac_users row (loadCurrentUser sets isActive:false; env
+    // super-admins, break-glass and cron never get it) is refused here, as requirePage
+    // does, so routes without their own requirePage stop serving it. Only explicit false.
+    if (req.user.isActive === false && !req.user.isSuperAdmin) {
+      return res.status(403).json({ ok: false, error: 'INACTIVE_USER', detail: 'User is not active' });
     }
     // ---------- CORPIT-CSRF (2026-09-02) ------------------------------------
     // loadCurrentUser now accepts the it_session cookie. A cookie is attached by

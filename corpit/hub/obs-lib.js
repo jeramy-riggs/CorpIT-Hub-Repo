@@ -214,7 +214,9 @@ function actorKey(id) {
 }
 
 // -- redaction --------------------------------------------------------------
-const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+// F23: the local part is bounded ({1,64}, the RFC 5321 limit). Unbounded, a long
+// run of these characters with no '@' cost O(n^2) -- every start rescanned the run.
+const EMAIL_RE = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const GUID_RE  = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 const LONGHEX  = /\b[0-9a-f]{24,}\b/gi;
 
@@ -254,10 +256,28 @@ function isSensitiveRoute(p) {
   return SENSITIVE_ROUTES.some(function (re) { return re.test(p || ''); });
 }
 
+// F23: inputs are capped before the regexes run (every caller clips the result
+// to <= 2000 chars). A cut that would split an address-like token drops the
+// whole partial token, so half an address never survives unredacted; a URL is
+// cut back to its last '/', '&' or '?', so no partial segment or value is kept.
+const SCRUB_MAX = 8192, SCRUB_TEXT_MAX = 4096, URL_MAX = 2048;
+const TOKEN_CH = /[A-Za-z0-9._%+@-]/;
+function capInput(s, n, isUrl) {
+  s = String(s);
+  if (s.length <= n) return s;
+  if (isUrl) {
+    const t = s.slice(0, n);
+    return t.slice(0, Math.max(t.lastIndexOf('/'), t.lastIndexOf('&'), t.lastIndexOf('?'), 0));
+  }
+  let i = n;
+  if (TOKEN_CH.test(s[n])) while (i > 0 && TOKEN_CH.test(s[i - 1])) i--;
+  return s.slice(0, i);
+}
+
 // Replace anything that names a person or is a one-off identifier.
 function scrub(s) {
   if (s == null) return null;
-  return String(s)
+  return capInput(s, SCRUB_MAX)
     .replace(EMAIL_RE, '<email>')
     .replace(GUID_RE, '<guid>')
     .replace(LONGHEX, '<hash>');
@@ -277,7 +297,7 @@ function scrub(s) {
 const URL_TOKEN_RE = /(?:https?:\/\/[^\s'"()<>\]]+|\/[A-Za-z0-9_.~%-][^\s'"()<>\]]*\?[^\s'"()<>\]]*)/g;
 function scrubText(s) {
   if (s == null) return null;
-  const urlsRedacted = String(s).replace(URL_TOKEN_RE, function (m) {
+  const urlsRedacted = capInput(s, SCRUB_TEXT_MAX).replace(URL_TOKEN_RE, function (m) {
     // Keep a trailing :line:col. It is the single most useful token in a stack
     // frame and it is not a query value -- the greedy match swallows it into
     // the query string otherwise, and redacting a whole stack down to bare urls
@@ -313,7 +333,7 @@ function decodeSafe(v) { try { return decodeURIComponent(v); } catch (e) { retur
 // the address itself is not ours to keep.
 function redactUrl(u) {
   if (!u) return null;
-  let pathname = String(u), query = '';
+  let pathname = capInput(u, URL_MAX, true), query = '';
   const h = pathname.indexOf('#'); if (h !== -1) pathname = pathname.slice(0, h);
   const q = pathname.indexOf('?');
   if (q !== -1) { query = pathname.slice(q + 1); pathname = pathname.slice(0, q); }

@@ -138,7 +138,10 @@ function verifyToken(token) {
 // Uses originalUrl so it holds under both app-level and router-level mounts.
 function isSessionMintRequest(req) {
   if (!req || req.method !== 'POST') return false;
-  const p = String(req.originalUrl || req.url || '').split('?')[0].replace(/\/+$/, '');
+  // F37: linear trailing-'/' strip (the /\/+$/ regex backtracked quadratically).
+  let p = String(req.originalUrl || req.url || '').split('?')[0];
+  let e = p.length; while (e > 0 && p.charCodeAt(e - 1) === 47) e--;
+  p = p.slice(0, e);
   return p === '/api/rbac/session';
 }
 

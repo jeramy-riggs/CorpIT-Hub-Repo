@@ -31,10 +31,17 @@ const mysql = require('mysql2/promise');
   }
   console.log('total needing correction:', out.length);
   const fs = require('fs');
-  const esc = (s) => '"' + String(s || '').replace(/"/g, '""') + '"';
+  // F44: a cell starting with a formula sigil (=, +, -, @, or TAB/CR, after optional
+  // whitespace/control chars) runs as a formula in Excel even when quoted; prefix it as text.
+  // Same guard as files-routes.js csvCell.
+  const esc = (s) => {
+    let v = String(s || '');
+    if (/^[\s\u0000-\u001f]*[=+\-@]|^[\t\r]/u.test(v)) v = "'" + v;
+    return '"' + v.replace(/"/g, '""') + '"';
+  };
   const lines = ['RequestID,Subject,Status,CurrentSite,TargetSite,EntraOffice'];
   for (const r of out) {
-    lines.push([r.id, esc(r.subject), r.status, esc(r.current_site), esc(r.targetName), esc(r.office)].join(','));
+    lines.push([r.id, esc(r.subject), esc(r.status), esc(r.current_site), esc(r.targetName), esc(r.office)].join(','));
   }
   fs.writeFileSync('/home/ubuntu/site-correction-needed.csv', lines.join('\n'));
   console.log('written to /home/ubuntu/site-correction-needed.csv');

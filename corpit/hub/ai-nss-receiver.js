@@ -67,6 +67,32 @@ const insMany = db.transaction(function (rows) {
   return inserted;
 });
 
+// F8 (2026-10-21): a batch that fails for a non-transient reason is retried row by row; each row (seen-id
+// + event) runs in its own savepoint, so a row SQLite still refuses is dropped and counted — its record
+// id is not burned — and the rest of the batch lands. Lock/IO errors are rethrown and logged as before.
+function isTransient(e) { return !!(e && /^SQLITE_(BUSY|LOCKED|IOERR|FULL|NOMEM|READONLY|CANTOPEN|PROTOCOL|INTERRUPT|CORRUPT|NOTADB)/.test(String(e.code))); }
+const insOne = db.transaction(function (r) {
+  if (r.record_id && !seen.run(r.record_id, Date.now()).changes) return 0;
+  var event = Object.assign({}, r); delete event.record_id;
+  return ins.run(event).changes;
+});
+var badLogged = 0;
+const insEach = db.transaction(function (rows) {
+  var res = { inserted: 0, poison: 0 };
+  rows.forEach(function (r) {
+    try { res.inserted += insOne(r); }
+    catch (e) { if (isTransient(e)) throw e; res.poison++; if (++badLogged <= 5) console.error('[ai-nss] dropped bad row:', e.message); }
+  });
+  return res;
+});
+
+// F8: sender JSON can carry arrays/objects/booleans, which better-sqlite3 refuses to bind. Strings and
+// numbers pass through unchanged (strings clamped to TXT_MAX); anything else is stored as its JSON text.
+const TXT_MAX = 8192;
+function txt(v) {
+  if (typeof v !== 'string' && typeof v !== 'number' && v !== null) v = JSON.stringify(v);
+  return typeof v === 'string' && v.length > TXT_MAX ? v.slice(0, TXT_MAX) : v;
+}
 function pickf(t) { for (var i = 1; i < arguments.length; i++) { var k = arguments[i]; if (t[k] !== undefined && t[k] !== null && t[k] !== '') return t[k]; } return null; }
 function parseTs(t) {
   var raw = pickf(t, 'epochtime', 'datetime', 'time', 'LogTimestamp');
@@ -88,23 +114,23 @@ function eventId(t) {
 function mapRecord(t, detSource) {
   return {
     ts: parseTs(t),
-    user: pickf(t, 'user', 'login') || '',
-    host: pickf(t, 'hostname', 'host', 'url', 'eurl') || '',
-    url: pickf(t, 'url', 'eurl') || '',
-    app: pickf(t, 'appname', 'appproto', 'app') || '',
-    url_category: pickf(t, 'urlcategory', 'urlclass', 'urlsupercat') || '',
-    action: pickf(t, 'action') || '',
-    reason: pickf(t, 'reason') || '',
-    device: pickf(t, 'device_hostname', 'devicename', 'device') || '',
-    department: pickf(t, 'department', 'dept') || '',
-    location: pickf(t, 'location', 'locationname') || '',
-    client_ip: pickf(t, 'source_ip', 'cip', 'cintip') || '',
-    server_ip: pickf(t, 'dest_ip', 'sip') || '',
-    req_method: pickf(t, 'http_method', 'reqmethod', 'method') || '',
-    resp_code: String(pickf(t, 'http_status_code', 'respcode') || ''),
+    user: txt(pickf(t, 'user', 'login') || ''),
+    host: txt(pickf(t, 'hostname', 'host', 'url', 'eurl') || ''),
+    url: txt(pickf(t, 'url', 'eurl') || ''),
+    app: txt(pickf(t, 'appname', 'appproto', 'app') || ''),
+    url_category: txt(pickf(t, 'urlcategory', 'urlclass', 'urlsupercat') || ''),
+    action: txt(pickf(t, 'action') || ''),
+    reason: txt(pickf(t, 'reason') || ''),
+    device: txt(pickf(t, 'device_hostname', 'devicename', 'device') || ''),
+    department: txt(pickf(t, 'department', 'dept') || ''),
+    location: txt(pickf(t, 'location', 'locationname') || ''),
+    client_ip: txt(pickf(t, 'source_ip', 'cip', 'cintip') || ''),
+    server_ip: txt(pickf(t, 'dest_ip', 'sip') || ''),
+    req_method: txt(pickf(t, 'http_method', 'reqmethod', 'method') || ''),
+    resp_code: txt(String(pickf(t, 'http_status_code', 'respcode') || '')),
     req_size: toInt(pickf(t, 'requestsize', 'reqsize', 'req_size', 'clientbytes')),
     resp_size: toInt(pickf(t, 'responsesize', 'respsize', 'resp_size', 'serverbytes')),
-    user_agent: pickf(t, 'useragent', 'user_agent', 'ua') || '',
+    user_agent: txt(pickf(t, 'useragent', 'user_agent', 'ua') || ''),
     record_id: eventId(t),
     raw: JSON.stringify(t).slice(0, 4000),
     detection_source: detSource || 'ZS_CLASS'
@@ -112,12 +138,18 @@ function mapRecord(t, detSource) {
 }
 
 let pending = [];
-let stats = { lines: 0, bad: 0, inserted: 0, duplicates: 0, dropped: 0, matched_class: 0, matched_domain: 0, conns: 0, rawCaptured: 0 };
+let stats = { lines: 0, bad: 0, inserted: 0, duplicates: 0, poison: 0, dropped: 0, matched_class: 0, matched_domain: 0, conns: 0, rawCaptured: 0 };
 function flush() {
   if (!pending.length) return;
   var batch = pending; pending = [];
   try { var inserted = insMany(batch); stats.inserted += inserted; stats.duplicates += batch.length - inserted; }
-  catch (e) { console.error('[ai-nss] insert error:', e.message); }
+  catch (e) {
+    if (!isTransient(e)) {
+      try { var res = insEach(batch); stats.inserted += res.inserted; stats.poison += res.poison; stats.duplicates += batch.length - res.inserted - res.poison; return; }
+      catch (e2) { e = e2; }
+    }
+    console.error('[ai-nss] insert error:', e.message);
+  }
 }
 setInterval(flush, 2000).unref();
 

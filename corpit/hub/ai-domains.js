@@ -78,10 +78,14 @@ function hostMatchesAI(input) {
   var h = extractHost(input);
   if (!h) return false;
   if (AI_SET.has(h)) return true;
-  var parts = h.split('.');
-  for (var i = 1; i < parts.length - 1; i++) {
-    var tail = parts.slice(i).join('.');
-    if (AI_SET.has(tail)) return true;
+  // F24 (2026-10-21): the host is sender-controlled and can be megabytes long; rebuilding every suffix
+  // with split/slice/join was O(labels^2). Only the last 253 chars (max DNS name) can hold a listed
+  // suffix, so match on that window and walk dots with indexOf/substring. Same results as before:
+  // every suffix after a dot except the bare last label.
+  if (h.length > 253) h = h.slice(-253);
+  for (var i = h.indexOf('.'); i >= 0; i = h.indexOf('.', i + 1)) {
+    if (h.indexOf('.', i + 1) < 0) break;
+    if (AI_SET.has(h.substring(i + 1))) return true;
   }
   return false;
 }

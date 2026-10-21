@@ -154,11 +154,22 @@ const API_PUBLIC = new Set([
 ]);
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 app.use('/api/gate', function (req, res, next) {
-  var p = req.originalUrl.split('?')[0].replace(/\/+$/, '') || '/';
+  // F37: strip trailing '/' with a linear scan; /\/+$/ backtracked quadratically on a long
+  // '/' run before any auth. F5: lowercase, because Express routes case-insensitively and
+  // API_PUBLIC holds lowercase paths (same normalization as server.js's blanket).
+  var p = req.originalUrl.split('?')[0];
+  var _e = p.length; while (_e > 1 && p.charCodeAt(_e - 1) === 47) _e--;
+  p = p.slice(0, _e).toLowerCase() || '/';
   if (API_PUBLIC.has(p)) return next();
   return rbacGate.loadCurrentUser(req, res, function () {
     if (!req.user) {
       return res.status(401).json({ ok: false, error: 'AUTH_REQUIRED', detail: req.tokenError || 'NO_TOKEN' });
+    }
+    // F17: a deactivated rbac_users row (loadCurrentUser sets isActive:false; env
+    // super-admins, break-glass and cron never get it) is refused here, as requirePage
+    // does, so routes without their own requirePage stop serving it. Only explicit false.
+    if (req.user.isActive === false && !req.user.isSuperAdmin) {
+      return res.status(403).json({ ok: false, error: 'INACTIVE_USER', detail: 'User is not active' });
     }
     if (!READ_METHODS.has(req.method)) {
       var sfs = req.get('sec-fetch-site');

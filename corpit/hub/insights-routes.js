@@ -662,9 +662,24 @@ async function claudeUsagePayload(reqMonth) {
 }
 
 // GET /api/insights/ai/usage?month=YYYY-MM-01 — members joined to entra_users, with match flags
+// DATA SCOPE (F36, 2026-10-21): same boundary as /shared/ai-usage below. Org-wide callers
+// get the payload unchanged; anyone narrower gets their own rows and no org-wide figures.
 router.get('/ai/usage', rbac.requirePage(PAGE_KEY, 'read'), async (req, res) => {
   try {
-    res.json(await claudeUsagePayload(req.query.month));
+    const payload = await claudeUsagePayload(req.query.month);
+    const allow   = await scopedEmails((await resolveScopeForRequest(pool, req)).scope);
+    if (allow === null) return res.json(payload);
+    const members = (payload.members || []).filter((m) => inScope(allow, m.email));
+    const mtd  = members.reduce((a, m) => a + (Number(m.mtd) || 0), 0);
+    const reqs = members.reduce((a, m) => a + (Number(m.requests) || 0), 0);
+    const c    = (payload.org && payload.org.claude) || {};
+    const org  = { claude: { ...c,
+      mtdTotal: Math.round(mtd * 100) / 100,
+      requests: reqs,
+      assignedSeats: null, prevMonthTotal: null,
+      orgLimit: null, balance: null, balanceAsOf: null,
+      scoped: true } };
+    res.json({ ...payload, members, org });
   } catch (err) {
     console.error('[insights/ai/usage]', err.message);
     res.status(500).json({ error: 'ai usage query failed' });
@@ -1031,11 +1046,13 @@ router.get('/shared/model-cost', rbac.requirePage('ai-usage-credits', 'read'), a
 // GET /api/insights/copilot/app-usage — Graph-sourced per-app last-activity, keyed by lowercased email
 router.get('/copilot/app-usage', rbac.requirePage(PAGE_KEY, 'read'), async (req, res) => {
   try {
-    const rows = await q(
+    // DATA SCOPE (F36, 2026-10-21): same boundary as /shared/copilot-usage.
+    const allow = await scopedEmails((await resolveScopeForRequest(pool, req)).scope);
+    const rows = (await q(
       `SELECT email, last_activity_date, chat_last_active, teams_last_active, word_last_active,
               excel_last_active, powerpoint_last_active, outlook_last_active, onenote_last_active,
               loop_last_active, report_refresh_date
-       FROM copilot_app_usage`);
+       FROM copilot_app_usage`)).filter((r) => inScope(allow, r.email));
     const fmt = (v) => (v == null ? null : v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10));
     const users = {};
     let refreshedAt = null;

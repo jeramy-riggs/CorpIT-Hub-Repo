@@ -53,8 +53,21 @@ def run_ps(session, script):
     return stdout, stderr, result.status_code
 
 
+# PowerShell's tokenizer treats all of these as single-quote delimiters, not
+# just ASCII ' (U+2018, U+2019, U+201A, U+201B). Inside a single-quoted
+# literal each one is escaped by doubling it.
+_PS_SINGLE_QUOTES = ("'", '‘', '’', '‚', '‛')
+
+
+def _ps_quote(s):
+    """Escape a string for embedding in a single-quoted PowerShell literal."""
+    for q in _PS_SINGLE_QUOTES:
+        s = s.replace(q, q + q)
+    return s
+
+
 def safe(s):
-    return s.replace("'", "''") if s else ''
+    return _ps_quote(s) if s else ''
 
 
 def disable_account(session, sam):
@@ -98,7 +111,7 @@ try {{
     $origDN = $user.DistinguishedName
     $origOU = ($origDN -split ',', 2)[1]
     Move-ADObject -Identity $origDN -TargetPath '{safe(destination_ou)}' -ErrorAction Stop
-    @{{ success = $true; message = "Object moved to {safe(destination_ou)}"; originalState = @{{ originalOU = $origOU; originalDN = $origDN }}; newState = @{{ newOU = '{safe(destination_ou)}' }} }} | ConvertTo-Json -Depth 3
+    @{{ success = $true; message = 'Object moved to {safe(destination_ou)}'; originalState = @{{ originalOU = $origOU; originalDN = $origDN }}; newState = @{{ newOU = '{safe(destination_ou)}' }} }} | ConvertTo-Json -Depth 3
 }} catch {{
     @{{ success = $false; error = $_.Exception.Message }} | ConvertTo-Json
 }}
@@ -114,7 +127,7 @@ def move_object_by_dn(session, object_dn, destination_ou):
     ps = f'''
 try {{
     Move-ADObject -Identity '{safe(object_dn)}' -TargetPath '{safe(destination_ou)}' -ErrorAction Stop
-    @{{ success = $true; message = "Object moved to {safe(destination_ou)}" }} | ConvertTo-Json
+    @{{ success = $true; message = 'Object moved to {safe(destination_ou)}' }} | ConvertTo-Json
 }} catch {{
     @{{ success = $false; error = $_.Exception.Message }} | ConvertTo-Json
 }}
@@ -130,7 +143,7 @@ def remove_from_group(session, sam, group_name):
     ps = f'''
 try {{
     Remove-ADGroupMember -Identity '{safe(group_name)}' -Members '{safe(sam)}' -Confirm:$false -ErrorAction Stop
-    @{{ success = $true; message = "Removed from {safe(group_name)}"; originalState = @{{ groupName = '{safe(group_name)}' }} }} | ConvertTo-Json -Depth 3
+    @{{ success = $true; message = 'Removed from {safe(group_name)}'; originalState = @{{ groupName = '{safe(group_name)}' }} }} | ConvertTo-Json -Depth 3
 }} catch {{
     @{{ success = $false; error = $_.Exception.Message }} | ConvertTo-Json
 }}
@@ -146,7 +159,7 @@ def add_to_group(session, sam, group_name):
     ps = f'''
 try {{
     Add-ADGroupMember -Identity '{safe(group_name)}' -Members '{safe(sam)}' -ErrorAction Stop
-    @{{ success = $true; message = "Added to {safe(group_name)}" }} | ConvertTo-Json
+    @{{ success = $true; message = 'Added to {safe(group_name)}' }} | ConvertTo-Json
 }} catch {{
     $err = $_.Exception.Message
     if ($err -match 'already a member') {{
@@ -316,7 +329,7 @@ try {{
 
 
 def restore_object_guid(session, guid):
-    if not re.match(r'^[0-9a-fA-F-]{36}$', guid or ''):
+    if not re.fullmatch(r'[0-9a-fA-F-]{36}', guid or ''):
         return {'success': False, 'error': 'invalid objectGUID'}
     ps = f'''
 try {{

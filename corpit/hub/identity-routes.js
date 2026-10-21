@@ -1,6 +1,28 @@
 'use strict';
 const express = require('express');
 const router = express.Router();
+// F9/F10: Express 4 does not catch a rejected async handler, and server.js exits
+// on unhandledRejection. Catch every promise a handler on this router returns
+// (including routes added by the register() modules below) and answer 500 JSON.
+['get', 'post', 'put', 'patch', 'delete'].forEach(function (m) {
+  const orig = router[m].bind(router);
+  router[m] = function () {
+    const args = Array.prototype.map.call(arguments, function (fn) {
+      if (typeof fn !== 'function' || fn.length > 3) return fn;
+      return function (req, res, next) {
+        const p = fn(req, res, next);
+        if (p && typeof p.catch === 'function') p.catch(function (err) {
+          console.error('[identity-routes] unhandled ' + req.method + ' ' + req.path + ':', err && err.message ? err.message : err);
+          if (!res.headersSent) res.status(500).json({ error: 'Internal error' });
+        });
+        return p;
+      };
+    });
+    return orig.apply(null, args);
+  };
+});
+// Query/body values can be arrays or objects (?q[]=x); only a string is a value.
+function str(v) { return typeof v === 'string' ? v : ''; }
 const { execFile } = require('child_process');
 const path = require('path');
 const { lookupUser, searchUsers } = require('./identity-ldap');
@@ -80,7 +102,7 @@ function srcSummary(sources) {
 }
 
 router.get('/search', rbac.requirePage('identity-diag','read'), async (req, res) => {
-  const q = (req.query.q || '').trim();
+  const q = str(req.query.q).trim();
   if (q.length < 2) return res.json([]);
   try {
     const results = await searchUsers(q);
@@ -90,7 +112,7 @@ router.get('/search', rbac.requirePage('identity-diag','read'), async (req, res)
   }
 });
 router.get('/lookup', rbac.requirePage('identity-diag','read'), async (req, res) => {
-  const q = (req.query.q || '').trim();
+  const q = str(req.query.q).trim();
   if (!q) return res.status(400).json({ error: 'Query parameter "q" is required' });
   if (q.length > 256) return res.status(400).json({ error: 'Query too long' });
 
@@ -144,7 +166,7 @@ router.get('/lookup', rbac.requirePage('identity-diag','read'), async (req, res)
 
 router.post('/unlock', rbac.requirePage('identity-diag','admin'), async (req, res) => {
   if (!unlockAccount) return res.status(501).json({ error: 'Unlock not available' });
-  const identity = (req.body && req.body.identity || '').trim();
+  const identity = str(req.body && req.body.identity).trim();
   if (!identity) return res.status(400).json({ error: 'identity is required' });
   try {
     const result = await unlockAccount(identity);
@@ -259,10 +281,10 @@ router.get('/okta-failures', rbac.requirePage('identity-diag','read'), async (re
   // The value is spliced into a double-quoted System Log filter below; a `"`
   // or `\` would end the string and let the caller widen the query tenant-wide.
   if (q && !oktaFilterValue(q)) return res.status(400).json({ error: 'Invalid user identifier', failures: [] });
-  const hours = parseInt(req.query.hours) || 24;
-  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+  const hours = Math.min(Math.max(parseInt(req.query.hours, 10) || 24, 1), 720);
 
   try {
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
     // The System Log 'eq' operator is case-sensitive (see /okta-sessions above),
     // so resolve the caller's spelling to the exact profile login before it goes
     // into a filter. Left as typed when the user does not resolve, so a failed
@@ -325,7 +347,7 @@ router.get('/okta-failures', rbac.requirePage('identity-diag','read'), async (re
 // Mac=Kandji(username OR full name), Windows=ManageEngine(first_last/logged_on)
 // + Intune(upn) deduped, iPad=ipad_devices(username), AWS=aws_workspaces(username).
 async function deviceDiscovery(req, res) {
-  const q = (req.query.q || '').trim();
+  const q = str(req.query.q).trim();
   if (!q || q.length > 256) return res.status(400).json({ error: 'A person query of 1–256 characters is required', devices: [] });
 
   // Lazy-init MySQL pool for device queries
@@ -758,7 +780,7 @@ router.get('/stats', rbac.requirePage('identity-diag','read'), async (req, res) 
 // Results are capped and the cap is REPORTED (truncated:true) rather than
 // silently applied.
 router.get('/accounts', rbac.requirePage('identity-diag','read'), async (req, res) => {
-  const view  = (req.query.view || 'all').toLowerCase() === 'locked' ? 'locked' : 'all';
+  const view  = (str(req.query.view) || 'all').toLowerCase() === 'locked' ? 'locked' : 'all';
   const q     = String(req.query.q || '').trim().toLowerCase();
   const limit = Math.min(Math.max(parseInt(req.query.limit || '200', 10) || 200, 1), 1000);
 
@@ -960,9 +982,9 @@ router.get('/okta-timeline', rbac.requirePage('identity-diag','read'), async (re
   let q = String(req.query.q || '').trim();
   if (!q) return res.status(400).json({ error: 'User identifier required (?q=email)', events: [] });
   if (!oktaFilterValue(q)) return res.status(400).json({ error: 'Invalid user identifier', events: [] });
-  const hours = parseInt(req.query.hours) || 24;
-  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+  const hours = Math.min(Math.max(parseInt(req.query.hours, 10) || 24, 1), 720);
   try {
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
     try { const _u = await oktaRequest('/api/v1/users/' + encodeURIComponent(q)); if (_u.status === 200 && _u.body && _u.body.profile) q = _u.body.profile.login || q; } catch(_e){}
     const filter = 'actor.alternateId eq "' + q + '"';
     const logPath = '/api/v1/logs?since=' + encodeURIComponent(since) + '&filter=' + encodeURIComponent(filter) + '&sortOrder=DESCENDING&limit=200';
@@ -1037,7 +1059,7 @@ router.get('/okta-sessions', rbac.requirePage('identity-diag','read'), async (re
   if (!process.env.OKTA_BASE_URL || !process.env.OKTA_API_TOKEN) {
     return res.status(501).json({ error: 'Okta not configured', sessions: [] });
   }
-  const q = (req.query.q || '').trim();
+  const q = str(req.query.q).trim();
   if (!q) return res.status(400).json({ error: 'User identifier required', sessions: [] });
   try {
     const userRes = await oktaRequest('/api/v1/users/' + encodeURIComponent(q));
@@ -1136,7 +1158,7 @@ router.get('/okta-group-apps', rbac.requirePage('identity-diag','read'), async (
   if (!process.env.OKTA_BASE_URL || !process.env.OKTA_API_TOKEN) {
     return res.status(501).json({ error: 'Okta not configured' });
   }
-  const q = (req.query.q || '').trim();
+  const q = str(req.query.q).trim();
   if (!q) return res.status(400).json({ error: 'User identifier required' });
   try {
     // 1. Get user
@@ -1408,9 +1430,9 @@ router.post('/spray-allowlist', rbac.requirePage('identity-diag','admin'), async
       waitForConnections: true, connectionLimit: 3, charset: 'utf8mb4',
     });
   }
-  const ip = (req.body && req.body.ip || '').trim();
-  const label = (req.body && req.body.label || '').trim() || null;
-  const note = (req.body && req.body.note || '').trim() || null;
+  const ip = str(req.body && req.body.ip).trim();
+  const label = str(req.body && req.body.label).trim() || null;
+  const note = str(req.body && req.body.note).trim() || null;
   // Basic IPv4/IPv6 sanity — reject anything that isn't plausibly an IP.
   if (!ip || !/^[0-9a-fA-F:.]{3,45}$/.test(ip)) {
     return res.status(400).json({ error: 'A valid IP address is required' });
@@ -1520,7 +1542,7 @@ router.get('/compromise-alerts', rbac.requirePage('identity-diag','read'), async
 // directory-enumeration primitive -- and was 1 of only 2 routes in this
 // file without a gate, against 25 that have one. An omission, not a design.
 router.get('/portal-lookup', rbac.requirePage('identity-diag','read'), async (req, res) => {
-  const q = (req.query.q || '').trim();
+  const q = str(req.query.q).trim();
   if (!q) return res.status(400).json({ error: 'Query parameter "q" is required' });
   if (q.length > 256) return res.status(400).json({ error: 'Query too long' });
   // Require it to look like an email/UPN or a short sAMAccountName (no arbitrary LDAP injection risk)
