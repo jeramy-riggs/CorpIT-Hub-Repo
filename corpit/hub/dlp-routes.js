@@ -376,6 +376,38 @@ router.get('/health', async (req,res) => {
   } catch(e) { res.status(500).json({ ok:false, error:e.message }); }
 });
 
+// F35 purge: rows written before the dlp-search-sync fix still carry each
+// sharing link's web_url (for an 'anyone' link that URL is the credential).
+// Strip the key from every array element; type/scope stay. Idempotent: once
+// clean, each pass matches nothing.
+async function purgeStoredLinkUrls(pool) {
+  const [[m]] = await pool.query(
+    `SELECT COALESCE(MAX(JSON_LENGTH(sharing_links)), 0) AS n FROM dlp_alerts
+      WHERE JSON_TYPE(sharing_links) = 'ARRAY'`);
+  let total = 0;
+  for (let i = 0; i < Number(m.n); i++) {
+    const p = `$[${i}].web_url`;
+    for (;;) {
+      const [r] = await pool.query(
+        `UPDATE dlp_alerts SET sharing_links = JSON_REMOVE(sharing_links, ?)
+          WHERE JSON_TYPE(sharing_links) = 'ARRAY' AND JSON_CONTAINS_PATH(sharing_links, 'one', ?)
+          LIMIT 2000`, [p, p]);
+      total += r.affectedRows;
+      if (r.affectedRows < 2000) break;
+    }
+  }
+  const [[left]] = await pool.query(
+    `SELECT COUNT(*) AS n FROM dlp_alerts
+      WHERE JSON_TYPE(sharing_links) = 'ARRAY' AND JSON_CONTAINS_PATH(sharing_links, 'one', '$[*].web_url')`);
+  console.log(`[DLP] F35 purge: removed web_url from ${total} link entries; ${left.n} rows still carry one`);
+  return { removed: total, remaining: Number(left.n) };
+}
+
 ensureSubscription().catch(e => console.warn('[DLP] Startup subscription failed:', e.message));
+if (require.main !== module && !process.env.DLP_SKIP_LINK_PURGE) {
+  setTimeout(() => purgeStoredLinkUrls(rbacPool)
+    .catch(e => console.warn('[DLP] F35 purge failed:', e.message)), 15000).unref();
+}
 
 module.exports = router;
+module.exports.purgeStoredLinkUrls = purgeStoredLinkUrls;
