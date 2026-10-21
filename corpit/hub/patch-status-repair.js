@@ -42,7 +42,7 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const ldap = require('ldapjs');
+const ldapSecure = require('./ldap-secure'); // ldapjs client with StartTLS before every bind
 
 const DAY = 864e5;
 const CACHE_MS = 5 * 60 * 1000, MIN_FORCE_MS = 60 * 1000;
@@ -219,7 +219,7 @@ function readAd() {
     const timer = setTimeout(function () { finish('timeout', 'No answer within ' + (AD_TIMEOUT / 1000) + ' s'); }, AD_TIMEOUT);
     if (!process.env.LDAP_URL || !process.env.LDAP_BIND_USER || !process.env.LDAP_BIND_PASS) return finish('error', 'LDAP is not configured on this server.');
     try {
-      client = ldap.createClient({ url: process.env.LDAP_URL, timeout: 15000, connectTimeout: 8000 });
+      client = ldapSecure.createClient({ url: process.env.LDAP_URL, timeout: 15000, connectTimeout: 8000 });
     } catch (e) { return finish('error', 'LDAP connection failed'); }
     client.on('error', function () { finish('error', 'LDAP connection failed'); });
     client.bind(process.env.LDAP_BIND_USER, process.env.LDAP_BIND_PASS, function (err) {

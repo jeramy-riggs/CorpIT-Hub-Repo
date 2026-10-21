@@ -31,6 +31,9 @@ const fs = require('fs');
 // Phase 2.5: PRTG push helper. Pure function, no DB access.
 // -----------------------------------------------------------------------------
 const { pushToPrtg } = require('./cert-watchtower-prtg-helper');
+// hotfix-bundle3 2026-10-21 (F19/F20/F21): same scan-target policy as the
+// agent routes; a row outside it never gets the WinRM credential.
+const { winrmTargetRefusal } = require('./cert-watchtower-guards');
 
 // -----------------------------------------------------------------------------
 // Config — environment & paths
@@ -137,6 +140,8 @@ function toMysqlDateTime(iso) {
 // -----------------------------------------------------------------------------
 function runHelper(target, creds, timeoutS) {
   return new Promise((resolve, reject) => {
+    const refusal = winrmTargetRefusal(target);
+    if (refusal) return resolve({ ok: false, error: `scan target refused: ${refusal}` });
     const args = [
       HELPER_PATH,
       '--host', target.target_host || target.fqdn,
@@ -718,6 +723,8 @@ const CA_HELPER_PATH = '/var/www/api/cert-watchtower-ca-scan-helper.py';
 
 async function runCaScan(target, creds) {
   return new Promise((resolve) => {
+    const refusal = winrmTargetRefusal(target);
+    if (refusal) return resolve({ ok: false, error: `CA scan target refused: ${refusal}` });
     const args = [
       CA_HELPER_PATH,
       '--host',     target.target_host || target.fqdn,

@@ -27,7 +27,7 @@
 
 'use strict';
 
-const ldap = require('ldapjs');
+const ldapSecure = require('./ldap-secure'); // ldapjs client with StartTLS before every bind
 
 const LDAP_URL     = process.env.LDAP_URL;
 const LDAP_BASE_DN = process.env.LDAP_BASE_DN;
@@ -42,7 +42,7 @@ if (!LDAP_URL || !LDAP_BASE_DN || !LDAP_BIND || !LDAP_PASS) {
 
 function connectAndBind() {
   return new Promise((resolve, reject) => {
-    const client = ldap.createClient({
+    const client = ldapSecure.createClient({
       url: LDAP_URL,
       connectTimeout: 5000,
       timeout: 5000,

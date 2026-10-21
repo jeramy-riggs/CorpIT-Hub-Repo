@@ -13,6 +13,7 @@
 
 const express    = require('express');
 const ldap       = require('ldapjs');
+const ldapSecure = require('./ldap-secure'); // ldapjs client with StartTLS before every bind
 const { execFile } = require('child_process');
 const path       = require('path');
 const router     = express.Router();
@@ -127,9 +128,8 @@ function parseEntry(entry) {
 
 function createClient() {
   return new Promise((resolve, reject) => {
-    const client = ldap.createClient({
+    const client = ldapSecure.createClient({
       url: LDAP_URL, timeout: LDAP_TIMEOUT, connectTimeout: LDAP_TIMEOUT,
-      tlsOptions: { rejectUnauthorized: false },
     });
     client.on('error', err => reject(new Error(`LDAP connection: ${err.message}`)));
     client.bind(LDAP_BIND_USER, LDAP_BIND_PASS, err => {

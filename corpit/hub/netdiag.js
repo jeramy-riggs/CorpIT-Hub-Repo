@@ -8,9 +8,9 @@
      FORTIGATE_HOST / FORTIGATE_API_TOKEN                → fw=irvine
      FORTIGATE_DALLAS_HOST / FORTIGATE_DALLAS_API_TOKEN → fw=dallas
 
-   TLS: FortiGate mgmt uses a self-signed cert on an IP host, so each
-   request uses a per-request https.Agent with rejectUnauthorized:false
-   — scoped to these firewall calls ONLY (never process-wide).
+   TLS: FortiGate mgmt is reached by IP; certs are NRPI-CA issued with
+   CN=nrpi.local. Every request uses the shared verifying agent from
+   ./fortigate-tls (NRPI CA + name check + optional SHA-256 pin).
 
    Mount (in the api-beta entry file):
      const buildNetdiag = require('./netdiag');
@@ -21,6 +21,7 @@ const express = require('express');
 const https = require('https');
 const { URL } = require('url');
 const net = require('net');
+const { agent: fortigateAgent } = require('./fortigate-tls');
 
 const FW = {
   irvine: { host: process.env.FORTIGATE_HOST, token: process.env.FORTIGATE_API_TOKEN },
@@ -99,9 +100,8 @@ function fgtGet(fw, apiPath, query, options = {}) {
       path: u.pathname + u.search,
       method: 'GET',
       headers: { Authorization: `Bearer ${cfg.token}`, Accept: 'application/json' },
-      // Self-signed cert on an IP mgmt address — relax verification for
-      // THIS request only. Never set NODE_TLS_REJECT_UNAUTHORIZED globally.
-      agent: new https.Agent({ rejectUnauthorized: false }),
+      // Verified against the NRPI CA (F13/F14) — see fortigate-tls.js.
+      agent: fortigateAgent,
       timeout: FGT_TIMEOUT_MS,
     }, res => {
       let body = '', bytes = 0;

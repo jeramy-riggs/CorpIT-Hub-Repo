@@ -26,7 +26,7 @@ const portalOwner = require('./portal-access-owner');
 const fs      = require('fs');
 const path    = require('path');
 const mysql   = require('mysql2/promise');
-const ldap    = require('ldapjs');
+const ldapSecure = require('./ldap-secure'); // ldapjs client with StartTLS before every bind
 const createRbac = require('./rbac-middleware');
 
 const router = express.Router();
@@ -338,7 +338,7 @@ router.delete('/users/:email/overrides/:pageKey', async (req, res) => {
 
 function ldapMembersOf(groupDn) {
   return new Promise((resolve, reject) => {
-    const client = ldap.createClient({
+    const client = ldapSecure.createClient({
       url: process.env.LDAP_URL,
       connectTimeout: 5000,
       timeout: 5000,

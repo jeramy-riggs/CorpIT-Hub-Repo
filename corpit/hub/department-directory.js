@@ -1,12 +1,13 @@
 'use strict';
 const ldap=require('ldapjs');
+const ldapSecure=require('./ldap-secure'); // StartTLS before every bind
 const norm=dn=>String(dn||'').trim().toLowerCase().replace(/\s*,\s*/g,',');
 const esc=v=>String(v).replace(/\\/g,'\\5c').replace(/\*/g,'\\2a').replace(/\(/g,'\\28').replace(/\)/g,'\\29').replace(/\0/g,'\\00');
 const EMAIL=/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 function fail(message,status=400){const e=new Error(message);e.status=status;throw e;}
 async function connect(){
   return new Promise((resolve,reject)=>{
-    const c=ldap.createClient({url:process.env.LDAP_URL,connectTimeout:5000,timeout:5000});
+    const c=ldapSecure.createClient({url:process.env.LDAP_URL,connectTimeout:5000,timeout:5000});
     let bound=false;
     c.on('error',e=>{if(!bound){c.destroy();reject(e);}});
     c.bind(process.env.LDAP_BIND_USER,process.env.LDAP_BIND_PASS,e=>{if(e){c.destroy();reject(e);}else{bound=true;resolve(c);}});

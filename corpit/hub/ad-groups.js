@@ -13,7 +13,7 @@
 // gets a session, just without a group list; site-access.js then treats them as
 // unresolved rather than as a member of nothing.
 
-const ldap = require('ldapjs');
+const ldapSecure = require('./ldap-secure'); // ldapjs client with StartTLS before every bind
 const siteAccess = require('./site-access');
 
 const LDAP_URL     = process.env.LDAP_URL;
@@ -48,7 +48,7 @@ function groupCn(dn) {
 
 function connectAndBind() {
   return new Promise((resolve, reject) => {
-    const client = ldap.createClient({
+    const client = ldapSecure.createClient({
       url: LDAP_URL,
       connectTimeout: CONNECT_TIMEOUT_MS,
       timeout: SEARCH_TIMEOUT_MS,

@@ -13,6 +13,7 @@ const express = require('express');
 const https   = require('https');
 const router  = express.Router();
 const { checkUserFirewall } = require('./fortinet-lookup');
+const { agent: fortigateAgent } = require('./fortigate-tls');
 
 // RBAC (same idiom as identity-routes.js): these answer 'is this user on the
 // firewall' for the Identity Diagnostics detail view, so they carry its gate.
@@ -51,7 +52,7 @@ router.get('/health', requireRead, async (req, res) => {
       const req = https.request(url, {
         method:  'GET',
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
-        rejectUnauthorized: false
+        agent:   fortigateAgent   // NRPI CA + name check (F13/F14), see fortigate-tls.js
       }, (r) => {
         let d = '';
         r.on('data', c => d += c);

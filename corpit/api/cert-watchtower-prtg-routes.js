@@ -18,21 +18,11 @@
 const express = require('express');
 
 // === CORPIT-SECRET-CONFIG (2026-09-06) =======================================
-// Config rows that hold a live credential. These must never reach a browser:
-// each has an admin-gated path of its own for the rare case an operator needs
-// the value. Callers get "<key>_set" instead so the UI can still render state.
-const CORPIT_SECRET_CONFIG_KEYS = ['prtg_summary_sensor_token'];
-
-function corpitRedactConfig(config) {
-  const out = Object.assign({}, config || {});
-  for (const k of CORPIT_SECRET_CONFIG_KEYS) {
-    if (Object.prototype.hasOwnProperty.call(out, k)) {
-      out[k + '_set'] = !!(out[k] !== null && out[k] !== undefined && String(out[k]) !== '');
-      delete out[k];
-    }
-  }
-  return out;
-}
+// Config rows that hold a live credential never reach a browser; callers get
+// "<key>_set" instead. hotfix-bundle3 2026-10-21 (F6/F32): the key list now
+// lives in cert-watchtower-guards.js so this file and the cert-config router
+// redact the same set (it was ['prtg_summary_sensor_token'] here only).
+const { CORPIT_SECRET_CONFIG_KEYS, corpitRedactConfig } = require('./cert-watchtower-guards');
 // === end CORPIT-SECRET-CONFIG ================================================
 
 const { pushToPrtg } = require('./cert-watchtower-prtg-helper');

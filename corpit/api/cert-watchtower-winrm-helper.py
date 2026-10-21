@@ -39,6 +39,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import sys
 import traceback
 
@@ -61,7 +62,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 PS_SCRIPT_TEMPLATE = r"""
 $ErrorActionPreference = 'Stop'
-$Stores  = '__STORES__' -split ','
+$Stores  = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('__STORES_B64__')) -split ','
 $ScanIis = [bool]__SCAN_IIS__
 
 function Get-FingerprintSha256 {
@@ -197,16 +198,60 @@ $result | ConvertTo-Json -Depth 10
 """
 
 
+# ---------------------------------------------------------------------------
+# Scan-target policy (hotfix-bundle3 2026-10-21, F19/F20/F21). Mirrors
+# cert-watchtower-guards.js so a DB row saved before the API checks existed
+# still cannot get the WinRM credential sent somewhere it shouldn't go.
+# ---------------------------------------------------------------------------
+ALLOWED_TRANSPORTS = ("ntlm", "kerberos", "credssp")   # never 'basic'
+# /etc/ssl/certs copy is missing on corpit A/B; the hub's own copy shipped 10-20.
+NRPI_CA_BUNDLE = next((p for p in ("/etc/ssl/certs/nrpi-ca-chain.pem",
+                                  "/var/www/corpit-hub-api/certs/nrpi-ca-chain.pem")
+                       if os.path.isfile(p)), "/etc/ssl/certs/nrpi-ca-chain.pem")
+_HOST_NAME_RE = re.compile(
+    r"(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.)+nrpi\.local", re.IGNORECASE | re.ASCII)
+_HOST_IPV4_RE = re.compile(r"10\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})", re.ASCII)
+_STORE_ITEM = r"(?:LocalMachine|CurrentUser)\\[A-Za-z0-9 _-]+"
+_STORES_RE = re.compile(
+    rf"\s*{_STORE_ITEM}\s*(?:,\s*{_STORE_ITEM}\s*)*", re.IGNORECASE | re.ASCII)
+
+
+def is_allowed_host(host) -> bool:
+    if not isinstance(host, str):
+        return False
+    h = host.strip()
+    if not h or len(h) > 255:
+        return False
+    if _HOST_NAME_RE.fullmatch(h):
+        return True
+    m = _HOST_IPV4_RE.fullmatch(h)
+    return bool(m) and all(int(o) <= 255 for o in m.groups())
+
+
+def is_valid_stores(stores) -> bool:
+    return (isinstance(stores, str) and len(stores) <= 512
+            and _STORES_RE.fullmatch(stores) is not None)
+
+
 def build_session(host: str, port: int, transport: str, use_ssl: bool,
                   username: str, password: str, timeout_s: int) -> "winrm.Session":
-    """Construct a pywinrm Session with the right URL/transport."""
+    """Construct a pywinrm Session with the right URL/transport.
+
+    Refuses (ValueError) a transport or host outside policy. Over https the
+    server cert is validated against the NRPI CA chain.
+    """
+    if transport not in ALLOWED_TRANSPORTS:
+        raise ValueError(f"transport '{transport}' is not allowed")
+    if not is_allowed_host(host):
+        raise ValueError("host must be *.nrpi.local or a 10.x address")
     scheme = "https" if use_ssl else "http"
-    url = f"{scheme}://{host}:{port}"
+    url = f"{scheme}://{host.strip()}:{port}"
     return winrm.Session(
         url,
         auth=(username, password),
         transport=transport,
-        server_cert_validation="ignore",  # closed network, often self-signed
+        server_cert_validation="validate",
+        ca_trust_path=NRPI_CA_BUNDLE,
         operation_timeout_sec=timeout_s,
         read_timeout_sec=timeout_s + 10
     )
@@ -218,7 +263,12 @@ def render_ps_script(stores: str, scan_iis: bool) -> str:
     pywinrm encodes the script as base64 in `powershell -encodedcommand`,
     which is subject to the Windows command-line length limit (~8K chars).
     Strip comments and blank lines before substitution to stay well under it.
+
+    `stores` must pass is_valid_stores (ValueError otherwise) and goes into the
+    script only as base64, never as PowerShell string text.
     """
+    if not is_valid_stores(stores):
+        raise ValueError("stores invalid")
     # Stripping rules: drop full-line `#` comments and blank lines.
     # Don't touch lines with code; PowerShell single-line comments are rare
     # in this script and trailing-comment stripping is risky (could break
@@ -234,7 +284,8 @@ def render_ps_script(stores: str, scan_iis: bool) -> str:
     compact = "\n".join(lines)
 
     return (compact
-            .replace("__STORES__", stores.replace("'", "''"))   # escape single quotes for PS
+            .replace("__STORES_B64__",
+                     base64.b64encode(stores.encode("utf-8")).decode("ascii"))
             .replace("__SCAN_IIS__", "1" if scan_iis else "0"))
 
 
@@ -243,7 +294,7 @@ def main() -> int:
     p.add_argument("--host", required=True, help="Hostname or IP of target Windows server")
     p.add_argument("--port", type=int, default=5985)
     p.add_argument("--transport", default="ntlm",
-                   choices=["ntlm", "kerberos", "basic", "credssp"])
+                   choices=list(ALLOWED_TRANSPORTS))
     p.add_argument("--ssl", action="store_true", help="Use HTTPS WinRM (5986 typical)")
     p.add_argument("--stores", default="LocalMachine\\My",
                    help="Comma-separated store list (e.g. 'LocalMachine\\My,LocalMachine\\WebHosting')")
@@ -256,6 +307,17 @@ def main() -> int:
     if not username or not password:
         print(json.dumps({"ok": False, "error": "WINRM_USER and WINRM_PASS must be set"}),
               file=sys.stderr)
+        return 2
+
+    # Policy check before anything is sent; JSON on stdout so the cron and
+    # scan-now record the reason on the agent row.
+    if not is_allowed_host(args.host):
+        print(json.dumps({"ok": False, "host": args.host,
+                          "error": "refused: host must be *.nrpi.local or a 10.x address"}))
+        return 2
+    if not is_valid_stores(args.stores):
+        print(json.dumps({"ok": False, "host": args.host,
+                          "error": "refused: --stores invalid"}))
         return 2
 
     session = build_session(args.host, args.port, args.transport, args.ssl,

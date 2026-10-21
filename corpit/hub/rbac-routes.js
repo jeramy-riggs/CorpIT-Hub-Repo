@@ -11,7 +11,7 @@ const router  = express.Router();
 const mysql   = require('mysql2/promise');
 const createRbac = require('./rbac-middleware');
 const { resolveScope, SCOPE_KINDS, resolveViewAs, canViewAs } = require('./scope-lib');
-const ldap = require('ldapjs');
+const ldapSecure = require('./ldap-secure'); // ldapjs client with StartTLS before every bind
 const { resolveRoles } = require('./rbac-ad-resolver');
 
 /* Live membership of the reporting AD group.
@@ -23,7 +23,7 @@ const REPORTING_GROUP_DN = 'CN=SaaS-ITH-RPT,OU=SaaS Okta,OU=Groups,DC=NRPI,DC=LO
 
 function ldapGroupMembers(groupDn) {
   return new Promise((resolve, reject) => {
-    const c = ldap.createClient({ url: process.env.LDAP_URL, connectTimeout: 5000, timeout: 8000 });
+    const c = ldapSecure.createClient({ url: process.env.LDAP_URL, connectTimeout: 5000, timeout: 8000 });
     const done = (err, val) => { try { c.unbind(() => {}); } catch (e) {} err ? reject(err) : resolve(val); };
     c.on('error', (e) => done(e));
     c.bind(process.env.LDAP_BIND_USER, process.env.LDAP_BIND_PASS, (be) => {

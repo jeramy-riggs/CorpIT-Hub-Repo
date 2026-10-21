@@ -570,7 +570,7 @@ require('./identity-device-network-live').register(router,{rbac,discover:deviceD
 // GET /api/identity/password-expiry?days=30
 router.get('/password-expiry', rbac.requirePage('identity-diag','read'), async (req, res) => {
   const days = parseInt(req.query.days) || 30;
-  const ldapMod = require('ldapjs');
+  const ldapMod = require('./ldap-secure'); // StartTLS before every bind
 
   const LDAP_URL       = process.env.LDAP_URL       || 'ldap://10.9.64.80:389';
   const LDAP_BASE_DN   = process.env.LDAP_BASE_DN   || 'DC=nrpi,DC=local';
@@ -599,7 +599,6 @@ router.get('/password-expiry', rbac.requirePage('identity-diag','read'), async (
     // Connect + bind
     client = ldapMod.createClient({
       url: LDAP_URL, timeout: 15000, connectTimeout: 15000,
-      tlsOptions: { rejectUnauthorized: false },
     });
 
     await new Promise(function(resolve, reject) {
@@ -707,7 +706,7 @@ router.get('/stats', rbac.requirePage('identity-diag','read'), async (req, res) 
   const cached = getCached(cacheKey);
   if (cached) return res.json({ ...cached, fromCache: true });
 
-  const ldapMod = require('ldapjs');
+  const ldapMod = require('./ldap-secure'); // StartTLS before every bind
   const LDAP_URL       = process.env.LDAP_URL       || 'ldap://10.9.64.80:389';
   const LDAP_BASE_DN   = process.env.LDAP_BASE_DN   || 'DC=nrpi,DC=local';
   const LDAP_BIND_USER = process.env.LDAP_BIND_USER || '';
@@ -720,7 +719,6 @@ router.get('/stats', rbac.requirePage('identity-diag','read'), async (req, res) 
   try {
     client = ldapMod.createClient({
       url: LDAP_URL, timeout: 20000, connectTimeout: 15000,
-      tlsOptions: { rejectUnauthorized: false },
     });
     await new Promise(function(resolve, reject) {
       client.on('error', function(err) { reject(new Error('LDAP connection error: ' + err.message)); });
@@ -788,7 +786,7 @@ router.get('/accounts', rbac.requirePage('identity-diag','read'), async (req, re
   let rows = getCached(cacheKey);
 
   if (!rows) {
-    const ldapMod = require('ldapjs');
+    const ldapMod = require('./ldap-secure'); // StartTLS before every bind
     const LDAP_URL       = process.env.LDAP_URL       || 'ldap://10.9.64.80:389';
     const LDAP_BASE_DN   = process.env.LDAP_BASE_DN   || 'DC=nrpi,DC=local';
     const LDAP_BIND_USER = process.env.LDAP_BIND_USER || '';
@@ -805,7 +803,6 @@ router.get('/accounts', rbac.requirePage('identity-diag','read'), async (req, re
     try {
       client = ldapMod.createClient({
         url: LDAP_URL, timeout: 20000, connectTimeout: 15000,
-        tlsOptions: { rejectUnauthorized: false },
       });
       await new Promise(function (resolve, reject) {
         client.on('error', function (err) { reject(new Error('LDAP connection error: ' + err.message)); });
@@ -907,7 +904,7 @@ router.get('/connector-health', rbac.requirePage('identity-diag','read'), async 
   const out = [];
 
   // Active Directory: attempt a bind
-  const ldapMod = require('ldapjs');
+  const ldapMod = require('./ldap-secure'); // StartTLS before every bind
   const LDAP_URL       = process.env.LDAP_URL       || 'ldap://10.9.64.80:389';
   const LDAP_BIND_USER = process.env.LDAP_BIND_USER || '';
   const LDAP_BIND_PASS = process.env.LDAP_BIND_PASS || '';
@@ -916,7 +913,7 @@ router.get('/connector-health', rbac.requirePage('identity-diag','read'), async 
     var c, done = false;
     function finish(st) { if (done) return; done = true; try { if (c) c.unbind(); } catch (_) {} out.push({ name: 'Active Directory', status: st }); resolve(); }
     try {
-      c = ldapMod.createClient({ url: LDAP_URL, timeout: 8000, connectTimeout: 8000, tlsOptions: { rejectUnauthorized: false } });
+      c = ldapMod.createClient({ url: LDAP_URL, timeout: 8000, connectTimeout: 8000 });
       c.on('error', function() { finish('offline'); });
       c.bind(LDAP_BIND_USER, LDAP_BIND_PASS, function(err) { finish(err ? 'offline' : 'online'); });
     } catch (e) { finish('offline'); }

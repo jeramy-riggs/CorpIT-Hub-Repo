@@ -1,6 +1,6 @@
 'use strict';
 
-const ldap = require('ldapjs');
+const ldapSecure = require('./ldap-secure'); // ldapjs client with StartTLS before every bind
 
 const LDAP_URL        = process.env.LDAP_URL        || 'ldap://10.9.64.80:389';
 const LDAP_BASE_DN    = process.env.LDAP_BASE_DN    || 'DC=nrpi,DC=local';
@@ -69,11 +69,10 @@ function decodeUAC(uacVal) {
 
 function createClient() {
   return new Promise((resolve, reject) => {
-    const client = ldap.createClient({
+    const client = ldapSecure.createClient({
       url:            LDAP_URL,
       timeout:        LDAP_TIMEOUT_MS,
       connectTimeout: LDAP_TIMEOUT_MS,
-      tlsOptions:     { rejectUnauthorized: false },
     });
     client.on('error', (err) => reject(new Error(`LDAP connection error: ${err.message}`)));
     client.bind(LDAP_BIND_USER, LDAP_BIND_PASS, (err) => {

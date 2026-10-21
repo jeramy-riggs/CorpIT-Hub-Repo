@@ -25,6 +25,7 @@ const http       = require('http');
 const { execFile } = require('child_process');
 const path       = require('path');
 const mysql      = require('mysql2/promise');
+const { agent: fortigateAgent } = require('./fortigate-tls');
 
 // ── Subnet definitions ────────────────────────────────────────────────────────
 
@@ -276,7 +277,7 @@ function fortigateRequest(endpoint) {
     const req = https.request(url, {
       method:  'GET',
       headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
-      rejectUnauthorized: false
+      agent:   fortigateAgent   // NRPI CA + name check (F13/F14), see fortigate-tls.js
     }, (res) => {
       let data = '';
       res.on('data',  c => data += c);

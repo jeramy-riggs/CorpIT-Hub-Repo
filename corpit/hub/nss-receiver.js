@@ -17,6 +17,7 @@
 //   NSS_RAW=/var/log/itam/nss-web-raw.log
 //   NSS_RAW_MAX=20
 //   NSS_IDLE_MS=43200000      close a stream that sent nothing for 12 h (0 = never); TCP keepalive is always on
+//   NSS_ALLOWED_SOURCES=10.9.147.63,10.9.147.108   peers allowed besides loopback (F25/F26)
 // ═══════════════════════════════════════════════════════════════
 'use strict';
 const net = require('net');
@@ -151,7 +152,7 @@ function mapRecord(t) {
 }
 
 let pending = [];
-let stats = { lines: 0, bad: 0, inserted: 0, duplicates: 0, poison: 0, conns: 0, rawCaptured: 0 };
+let stats = { lines: 0, bad: 0, inserted: 0, duplicates: 0, poison: 0, conns: 0, refused: 0, rawCaptured: 0 };
 function flush() {
   if (!pending.length) return;
   var batch = pending; pending = [];
@@ -190,7 +191,38 @@ function guardSocket(sock, tag, peer) {
   });
 }
 
+// Source allowlist (F25/F26, 2026-10-21). NSS has no auth of its own, so a peer that is not loopback (local
+// health checks) or a listed NSS sender is destroyed on connect, before any data is read. ::ffff:-mapped IPv4
+// is normalized. Defaults: 10.9.147.63 = NSS V3 sender, 10.9.147.108 = old v2 sender (ufw on prod already
+// limits this port to the same two). The first few refusals are logged, then a summary every 10 min.
+function normAddr(a) {
+  a = String(a || '').trim().toLowerCase();
+  if (a.indexOf('::ffff:') === 0 && a.indexOf('.') > 0) a = a.slice(7);
+  return a;
+}
+const ALLOWED_SOURCES = new Set(['127.0.0.1', '::1'].concat(
+  String(process.env.NSS_ALLOWED_SOURCES || '10.9.147.63,10.9.147.108').split(',').map(normAddr).filter(Boolean)));
+function sourceAllowed(addr) { return ALLOWED_SOURCES.has(normAddr(addr)); }
+const REFUSE_LOG_MAX = 5;
+var refusedLogged = 0, refusedSinceSummary = 0, refusedPeers = {};
+function refuse(sock) {
+  stats.refused++; refusedSinceSummary++;
+  var src = normAddr(sock.remoteAddress) || '?';
+  refusedPeers[src] = (refusedPeers[src] || 0) + 1;
+  if (refusedLogged < REFUSE_LOG_MAX) {
+    refusedLogged++;
+    console.warn('[nss] refused connection from non-allowlisted source', src + (refusedLogged === REFUSE_LOG_MAX ? ' (further refusals summarized every 10 min)' : ''));
+  }
+  sock.destroy();
+}
+setInterval(function () {
+  if (!refusedSinceSummary) return;
+  console.warn('[nss] refused ' + refusedSinceSummary + ' connection(s) in the last 10 min from', JSON.stringify(refusedPeers));
+  refusedSinceSummary = 0; refusedPeers = {};
+}, 600000).unref();
+
 const server = net.createServer(function (sock) {
+  if (!sourceAllowed(sock.remoteAddress)) return refuse(sock);
   stats.conns++;
   var peer = sock.remoteAddress + ':' + sock.remotePort;
   console.log('[nss] stream connected from', peer);

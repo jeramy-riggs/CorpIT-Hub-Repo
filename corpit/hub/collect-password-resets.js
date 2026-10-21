@@ -8,7 +8,7 @@
 
 'use strict';
 const mysql = require('mysql2/promise');
-const ldap = require('ldapjs');
+const ldapSecure = require('./ldap-secure'); // ldapjs client with StartTLS before every bind
 
 function fileTimeToDate(fileTime) {
   if (!fileTime) return null;
@@ -21,10 +21,9 @@ function fileTimeToDate(fileTime) {
 
 function fetchAllAdUsers() {
   return new Promise((resolve, reject) => {
-    const client = ldap.createClient({
+    const client = ldapSecure.createClient({
       url: process.env.LDAP_URL || 'ldap://10.9.64.80:389',
       timeout: 15000, connectTimeout: 15000,
-      tlsOptions: { rejectUnauthorized: false },
     });
     client.on('error', (err) => reject(new Error('LDAP connection error: ' + err.message)));
     client.bind(process.env.LDAP_BIND_USER, process.env.LDAP_BIND_PASS, (err) => {

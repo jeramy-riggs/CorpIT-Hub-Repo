@@ -16,7 +16,7 @@
 const express   = require('express');
 const path      = require('path');
 const { spawn } = require('child_process');
-const ldap      = require('ldapjs');
+const ldapSecure = require('./ldap-secure'); // ldapjs client with StartTLS before every bind
 const mysql     = require('mysql2/promise');
 const createRbac = require('./rbac-middleware');
 
@@ -56,7 +56,7 @@ function parseEntry(entry) {
 
 function createLdapClient() {
   return new Promise((resolve, reject) => {
-    const client = ldap.createClient({ url: LDAP_URL, timeout: LDAP_TIMEOUT, connectTimeout: LDAP_TIMEOUT });
+    const client = ldapSecure.createClient({ url: LDAP_URL, timeout: LDAP_TIMEOUT, connectTimeout: LDAP_TIMEOUT });
     client.on('error', err => reject(new Error(`LDAP client error: ${err.message}`)));
     client.bind(LDAP_BIND_USER, LDAP_BIND_PASS, err => {
       if (err) return reject(new Error(`LDAP bind: ${err.message}`));

@@ -16,6 +16,12 @@
 
 const express = require('express');
 const crypto = require('crypto');
+// hotfix-bundle3 2026-10-21 (F19/F20/F21): scan-target policy shared with the
+// cron scanner — *.nrpi.local / 10.x hosts only, no 'basic' transport, strict
+// scan_stores format.
+const {
+  isAllowedWinrmHost, isAllowedWinrmTransport, isValidScanStores, winrmTargetRefusal
+} = require('./cert-watchtower-guards');
 
 module.exports = function createAgentRouter(pool, rbac) {
   const router = express.Router();
@@ -393,11 +399,16 @@ module.exports = function createAgentRouter(pool, rbac) {
       if (!validateFqdn(fqdn)) return res.status(400).json({ error: 'Invalid or missing fqdn' });
       if (target_host && !validateFqdn(target_host))
         return res.status(400).json({ error: 'Invalid target_host' });
+      // The scanner connects to target_host, or fqdn when target_host is empty.
+      if (!isAllowedWinrmHost(target_host || fqdn))
+        return res.status(400).json({ error: 'Scan host must be a *.nrpi.local name or a 10.x address' });
       const portNum = Number(winrm_port);
       if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535)
         return res.status(400).json({ error: 'winrm_port must be 1-65535' });
-      if (!['ntlm','kerberos','basic','credssp'].includes(winrm_transport))
-        return res.status(400).json({ error: 'winrm_transport invalid' });
+      if (!isAllowedWinrmTransport(winrm_transport))
+        return res.status(400).json({ error: 'winrm_transport invalid (ntlm, kerberos or credssp)' });
+      if (scan_stores && !isValidScanStores(scan_stores))
+        return res.status(400).json({ error: 'scan_stores invalid: comma-separated LocalMachine\\<Store> or CurrentUser\\<Store> (letters, digits, space, _ -)' });
       if (!['windows','linux','macos','other'].includes(os_family))
         return res.status(400).json({ error: 'os_family invalid' });
       if (ca_name && !validateCaName(ca_name))
@@ -522,14 +533,29 @@ module.exports = function createAgentRouter(pool, rbac) {
               return res.status(400).json({ error: 'winrm_port must be 1-65535' });
             }
           }
-          if (field === 'winrm_transport' && !['ntlm','kerberos','basic','credssp'].includes(v)) {
-            return res.status(400).json({ error: 'winrm_transport invalid' });
+          if (field === 'winrm_transport' && !isAllowedWinrmTransport(v)) {
+            return res.status(400).json({ error: 'winrm_transport invalid (ntlm, kerberos or credssp)' });
           }
           if (field === 'target_host' && v && !validateFqdn(v)) {
             return res.status(400).json({ error: 'Invalid target_host' });
           }
+          if (field === 'target_host') {
+            // Clearing target_host makes the scanner fall back to fqdn.
+            let host = v;
+            if (!host) {
+              const [[row]] = await pool.query('SELECT fqdn FROM cert_agents WHERE id = ?', [id]);
+              if (!row) return res.status(404).json({ error: 'Agent not found' });
+              host = row.fqdn;
+            }
+            if (!isAllowedWinrmHost(host)) {
+              return res.status(400).json({ error: 'Scan host must be a *.nrpi.local name or a 10.x address' });
+            }
+          }
           if (field === 'scan_stores' && v && String(v).length > 512) {
             return res.status(400).json({ error: 'scan_stores too long (max 512)' });
+          }
+          if (field === 'scan_stores' && v && !isValidScanStores(v)) {
+            return res.status(400).json({ error: 'scan_stores invalid: comma-separated LocalMachine\\<Store> or CurrentUser\\<Store> (letters, digits, space, _ -)' });
           }
           updates.push(`${field} = ?`);
           if (field === 'enabled' || field === 'scan_iis' || field === 'winrm_use_ssl' || field === 'is_ca') {
@@ -604,6 +630,10 @@ module.exports = function createAgentRouter(pool, rbac) {
         [id]
       );
       if (!target) return res.status(404).json({ error: 'Agent not found' });
+      // Never hand the WinRM credential to a target outside policy (rows saved
+      // before hotfix-bundle3 are not re-validated on their own).
+      const refusal = winrmTargetRefusal(target);
+      if (refusal) return res.status(400).json({ error: `Scan target refused: ${refusal}` });
 
       lastScanNow.set(id, Date.now());
 
@@ -969,6 +999,8 @@ module.exports = function createAgentRouter(pool, rbac) {
       if (!target.is_ca || !target.ca_name) {
         return res.status(400).json({ error: 'This target is not configured as a CA server. Set is_ca=1 and ca_name in the target settings.' });
       }
+      const refusal = winrmTargetRefusal(target);
+      if (refusal) return res.status(400).json({ error: `Scan target refused: ${refusal}` });
 
       // Load WinRM creds from api-beta's .env
       const fsSync = require('fs');

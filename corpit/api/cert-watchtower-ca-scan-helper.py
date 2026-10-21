@@ -31,13 +31,56 @@ except ImportError:
     sys.exit(1)
 
 
+# Scan-target policy (hotfix-bundle3 2026-10-21, F20/F21). Mirrors
+# cert-watchtower-guards.js / the WinRM helper: never 'basic', *.nrpi.local or
+# 10.x hosts only, https validated against the NRPI CA chain.
+ALLOWED_TRANSPORTS = ('ntlm', 'kerberos', 'credssp')
+# /etc/ssl/certs copy is missing on corpit A/B; the hub's own copy shipped 10-20.
+NRPI_CA_BUNDLE = next((p for p in ('/etc/ssl/certs/nrpi-ca-chain.pem',
+                                  '/var/www/corpit-hub-api/certs/nrpi-ca-chain.pem')
+                       if os.path.isfile(p)), '/etc/ssl/certs/nrpi-ca-chain.pem')
+_HOST_NAME_RE = re.compile(
+    r'(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?\.)+nrpi\.local', re.IGNORECASE | re.ASCII)
+_HOST_IPV4_RE = re.compile(r'10\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})', re.ASCII)
+
+
+def is_allowed_host(host):
+    if not isinstance(host, str):
+        return False
+    h = host.strip()
+    if not h or len(h) > 255:
+        return False
+    if _HOST_NAME_RE.fullmatch(h):
+        return True
+    m = _HOST_IPV4_RE.fullmatch(h)
+    return bool(m) and all(int(o) <= 255 for o in m.groups())
+
+
+def build_protocol(host, port, transport, use_ssl, user, password, timeout):
+    """pywinrm Protocol for the CA host; ValueError if outside policy."""
+    if transport not in ALLOWED_TRANSPORTS:
+        raise ValueError(f"transport '{transport}' is not allowed")
+    if not is_allowed_host(host):
+        raise ValueError('host must be *.nrpi.local or a 10.x address')
+    return winrm.Protocol(
+        endpoint=f'{"https" if use_ssl else "http"}://{host.strip()}:{port}/wsman',
+        transport=transport,
+        username=user,
+        password=password,
+        server_cert_validation='validate',
+        ca_trust_path=NRPI_CA_BUNDLE,
+        operation_timeout_sec=timeout,
+        read_timeout_sec=timeout + 10,
+    )
+
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument('--host',      required=True)
     p.add_argument('--ca-name',   required=True)
     p.add_argument('--port',      type=int, default=5985)
     p.add_argument('--transport', default='ntlm',
-                   choices=['ntlm','kerberos','basic','credssp'])
+                   choices=list(ALLOWED_TRANSPORTS))
     p.add_argument('--timeout',   type=int, default=120)
     p.add_argument('--ssl',       action='store_true')
     return p.parse_args()
@@ -194,15 +237,8 @@ def main():
         sys.exit(1)
 
     try:
-        protocol = winrm.Protocol(
-            endpoint=f'{"https" if args.ssl else "http"}://{args.host}:{args.port}/wsman',
-            transport=args.transport,
-            username=user,
-            password=password,
-            server_cert_validation='ignore',
-            operation_timeout_sec=args.timeout,
-            read_timeout_sec=args.timeout + 10,
-        )
+        protocol = build_protocol(args.host, args.port, args.transport, args.ssl,
+                                  user, password, args.timeout)
 
         cmd        = build_certutil_cmd(args.host, args.ca_name)
         shell_id   = protocol.open_shell()
