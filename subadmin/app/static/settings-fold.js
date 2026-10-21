@@ -10,6 +10,7 @@
      Backup & HA        itam only  /bkp-api/settings, /bkp-api/ha/settings -> bkp-console :8470
      Darktrace email    Hub :3001  /api/sentinel/darktrace-email/config{,/test}  (Hub super admin; DARKTRACE-EMAIL 2026-10-14)
      AI Governance sync Hub :3001  /api/zscaler/governance/portal-sync/config{,/run}  (Hub super admin; AI-GOVERNANCE PORTAL SYNC 2026-10-15)
+     Onboarding mail    Hub :3001  /api/workflow/settings/config              (Hub super admin; ONBOARDING WORKFLOW 2026-10-21)
    The owning API decides who may read and who may save. A tab button appears after a successful read or a temporary availability failure. Denied
    and absent editors stay hidden; unavailable editors show the owning error with Reload. A host without the
    API (prod has no launch pad or backup proxy) never shows it. A refused save is shown as refused. */
@@ -18,7 +19,7 @@
   var view = document.querySelector('[data-view="settings"]');
   if(!view) return;
   var tablist = view.querySelector('[data-tabs="settings"]');
-  var ORDER = ['certs', 'signin', 'digest', 'zscaler-ai', 'launchpad', 'backup', 'darktrace-email', 'aigov-portal'];
+  var ORDER = ['certs', 'signin', 'digest', 'zscaler-ai', 'launchpad', 'backup', 'darktrace-email', 'aigov-portal', 'onboarding-mail'];
   var CONSOLE_HDR = { 'X-Subadmin-Console': '1' };
   var DEV = /^dev-/.test(location.hostname);
   var WARN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
@@ -956,6 +957,51 @@
     });
   }
 
+  /* ---------- Onboarding workflow mail (Hub workflow-settings-routes.js) ---------- */
+  // ONBOARDING WORKFLOW 2026-10-21. Mail mode and the links and addresses the onboarding templates fill in.
+  // 'log' records every message in the Hub mail log and sends nothing; 'live' sends through Graph.
+  // The Hub answers only to a Hub super admin and audits every save.
+  var WF = '/api/workflow/settings/config';
+  var WF_KEYS = ['mail_mode', 'app_url', 'documentation_link', 'helpdesk', 'distribution_list', 'facility_notification_email'];
+  function wfRender(d){
+    var v = d.values || {};
+    var meta = d.saved_at ? 'saved ' + esc(when(d.saved_at)) + (d.saved_by ? ' by ' + esc(d.saved_by) : '') : 'never saved';
+    var live = v.mail_mode === 'live';
+    return '<section class="card" data-sf-ed="wf"><div class="card-h"><h3>Mail and links</h3><span class="meta">Hub table wf_setting · ' + meta + '</span></div>' +
+      '<div class="card-b">' +
+      (live ? '' : '<div class="note">' + INFO_SVG + '<div><b>Log only.</b> Every onboarding and offboarding message, including the new hire’s temporary password message, is written to the mail log on the Onboarding page and nothing is sent.</div></div>') +
+      '<div class="sf-grid">' +
+      field({ kind: 'select', k: 'mail_mode', l: 'Mail mode', v: live ? 'live' : 'log', opts: [['log', 'Log only (send nothing)'], ['live', 'Live (send through Microsoft Graph)']],
+        h: 'Live sends real email to approvers, the new hire and the distribution list. Switch back to Log only at any time.' }) +
+      '</div><div class="sf-grid">' +
+      field({ k: 'app_url', l: 'App link in emails', v: v.app_url || '', t: 'trim', ml: 500, ph: 'https://dev-corpit.nrpi.local/onboarding.html', wide: true,
+        h: 'The link approval emails open. https only. Blank leaves the link out.' }) +
+      field({ k: 'documentation_link', l: 'How-to link', v: v.documentation_link || '', t: 'trim', ml: 500, ph: 'https://…', wide: true,
+        h: 'Shown on the Onboarding page and in emails as the how-to guide. https only.' }) +
+      field({ k: 'helpdesk', l: 'Helpdesk address', v: v.helpdesk || '', t: 'trim', ml: 1000, ph: 'helpdesk@…', wide: true,
+        h: 'Copied on IT steps. Separate several addresses with ;' }) +
+      field({ k: 'distribution_list', l: 'Distribution list', v: v.distribution_list || '', t: 'trim', ml: 1000, ph: 'list@…', wide: true,
+        h: 'Receives the completed-request notices. Separate several addresses with ;' }) +
+      field({ k: 'facility_notification_email', l: 'Facilities shipment recipient', v: v.facility_notification_email || '', t: 'trim', ml: 190, ph: 'facilities@…', wide: true,
+        h: 'One email address for shipment-required notifications. Leave blank until the Facilities mailbox is ready; an unaddressed notification is logged as failed.' }) +
+      '</div></div>' + foot('wf') + '</section>';
+  }
+  function wfSave(ed){
+    var sent = {};
+    changed(ed).forEach(function(el){ sent[el.dataset.k] = el.value.trim(); });
+    if(!Object.keys(sent).length) return Promise.resolve();
+    if(sent.mail_mode === 'live' && !confirm('Switch onboarding mail to Live? Approvers, new hires and the distribution list will get real email from the next action on.')) return null;
+    return api('PUT', WF, sent).then(function(){ return reread('onboarding-mail'); }).then(function(d){
+      var back = d.values || {}, missed = Object.keys(sent).filter(function(k){
+        var a = String(back[k] == null ? '' : back[k]), b = sent[k];
+        if(k === 'helpdesk' || k === 'distribution_list') { a = a.replace(/\s/g, ''); b = b.split(/[;,]/).map(function(x){ return x.trim(); }).filter(Boolean).join(';'); }
+        return a !== b;
+      });
+      if(missed.length) throw new Error('the Hub answered OK but reading back shows these did not change: ' + missed.join(', ') + '.');
+      return 'Saved ' + Object.keys(sent).length + ' setting' + (Object.keys(sent).length === 1 ? '' : 's') + '; read back from the Hub. Mail mode: ' + (back.mail_mode === 'live' ? 'Live' : 'Log only') + '.';
+    });
+  }
+
   /* ---------- tab definitions ---------- */
   var DEF = {
     certs: {
@@ -1047,6 +1093,15 @@
       probe: function(){ return api('GET', AP).then(function(j){ return !!(j && j.ok === true && j.config && typeof j.config === 'object'); }); },
       load: function(){ return api('GET', AP); },
       render: apRender, save: apSave,
+    },
+    'onboarding-mail': {
+      label: 'Onboarding mail', what: 'onboarding workflow mail settings',
+      lede: 'Whether the Onboarding &amp; Offboarding workflow sends real email or only logs it, and the links and addresses its emails fill in. Stored in the Hub. The Hub accepts reads and changes only from a Hub super admin (<span class="mono">SaaS-ITH-SA</span>) and audits every save. Choice lists and email templates are edited on the Onboarding page.',
+      guard: ' Onboarding mail settings are Hub super admin only (<span class="mono">SaaS-ITH-SA</span>).',
+      links: [[hubUrl('/onboarding.html'), 'Open Onboarding']],
+      probe: function(){ return api('GET', WF).then(function(j){ return !!(j && j.ok === true && j.values && typeof j.values === 'object'); }); },
+      load: function(){ return api('GET', WF); },
+      render: wfRender, save: wfSave,
     },
   };
   DIRTY.digest = null;

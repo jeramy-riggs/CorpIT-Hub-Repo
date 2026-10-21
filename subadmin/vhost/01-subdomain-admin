@@ -683,6 +683,27 @@ server {
         proxy_read_timeout 90s;
     }
 
+    # ONBOARDING WORKFLOW 2026-10-21: Settings > Onboarding mail. The Hub's requireSuperAdmin decides every
+    # call and audits each save; nginx adds only the sign-in gate.
+    location = /api/workflow/settings/config {
+        limit_except GET PUT { deny all; }
+        auth_request /_gate;
+        error_page 401 = @gate_denied;
+        error_page 403 @gate_forbidden;
+        error_page 500 502 503 504 =503 @gate_unavailable;
+        auth_request_set $gate_email $upstream_http_x_gate_email;
+
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Authorization     $http_authorization;
+        add_header Cache-Control "no-store, private" always;
+        include snippets/corpit-security-headers.conf;
+    }
+
     # Everything else, including /static and /healthz. An internal health probe
     # should talk to gunicorn on 127.0.0.1:5000 directly rather than come through
     # the public vhost, so gating this costs nothing operationally.
