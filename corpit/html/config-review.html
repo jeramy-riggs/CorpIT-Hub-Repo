@@ -10,6 +10,8 @@
 <link href="/it-unifi.css" rel="stylesheet">
 <link href="/it-command.css" rel="stylesheet">
 <link href="/it-noc.css" rel="stylesheet">
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link href="/noc-portal.css?v=5a65dd3ba47c" rel="stylesheet">
 <style>
 .srcgrid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:var(--n-gap)}
 @media(max-width:1100px){.srcgrid{grid-template-columns:1fr}}
@@ -140,6 +142,8 @@ select.nsel{height:32px;border-radius:8px;border:1px solid var(--o-line);backgro
 <script src="/it-observe.js" data-app-key="config-review"></script>
 <script>
 NOC.mount({page:'confreview', title:'Config review', sub:'switches · firewalls · read-only'});
+/* rail brand as on the other governance-skinned pages; it-noc.js is shared with network-observatory, so it is set here */
+(function(b){if(!b)return;b.querySelector('b').textContent='CorpIT';b.querySelector('span span').textContent='Network operations';})(document.querySelector('#nSide .nbrand'));
 NOC.act('<button class="nbtn" id="print">Print</button>');
 var esc=NOC.esc;
 var R=null, S={sev:'ALL', sel:null};
