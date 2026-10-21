@@ -155,7 +155,9 @@ async function resolveSharing(driveId, itemId) {
       const scp = p.link?.scope;
       if (scp === 'anonymous') scope = 'anyone';
       else if (scp === 'organization' && scope !== 'anyone') scope = 'org';
-      if (p.link) links.push({ type: p.link.type, scope: p.link.scope, web_url: p.link.webUrl });
+      // F35: type + scope only. The link URL itself is the credential for an
+      // 'anyone' link, and the dashboard never needs it.
+      if (p.link) links.push({ type: p.link.type, scope: p.link.scope });
     }
     return { sharing_scope: scope, sharing_links: links };
   } catch (e) {

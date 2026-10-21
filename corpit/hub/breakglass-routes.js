@@ -73,8 +73,11 @@ function clientIp(req) {
     .split(',')[0].trim() || 'unknown';
 }
 
+// F33: the global counter is fed by anonymous failures, so it must never lock
+// out the right credential. checkLock(ip) is the per-source lock only; the
+// /login route checks GLOBAL_KEY separately and, while it is tripped, still
+// lets in an attempt that passes BOTH factors.
 function checkLock(ip) {
-  if (ip !== GLOBAL_KEY) { const g = checkLock(GLOBAL_KEY); if (g.locked) return g; }
   const rec = failures.get(ip);
   if (!rec) return { locked: false };
   if (rec.lockedUntil && Date.now() < rec.lockedUntil) {
@@ -182,11 +185,18 @@ router.post('/login', async (req, res) => {
     });
   }
 
+  const globalLocked = checkLock(GLOBAL_KEY).locked;
+  // While the global backstop is tripped a failure answers 429, same as before;
+  // only the response to a fully valid login changes.
+  const fail = () => globalLocked
+    ? res.status(429).json({ error: 'Too many failed attempts. Try again later.', code: 'LOCKED_OUT' })
+    : res.status(401).json({ error: 'Authentication failed', code: 'AUTH_FAILED' });
+
   const { password, totp } = req.body || {};
   if (typeof password !== 'string' || typeof totp !== 'string') {
     recordFailure(ip);
-    await audit(req, 'breakglass_login_failed', { reason: 'malformed_request' });
-    return res.status(401).json({ error: 'Authentication failed', code: 'AUTH_FAILED' });
+    await audit(req, 'breakglass_login_failed', { reason: 'malformed_request', globalLocked });
+    return fail();
   }
 
   // Verify BOTH factors before responding, so the response time does not
@@ -200,13 +210,14 @@ router.post('/login', async (req, res) => {
       reason: !passOk ? 'password' : totpResult.reason,
       failureCount: rec.count,
       lockedOut: !!(rec.lockedUntil && Date.now() < rec.lockedUntil),
+      globalLocked,
     });
-    return res.status(401).json({ error: 'Authentication failed', code: 'AUTH_FAILED' });
+    return fail();
   }
 
   clearFailures(ip);
   const token = bg.mintSessionToken();
-  await audit(req, 'breakglass_login_success', {});
+  await audit(req, 'breakglass_login_success', globalLocked ? { globalLocked } : {});
   sendAlert(req);   // fire-and-forget by design
 
   // ITAM-01: break-glass is refused a /api/rbac/session token by design, so it must
