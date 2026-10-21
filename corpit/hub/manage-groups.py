@@ -30,6 +30,18 @@ except ImportError:
 
 DC_HOST = '10.9.64.80'
 
+# PowerShell's tokenizer treats all of these as single-quote delimiters, not
+# just ASCII ' (U+2018, U+2019, U+201A, U+201B). Inside a single-quoted
+# literal each one is escaped by doubling it.
+_PS_SINGLE_QUOTES = ("'", '\u2018', '\u2019', '\u201a', '\u201b')
+
+
+def _ps_quote(s):
+    """Escape a string for embedding in a single-quoted PowerShell literal."""
+    for q in _PS_SINGLE_QUOTES:
+        s = s.replace(q, q + q)
+    return s
+
 
 def manage_groups(sam, add_groups, remove_groups, winrm_user, winrm_pass):
     try:
@@ -44,16 +56,16 @@ def manage_groups(sam, add_groups, remove_groups, winrm_user, winrm_pass):
     except Exception as e:
         return {'success': False, 'error': f'WinRM connection failed: {str(e)}', 'added': [], 'removed': []}
 
-    safe_sam = sam.replace("'", "''")
+    safe_sam = _ps_quote(sam)
 
     # Build PowerShell script that processes adds and removes
     add_lines = []
     for g in add_groups:
-        add_lines.append(f"    '{g.replace(chr(39), chr(39)+chr(39))}'")
+        add_lines.append(f"    '{_ps_quote(g)}'")
 
     remove_lines = []
     for g in remove_groups:
-        remove_lines.append(f"    '{g.replace(chr(39), chr(39)+chr(39))}'")
+        remove_lines.append(f"    '{_ps_quote(g)}'")
 
     add_array = ",\n".join(add_lines) if add_lines else ""
     remove_array = ",\n".join(remove_lines) if remove_lines else ""

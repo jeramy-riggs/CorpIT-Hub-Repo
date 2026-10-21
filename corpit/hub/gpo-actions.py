@@ -62,9 +62,17 @@ DEFAULT_BACKUP_PATH = 'C:\\GPOBackups'
 ALLOWED_ACTIONS = {'remove_gpo'}  # v1 — extended in v2
 
 
+# PowerShell's tokenizer treats all of these as single-quote delimiters, not
+# just ASCII ' (U+2018, U+2019, U+201A, U+201B). Inside a single-quoted
+# literal each one is escaped by doubling it.
+_PS_SINGLE_QUOTES = ("'", '\u2018', '\u2019', '\u201a', '\u201b')
+
+
 def _ps_quote(s):
     """Escape a string for embedding in a single-quoted PowerShell literal."""
-    return s.replace("'", "''")
+    for q in _PS_SINGLE_QUOTES:
+        s = s.replace(q, q + q)
+    return s
 
 
 def _classify_error(stdout, stderr, status_code):
