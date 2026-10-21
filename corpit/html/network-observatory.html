@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="/it-unifi.css">
 <link rel="stylesheet" href="/it-command.css">
 <link rel="stylesheet" href="/it-noc.css">
+<link rel="preload" href="/ai-governance-portal-nunito.woff2?v=1" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/noc-portal.css?v=5a65dd3ba47c">
 <style>
 /* the card header now names these panels, so their own headings would repeat it */
 #oPath .hd,#apCard .hd{display:none}
@@ -293,6 +295,8 @@
 <script src="/it-observe.js" data-app-key="network-observatory"></script>
 <script>
 NOC.mount({page:'building', title:'Live building', sub:'NRPI \u00b7 wireless'});
+/* rail brand as on the other governance-skinned pages; it-noc.js is shared with config-review, so it is set here */
+(function(b){if(!b)return;b.querySelector('b').textContent='CorpIT';b.querySelector('span span').textContent='Network operations';})(document.querySelector('#nSide .nbrand'));
 /* Live/Paused is a real control: it stops the 30s auto-reload so a tech can
    study a frozen floor without it moving under them. */
 NOC.act('<button class="nbtn" id="oLive" aria-pressed="true">'+
