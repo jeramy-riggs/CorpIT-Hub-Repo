@@ -756,6 +756,19 @@ router.get('/sessions', read, async (req, res) => {
     const since = period ? `'${period.from}'` : `DATE_SUB(CURDATE(), INTERVAL ${days - 1} DAY)`;
     const until = period ? `'${period.to}'` : `CURDATE()`;
 
+    // Roster (2026-10-21): the live Members API table when fresh, else the last CSV import.
+    // onRoster used to mean "in the CSV import"; that import dates from 2026-08-01, so every
+    // seat added since showed as departed or not at all. Same rule /shared/ai-usage follows.
+    let rosterRows = [];
+    try { rosterRows = await q(`SELECT email, fetched_at FROM claude_member WHERE email IS NOT NULL`); }
+    catch (e) { if (e.code !== 'ER_NO_SUCH_TABLE') console.error('[sessions] live roster unavailable, using CSV:', e.message); rosterRows = []; }
+    const rosterLive = rosterRows.length > 0 && CL.isFresh(CL.newestFetchedAt(rosterRows));
+    const rosterSql = rosterLive
+      ? `SELECT email FROM claude_member WHERE email IS NOT NULL`
+      : `SELECT email FROM ai_usage_member
+               WHERE platform='claude' AND email IS NOT NULL
+                 AND month=(SELECT MAX(month) FROM ai_usage_member WHERE platform='claude')`;
+
     const rows = await q(
       `SELECT r.email,
               COALESCE(o.name, u.display_name, c.api_name, t.api_name) AS name,
@@ -765,7 +778,7 @@ router.get('/sessions', read, async (req, res) => {
               (u.entra_id IS NOT NULL OR o.email IS NOT NULL) AS matched,
               lim.custom_limit                          AS customLimit,
               lim.group_limit                           AS groupLimit,
-              (lim.email IS NOT NULL)                   AS onRoster,
+              (ros.email IS NOT NULL)                   AS onRoster,
               c.departed                                AS departedFlag,
               -- session / activity split
               a.lastActive, a.daysActive, a.chats, a.messages,
@@ -780,9 +793,7 @@ router.get('/sessions', read, async (req, res) => {
               -- money
               c.spend, c.requests
          FROM (
-              SELECT email FROM ai_usage_member
-               WHERE platform='claude' AND email IS NOT NULL
-                 AND month=(SELECT MAX(month) FROM ai_usage_member WHERE platform='claude')
+              ${rosterSql}
               UNION SELECT DISTINCT email FROM claude_user_cost_daily
                WHERE day >= ${since} AND day <= ${until} AND email IS NOT NULL
               UNION SELECT DISTINCT email FROM claude_user_activity_daily
@@ -830,6 +841,7 @@ router.get('/sessions', read, async (req, res) => {
                      WHERE platform='claude'
                        AND month=(SELECT MAX(month) FROM ai_usage_member WHERE platform='claude')
          ) lim ON lim.email = r.email
+         LEFT JOIN (${rosterSql}) ros ON ros.email = r.email
         ORDER BY c.spend DESC, t.tokens DESC, r.email`);
 
     /* Suggested limit = the member's average monthly spend over the last 3 COMPLETE
