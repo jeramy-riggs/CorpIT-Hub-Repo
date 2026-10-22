@@ -821,6 +821,42 @@ table.tbl tfoot tr.tr-tot.grand td { border-top: 1px solid var(--line-strong); b
 html[data-reduce-motion="on"] .card.anim { animation: none; opacity: 1; transform: none; }
 html[data-reduce-motion="on"] *, html[data-reduce-motion="on"] *::after { transition: none !important; animation: none !important; }
 </style>
+<style id="redesign-overlay">
+/* ============================================================================
+   REDESIGN OVERLAY — my-profile.html greeting banner (presentation only, 2026-10-22, v4).
+   Same illustration as the AI Usage & Credits hero. The image is drawn on ::after
+   with a built-in left fade (mask), so its edge never shows at any width. Markup,
+   JS, weather widget and theme switch untouched. Remove this block to revert.
+   ========================================================================== */
+html .greet-hero{height:200px;background:#F2F6FB;border:1px solid rgba(27,42,58,.08)}
+html .greet-hero::after{content:'';position:absolute;top:0;right:0;bottom:0;aspect-ratio:1536/380;z-index:0;
+  background:url('/ai-hero-banner.jpg?v=20261022h') right center / auto 100% no-repeat;
+  background:image-set(url('/ai-hero-banner.webp?v=20261022h') type('image/webp'), url('/ai-hero-banner.jpg?v=20261022h') type('image/jpeg')) right center / auto 100% no-repeat;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,rgba(0,0,0,.04) 10%,rgba(0,0,0,.14) 20%,rgba(0,0,0,.32) 30%,rgba(0,0,0,.58) 42%,rgba(0,0,0,.85) 54%,#000 66%);mask-image:linear-gradient(90deg,transparent 0,rgba(0,0,0,.04) 10%,rgba(0,0,0,.14) 20%,rgba(0,0,0,.32) 30%,rgba(0,0,0,.58) 42%,rgba(0,0,0,.85) 54%,#000 66%)}
+html .greet-hero::before{z-index:0;background:radial-gradient(420px 220px at 6% 0%, rgba(173,205,236,.45), transparent 70%)}
+html .greet-hero .accent{display:none}
+html .greet-hero .gc{padding:0 32px;z-index:1}
+html .greet-hero .gc::before{content:'AI REPORTING';display:block;font-size:12px;font-weight:700;letter-spacing:.16em;color:#1F6FB2;margin-bottom:6px}
+html .greet-hero .gc h2{font-size:28px;color:#1B2A3A;text-shadow:none;margin:0 0 6px;letter-spacing:-.02em}
+html .greet-hero .gc p{font-size:14px;color:#3B4C5E;text-shadow:none}
+html .greet-hero .gwx{color:#3B4C5E;text-shadow:none}
+html .greet-hero .gwx .wx-site{background:rgba(255,255,255,.55);border:1px solid rgba(27,42,58,.08);border-radius:14px;padding:2px 9px}
+/* dark theme: navy base, soft navy tint over the image, light text */
+html:not([data-theme="light"]) .greet-hero{background:#0E1D2A;border-color:rgba(255,255,255,.06)}
+html:not([data-theme="light"]) .greet-hero::before{background:linear-gradient(90deg,rgba(7,21,32,.72) 0,rgba(7,21,32,.72) calc(100% - 640px),rgba(7,21,32,.55) calc(100% - 470px),rgba(7,21,32,.38) calc(100% - 300px),rgba(7,21,32,.3) 100%)}
+html:not([data-theme="light"]) .greet-hero .gc::before{color:#57C1E9}
+html:not([data-theme="light"]) .greet-hero .gc h2{color:#fff}
+html:not([data-theme="light"]) .greet-hero .gc p{color:rgba(235,241,246,.82)}
+html:not([data-theme="light"]) .greet-hero .gwx{color:rgba(235,241,246,.88)}
+html:not([data-theme="light"]) .greet-hero .gwx .wx-site{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12)}
+@media (max-width:700px){
+  html .greet-hero{height:170px}
+  html .greet-hero::after{-webkit-mask-image:linear-gradient(90deg,transparent 0,rgba(0,0,0,.1) 25%,rgba(0,0,0,.5) 50%,#000 75%);mask-image:linear-gradient(90deg,transparent 0,rgba(0,0,0,.1) 25%,rgba(0,0,0,.5) 50%,#000 75%)}
+  html .greet-hero .gc{padding:0 18px}
+  html .greet-hero .gc h2{font-size:22px}
+}
+
+</style>
 </head>
 <body data-profile-source="my-profile">
 <div class="shell">
