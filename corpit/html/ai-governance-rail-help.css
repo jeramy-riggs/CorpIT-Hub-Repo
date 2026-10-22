@@ -1,0 +1,58 @@
+/* Context help is quiet in the rail and clear when opened. */
+@media (min-width: 801px) {
+  .rail { width: 244px; }
+  .shell { margin-left: 244px; }
+}
+@media (max-width: 800px) { .rail { width: min(244px, 85vw); } }
+#navigation button .ai-rail-help {
+  display: grid;
+  place-items: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b4;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: help;
+  transition: background-color .15s ease, color .15s ease;
+}
+#navigation button[aria-current=page] .ai-rail-help { color: #badc9b; }
+#navigation button:hover .ai-rail-help,
+#navigation button:focus-visible .ai-rail-help,
+#navigation button .ai-rail-help:hover,
+#navigation button .ai-rail-help[data-open] {
+  background: #3a4c5d;
+  color: #fff;
+}
+.ai-rail-help-pop {
+  position: fixed;
+  z-index: 10040;
+  width: min(290px, calc(100vw - 24px));
+  padding: 15px 17px;
+  border: 1px solid #d7e1e8;
+  border-radius: 10px;
+  background: #fff;
+  color: #17212e;
+  box-shadow: 0 12px 28px #06172430;
+  font-family: "Governance Nunito", "Nunito", "Segoe UI", sans-serif;
+  text-align: left;
+  pointer-events: none;
+}
+.ai-rail-help-pop strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #17212e;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 850;
+}
+.ai-rail-help-pop span { display: block; color: #4c5d6e; font-size: 12px; line-height: 1.5; }
+[data-theme=dark] .ai-rail-help-pop { background: #172a39; border-color: #3a5265; color: #edf3f7; }
+[data-theme=dark] .ai-rail-help-pop strong { color: #f4f8fb; }
+[data-theme=dark] .ai-rail-help-pop span { color: #c6d5e1; }
+.ai-rail-help-pop[hidden] { display: none !important; }
+@media print { #navigation button .ai-rail-help, .ai-rail-help-pop { display: none !important; } }
