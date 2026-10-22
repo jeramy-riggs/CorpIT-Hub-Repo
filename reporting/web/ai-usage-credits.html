@@ -327,6 +327,161 @@ footer{color:var(--ink-3);font-size:11.5px;text-align:center;padding:30px 0 10px
 }
 
 </style>
+<style id="redesign-overlay">
+/* ---- tab chips: brand marks (chip-mark) ------------------------------------------- */
+#aiTabBar .chip[onclick*="aiTab='claude'"]::before,#aiTabBar .chip[onclick*="aiTab='copilot'"]::before{content:'';display:inline-block;width:15px;height:15px;background-size:contain;background-repeat:no-repeat;background-position:center;flex:none}
+#aiTabBar .chip[onclick*="aiTab='claude'"]::before{background-image:url('ai-mark-claude.png?v=20261022')}
+#aiTabBar .chip[onclick*="aiTab='copilot'"]::before{background-image:url('ai-mark-copilot.png?v=20261022')}
+
+/* ============================================================================
+   REDESIGN OVERLAY — presentation only.  Target: the look of the reference image.
+   Scope: tokens + ~45 rules, all limited to body.light[data-dp="ai-usage-credits"].
+   No markup, JS, data, routes or config touched. Dark theme untouched.
+   The `html` prefix is only there to out-rank it-depth.css (loaded last) without
+   editing that generated file.
+   ========================================================================== */
+html body.light[data-dp="ai-usage-credits"]{
+  --bg:#EEF3F8; --bg-2:#E4EBF2; --panel:#FFFFFF; --panel-2:#F7FAFD;
+  --line:#DCE5EE; --line-2:#C2CFDB;
+  --ink:#1B2A3A; --ink-2:#4A5B6D; --ink-3:#6B7C8E;
+  --accent:#1F6FB2; --accent-dim:#8DB9DF;
+  --radius:16px;
+  --shadow:0 1px 2px rgba(27,42,58,.04), 0 10px 28px -16px rgba(27,42,58,.22);
+  /* depth layer, calmed to the reference's flat-white panels */
+  --dp-face:none; --dp-face-2:none;
+  --dp-relief:inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(27,42,58,.05);
+  --dp-relief-2:inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(27,42,58,.08);
+  --dp-lift-1:0 1px 2px rgba(27,42,58,.04), 0 10px 28px -16px rgba(27,42,58,.22);
+  --dp-lift-2:0 2px 4px rgba(27,42,58,.06), 0 16px 36px -18px rgba(27,42,58,.28);
+  --dp-bar:0 1px 0 rgba(27,42,58,.06);
+  --dp-wash:none;
+  background:linear-gradient(180deg,#F5F8FB 0%,#EEF3F8 60%,#EAF0F6 100%);
+}
+/* ---- top bar: white glass ------------------------------------------------ */
+html body.light[data-dp="ai-usage-credits"] .topbar{background:rgba(255,255,255,.88);background-image:none;border-bottom:1px solid var(--line);box-shadow:0 1px 0 rgba(27,42,58,.04);backdrop-filter:blur(10px)}
+/* ---- hero: the reference composition, full width ------------------------------------ */
+html body.light[data-dp="ai-usage-credits"] .hero-banner{
+  height:300px;
+  background:#EEF3F9 url('ai-hero-banner.jpg?v=20261022f') center 40% / cover no-repeat; background:#EEF3F9 image-set(url('ai-hero-banner.webp?v=20261022f') type('image/webp'), url('ai-hero-banner.jpg?v=20261022f') type('image/jpeg')) center 40% / cover no-repeat;
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 84%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000 0%,#000 84%,transparent 100%);
+}
+html body.light[data-dp="ai-usage-credits"] .hero-banner::before{background:none}
+html body.light[data-dp="ai-usage-credits"] .hero-accent{display:none}
+html body.light[data-dp="ai-usage-credits"] .hero-content{padding:0 56px;max-width:720px}
+html body.light[data-dp="ai-usage-credits"] .hero-content::before{content:'AI REPORTING';display:block;font-size:13px;font-weight:700;letter-spacing:.16em;color:#1F6FB2;margin-bottom:6px}
+html body.light[data-dp="ai-usage-credits"] .hero-content h2{font-size:34px;font-weight:800;color:#1B2A3A;text-shadow:none;margin:0 0 8px;letter-spacing:-.02em;line-height:1.08}
+html body.light[data-dp="ai-usage-credits"] .hero-content p{font-size:16px;line-height:1.35;color:#3B4C5E;text-shadow:none;max-width:560px}
+html body.light[data-dp="ai-usage-credits"] .hero-content p small{display:block;font-size:13.5px;color:#5C6B78;margin-top:4px}
+html body.light[data-dp="ai-usage-credits"] .hero-content::after{
+  content:'\1F4CA\00a0 Smarter Insights\00a0\00a0\00a0\00a0\00a0\2502\00a0\00a0\00a0\00a0\00a0\1F4A1\00a0 Greater Efficiency\00a0\00a0\00a0\00a0\00a0\2502\00a0\00a0\00a0\00a0\00a0\1F465\00a0 Stronger Decisions';
+  display:block;margin-top:12px;padding-top:14px;font-size:13px;font-weight:600;color:#3B4C5E;white-space:nowrap;
+  background:linear-gradient(90deg,#F26D3D 0%,#C45C8C 35%,#1F6FB2 70%,#1F6FB2 100%) no-repeat 0 0 / 250px 3px;
+}
+html body.light[data-dp="ai-usage-credits"] .wrap{padding-top:373px}
+/* ---- cards & tiles: white, soft, rounded ------------------------------------ */
+html body.light[data-dp="ai-usage-credits"] .card{background:#fff;background-image:none;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px 22px}
+html body.light[data-dp="ai-usage-credits"] .tile{background:#fff;background-image:none;border:1px solid var(--line);border-top:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 1px 2px rgba(27,42,58,.03)}
+html body.light[data-dp="ai-usage-credits"] .tile .n{color:var(--accent);font-size:26px}
+html body.light[data-dp="ai-usage-credits"] .tile.lead{background:#F3F8FD;border-color:#BBD4EA}
+html body.light[data-dp="ai-usage-credits"] .tile.lead .n{font-size:32px!important}
+html body.light[data-dp="ai-usage-credits"] .tile .l{color:var(--ink-3)}
+html body.light[data-dp="ai-usage-credits"] .tile .l:first-of-type{color:var(--ink);font-weight:700}
+html body.light[data-dp="ai-usage-credits"] .tile.cp:hover{border-color:#9CC3E6;background:#F8FBFE;box-shadow:0 10px 24px -16px rgba(31,111,178,.35)}
+/* ---- chips, tabs, period control, selects ----------------------------------- */
+html body.light[data-dp="ai-usage-credits"] button.chip,
+html body.light[data-dp="ai-usage-credits"] div.chip,
+html body.light[data-dp="ai-usage-credits"] .chip,
+html body.light[data-dp="ai-usage-credits"] .theme-btn{background:#fff;background-image:none;border:1px solid #D5DFE9;color:#3B4C5E;box-shadow:0 1px 2px rgba(27,42,58,.04);border-radius:20px;padding:7px 14px;font-weight:700}
+html body.light[data-dp="ai-usage-credits"] .chip:hover,html body.light[data-dp="ai-usage-credits"] .theme-btn:hover{border-color:#9CC3E6;background:#F6FAFE}
+html body.light[data-dp="ai-usage-credits"] .chip.on{background:#E3F0FB;border-color:#9CC3E6;color:#1F6FB2;box-shadow:inset 0 0 0 1px rgba(31,111,178,.12)}
+html body.light[data-dp="ai-usage-credits"] #segPeriod{background:#fff;border:1px solid #D5DFE9;border-radius:12px;padding:3px}
+html body.light[data-dp="ai-usage-credits"] #segPeriod [data-period]{background:transparent;border:1px solid transparent;border-radius:9px;color:#4A5B6D}
+html body.light[data-dp="ai-usage-credits"] #segPeriod [data-period].on{background:#E3F0FB;color:#1F6FB2;border-color:#BBD4EA}
+html body.light[data-dp="ai-usage-credits"] select{background:#fff;background-image:none;border:1px solid #D5DFE9;border-radius:12px;color:#1B2A3A;box-shadow:0 1px 2px rgba(27,42,58,.04);padding:7px 12px}
+/* ---- tables & lists ----------------------------------------------------------- */
+html body.light[data-dp="ai-usage-credits"] thead th{color:#6B7C8E;border-bottom:1px solid #E6EDF4;background:#FAFCFE}
+html body.light[data-dp="ai-usage-credits"] tbody td{border-bottom:1px solid #EEF3F8}
+html body.light[data-dp="ai-usage-credits"] .a{background:#F7FAFD;background-image:none;border:1px solid #E3EBF2;border-radius:12px;box-shadow:none}
+html body.light[data-dp="ai-usage-credits"] .tscroll{border-color:#E3EBF2;border-radius:12px}
+html body.light[data-dp="ai-usage-credits"] .status-pill.active{background:#E3F5EA;color:#1E7A46}
+/* ---- drawer -------------------------------------------------------------------- */
+html body.light[data-dp="ai-usage-credits"] .drawer{border-left:1px solid var(--line);box-shadow:-20px 0 60px -30px rgba(27,42,58,.35)}
+html body.light[data-dp="ai-usage-credits"] .dh{background:#fff;background-image:none;box-shadow:none;border-bottom:1px solid var(--line)}
+/* ---- footer -------------------------------------------------------------------- */
+html body.light[data-dp="ai-usage-credits"] footer{color:#6B7C8E}
+/* ---- responsive: same hierarchy, stacked ---------------------------------------- */
+@media (max-width:960px){
+  html body.light[data-dp="ai-usage-credits"] .hero-banner{height:260px;background-position:62% 40%}
+  html body.light[data-dp="ai-usage-credits"] .hero-banner::before{background:linear-gradient(90deg,rgba(238,243,249,.92) 0%,rgba(238,243,249,.75) 45%,rgba(238,243,249,0) 70%)}
+  html body.light[data-dp="ai-usage-credits"] .hero-content::after{display:none}
+  html body.light[data-dp="ai-usage-credits"] .hero-content::before{font-size:11px;margin-bottom:6px}
+  html body.light[data-dp="ai-usage-credits"] .hero-banner::before{background:linear-gradient(90deg,#F4F7FB 0%,rgba(244,247,251,.9) 45%,rgba(244,247,251,.2) 75%,rgba(244,247,251,0) 100%)}
+  html body.light[data-dp="ai-usage-credits"] .hero-content{padding:0 22px}
+  html body.light[data-dp="ai-usage-credits"] .hero-content h2{font-size:26px}
+  html body.light[data-dp="ai-usage-credits"] .hero-content p{font-size:14px}
+  html body.light[data-dp="ai-usage-credits"] .wrap{padding:333px 16px 40px}
+  html body.light[data-dp="ai-usage-credits"] .card{padding:16px}
+}
+@media (max-width:600px){
+  /* top bar stays one line and scrolls sideways instead of wrapping over the hero */
+  html body.light[data-dp="ai-usage-credits"] .topbar{flex-wrap:nowrap;overflow-x:auto;gap:8px;padding:10px 14px;scrollbar-width:none}
+  html body.light[data-dp="ai-usage-credits"] .topbar .chip,html body.light[data-dp="ai-usage-credits"] .topbar .theme-btn{white-space:nowrap;flex:none}
+  html body.light[data-dp="ai-usage-credits"] .hero-banner{height:230px;background-position:70% 40%;align-items:flex-start;padding-top:18px}
+  html body.light[data-dp="ai-usage-credits"] .hero-banner::before{background:linear-gradient(90deg,rgba(238,243,249,.95) 0%,rgba(238,243,249,.85) 55%,rgba(238,243,249,.2) 100%)}
+  html body.light[data-dp="ai-usage-credits"] .hero-content p small{display:none}
+  html body.light[data-dp="ai-usage-credits"] .hero-content{padding:0 18px}
+  html body.light[data-dp="ai-usage-credits"] .hero-content h2{font-size:24px;margin-bottom:6px}
+  html body.light[data-dp="ai-usage-credits"] .hero-content p{font-size:13px;max-width:60%}
+  html body.light[data-dp="ai-usage-credits"] .wrap{padding:292px 12px 40px}
+  html body.light[data-dp="ai-usage-credits"] .tiles,html body.light[data-dp="ai-usage-credits"] .kpi-band{grid-template-columns:1fr!important}
+  html body.light[data-dp="ai-usage-credits"] .tile .n{font-size:24px}
+}
+/* ---- dark theme: same hero, navy-tinted; nothing else in dark changes ------------------ */
+html body:not(.light)[data-dp="ai-usage-credits"] .hero-banner{
+  height:300px;
+  background:#0E1D2A url('ai-hero-banner.jpg?v=20261022f') center 40% / cover no-repeat; background:#0E1D2A image-set(url('ai-hero-banner.webp?v=20261022f') type('image/webp'), url('ai-hero-banner.jpg?v=20261022f') type('image/jpeg')) center 40% / cover no-repeat;
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 84%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000 0%,#000 84%,transparent 100%);
+}
+html body:not(.light)[data-dp="ai-usage-credits"] .hero-banner::before{background:linear-gradient(90deg,rgba(7,21,32,.92) 0%,rgba(7,21,32,.86) 34%,rgba(7,21,32,.55) 52%,rgba(7,21,32,.28) 100%)}
+html body:not(.light)[data-dp="ai-usage-credits"] .hero-accent{display:none}
+html body:not(.light)[data-dp="ai-usage-credits"] .hero-content{padding:0 56px;max-width:720px}
+html body:not(.light)[data-dp="ai-usage-credits"] .hero-content::before{content:'AI REPORTING';display:block;font-size:13px;font-weight:700;letter-spacing:.16em;color:#57C1E9;margin-bottom:6px}
+html body:not(.light)[data-dp="ai-usage-credits"] .hero-content h2{font-size:34px;margin:0 0 8px;letter-spacing:-.02em;line-height:1.08;text-shadow:none}
+html body:not(.light)[data-dp="ai-usage-credits"] .hero-content p{font-size:16px;line-height:1.35;color:rgba(235,241,246,.82);text-shadow:none;max-width:560px}
+html body:not(.light)[data-dp="ai-usage-credits"] .hero-content p small{display:block;font-size:13.5px;color:rgba(235,241,246,.62);margin-top:4px}
+html body:not(.light)[data-dp="ai-usage-credits"] .hero-content::after{
+  content:'\1F4CA\00a0 Smarter Insights\00a0\00a0\00a0\00a0\00a0\2502\00a0\00a0\00a0\00a0\00a0\1F4A1\00a0 Greater Efficiency\00a0\00a0\00a0\00a0\00a0\2502\00a0\00a0\00a0\00a0\00a0\1F465\00a0 Stronger Decisions';
+  display:block;margin-top:12px;padding-top:14px;font-size:13px;font-weight:600;color:rgba(235,241,246,.85);white-space:nowrap;
+  background:linear-gradient(90deg,#F26D3D 0%,#C45C8C 35%,#57C1E9 70%,#57C1E9 100%) no-repeat 0 0 / 250px 3px;
+}
+html body:not(.light)[data-dp="ai-usage-credits"] .wrap{padding-top:373px}
+@media (max-width:960px){
+  html body:not(.light)[data-dp="ai-usage-credits"] .hero-banner{height:260px;background-position:62% 40%}
+  html body:not(.light)[data-dp="ai-usage-credits"] .hero-content::after{display:none}
+  html body:not(.light)[data-dp="ai-usage-credits"] .hero-content{padding:0 22px}
+  html body:not(.light)[data-dp="ai-usage-credits"] .hero-content h2{font-size:26px}
+  html body:not(.light)[data-dp="ai-usage-credits"] .hero-content p{font-size:14px}
+  html body:not(.light)[data-dp="ai-usage-credits"] .wrap{padding-top:333px}
+}
+@media (max-width:600px){
+  html body:not(.light)[data-dp="ai-usage-credits"] .hero-banner{height:230px;background-position:70% 40%;align-items:flex-start;padding-top:18px}
+  html body:not(.light)[data-dp="ai-usage-credits"] .hero-content p small{display:none}
+  html body:not(.light)[data-dp="ai-usage-credits"] .wrap{padding-top:292px}
+}
+/* ---- wide screens: show the whole illustration at band height instead of cropping it ---- */
+@media (min-width:1600px){
+  html body.light[data-dp="ai-usage-credits"] .hero-banner{background-size:auto 100%;background-position:right center}
+  html body.light[data-dp="ai-usage-credits"] .hero-banner::before{background:
+    radial-gradient(520px 300px at 8% 0%, rgba(173,205,236,.45), transparent 70%),
+    linear-gradient(90deg,#F2F6FB 0,#F2F6FB calc(100% - 1205px),rgba(242,246,251,0) calc(100% - 960px))}
+  html body:not(.light)[data-dp="ai-usage-credits"] .hero-banner{background-size:auto 100%;background-position:right center}
+  html body:not(.light)[data-dp="ai-usage-credits"] .hero-banner::before{background:
+    linear-gradient(90deg,#0E1D2A 0,#0E1D2A calc(100% - 1210px),rgba(7,21,32,.86) calc(100% - 980px),rgba(7,21,32,.55) calc(100% - 720px),rgba(7,21,32,.28) 100%)}
+}
+
+</style>
 <link rel="stylesheet" href="/it-depth.css">
 </head>
 <body class="light" data-dp="ai-usage-credits">
@@ -359,7 +514,7 @@ footer{color:var(--ink-3);font-size:11.5px;text-align:center;padding:30px 0 10px
   <div class="hero-accent"></div>
   <div class="hero-content">
     <h2 id="heroGreeting">Good afternoon!</h2>
-    <p>Here's what's happening across your AI spend.</p>
+    <p>Your AI-powered finance reporting hub.<br>Turn data into insights with Claude and Copilot.<small>Monitor usage, licensing, spend, and adoption in one place.</small></p>
   </div>
 </div>
 
@@ -919,12 +1074,9 @@ function sortRows(rows, fieldFn){
   });
 }
 let AI_USERS=[], AI_ORG={limit:0,mtd:0,balance:0,resetDate:'—',groupLimit:null}, AI_MONTH=null;
-let _memberLimitMap={};
-// restore per-member group limits from localStorage
-(function(){
-  try{ _memberLimitMap=JSON.parse(localStorage.getItem('ai_member_limits')||'{}'); }catch(e){}
-  const g=localStorage.getItem('ai_group_limit'); if(g) AI_ORG.groupLimit=Number(g);
-})();
+// Group spend limit: server-side (/api/insights/shared/ai-usage-credits/group-limit),
+// loaded in loadAll(). Per-member group limits come from the roster (ai_usage_member).
+// Nothing is read from or written to localStorage for limits any more.
 let CP_USERS=[];
 let CP_LICENSE=null;
 let CP_AS_OF=null;   // the Graph snapshot's own as-of date (d2.refreshedAt = MAX(report_refresh_date))
@@ -1023,7 +1175,7 @@ function mapRosterMember(m){
   return {
     name:m.name||m.name_raw, dept:m.department||'—', manager:m.manager||'—',
     email:m.email, customLimit:m.customLimit!=null&&m.customLimit!==''?Number(m.customLimit):null,
-    groupLimit:m.groupLimit!=null?Number(m.groupLimit):(_memberLimitMap[m.email]||null),
+    groupLimit:m.groupLimit!=null?Number(m.groupLimit):null,
     mtd:Number(m.mtd)||0, requests:m.requests!=null?Number(m.requests):0, needsReview:!!m.needsReview, departed:!!m.departed,
     lastActive:m.lastActive||null,
     daysActive:m.daysActive!=null?Number(m.daysActive):null,
@@ -1076,11 +1228,12 @@ async function loadAll(){
     const P=periodBounds(); paintPeriodControls();
     SESS.data=null; SESS.error=null; LIVE.data=null; LIVE.month=null; LIVE.key=null;
     const qsMonth = AI_PICK ? '?month='+encodeURIComponent(AI_PICK+'-01') : '';
-    const [r1,r2,r3,r4] = await Promise.all([
+    const [r1,r2,r3,r4,r5] = await Promise.all([
       fetch('/api/insights/shared/ai-usage'+qsMonth,{headers:authHeaders()}),
       fetch('/api/insights/shared/copilot-usage',{headers:authHeaders()}),
       fetch('/api/claude-analytics/sessions?'+periodQS(P),{credentials:'same-origin'}).catch(()=>null),
       fetch('/api/insights/shared/billing?from='+P.anchor.slice(0,4)+'-01-01&to='+todayISO(),{headers:authHeaders()}).catch(()=>null),
+      fetch('/api/insights/shared/ai-usage-credits/group-limit',{headers:authHeaders()}).catch(()=>null),
     ]);
     if(r1.status===401||r2.status===401){
       window.location.href = '/login.html?expired=1&return=' + encodeURIComponent(window.location.pathname);
@@ -1096,6 +1249,9 @@ async function loadAll(){
     catch(e){ SESS.error=String(e.message||e); }
     try{ BILLING.data = (r4&&r4.ok) ? await r4.json() : null; BILLING.error = BILLING.data?null:('billing -> '+(r4?r4.status:'network')); }
     catch(e){ BILLING.data=null; BILLING.error=String(e.message||e); }
+    // org group spend limit (server); null when unset or unreadable
+    try{ const g=(r5&&r5.ok)?await r5.json():null; AI_ORG.groupLimit=(g&&g.groupLimit!=null)?Number(g.groupLimit):null; }
+    catch(e){ AI_ORG.groupLimit=null; }
 
     AI_ROSTER=(d1.members||[]).filter(m=>m.platform==='claude').map(mapRosterMember);
     // A scoped viewer (department / team / self) gets a scoped roster from /shared/ai-usage;
@@ -1253,7 +1409,7 @@ function renderAI(){
   // has been live since the Analytics key landed. 'live' is still accepted as an alias
   // so an old drill chip, bookmark or in-flight click lands somewhere sensible.
   if(aiTab==='live') aiTab='claude';
-  const tabs=[{k:'claude',l:'🧠 Claude'},{k:'copilot',l:'💼 Copilot'},{k:'overview',l:'📊 Overview'}];
+  const tabs=[{k:'claude',l:'Claude'},{k:'copilot',l:'Copilot'},{k:'overview',l:'📊 Overview'}];
   document.getElementById('aiTabBar').innerHTML=tabs.map(t=>`<div class="chip ${aiTab===t.k?'on':''}" onclick="aiTab='${t.k}';aiUserFilter='all';renderAI()">${t.l}</div>`).join('');
   paintPeriodControls();
   const claude=aiTab==='claude';
@@ -3394,15 +3550,15 @@ function parseImportCSV(text){
   }).filter(r=>r.email);
 }
 
-let _importRows=null, _importMonth=null, _importOrg=null;
+let _importRows=null, _importMonth=null, _importOrg=null, _importGroupLimit=null;
 
 function importPreview(){
   const file=document.getElementById('impFile').files[0];
   const resEl=document.getElementById('impResult');
   if(!file){ resEl.innerHTML=`<div style="color:${cssv('--crit')};font-size:13px">Choose a CSV file first.</div>`; return; }
   _importMonth=document.getElementById('impMonth').value.slice(0,7)+'-01';
-  const groupLimitVal=parseFloat(document.getElementById('impGroupLimit').value)||null;
-  if(groupLimitVal){ AI_ORG.groupLimit=groupLimitVal; localStorage.setItem('ai_group_limit',groupLimitVal); }
+  // saved to the server only when the import is confirmed (importCommit); blank = unchanged
+  _importGroupLimit=parseFloat(document.getElementById('impGroupLimit').value)||null;
   _importOrg={
     orgLimit: parseFloat(document.getElementById('impOrgLimit').value)||null,
     balance:  parseFloat(document.getElementById('impOrgBalance').value)||null,
@@ -3445,12 +3601,13 @@ async function importCommit(){
       body:JSON.stringify({mode:'commit',month:_importMonth,rows:_importRows,org:_importOrg})});
     const j=await r.json();
     if(!r.ok){ resEl.innerHTML+=`<div style="color:${cssv('--crit')};font-size:13px">${j.error||'Import failed.'}</div>`; return; }
-    // save per-member group limits from CSV to localStorage
-    if(_importRows){
-      const map={..._memberLimitMap};
-      _importRows.forEach(row=>{ if(row.email&&row.groupLimit!=null&&row.groupLimit!=='') map[row.email]=Number(row.groupLimit); });
-      _memberLimitMap=map;
-      localStorage.setItem('ai_member_limits',JSON.stringify(map));
+    // per-member group limits from the CSV are stored by the import itself (ai_usage_member.group_limit)
+    if(_importGroupLimit){
+      try{
+        const g=await fetch('/api/insights/shared/ai-usage-credits/group-limit',{method:'PUT',headers:{...authHeaders(),'Content-Type':'application/json'},
+          body:JSON.stringify({groupLimit:_importGroupLimit})});
+        if(!g.ok){ const gj=await g.json().catch(()=>({})); resEl.innerHTML+=`<div style="color:${cssv('--crit')};font-size:13px;margin-top:6px">Imported, but the group spend limit was NOT saved — ${escH(gj.error||('HTTP '+g.status))}</div>`; return; }
+      }catch(e){ resEl.innerHTML+=`<div style="color:${cssv('--crit')};font-size:13px;margin-top:6px">Imported, but the group spend limit was NOT saved — ${escH(e.message)}</div>`; return; }
     }
     resEl.innerHTML+=`<div style="color:${cssv('--pass')};font-size:13px;margin-top:6px">✓ Imported. Refreshing…</div>`;
     await loadAll();
