@@ -289,7 +289,7 @@ input:focus,select:focus,textarea:focus{outline-color:var(--accent)!important;bo
     <a class="nav-item" href="#ack-team">🛡️ AI Policy Acknowledgments (Managers)</a>
 
     <a class="nav-item" href="#archiving">▣ Archiving</a>
-    <a class="nav-item" href="#inventory">🗂 AI Inventory (InfoSec / Legal)</a>
+    <a class="nav-item" href="#governance">◈ AI Governance (InfoSec / Legal)</a>
 
     <div class="nav-section-label">Reference</div>
     <a class="nav-item" href="#types">Request Types &amp; Chains</a>
@@ -930,20 +930,20 @@ I further understand the key highlights&hellip;
   <hr class="section-divider">
 
   <!-- AI INVENTORY -->
-  <section class="guide-section" id="inventory">
-    <h2><span class="section-icon">🗂</span> AI Inventory <small style="font-size:14px;font-weight:500;color:var(--text-faint)">(InfoSec, Legal, administrators)</small></h2>
-    <div class="section-meta">The AI/ML Use Inventory workbook, column for column, kept inside the portal. Sidebar &rarr; <strong>AI Inventory</strong>. Other roles do not see it.</div>
+  <section class="guide-section" id="governance">
+    <h2><span class="section-icon">◈</span> AI Governance <small style="font-size:14px;font-weight:500;color:var(--text-faint)">(InfoSec, Legal, administrators)</small></h2>
+    <div class="section-meta">The AI application inventory, risk assessments, usage evidence and executive reports live in the <strong>AI Governance Workspace</strong> on CorpIT. Sidebar &rarr; <strong>AI Governance &#8599;</strong> opens it in a new tab. Other roles do not see the link.</div>
     <div class="step-card">
-      <div class="step-header"><div class="step-num">A</div><h3>Where rows come from</h3></div>
-      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">When an AI Use Case Intake request is <strong>approved</strong>, a row appears automatically with everything the form provides (tagged <em>From intake</em> or <em>Partial</em>). Anything that never went through the form &mdash; an embedded SaaS feature, a tool already in use &mdash; is added with <strong>+ Add use case</strong> or <strong>Import from workbook</strong>. Nothing is asked of requesters.</p></div>
+      <div class="step-header"><div class="step-num">A</div><h3>Opening the workspace</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Click <strong>AI Governance</strong> in the sidebar, then <strong>Open AI Governance Workspace</strong>. CorpIT asks for its own sign-in the first time. The jump tiles open a specific section: AI Inventory, Risk Assessments, Governance Queue, Coverage Gaps, Executive Reports.</p></div>
     </div>
     <div class="step-card">
-      <div class="step-header"><div class="step-num">B</div><h3>Completing and reviewing a record</h3></div>
-      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Open a row &rarr; <strong>&#9998; Edit all fields</strong>. Every workbook column is editable with the Field Guide&rsquo;s allowed values; &ldquo;Unsure&rdquo; is always acceptable. Required columns are starred and the record lists which are still blank. Setting the <strong>Risk tier</strong> stamps Reviewed by / Review date and computes <strong>Next review due</strong> (High +3 months, Medium +12, Low on material change). The <strong>Auto-flag</strong> appears when NPI, client or consumer data, external output or fully automated oversight is Yes &mdash; it prompts review, it does not set the tier. Every change is written old &rarr; new to the record&rsquo;s history.</p></div>
+      <div class="step-header"><div class="step-num">B</div><h3>How approved intake reaches it</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">Every approved <strong>AI Use Case Intake</strong> request is pulled into AI Governance on a schedule by CorpIT (one-way, read-only). Reopened or archived requests are marked no longer approved there. Approval of a <em>use case</em> here and approval of an <em>application</em> there remain separate decisions.</p></div>
     </div>
     <div class="step-card">
-      <div class="step-header"><div class="step-num">C</div><h3>Dashboard, import and export</h3></div>
-      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">The cards mirror the workbook&rsquo;s Summary tab and filter the table when clicked. <strong>Import from workbook</strong> reads a returned copy of the tracker, previews what would be created, updated (blank fields only) or rejected, and writes nothing until you confirm. <strong>&#11015; Excel / CSV</strong> export in the workbook&rsquo;s exact column order for audits and client inquiries. <strong>Coverage gaps</strong> shows which workbook fields the intake form provides and which InfoSec / Legal fill in.</p></div>
+      <div class="step-header"><div class="step-num">C</div><h3>Administrators: the sync token</h3></div>
+      <div class="step-body"><p style="font-size:13px;color:var(--text-muted)">On the AI Governance page, administrators see <strong>Integration</strong>. <strong>Generate token</strong> shows a service token once; hand it to the CorpIT owner for the worker. <strong>Revoke</strong> stops the feed immediately. Every feed read and token change is written to the Audit trail.</p></div>
     </div>
   </section>
 
