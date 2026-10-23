@@ -854,7 +854,7 @@ table.dt .sub{display:block;font-size:var(--fs-meta);color:var(--muted);font-wei
   <div class="tabpanel" id="tab-servers" role="tabpanel">
     <div class="pagehead">
       <h1>Servers &amp; virtual servers</h1>
-      <p>Every server registered in CorpIT. Utilisation, patch state and backup status are collected in full for hosts CorpIT runs on; a registered host with no collector reports Unknown rather than a guess.</p>
+      <p>Registered servers appear here. Full utilisation, patch and local backup details currently come from the responding CorpIT node; other hosts need a collector before those fields can be verified. For independently sampled A, B and ITAM health, see <a href="https://backup.nrpi.local/availability/" target="_blank" rel="noopener noreferrer">Availability</a>.</p>
       <div class="cmdbar">
         <button class="cmd" onclick="SH.loadServers()"><svg class="icon"><use href="#i-refresh"/></svg>Refresh</button>
         <button class="cmd" id="btn-add-server" onclick="SH.openServerForm(null)"><svg class="icon"><use href="#i-plus"/></svg>Register server</button>
@@ -1050,7 +1050,7 @@ table.dt .sub{display:block;font-size:var(--fs-meta);color:var(--muted);font-wei
   <div class="tabpanel" id="tab-backups" role="tabpanel">
     <div class="pagehead">
       <h1>Backups</h1>
-      <p>Nightly database and configuration archives in /var/backups/corpit, kept 14 days. Take one before any risky change.</p>
+      <p>Local nightly database and configuration archives in /var/backups/corpit, kept 14 days. This view does not include the separate ITAM off-host backup. Check its <a href="https://backup.nrpi.local/" target="_blank" rel="noopener noreferrer">Backup &amp; Recovery Console</a> before a risky change.</p>
       <div class="cmdbar">
         <button class="cmd" onclick="act('/backup/run',{},'nightly backup',function(){setTimeout(refreshBackups,4000)})"><svg class="icon"><use href="#i-download"/></svg>Run backup now</button>
         <button class="cmd" onclick="refreshBackups()"><svg class="icon"><use href="#i-refresh"/></svg>Refresh</button>
@@ -1199,7 +1199,7 @@ function goTab(id){
     trend:"Disk and memory usage recorded once a day. The forecast estimates how many days until the disk fills at the current growth rate \u2014 an early warning to clean up or expand before it becomes urgent. Needs a couple of days of data to appear.",
     pm2:"The Node processes that power CorpIT Hub (corpit-hub-api, it-inventory-api, syncs-worker, signin-watch-job). Green = running. \u201CRestart\u201D bounces one app if it\u2019s misbehaving \u2014 safe, takes a second. \u201Cflush logs\u201D clears old app logs to reclaim space; \u201Cpm2 save\u201D remembers the current apps so they come back after a reboot.",
     maint:"Routine cleanup and refresh tasks. \u201Capt update\u201D refreshes the list of available Ubuntu updates. \u201Capt clean\u201D removes old downloaded packages to free disk. \u201Cjournal vacuum\u201D and \u201Clogrotate\u201D trim system logs. \u201CKick a job\u201D manually runs one of the scheduled data-collection jobs now instead of waiting for its schedule.",
-    backups:"Nightly database + config backups (kept 14 days). \u201CLatest nightly\u201D should be under ~26 hours old and green. \u201CRun backup now\u201D makes an on-demand backup immediately \u2014 good to do before any risky change.",
+    backups:"Local nightly database + config backups (kept 14 days). \u201CLatest nightly\u201D should be under ~26 hours old and green. The separate ITAM off-host backup is shown in Backup & Recovery. \u201CRun backup now\u201D makes a local on-demand backup immediately.",
     cron:"Every scheduled job on the server \u2014 user crontabs plus /etc/crontab and /etc/cron.d \u2014 and when it last ran. Green = ran recently as expected. Amber/red = overdue or hasn\u2019t run, which may mean the job is stuck. \u201cmeasured\u201d durations come from the cronwrap wrapper; \u201cobs\u201d is inferred from the log\u2019s last write against the scheduled start, shown only for runs under 4 hours \u2014 anything longer is wrapped and measured directly. A schedule changed today may show no duration until its next run.",
     crontl:"When each daily-or-rarer job runs over 24 hours, and how long it takes. Bar length is duration, so overlapping heavy jobs are visible as stacked bars at the same clock position \u2014 that overlap is what saturates the disk. Jobs running more than 12\u00d7 a day are left out to keep the chart readable. Toggle Local/UTC: the server runs UTC, so a job that looks like it runs at night in UTC may land inside your working day.",
     logrotate:"How the server automatically rotates and compresses log files so they don\u2019t fill the disk. Shows when each tracked log was last rotated.",
@@ -1476,7 +1476,7 @@ function goTab(id){
         ph2+='<div class="metric"><span class="k">Actionable</span><span class="v '+(actionable>0?'warn':'ok')+'">'+actionable+'</span></div>';
         ph2+='<div class="metric"><span class="k">Security</span><span class="v '+(p.security>0?'down':'ok')+'">'+(p.security||0)+'</span></div>';
         if(phasedCount>0)ph2+='<div class="metric"><span class="k">Phased (deferred)</span><span class="v mono" style="color:var(--faint)">'+phasedCount+'</span></div>';
-        if(phasedCount>0&&p.phasedNames&&p.phasedNames.length)ph2+='<div class="forecast" style="border-color:var(--faint)"><span class="muted" style="font-size:11.5px"><b>Held back by Ubuntu phased rollout:</b> '+esc(p.phasedNames.join(', '))+'<br>These cannot be installed manually — they’ll unlock when your phase is reached.</span></div>';
+        if(phasedCount>0&&p.phasedNames&&p.phasedNames.length)ph2+='<div class="forecast" style="border-color:var(--faint)"><span class="muted" style="font-size:11.5px"><b>Held back by Ubuntu phased rollout:</b> '+esc(p.phasedNames.join(', '))+'<br>These will become eligible for automatic installation when this server reaches its rollout phase.</span></div>';
         if(actionable===0&&phasedCount>0) ph2+='<div class="forecast" style="border-color:var(--ok)"><span style="color:var(--ok);font-size:12px"><b>All installable updates have been applied.</b> The '+phasedCount+' package'+(phasedCount>1?'s':'')+' above '+(phasedCount>1?'are':'is')+' deferred by Ubuntu, not missed by the upgrade.</span></div>';
         ph2+='<div class="metric"><span class="k">Reboot required</span><span class="v '+(p.rebootRequired?'down':'ok')+'">'+(p.rebootRequired?'YES':'no')+'</span></div>';
         p2.innerHTML=ph2;

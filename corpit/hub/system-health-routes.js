@@ -8,6 +8,7 @@ const util = require('util');
 const execP = util.promisify(require('child_process').exec);
 const mysql = require('mysql2/promise');
 const offload = require('./sqlite-offload');   // read-only SQLite off the event loop (CHG-ARCH-03b)
+const { phasedPackages } = require('./apt-phasing');
 
 const router = express.Router();
 
@@ -190,29 +191,20 @@ function aptStateKey() {
 
 async function countPatchesUncached() {
   var upgradable = 0, security = 0, phased = 0, phasedNames = [], ok = true;
+  var upgradableNames = new Set();
   try {
     const { stdout } = await execP('apt list --upgradable 2>/dev/null', { timeout: 15000 });
     const lines = stdout.split('\n').filter(function (l) { return l && l.indexOf('Listing') !== 0; });
     upgradable = lines.length;
     security = lines.filter(function (l) { return l.indexOf('-security') !== -1; }).length;
+    upgradableNames = new Set(lines.map(function (l) { return l.split('/')[0]; }));
   } catch (e) { ok = false; }
 
   // Detect phased updates — Ubuntu holds these back intentionally; full-upgrade skips them.
   try {
     const { stdout } = await execP('apt-get -s full-upgrade 2>/dev/null', { timeout: 15000 });
-    var idx = stdout.indexOf('deferred due to phasing:');
-    if (idx !== -1) {
-      var after = stdout.slice(idx + 'deferred due to phasing:'.length);
-      var block = after.split('\n');
-      for (var i = 0; i < block.length; i++) {
-        var l = block[i].trim();
-        if (/^\d+ upgraded/.test(l)) break;
-        if (!l) continue;
-        var names = l.split(/\s+/).filter(Boolean);
-        phasedNames = phasedNames.concat(names);
-      }
-      phased = phasedNames.length;
-    }
+    phasedNames = phasedPackages(stdout).filter(function (name) { return upgradableNames.has(name); });
+    phased = phasedNames.length;
   } catch (e) { ok = false; }
   return { upgradable: upgradable, security: security, phased: phased, phasedNames: phasedNames, ok: ok };
 }
