@@ -257,7 +257,15 @@ router.get('/intune', async (req, res) => {
     const payload = await cached('intune', async () => {
       const tok = await graphToken();
       const H = { Authorization: 'Bearer ' + tok };
-      const ov = await getJson('https://graph.microsoft.com/v1.0/deviceManagement/managedDeviceOverview', H);
+      // These reads are independent. Start them together so a cold dashboard
+      // waits for one Graph round trip instead of the sum of both.
+      const [ovResult, ncResult] = await Promise.allSettled([
+        getJson('https://graph.microsoft.com/v1.0/deviceManagement/managedDeviceOverview', H),
+        getJson("https://graph.microsoft.com/v1.0/deviceManagement/managedDevices" +
+          "?$filter=complianceState eq 'noncompliant'&$select=id&$top=999", H),
+      ]);
+      if (ovResult.status === 'rejected') throw ovResult.reason;
+      const ov = ovResult.value;
       if (ov.status === 403 || ov.status === 401) {
         return vendorError(S('bad', 'Auth failed',
           'Graph rejected the device-management read (HTTP ' + ov.status + ').'));
@@ -275,9 +283,8 @@ router.get('/intune', async (req, res) => {
       // list and count ids. $top maxes at 1000; a nextLink means we undercounted,
       // which we say out loud rather than reporting a confidently wrong number.
       let nonCompliant = null, ncCapped = false;
-      const nc = await getJson(
-        "https://graph.microsoft.com/v1.0/deviceManagement/managedDevices" +
-        "?$filter=complianceState eq 'noncompliant'&$select=id&$top=999", H);
+      if (ncResult.status === 'rejected') throw ncResult.reason;
+      const nc = ncResult.value;
       if (nc.status === 200 && nc.body && Array.isArray(nc.body.value)) {
         nonCompliant = nc.body.value.length;
         ncCapped = !!nc.body['@odata.nextLink'];

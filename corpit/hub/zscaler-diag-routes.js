@@ -2845,7 +2845,8 @@ function aiWindow(req, res) {
 }
 function aiOpts(route, hours, extra) {
   return { cacheKey: 'ai:' + route + ':' + hours + (extra ? ':' + extra : ''), cacheTtlMs: hours <= 24 ? 60000 : 300000,
-           timeoutMs: 60000, label: 'AI ' + route + ' (' + hours + 'h)' };
+           staleTtlMs: route === 'status' || route === 'top-apps' ? 30 * 60000 : 0,
+           retryDelayMs: 60000, timeoutMs: 60000, label: 'AI ' + route + ' (' + hours + 'h)' };
 }
 function aiIsAllowed(a) { return /allow/i.test(a || ''); }
 function aiIsBlocked(a) { return /block|deny|drop/i.test(a || ''); }
@@ -2867,6 +2868,46 @@ function aiDistinctInWindow(col, ix) {
          '(SELECT 1 FROM ai_events INDEXED BY ' + ix + ' WHERE ' + col + ' = d.k AND ts >= ?)';
 }
 
+// Keep the default 7-day overview warm without running competing cold scans
+// when a user opens the page. The offload cache serves a bounded, age-labelled
+// snapshot while a refresh runs; an initial cold request still waits for SQL.
+function aiStatusQueries(hours) {
+  var since = Date.now() - hours * 3600000;
+  return [
+    { sql: 'SELECT COUNT(*) c' + AI_SRC, params: [since], mode: 'get' },
+    { sql: aiDistinctInWindow('user', 'ix_ai_user'), params: [since], mode: 'get' },
+    { sql: aiDistinctInWindow('app', 'ix_ai_app'), params: [since], mode: 'get' },
+    { sql: 'SELECT COUNT(DISTINCT host) s FROM ai_events INDEXED BY ' + (hours <= 24 ? 'ix_ai_ts' : 'ix_ai_host') + ' WHERE ts >= ?', params: [since], mode: 'get' },
+    { sql: aiDistinct('action') + 'SELECT k action, (SELECT COUNT(*) FROM ai_events INDEXED BY ix_ai_action WHERE action = d.k AND ts >= ?) c FROM d WHERE k IS NOT NULL', params: [since] }
+  ];
+}
+function aiTopAppsQueries(hours) {
+  return [
+    { sql: 'SELECT app, COUNT(*) total, COUNT(DISTINCT user) users, ' +
+           "SUM(CASE WHEN action LIKE '%llow%' THEN 1 ELSE 0 END) allowed, " + AI_BLOCKED + ' blocked, ' +
+           "SUM(CASE WHEN action LIKE '%solat%' THEN 1 ELSE 0 END) isolated" +
+           AI_SRC + ' AND app IS NOT NULL AND length(app) > 0 GROUP BY app ORDER BY total DESC LIMIT 50', params: [Date.now() - hours * 3600000] }
+  ];
+}
+function aiWarmDefault(route, makeQueries, delayMs) {
+  function warm() {
+    if (dbMissing(AI_DB_PATH, AI_MISSING)) return;
+    offload.query(AI_DB_PATH, makeQueries(168), aiOpts(route, 168)).then(function (r) {
+      if (!r.ok) console.warn('[ai-overview] prewarm ' + route + ': ' + r.error);
+    }).catch(function (e) {
+      console.warn('[ai-overview] prewarm ' + route + ': ' + e.message);
+    });
+  }
+  var start = setTimeout(function () {
+    warm();
+    var refresh = setInterval(warm, 6 * 60000);
+    refresh.unref();
+  }, delayMs);
+  start.unref();
+}
+aiWarmDefault('status', aiStatusQueries, 30000);
+aiWarmDefault('top-apps', aiTopAppsQueries, 90000);
+
 // ── /zia/ai/status — overview probe (KPIs) ──
 // COUNT(*) is a covering walk of ix_ai_ts; users/apps/actions come from loose
 // scans of their own indexes. Distinct hosts (thousands of values, so no loose
@@ -2876,32 +2917,20 @@ router.get('/zia/ai/status', requireRead, guarded(async function (req, res) {
   var hours = aiHours(req);
   if (hours > AI_MAX_HOURS) return res.status(400).json({ error: 'The ' + hours + 'h AI usage window is not available on this host. Choose 30 days or shorter.' });
   var missing = dbMissing(AI_DB_PATH, AI_MISSING); if (missing) return res.json({ streaming: false, reason: missing });
-  var since = Date.now() - hours * 3600000;
-  var r = await offload.query(AI_DB_PATH, [
-    { sql: 'SELECT COUNT(*) c' + AI_SRC, params: [since], mode: 'get' },
-    { sql: aiDistinctInWindow('user', 'ix_ai_user'), params: [since], mode: 'get' },
-    { sql: aiDistinctInWindow('app', 'ix_ai_app'), params: [since], mode: 'get' },
-    { sql: 'SELECT COUNT(DISTINCT host) s FROM ai_events INDEXED BY ' + (hours <= 24 ? 'ix_ai_ts' : 'ix_ai_host') + ' WHERE ts >= ?', params: [since], mode: 'get' },
-    { sql: aiDistinct('action') + 'SELECT k action, (SELECT COUNT(*) FROM ai_events INDEXED BY ix_ai_action WHERE action = d.k AND ts >= ?) c FROM d WHERE k IS NOT NULL', params: [since] }
-  ], aiOpts('status', hours));
+  var r = await offload.query(AI_DB_PATH, aiStatusQueries(hours), aiOpts('status', hours));
   if (!r.ok) return res.json({ streaming: false, reason: r.error });
   var t = r.results, allowed = 0, blocked = 0, isolated = 0;
   t[4].forEach(function (x) { if (aiIsBlocked(x.action)) blocked += x.c; else if (aiIsIsolated(x.action)) isolated += x.c; else if (aiIsAllowed(x.action)) allowed += x.c; });
   return res.json({ streaming: true, hours: hours, transactions: t[0].c, users: t[1].v, apps: t[2].v, sites: t[3].s,
-    allowed: allowed, blocked: blocked, isolated: isolated, tookMs: r.tookMs, cachedAt: r.cachedAt || null });
+    allowed: allowed, blocked: blocked, isolated: isolated, tookMs: r.tookMs, cachedAt: r.cachedAt || null, stale: !!r.stale });
 }));
 
 // ── /zia/ai/top-apps — per-app usage w/ allowed/blocked/isolated ──
 router.get('/zia/ai/top-apps', requireRead, guarded(async function (req, res) {
   var hours = aiWindow(req, res); if (!hours) return;
-  var r = await offload.query(AI_DB_PATH, [
-    { sql: 'SELECT app, COUNT(*) total, COUNT(DISTINCT user) users, ' +
-           "SUM(CASE WHEN action LIKE '%llow%' THEN 1 ELSE 0 END) allowed, " + AI_BLOCKED + ' blocked, ' +
-           "SUM(CASE WHEN action LIKE '%solat%' THEN 1 ELSE 0 END) isolated" +
-           AI_SRC + ' AND app IS NOT NULL AND length(app) > 0 GROUP BY app ORDER BY total DESC LIMIT 50', params: [Date.now() - hours * 3600000] }
-  ], aiOpts('top-apps', hours));
+  var r = await offload.query(AI_DB_PATH, aiTopAppsQueries(hours), aiOpts('top-apps', hours));
   if (!r.ok) return offloadFail(res, r);
-  return res.json({ hours: hours, apps: r.results[0], count: r.results[0].length, tookMs: r.tookMs, cachedAt: r.cachedAt || null });
+  return res.json({ hours: hours, apps: r.results[0], count: r.results[0].length, tookMs: r.tookMs, cachedAt: r.cachedAt || null, stale: !!r.stale });
 }));
 
 // ── /zia/ai/top-users ──

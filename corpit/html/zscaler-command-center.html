@@ -596,6 +596,7 @@ details.help .hrow>span:first-child{flex:none;width:16px;text-align:center}
     <div class="stamps">
       <span id="gx-feed-chip" style="font-size:11px;align-self:center;padding:3px 10px;border:1px solid var(--line);border-radius:12px;color:var(--tx3);cursor:pointer" onclick="CC.gxFeedExplain()" title="AI feed health — click for details">feed: checking…</span>
       <select class="si" id="gx-win" style="width:auto" onchange="CC.gxWinChange()"><option value="24">24h</option><option value="168" selected>7d</option><option value="720">30d</option></select>
+      <span id="gx-data-age" style="font-size:11px;color:var(--tx3);align-self:center" aria-live="polite"></span>
       <span id="rpt-chip" style="font-size:11px;color:var(--tx3);align-self:center;margin-left:6px"></span>
       <button class="sb ghost" onclick="CC.rptOpen()" title="Configure email report">⚙ Report</button>
       <button class="sb ghost" id="gx-csv-btn" onclick="CC.gxCsv()" title="Export current tab as CSV">⬇ CSV</button>
@@ -4002,18 +4003,17 @@ function gxSanction(app){
 CC.gxLoadOverview=async function(){
   gxLoaded.ov=true;
   var w=gxWin();
+  $('gx-data-age').textContent='Loading AI data…';
   ['gxo-apps-out','gxo-users-out','gxo-trend-out','gxo-sites-out','gxo-dept-out'].forEach(function(id){var e=$(id);if(e)e.innerHTML=loadingHtml();});
-  var calls=await Promise.all([
-    J('/api/zscaler/zia/ai/status?hours='+w),
-    J('/api/zscaler/zia/ai/top-apps?hours='+w),
-    J('/api/zscaler/zia/ai/top-users?hours='+w),
-    J('/api/zscaler/zia/ai/trends?hours='+w),
-    J('/api/zscaler/zia/ai/top-sites?hours='+w),
-    J('/api/zscaler/zia/ai/by-dept?hours='+w),
-    gxCatEnsure()]);
+  // Show the KPIs as soon as their request finishes. The other reports are
+  // heavier SQLite reads and need not hold the first useful paint hostage.
+  var catPromise=gxCatEnsure();
+  var calls=[await J('/api/zscaler/zia/ai/status?hours='+w)];
   var st=calls[0].data||{};
-  if(!calls[0].ok){var ovErr=pendHtml('HTTP '+calls[0].status,st.error||'');['gxo-apps-out','gxo-users-out','gxo-trend-out','gxo-sites-out','gxo-dept-out'].forEach(function(id){var e=$(id);if(e)e.innerHTML=ovErr;});return;}
-  if(st.streaming===false){$('gxo-apps-out').innerHTML=pendHtml('AI feed not streaming',st.reason||'');['gxo-users-out','gxo-trend-out','gxo-sites-out','gxo-dept-out'].forEach(function(id){$(id).innerHTML='<div class="empty">—</div>';});return;}
+  if(!calls[0].ok){$('gx-data-age').textContent='AI data unavailable';var ovErr=pendHtml('HTTP '+calls[0].status,st.error||'');['gxo-apps-out','gxo-users-out','gxo-trend-out','gxo-sites-out','gxo-dept-out'].forEach(function(id){var e=$(id);if(e)e.innerHTML=ovErr;});return;}
+  if(st.streaming===false){$('gx-data-age').textContent='AI feed unavailable';$('gxo-apps-out').innerHTML=pendHtml('AI feed not streaming',st.reason||'');['gxo-users-out','gxo-trend-out','gxo-sites-out','gxo-dept-out'].forEach(function(id){$(id).innerHTML='<div class="empty">—</div>';});return;}
+  var ageMin=st.cachedAt?Math.max(0,Math.floor((Date.now()-Date.parse(st.cachedAt))/60000)):0;
+  $('gx-data-age').textContent=st.cachedAt?(st.stale?'Refreshing · ':'Updated ')+(ageMin<1?'just now':ageMin+'m ago'):'Live';
   $('gxo-tx').textContent=(st.transactions||0).toLocaleString();
   $('gxo-users').textContent=(st.users||0).toLocaleString();
   $('gxo-apps').textContent=(st.apps||0).toLocaleString();
@@ -4021,9 +4021,17 @@ CC.gxLoadOverview=async function(){
   $('gxo-allow').textContent=(st.allowed||0).toLocaleString();
   $('gxo-block').textContent=((st.blocked||0)+(st.isolated||0)).toLocaleString();
   $('gxo-block-sub').textContent=(st.blocked||0)+' blocked · '+(st.isolated||0)+' isolated';
+  var rest=await Promise.all([
+    J('/api/zscaler/zia/ai/top-apps?hours='+w),
+    J('/api/zscaler/zia/ai/top-users?hours='+w),
+    J('/api/zscaler/zia/ai/trends?hours='+w),
+    J('/api/zscaler/zia/ai/top-sites?hours='+w),
+    J('/api/zscaler/zia/ai/by-dept?hours='+w),
+    catPromise]);
+  Array.prototype.push.apply(calls,rest);
   var apps=(calls[1].data&&calls[1].data.apps)||[];
-  $('gxo-apps-meta').textContent=apps.length+' apps';
-  $('gxo-apps-out').innerHTML=apps.length?apps.slice(0,20).map(function(a){
+  $('gxo-apps-meta').textContent=apps.length+' apps'+((calls[1].data||{}).stale?' · refreshing':'');
+  $('gxo-apps-out').innerHTML=!calls[1].ok?pendHtml('HTTP '+calls[1].status,(calls[1].data||{}).error||'Top apps unavailable'):apps.length?apps.slice(0,20).map(function(a){
     var cr=gxSanction(a.app);
     return '<div style="padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="CC.gxDrill(\'app\',\''+gxEnc(a.app)+'\')"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;margin-bottom:4px"><span><b>'+esc(a.app)+'</b> '+gxStatusBadge(cr?cr.sanction_status:null)+' <span style="color:var(--tx3)">· '+a.users+' users</span></span><span class="mono">'+a.total.toLocaleString()+'</span></div>'+gxStack(a.allowed,a.blocked,a.isolated,a.total)+'</div>';
   }).join(''):'<div class="empty">No AI app traffic in window.</div>';

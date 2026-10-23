@@ -267,7 +267,7 @@ function measured(handler) {
 
 router.get('/summary', needRead, measured(async function (req) {
   const hours = hoursOf(req);
-  const [kinds] = await pool.query(
+  const kindsPromise = pool.query(
     'SELECT kind, severity, COUNT(*) n FROM obs_client_event ' +
     'WHERE occurred_at >= NOW() - INTERVAL ? HOUR GROUP BY kind, severity', [hours]);
   // COALESCE is load-bearing, not tidiness. An aggregate with no GROUP BY
@@ -278,7 +278,7 @@ router.get('/summary', needRead, measured(async function (req) {
   // "Upstream failures" and "Server 5xx" tiles. A measured zero must read as
   // the digit 0. MAX(duration_ms) is deliberately left NULL: with no rows there
   // genuinely is no slowest request, and the page renders that as unmeasured.
-  const [reqAgg] = await pool.query(
+  const reqAggPromise = pool.query(
     'SELECT COUNT(*) total, COALESCE(SUM(status >= 500),0) e5, ' +
     // 499 is obs-middleware's marker for "the connection closed before the
     // response completed" -- nginx's convention, not a status any client
@@ -290,10 +290,13 @@ router.get('/summary', needRead, measured(async function (req) {
     '       COALESCE(SUM(status = 499),0) aborted, ' +
     '       COALESCE(SUM(sampled = 1),0) sampled, MAX(duration_ms) slowest ' +
     'FROM obs_request WHERE at >= NOW() - INTERVAL ? HOUR', [hours]);
-  const [depAgg] = await pool.query(
+  const depAggPromise = pool.query(
     'SELECT COUNT(*) total, COALESCE(SUM(ok = 0),0) failed, COUNT(DISTINCT vendor) vendors ' +
     'FROM obs_dependency WHERE at >= NOW() - INTERVAL ? HOUR', [hours]);
-  const jobs = await obsJob.resolve(pool);
+  const jobsPromise = obsJob.resolve(pool);
+  const [[kinds], [reqAgg], [depAgg], jobs] = await Promise.all([
+    kindsPromise, reqAggPromise, depAggPromise, jobsPromise,
+  ]);
 
   return {
     hours: hours,

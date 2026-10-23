@@ -134,17 +134,56 @@ function query(dbPath, stmts, opts) {
   const key = opts.cacheKey;
   if (!key) return run(dbPath, stmts, opts);
 
+  const now = Date.now();
   const hit = cache.get(key);
   if (hit) {
-    if (hit.promise) return hit.promise;                       // in flight: share it
-    if (hit.expiresAt > Date.now()) return Promise.resolve(hit.value);
+    if (hit.promise) return hit.promise;                       // cold miss: share the running query
+    if (hit.expiresAt > now) return Promise.resolve(hit.value);
+    if (hit.staleUntil > now) {
+      // A costly report can be refreshed in the background. Keep the last
+      // successful answer available while that query runs or times out.
+      if (!hit.refreshPromise && (!hit.retryAt || hit.retryAt <= now)) {
+        hit.refreshPromise = run(dbPath, stmts, opts).then((r) => {
+          if (cache.get(key) !== hit) return r;                 // invalidated during refresh
+          hit.refreshPromise = null;
+          if (r.ok) {
+            r.cachedAt = Date.now();
+            cache.set(key, {
+              expiresAt: r.cachedAt + opts.cacheTtlMs,
+              staleUntil: r.cachedAt + opts.cacheTtlMs + (opts.staleTtlMs || 0),
+              value: r,
+            });
+          } else {
+            hit.retryAt = Date.now() + (opts.retryDelayMs || 30000);
+            console.warn('[sqlite-offload] refresh failed:', opts.label || key, r.error);
+          }
+          return r;
+        }).catch((e) => {
+          if (cache.get(key) === hit) {
+            hit.refreshPromise = null;
+            hit.retryAt = Date.now() + (opts.retryDelayMs || 30000);
+          }
+          console.warn('[sqlite-offload] refresh failed:', opts.label || key, e.message);
+          return { ok: false, status: 500, error: e.message };
+        });
+      }
+      return Promise.resolve(Object.assign({}, hit.value, { stale: true }));
+    }
+    // Once the bounded stale period ends, callers must wait for a fresh
+    // result. If a refresh is already running, share it.
+    if (hit.refreshPromise) return hit.refreshPromise;
     cache.delete(key);
   }
+
   const p = run(dbPath, stmts, opts).then((r) => {
     if (r.ok && opts.cacheTtlMs > 0) {
       if (cache.size >= CACHE_MAX_ENTRIES) evictExpired();
       r.cachedAt = Date.now();
-      cache.set(key, { expiresAt: r.cachedAt + opts.cacheTtlMs, value: r });
+      cache.set(key, {
+        expiresAt: r.cachedAt + opts.cacheTtlMs,
+        staleUntil: r.cachedAt + opts.cacheTtlMs + (opts.staleTtlMs || 0),
+        value: r,
+      });
     } else {
       cache.delete(key);
     }
@@ -156,8 +195,8 @@ function query(dbPath, stmts, opts) {
 
 function evictExpired() {
   const now = Date.now();
-  for (const [k, v] of cache) if (v.expiresAt && v.expiresAt <= now) cache.delete(k);
-  if (cache.size >= CACHE_MAX_ENTRIES) cache.clear();          // keys are bounded per route; this is a backstop
+  for (const [k, v] of cache) if (v.staleUntil && v.staleUntil <= now) cache.delete(k);
+  if (cache.size >= CACHE_MAX_ENTRIES) cache.clear();          // bounded backstop
 }
 
 function invalidate(prefix) {
