@@ -2,8 +2,8 @@
 (function () {
   'use strict';
   const HELP = {
-    dashboard: 'Overview of known applications, review work, recorded approvals, metadata quality, risk signals and recent trends.',
-    inventory: 'Search the known AI application catalog. Review classification, owner, purpose, governance status and source evidence where recorded.',
+    dashboard: 'Overview of known applications, review work, recorded approvals, metadata quality, risk signals and recent trends. Switch off Compact to show every navigation view.',
+    inventory: 'Search the known AI application catalog. Review classification, owner, purpose and governance status. Switch off Compact for Account and SSO filters, filter scope and source details.',
     'use-cases': 'Use-case records, Portal request lookup, review queue, summary, enrichment sources and audit trail. A use-case review is separate from application approval.',
     usage: 'Zscaler NSS and Shadow IT observations: requests, reported identities, application activity, source dates and coverage limits.',
     attention: 'Application follow-up for owner and purpose gaps, assessments and governance decisions. Portal intake approvals stay in Access Portal.',
