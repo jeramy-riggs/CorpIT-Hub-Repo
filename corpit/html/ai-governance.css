@@ -78,3 +78,11 @@
 .risk-reasons{display:block;font-size:11px;color:var(--muted);margin-top:2px}
 .app-risk{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
 .app-risk h4{margin:10px 0 6px;font-size:12px}
+.risk-editor h4{margin:14px 0 6px}
+.risk-edit-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 14px}
+.risk-edit-fields label,.risk-fixed{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600}
+.risk-edit-fields label.full{grid-column:1/-1}
+.risk-edit-fields textarea{min-height:70px}
+.risk-fixed strong{font-weight:400}
+.risk-fixed small{color:var(--muted);font-weight:400}
+.risk-edit-actions{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--panel);padding:8px 0}
