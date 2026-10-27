@@ -9,7 +9,9 @@
 
 /* Left rail: core workflow sections only (JS marks them); the open section stays visible */
 .ai-compact #navigation button:not([data-compact-core]):not([aria-current=page]),
-.ai-compact .rail-links{display:none!important}
+.ai-compact .rail-links,
+.ai-compact .portal-tabs a:not([data-portal-view=dashboard]):not([data-portal-view=inventory]):not([aria-current=page]),
+.ai-compact .workflow-links[aria-label="AI Inventory views"]{display:none!important}
 
 /* Page chrome */
 .ai-compact #subtitle,

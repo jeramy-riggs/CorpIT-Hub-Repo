@@ -53,3 +53,28 @@
 
 /* Classification and saved source health lead; detailed evidence remains optional. */
 .sources-overview{display:grid;grid-template-columns:minmax(250px,.8fr) minmax(0,2fr);gap:16px;margin-bottom:18px}.sources-overview>.panel{margin:0}.sources-category-list{list-style:none;margin:0;padding:0 20px}.sources-category-list li{font-size:12px;padding:9px 0;border-bottom:1px solid var(--line)}.sources-category-list li:last-child{border-bottom:0}.sources-type-note{font-size:11px;color:var(--muted);margin:12px 20px 18px}.sources-overview td{vertical-align:top;min-width:130px}.sources-overview .note{margin:0 14px 12px;padding:9px 12px}.sources-overview th{white-space:normal}.sources-status-warning{color:var(--amber);white-space:normal}.sources-coverage-summary{margin-bottom:18px}.sources-coverage-summary td{vertical-align:top}.sources-coverage-summary th:nth-child(1){width:20%}.sources-coverage-summary th:nth-child(2){width:25%}@media(max-width:1100px){.sources-overview{grid-template-columns:1fr}.sources-category-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}}@media(max-width:600px){.sources-category-list{grid-template-columns:1fr}.sources-coverage-summary td{min-width:180px}}
+
+/* Consolidated AI Inventory: approval summary, sortable headings, clickable rows, merged risk view */
+.approval-summary{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 14px}
+.approval-tiles{display:flex;gap:8px;flex-wrap:wrap}
+.approval-tile{display:flex;flex-direction:column;align-items:flex-start;min-width:110px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);cursor:pointer;font:inherit;color:inherit;text-align:left}
+.approval-tile strong{font-size:20px;line-height:1.1}
+.approval-tile span{font-size:11px;color:var(--muted)}
+.approval-tile.good strong{color:var(--green)}.approval-tile.warn strong{color:var(--amber)}.approval-tile.bad strong{color:var(--red)}
+.approval-tile[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.approval-chart{flex:1;min-width:220px}
+.approval-bar{height:10px;border-radius:999px;background:color-mix(in srgb,var(--amber) 35%,transparent);overflow:hidden}
+.approval-bar span{display:block;height:100%;background:var(--green)}
+.approval-chart p{margin:6px 0 0;font-size:11px;color:var(--muted)}
+.sort-head{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center;font:inherit;color:inherit}
+.sort-head span{font-size:9px;opacity:.6}
+.sort-head:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.inventory-main-table tr.inventory-row{cursor:pointer}
+.inventory-main-table tr.inventory-row:hover td{background:var(--soft)}
+.badge.high-risk{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+.app-glance,.risk-facts,.risk-answers{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px 16px;margin:0 0 12px}
+.app-glance dt,.risk-facts dt,.risk-answers dt{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.app-glance dd,.risk-facts dd,.risk-answers dd{margin:2px 0 0}
+.risk-reasons{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.app-risk{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
+.app-risk h4{margin:10px 0 6px;font-size:12px}

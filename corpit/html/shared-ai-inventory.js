@@ -2,6 +2,14 @@
 const E=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const instances=new WeakMap();
 const labels={inventory:'AI Inventory',risk:'Risk Assessments',coverage:'App Coverage Gaps',review:'Application Reviews',approved:'Approved Applications'};
+// Module level so AI Governance's consolidated inventory uses the same High-risk rule.
+function automaticReview(a){
+  const values=new Map(a.assessment.coverage.map(c=>[c.key,c]));
+  const rules=[['npi','NPI','Yes'],['client','Client data','Yes'],['consumer','Consumer data','Yes'],['ext','External output','Yes'],['oversight','Fully automated','Fully automated']];
+  const reasons=rules.filter(([key,label,value])=>values.get(key)?.value===value).map(([,label])=>label);
+  const unknown=rules.filter(([key])=>values.get(key)?.state!=='available').length;
+  return {reasons,unknown,flag:reasons.length?'Review for High':unknown?'Needs answers':'No recorded high-risk trigger'};
+}
 function mount(el,opts={}) {
   if(instances.has(el))instances.get(el).destroy();
   const listeners=new AbortController();const riskDetailsOpen=new Set();
@@ -16,13 +24,6 @@ function mount(el,opts={}) {
     finally{clearTimeout(timer);}
   };
   const badge=(s,t='')=>'<span class="sai-badge '+t+'">'+E(s)+'</span>';
-  function automaticReview(a){
-    const values=new Map(a.assessment.coverage.map(c=>[c.key,c]));
-    const rules=[['npi','NPI','Yes'],['client','Client data','Yes'],['consumer','Consumer data','Yes'],['ext','External output','Yes'],['oversight','Fully automated','Fully automated']];
-    const reasons=rules.filter(([key,label,value])=>values.get(key)?.value===value).map(([,label])=>label);
-    const unknown=rules.filter(([key])=>values.get(key)?.state!=='available').length;
-    return {reasons,unknown,flag:reasons.length?'Review for High':unknown?'Needs answers':'No recorded high-risk trigger'};
-  }
   function automaticPanel(a){const r=a.assessment,auto=automaticReview(a);
     return '<section class="sai-calculated" aria-label="Automatic risk checks"><h3>Automatic risk checks</h3><p>Calculated from saved assessment answers. Save changes to recalculate. The final risk tier is assigned by InfoSec / Legal.</p><dl><div><dt>High-risk review flag</dt><dd>'+badge(auto.flag,auto.reasons.length?'warn':'')+'</dd></div><div><dt>Required answers still incomplete</dt><dd>'+r.required_gaps+'</dd></div><div><dt>Next review due</dt><dd>'+E(r.next_review||'Set a reviewed tier and review date')+(r.overdue?' · Overdue':'')+'</dd></div><div><dt>Final risk tier · manual review</dt><dd>'+E(r.tier||'Not assigned')+'</dd></div></dl><p>'+E(auto.reasons.length?'Flagged because: '+auto.reasons.join(' · '):auto.unknown?auto.unknown+' trigger answers are missing or uncertain. No risk tier is inferred.':'No trigger was recorded in the five checked answers. This does not assign a Low tier.')+'</p><details><summary>How these checks work</summary><p>A Yes for NPI, client data, consumer data or external output, or Fully automated oversight, flags the app for High-risk review. Other risk indicators are shown separately. Next review: High after 3 months, Medium after 12 months, Low on material change. Missing and uncertain required answers remain coverage gaps.</p></details></section>';
   }
@@ -110,5 +111,5 @@ function mount(el,opts={}) {
   el.addEventListener('click',e=>{const clear=e.target.closest('[data-sai-clear-coverage]');if(clear){el.querySelector('[data-sai-field-results]').replaceChildren();const back=el.querySelector('[data-sai-field="'+clear.dataset.saiClearCoverage+'"]');back?.focus();return;}const b=e.target.closest('[data-sai-open],[data-sai-refresh],[data-sai-field],[data-sai-export],[data-sai-users],[data-sai-decision]');if(!b)return;if(b.hasAttribute('data-sai-users'))return showUsers(b.dataset.saiUsers);if(b.hasAttribute('data-sai-decision'))return decision(b.dataset.saiDecision);if(b.hasAttribute('data-sai-open'))open(b.dataset.saiOpen);else if(b.hasAttribute('data-sai-refresh'))load();else if(b.hasAttribute('data-sai-export'))exportRows();else{const f=data.fields.find(f=>f.key===b.dataset.saiField),apps=matching().filter(a=>a.assessment.coverage.some(c=>c.key===f.key&&(c.state!=='available'||c.control_gap)));const target=el.querySelector('[data-sai-field-results]');if(mode==='coverage'){target.innerHTML=coverageAffected(f,apps);target.querySelector('h3').focus();return;}target.innerHTML='<h3 tabindex="-1">'+E(f.label)+' · '+apps.length+' applications need review</h3><div class="sai-table"><table><thead><tr><th>Application</th><th>Owner / classification</th><th>Risk assessment</th><th>Required answers</th><th>Automatic checks / governance</th><th>Review</th></tr></thead><tbody>'+appRows(apps)+'</tbody></table></div>';target.querySelector('h3').focus();}},{signal:listeners.signal});
   const handle={refresh:load,setMode(v){mode=labels[v]?v:'inventory';render();},destroy(){generation++;listeners.abort();el.replaceChildren();instances.delete(el);}};instances.set(el,handle);load();return handle;
 }
-root.SharedAIInventory={mount};
+root.SharedAIInventory={mount,automaticReview};
 })(window);

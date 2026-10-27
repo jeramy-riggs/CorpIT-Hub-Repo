@@ -4,7 +4,8 @@
 (function(){'use strict';
 const KEY='corpit:ai:compact-view',root=document.documentElement;
 // Rail sections kept in compact view; the current section always stays visible.
-const CORE=['dashboard','inventory','use-cases','attention','approved-sites','requests'];
+// Other sections stay in full view and by direct link; their data is unchanged.
+const CORE=['dashboard','inventory'];
 // Compact is the default; only an explicit switch-off is remembered as '0'.
 function read(){try{return localStorage.getItem(KEY)!=='0';}catch{return true;}}
 function write(on){try{localStorage.setItem(KEY,on?'1':'0');}catch{}}
