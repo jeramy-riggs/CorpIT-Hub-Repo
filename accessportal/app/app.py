@@ -2681,6 +2681,113 @@ def ack_daily_thread():
             time.sleep(60)
     t = threading.Thread(target=loop, name="ack-daily-summary", daemon=True); t.start()
 
+# ── APPROVER-REMINDERS (2026-10-16) ──────────────────────────────────────────
+# Daily sweep: a request that has waited at its current step for N days reminds
+# the step recipient (direct manager, or the step's configured address); repeats
+# every M days up to a cap; cc Service Desk from the escalation count onward.
+# Form-agnostic: driven by requests.current_step + step_recipient(). Reminder
+# history lives in audit_log (event notification.reminder), so no new table.
+REMINDER_DEFAULTS = {"enabled": True, "first_days": 3, "every_days": 3, "max": 5, "escalate_after": 3, "hour": 8}
+
+def reminder_settings() -> dict:
+    s = dict(REMINDER_DEFAULTS); v = get_setting("reminders.settings", None)
+    if isinstance(v, dict): s.update({k: v[k] for k in REMINDER_DEFAULTS if k in v})
+    return s
+
+def _iso_dt(x):
+    try: return datetime.fromisoformat(str(x).replace("Z", "+00:00")).astimezone(timezone.utc)
+    except Exception: return None
+
+def _reminder_candidates(now=None) -> list:
+    """Pending, unarchived requests with their current-step age and reminder history."""
+    now = now or datetime.now(timezone.utc); cfg = reminder_settings(); out = []
+    for r in db().execute("SELECT * FROM requests WHERE status='pending' AND COALESCE(archived_at,'')='' ORDER BY created_at"):
+        wf = json.loads(r["workflow"]); idx = r["current_step"]
+        if idx >= len(wf): continue
+        step = wf[idx]
+        since = _iso_dt(r["created_at"])
+        prev = db().execute("SELECT MAX(decided_at) FROM approvals WHERE request_id=? AND step<? AND decided_at IS NOT NULL", (r["id"], idx)).fetchone()[0]
+        reop = db().execute("SELECT MAX(created_at) FROM audit_log WHERE request_id=? AND event LIKE 'Reopened to %'", (r["id"],)).fetchone()[0]
+        for cand in (prev, reop):
+            d = _iso_dt(cand)
+            if d and (since is None or d > since): since = d
+        if since is None: continue
+        age = (now - since).total_seconds() / 86400.0
+        hist = db().execute("SELECT created_at FROM audit_log WHERE request_id=? AND event='notification.reminder' AND created_at>=? AND note LIKE ? ORDER BY created_at",
+                            (r["id"], since.isoformat(), f"step={step};%")).fetchall()
+        n = len(hist); last = _iso_dt(hist[-1]["created_at"]) if hist else None
+        due = age >= cfg["first_days"] and n < cfg["max"] and (last is None or (now - last).total_seconds() / 86400.0 >= cfg["every_days"])
+        req = _build_request_dict(r)
+        email, name, source = step_recipient(req, step)
+        out.append({"id": r["id"], "type": r["type"], "step": step, "step_label": step_label(step), "age_days": round(age, 1),
+                    "since": since.isoformat(), "sent": n, "last": last.isoformat() if last else None, "due": due,
+                    "to": email or "", "to_name": name or "", "source": source or "", "escalate": due and (n + 1) >= cfg["escalate_after"],
+                    "submitter": (req.get("submitter") or {}).get("name"), "_req": req})
+    return out
+
+def _send_reminder(c: dict, cfg: dict) -> bool:
+    req = c["_req"]; rt = REQUEST_TYPES.get(req["type"], {}); icon = type_art(req["type"]); subm = _esc_map(req.get("submitter") or {})
+    age = int(c["age_days"]); nth = c["sent"] + 1
+    if not c["to"]:
+        audit(c["id"], "notification.reminder", "System", "Automation", f"step={c['step']}; n={nth}; UNROUTABLE — no recipient for {c['step_label']}")
+        return False
+    body = f"""
+<div style="background:#fff7ed;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#92400e;font-weight:600">
+  Reminder {nth}{' — escalated to the Service Desk' if c['escalate'] else ''} · waiting {age} day{'s' if age != 1 else ''} at your step
+</div>
+<p style="font-size:15px;color:#1f2937">Hi <strong>{html.escape(str(c['to_name'] or ''))}</strong>,</p>
+<p style="font-size:14px;color:#5B6770;line-height:1.6;margin:12px 0">Request <strong>{req['id']}</strong> ({rt.get('label','')}) is still waiting for your <strong>{html.escape(c['step_label'])}</strong> decision. Please approve, reject or return it in the Approver Portal.</p>
+<table style="width:100%;border-collapse:collapse;border:1px solid #e3e7ea;border-radius:8px;overflow:hidden;font-size:13px">
+  <tr style="background:#f8fafb"><td style="padding:10px 14px;color:#5B6770;font-weight:600;width:40%">Request ID</td><td style="padding:10px 14px;font-family:ui-monospace,Menlo,monospace;color:#509E2F;font-weight:700">{req['id']}</td></tr>
+  <tr><td style="padding:10px 14px;color:#5B6770;font-weight:600">Request Type</td><td style="padding:10px 14px">{icon}&nbsp; {rt.get('label','')}</td></tr>
+  <tr style="background:#f8fafb"><td style="padding:10px 14px;color:#5B6770;font-weight:600">Submitted By</td><td style="padding:10px 14px">{subm.get('name','')} · {subm.get('dept','')}</td></tr>
+  <tr><td style="padding:10px 14px;color:#5B6770;font-weight:600">Your Step</td><td style="padding:10px 14px"><span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">{html.escape(c['step_label'])}</span></td></tr>
+  <tr style="background:#f8fafb"><td style="padding:10px 14px;color:#5B6770;font-weight:600">Waiting since</td><td style="padding:10px 14px">{html.escape(c['since'][:10])} · {age} day{'s' if age != 1 else ''}</td></tr>
+</table>
+<p style="font-size:12.5px;color:#5B6770;margin-top:14px"><a href="{PORTAL_BASE_URL}/approver.html">Open the Approver Portal</a></p>"""
+    subject = f"Reminder: {c['step_label']} approval waiting {age}d — {req['id']}"
+    okm = mail_and_audit(req["id"], c["to"], subject,
+                         _email_html_wrapper(icon, f"Still waiting: {c['step_label']} approval", body, req["id"],
+                                             f"Reminder {nth} of {cfg['max']} · sent to {html.escape(c['to'])}"),
+                         f"approval reminder {nth} ({c['step_label']})")
+    if c["escalate"]:
+        hd = get_smtp().get("helpdesk", "")
+        if hd and hd.lower() != (c["to"] or "").lower():
+            mail_and_audit(req["id"], hd, f"[Escalation] {subject}",
+                           _email_html_wrapper("⚠️", f"Escalation: {c['step_label']} approval overdue", body, req["id"], f"Reminder {nth} · approver {html.escape(c['to'])} copied the Service Desk"),
+                           f"approval reminder {nth} escalation (Service Desk)")
+    audit(req["id"], "notification.reminder", "System", "Automation",
+          f"step={c['step']}; n={nth}; to={c['to']}; age={age}d; escalate={'yes' if c['escalate'] else 'no'}; {'sent' if okm else 'FAILED'}")
+    return bool(okm)
+
+def reminders_run(dry: bool = False) -> dict:
+    cfg = reminder_settings(); cands = _reminder_candidates(); due = [c for c in cands if c["due"]]
+    sent = 0
+    if not dry:
+        for c in due:
+            try:
+                if _send_reminder(c, cfg): sent += 1
+            except Exception as e:  # noqa
+                print(f"[REMIND] {c['id']}: {e}", file=sys.stderr)
+    return {"settings": cfg, "checked": len(cands), "due": len(due), "sent": sent, "dry": dry,
+            "rows": [{k: v for k, v in c.items() if k != "_req"} for c in cands]}
+
+def reminder_daily_thread():
+    """Once per day at reminders.hour server-local, in-process (same pattern as ack_daily_thread)."""
+    def loop():
+        while True:
+            try:
+                cfg = reminder_settings(); now = datetime.now()
+                if cfg["enabled"] and now.hour == int(cfg["hour"]) and (get_setting("reminders.last_run", "") or "") != now.strftime("%Y-%m-%d"):
+                    set_setting("reminders.last_run", now.strftime("%Y-%m-%d"))
+                    res = reminders_run(False)
+                    audit("", "reminders.daily_run", "system", "", f"checked={res['checked']} due={res['due']} sent={res['sent']}")
+            except Exception as e:
+                print(f"[REMIND] daily error: {e}", file=sys.stderr)
+            time.sleep(60)
+    threading.Thread(target=loop, name="approver-reminders", daemon=True).start()
+# ── end APPROVER-REMINDERS ────────────────────────────────────────────────────
+
 def _publish_policy_document(form, data, pdf, name, ext, converted, effective, pages, actor, role):
     """Durable files followed by one serialized metadata/settings/audit commit.
 
@@ -3925,6 +4032,14 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
             if method == "POST" and path == "/api/portal/acknowledgments":
                 return self._ack_submit()
 
+            # AI-GOV SYNC: service-token feed for the CorpIT AI Governance worker.
+            # No portal session — the caller is a server, not a person. Read-only,
+            # AIA type only, every call audited. Token managed under /sync/token.
+            if method == "GET" and path == "/api/portal/sync/aia":
+                return self._sync_aia(qs)
+            if method == "POST" and path == "/api/portal/sync/governance-summary":   # AI-GOV SUMMARY (push)
+                return self._sync_summary_put()
+
             if method in ("POST", "PATCH", "DELETE") and self.headers.get("Origin") and self.headers.get("Origin") != CORS_ORIGIN:
                 return err(self, 403, "Use this portal to make access changes")
             # ── Auth-gated endpoints ──────────────────────────────────────
@@ -3972,6 +4087,20 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
                 return self._inv_archive(session, int(path.split("/")[4]), False)
             if method == "POST" and re.match(r"^/api/portal/inventory/\d+/unarchive$", path):
                 return self._inv_archive(session, int(path.split("/")[4]), True)
+            # APPROVER-REMINDERS (admin)
+            if path == "/api/portal/reminders/settings" and method in ("GET", "PUT"):
+                return self._reminders_settings(session, method)
+            if method == "POST" and path == "/api/portal/reminders/run":
+                return self._reminders_run(session, qs)
+            # AI-GOV SYNC token (admin)
+            if path == "/api/portal/sync/token" and method in ("GET", "POST", "DELETE"):
+                return self._sync_token(session, method)
+            if method == "GET" and path == "/api/portal/sync/governance-summary":
+                return self._sync_summary_get(session)
+            if method == "POST" and path == "/api/portal/sync/governance-refresh":   # AI-GOV REFRESH
+                return self._sync_refresh(session)
+            if path == "/api/portal/sync/refresh-url" and method in ("GET", "PUT"):
+                return self._sync_refresh_url(session, method)
             # ARCHIVE
             m_reopen = re.match(r"^/api/portal/requests/([A-Za-z0-9-]+)/reopen$", path)   # REOPEN
             if m_reopen and method in ("GET", "POST"): return self._reopen(m_reopen.group(1), session)
@@ -5447,6 +5576,201 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
             print("[reopen] notify skipped:", e, file=sys.stderr)
         ok(self, req)
 
+    # ── AI-GOV SYNC: Portal → CorpIT AI Governance one-way feed ──────────
+    def _sync_token(self, session: dict, method: str):
+        if session.get("role") != "admin":
+            return err(self, 403, "Admin role required")
+        actor = session.get("email") or "admin"
+        meta  = get_setting("sync.aia.token_meta", None) or {}
+        if method == "GET":
+            return ok(self, {"configured": bool(get_setting("sync.aia.token_sha256", None)),
+                             "created_at": meta.get("created_at"), "created_by": meta.get("created_by"),
+                             "last_used": get_setting("sync.aia.last_used", None),
+                             "endpoint": "/api/portal/sync/aia", "header": "X-Portal-Service-Token"})
+        if method == "DELETE":
+            set_setting("sync.aia.token_sha256", None)
+            set_setting("sync.aia.token_meta", {"revoked_at": now_iso(), "revoked_by": actor})
+            audit("", "sync.token.revoked", actor, "admin", "AI Governance sync token revoked")
+            return ok(self, {"configured": False})
+        token = secrets.token_urlsafe(36)
+        set_setting("sync.aia.token_sha256", hashlib.sha256(token.encode("utf-8")).hexdigest())
+        set_setting("sync.aia.token_meta", {"created_at": now_iso(), "created_by": actor})
+        audit("", "sync.token.issued", actor, "admin", "AI Governance sync token issued (shown once)")
+        return ok(self, {"configured": True, "token": token, "created_at": now_iso(),
+                         "note": "Shown once. Store it in the CorpIT worker configuration; re-issue to rotate."})
+
+    def _reminders_settings(self, session: dict, method: str):
+        if session.get("role") != "admin":
+            return err(self, 403, "Admin role required")
+        if method == "GET":
+            return ok(self, {"settings": reminder_settings(), "last_run": get_setting("reminders.last_run", "") or None,
+                             "helpdesk": get_smtp().get("helpdesk", "")})
+        body = parse_body(self); cur = reminder_settings(); new = dict(cur)
+        if "enabled" in body: new["enabled"] = bool(body["enabled"])
+        for k, lo, hi in (("first_days", 1, 60), ("every_days", 1, 60), ("max", 1, 20), ("escalate_after", 1, 20), ("hour", 0, 23)):
+            if k in body:
+                try: v = int(body[k])
+                except (TypeError, ValueError): return err(self, 400, f"{k} must be a whole number")
+                if not (lo <= v <= hi): return err(self, 400, f"{k} must be between {lo} and {hi}")
+                new[k] = v
+        set_setting("reminders.settings", new)
+        audit("", "reminders.settings", session.get("email") or "admin", "admin", json.dumps({"from": cur, "to": new}))
+        return ok(self, {"settings": new})
+
+    def _reminders_run(self, session: dict, qs: dict):
+        if session.get("role") != "admin":
+            return err(self, 403, "Admin role required")
+        dry = (qs.get("dry", ["0"])[0] or "0") not in ("0", "false", "")
+        res = reminders_run(dry)
+        audit("", "reminders.manual_run", session.get("email") or "admin", "admin", f"dry={dry} checked={res['checked']} due={res['due']} sent={res['sent']}")
+        return ok(self, res)
+
+    def _sync_token_ok(self) -> bool:
+        want = get_setting("sync.aia.token_sha256", None)
+        got  = (self.headers.get("X-Portal-Service-Token") or "").strip()
+        return bool(want and got and hmac.compare_digest(hashlib.sha256(got.encode("utf-8")).hexdigest(), want))
+
+    def _sync_summary_put(self):
+        """CorpIT worker pushes the at-a-glance snapshot (status, attention rows, due-soon, recent)."""
+        if not self._sync_token_ok():
+            return err(self, 401, "Service token required")
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = 0
+        if n > 262144:
+            return err(self, 413, "Summary larger than 256 KiB")
+        body = parse_body(self)
+        if not isinstance(body, dict) or not body.get("as_of"):
+            return err(self, 400, "as_of is required")
+        def lst(key, cap):
+            v = body.get(key) or []
+            return [x for x in v if isinstance(x, dict)][:cap] if isinstance(v, list) else []
+        snap = {
+            "as_of": str(body.get("as_of"))[:40],
+            "status": body.get("status") if isinstance(body.get("status"), dict) else {},
+            "attention": lst("attention", 100), "due_soon": lst("due_soon", 50), "recent": lst("recent", 50),
+            "received_at": now_iso(), "source": (self.headers.get("User-Agent") or "")[:120],
+        }
+        set_setting("sync.gov.summary", snap)
+        audit("", "sync.summary.received", "CorpIT AI Governance", "service",
+              f"as_of={snap['as_of']} attention={len(snap['attention'])} due_soon={len(snap['due_soon'])} recent={len(snap['recent'])}")
+        return ok(self, {"received_at": snap["received_at"], "attention": len(snap["attention"])})
+
+    def _sync_refresh_url(self, session: dict, method: str):
+        if session.get("role") != "admin":
+            return err(self, 403, "Admin role required")
+        if method == "GET":
+            return ok(self, {"refresh_url": get_setting("sync.gov.refresh_url", "") or ""})
+        url = str((parse_body(self) or {}).get("refresh_url") or "").strip()
+        if url and not re.match(r"^https?://(127\.0\.0\.1|localhost|[a-z0-9.-]+\.nrpi\.local)(:\d+)?/[^\s]*$", url, re.I):
+            return err(self, 400, "refresh_url must be an http(s) URL on localhost or *.nrpi.local")
+        set_setting("sync.gov.refresh_url", url)
+        audit("", "sync.refresh_url", session.get("email") or "admin", "admin", f"refresh_url={'(cleared)' if not url else url}")
+        return ok(self, {"refresh_url": url})
+
+    def _sync_refresh(self, session: dict):
+        """Refresh button: ask CorpIT to push a fresh snapshot now (if a hook is configured), then return it."""
+        if not inventory_allowed(session):
+            return err(self, 403, "InfoSec, Legal or administrator access required")
+        last = get_setting("sync.gov.refresh_last", None) or {}
+        try:
+            if last.get("at") and (datetime.now(timezone.utc) - datetime.fromisoformat(last["at"])).total_seconds() < 30:
+                return err(self, 429, "Refreshed less than 30 seconds ago — try again shortly")
+        except Exception:
+            pass
+        url = get_setting("sync.gov.refresh_url", "") or ""
+        before = (get_setting("sync.gov.summary", None) or {}).get("received_at")
+        result = {"hook": bool(url), "pushed": False, "message": ""}
+        if url:
+            tok_meta = get_setting("sync.aia.token_meta", None) or {}
+            try:
+                req = urllib.request.Request(url, method="POST", data=b"{}",
+                                             headers={"Content-Type": "application/json", "User-Agent": "AccessPortal-refresh/1",
+                                                      "X-Portal-Service-Token-Issued": str(tok_meta.get("created_at") or "")})
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    code = resp.getcode(); body = resp.read(4096).decode("utf-8", "replace")
+                result["message"] = f"CorpIT answered {code}"
+                after = (get_setting("sync.gov.summary", None) or {}).get("received_at")
+                result["pushed"] = bool(after and after != before)
+                if not result["pushed"]:
+                    result["message"] += " — no new snapshot arrived yet; it may land in a moment"
+            except urllib.error.HTTPError as e:
+                result["message"] = f"CorpIT refused the refresh ({e.code})"
+            except Exception as e:  # noqa
+                result["message"] = f"CorpIT could not be reached ({type(e).__name__})"
+        else:
+            result["message"] = "No refresh hook configured — CorpIT pushes on its hourly schedule"
+        set_setting("sync.gov.refresh_last", {"at": now_iso(), "by": session.get("email") or "", "pushed": result["pushed"]})
+        audit("", "sync.refresh", session.get("email") or "", session.get("role") or "", f"hook={'yes' if url else 'no'} pushed={result['pushed']} {result['message']}")
+        snap = get_setting("sync.gov.summary", None)
+        return ok(self, {"refresh": result, "snapshot": snap, "now": now_iso()})
+
+    def _sync_summary_get(self, session: dict):
+        """Snapshot + this person's live Portal queue (AIA requests at a step they decide)."""
+        if not inventory_allowed(session):
+            return err(self, 403, "InfoSec, Legal or administrator access required")
+        snap = get_setting("sync.gov.summary", None)
+        acc  = effective_access(session)
+        vis  = visible_request_ids(session)
+        mine = []
+        for r in db().execute("SELECT id,type,status,submitter,workflow,current_step,created_at,updated_at FROM requests WHERE type='aia' AND status='pending' AND COALESCE(archived_at,'')='' ORDER BY created_at"):
+            if vis is not None and r["id"] not in vis:
+                continue
+            wf = json.loads(r["workflow"]); idx = r["current_step"]
+            if idx >= len(wf):
+                continue
+            step = wf[idx]
+            if not (acc.get("decide_all") or step in (acc.get("decide_steps") or [])):
+                continue
+            sub = json.loads(r["submitter"]) if isinstance(r["submitter"], str) else (r["submitter"] or {})
+            reopened = bool(db().execute("SELECT 1 FROM audit_log WHERE request_id=? AND event LIKE 'Reopened to %' LIMIT 1", (r["id"],)).fetchone())
+            mine.append({"id": r["id"], "name": sub.get("name"), "dept": sub.get("dept"), "step": step,
+                         "step_label": step_label(step), "created_at": r["created_at"], "updated_at": r["updated_at"], "reopened": reopened,
+                         "chain": [{"key": k, "label": step_label(k), "state": ("done" if i < idx else "current" if i == idx else "next")} for i, k in enumerate(wf)]})
+        held = [k for k in STEP_LABELS if acc.get("decide_all") or k in (acc.get("decide_steps") or [])]
+        return ok(self, {"snapshot": snap, "portal_queue": mine[:50], "held": held, "now": now_iso()})
+
+    def _sync_aia(self, qs: dict):
+        want = get_setting("sync.aia.token_sha256", None)
+        got  = (self.headers.get("X-Portal-Service-Token") or "").strip()
+        if not want or not got or not hmac.compare_digest(hashlib.sha256(got.encode("utf-8")).hexdigest(), want):
+            return err(self, 401, "Service token required")
+        since  = (qs.get("since", [""])[0] or "").strip()
+        cursor = (qs.get("cursor", [""])[0] or "").strip().upper()
+        try:
+            limit = max(1, min(int(qs.get("limit", [200])[0]), 500))
+        except ValueError:
+            return err(self, 400, "limit must be an integer")
+        if since:
+            try:
+                datetime.fromisoformat(since.replace("Z", "+00:00"))
+            except ValueError:
+                return err(self, 400, "since must be an ISO timestamp")
+        rows = db().execute(
+            """SELECT * FROM requests WHERE type='aia' AND updated_at >= ? AND id > ?
+               ORDER BY id LIMIT ?""", (since or "", cursor, limit + 1)).fetchall()
+        more = len(rows) > limit
+        rows = rows[:limit]
+        out = []
+        for r in rows:
+            d = _build_request_dict(r)
+            d["governance"] = {
+                "approved": (r["status"] == "approved") and not (r["archived_at"] or ""),
+                "archived": bool(r["archived_at"] or ""),
+                "archived_at": r["archived_at"] or None, "archived_reason": r["archived_reason"] or None,
+                "status": r["status"], "updated_at": r["updated_at"],
+            }
+            out.append(d)
+        ts = now_iso()
+        set_setting("sync.aia.last_used", {"at": ts, "count": len(out), "since": since or None,
+                                            "ua": (self.headers.get("User-Agent") or "")[:120]})
+        audit("", "sync.read", "CorpIT AI Governance", "service",
+              f"aia feed: {len(out)} rows, since={since or '-'}, cursor={cursor or '-'}, more={more}")
+        return ok(self, {"rows": out, "count": len(out), "next_cursor": (out[-1]["id"] if more and out else None),
+                         "since": since or None, "generated_at": ts, "type": "aia",
+                         "note": "approved = status approved and not archived; reopened requests return status pending"})
+
     def _archive_items(self, session: dict):
         """Archive / un-archive named records. Approvers: completed requests in their own scope.
         Administrators: any request (pending included), acknowledgments, and undo. Reason required; every row audited."""
@@ -6555,6 +6879,7 @@ if __name__ == "__main__":
 
     journey_start()     # JOURNEY: background writer + 90-day purge for journey.db
     ack_daily_thread()  # ACK-NOTIFY: daily summary (only acts when notify_mode is "daily")
+    reminder_daily_thread()  # APPROVER-REMINDERS: daily sweep
     server = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), PortalHandler)
     print(f"[portal-api] Listening on http://127.0.0.1:{PORT}")
     print(f"[portal-api] CORS origin: {CORS_ORIGIN}")
