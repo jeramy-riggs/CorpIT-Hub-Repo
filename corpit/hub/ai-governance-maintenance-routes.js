@@ -21,6 +21,15 @@ module.exports=function({router,pool,rbac,admin,wrap,actor,id,intakeClient=requi
  });
  router.get('/intake-requests',portal,readIntakes);
  router.get('/intake-evidence',portal,readIntakes);
+ // Policy sign-offs, read live with the viewer's Portal session. Only the fields needed to match a user and link the record leave this route:
+ // no signatures, statements, IPs or audit bodies, and nothing is stored in the hub. The record link goes through Portal sign-in so a
+ // viewer without a Portal session is signed in (SSO) and returned to the record instead of getting a bare 401.
+ router.get('/policy-signoffs',portal,wrap(async(req,res)=>{
+  res.set('Cache-Control','no-store, private');
+  let d;try{d=await intakeClient.acknowledgments(req.headers.cookie);}catch(e){if(e.status===424)return res.status(424).json({error:e.message,source_origin:intakeClient.origin});throw e;}
+  res.json({checked_at:d.checked_at,source_origin:intakeClient.origin,form:d.form,label:d.label,
+   rows:d.rows.filter(r=>r.email&&!r.archived_at).map(r=>({email:String(r.email).toLowerCase(),ack_id:'ACK-'+String(r.id).padStart(6,'0'),signed_at:r.created_at,policy_version:r.policy_version,status:r.status,record_url:intakeClient.origin+'/api/auth/login?rd='+encodeURIComponent('/api/portal/acknowledgments/'+Number(r.id)+'/record')}))});
+ }));
  // Retired enrichment action: intake records are a read-only mirror, even for administrators.
  router.post('/intake-enrichment/:id',portal,(req,res)=>res.status(405).json({error:'Intake is read-only in AI Governance. Use Access Portal for intake and approval actions.'}));
 };

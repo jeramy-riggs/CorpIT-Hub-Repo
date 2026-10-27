@@ -86,3 +86,4 @@
 .risk-fixed strong{font-weight:400}
 .risk-fixed small{color:var(--muted);font-weight:400}
 .risk-edit-actions{display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--panel);padding:8px 0}
+.source-list{display:flex;flex-wrap:wrap;gap:4px}
