@@ -21,7 +21,8 @@
    const action=String(e.action||'');if(/block|deny|drop/i.test(action))p.blocked++;else if(/isolat/i.test(action))p.isolated++;else if(/allow/i.test(action))p.allowed++;else p.other++;
    if(typeof e.department==='string'&&e.department.trim())p.departments.add(e.department.trim());
   }
-  return {people:[...people.values()].map(p=>({...p,departments:[...p.departments]})).sort((a,b)=>b.total-a.total),returned:rows.length,valid,unidentified,ignored,capped:rows.length===500};
+  const dir=result.data.directory?.users||{};
+  return {people:[...people.values()].map(p=>{const d=dir[p.user.toLowerCase()];return {...p,departments:[...p.departments],directory_department:typeof d?.department==='string'&&d.department.trim()?d.department.trim():'',directory_found:!!d};}).sort((a,b)=>b.total-a.total),returned:rows.length,valid,unidentified,ignored,capped:rows.length===500,directory_error:result.data.directory?.error||''};
  }
  return {norm,count,timestamp,match,feed,build,details};
 });

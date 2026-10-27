@@ -33,7 +33,7 @@
 .ai-compact .maint-source-label{display:none!important}
 
 /* Table cells: keep the primary value and purpose, drop provenance/source sub-lines */
-.ai-compact td small:not(.inventory-purpose):not(.discovery-review-focus):not(.access-status-warning):not(.sources-status-warning){display:none!important}
+.ai-compact td small:not(.inventory-purpose):not(.discovery-review-focus):not(.access-status-warning):not(.sources-status-warning):not(.usage-department){display:none!important}
 
 /* Review decisions still need their source value, record, date and match method. */
 .ai-compact #workspace .uc-shell [data-uc-pane="review"] .sai-table td small{display:block!important}

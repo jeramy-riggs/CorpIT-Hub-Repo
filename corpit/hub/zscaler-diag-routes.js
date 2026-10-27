@@ -3004,8 +3004,29 @@ router.get('/zia/ai/detail', requireRead, guarded(async function (req, res) {
            'FROM ai_events WHERE ' + where.join(' AND ') + ' ORDER BY ts DESC LIMIT 500', params: args }
   ], { timeoutMs: 30000, label: 'AI detail (' + hours + 'h)' });
   if (!r.ok) return offloadFail(res, r);
-  return res.json({ hours: hours, count: r.results[0].length, events: r.results[0] });
+  var events = r.results[0], directory = await aiDirectoryDepartments(events);
+  return res.json({ hours: hours, count: events.length, events: events, directory: directory });
 }));
+// Entra department per returned identity, for events whose NSS record has no
+// department. Kept separate from the event's own department field so callers
+// can tell Zscaler-supplied values from directory lookups.
+async function aiDirectoryDepartments(events) {
+  var upns = Array.from(new Set(events.map(function (e) { return String(e.user || '').trim().toLowerCase(); })
+    .filter(function (u) { return u.indexOf('@') > 0; }))).slice(0, 500);
+  if (!upns.length) return { source: 'Entra', users: {} };
+  try {
+    var [rows] = await rbacPool.query(
+      'SELECT LOWER(user_principal_name) AS upn, display_name, department FROM ' +
+      '(SELECT eu.user_principal_name, eu.display_name, eu.department, ROW_NUMBER() OVER (PARTITION BY LOWER(eu.user_principal_name) ' +
+      'ORDER BY eu.seen_in_last_sync DESC, eu.last_synced_at DESC, eu.entra_id) AS rn FROM entra_users eu ' +
+      'WHERE LOWER(eu.user_principal_name) IN (?)) e1 WHERE e1.rn = 1', [upns]);
+    var users = {};
+    rows.forEach(function (x) { users[x.upn] = { department: x.department || null, display_name: x.display_name || null }; });
+    return { source: 'Entra', users: users };
+  } catch (e) {
+    return { source: 'Entra', users: {}, error: 'Entra directory lookup unavailable' };
+  }
+}
 // ═══ end CC-AI-USAGE v1.1 ═══
 
 // ═══════════════════════════════════════════════════════════════════
