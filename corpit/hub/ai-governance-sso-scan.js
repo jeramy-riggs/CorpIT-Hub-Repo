@@ -45,11 +45,14 @@ async function run(pool,{live=E.identityLive,consent=entraConsent,budgetMs=60000
  await pool.query('INSERT INTO ai_governance_source(source_key,payload,checked_by) VALUES(?,?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload),checked_by=VALUES(checked_by),checked_at=CURRENT_TIMESTAMP',[KEY,JSON.stringify(payload),SYSTEM]);
  return payload;
 }
+// Hourly, and also right after each identity refresh, so a newly linked app instance is read within one tick.
 async function scheduled(pool,options={}){
  if(Date.now()-lastFailure<15*60000)return null;
  try{
-  const [r]=await pool.query('SELECT checked_at FROM ai_governance_source WHERE source_key=?',[KEY]);
-  if(r.length&&Date.now()-new Date(r[0].checked_at).getTime()<HOUR)return null;
+  const [r]=await pool.query("SELECT source_key,checked_at FROM ai_governance_source WHERE source_key IN ('identity_access',?)",[KEY]);
+  const scan=r.find(x=>x.source_key===KEY),ia=r.find(x=>x.source_key==='identity_access');
+  const newIdentity=ia&&scan&&new Date(ia.checked_at)>new Date(scan.checked_at);
+  if(scan&&!newIdentity&&Date.now()-new Date(scan.checked_at).getTime()<HOUR)return null;
   return await run(pool,options);
  }catch(e){lastFailure=Date.now();throw e;}
 }
