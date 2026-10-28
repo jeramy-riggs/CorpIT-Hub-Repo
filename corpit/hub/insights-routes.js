@@ -220,7 +220,17 @@ router.get('/licensing', rbac.requirePage(PAGE_KEY, 'read'), async (req, res) =>
     try {
       const spGov = require('./sharepoint-governance');
       if (spGov.fetchAllData) {
-        const { summary } = await spGov.fetchAllData();
+        const { summary, sites } = await spGov.fetchAllData();
+        // Site lists for the tile drawers -- same site objects the governance
+        // dashboard renders, trimmed to the fields the drawer shows.
+        const spRow = (s) => ({ name: s.name || '', url: s.url, gb: +(s.storage_gb || 0), tier: s.tier || null,
+          last: s.last_activity ? String(s.last_activity).slice(0, 10) : null, days: s.days_inactive ?? null, ext: s.ext_sharing || null });
+        const all = Array.isArray(sites) ? sites : [];
+        const bySize = (a, b) => (b.storage_gb || 0) - (a.storage_gb || 0);
+        const topStorage = all.slice().sort(bySize).slice(0, 100).map(spRow);
+        const inactive = all.filter((s) => ['never', 'critical', 'high'].includes(s.tier))
+          .sort((a, b) => (b.days_inactive || 1e9) - (a.days_inactive || 1e9)).map(spRow);
+        const extSharing = all.filter((s) => s.ext_sharing === 'On').sort(bySize).map(spRow);
         const storageCost = costs.find((c) => c.sku_part_number === 'SHAREPOINTSTORAGE');
         sharePoint = {
           totalSites: summary.total_sites, totalStorageGb: summary.total_gb,
@@ -230,6 +240,7 @@ router.get('/licensing', rbac.requirePage(PAGE_KEY, 'read'), async (req, res) =>
           extraStorageMonthlyCost: storageCost ? +storageCost.total_monthly : null,
           extraStorageGb: storageCost ? +storageCost.qty : null,
           seedAsOf: summary.seed_as_of,
+          topStorage, topStorageTruncated: all.length > 100, inactive, extSharing,
         };
       }
     } catch (err) {
@@ -1585,7 +1596,7 @@ router.get('/paid-usage/employee', rbac.requirePage(PAGE_KEY, 'read'), async (re
 // per-user usage source returns status 'insufficient' with the reason instead
 // of a number. People are deduplicated through ENTRA1 (see above).
 const RENEWAL_BUFFER = 0.05;      // policy assumption, disclosed in the UI
-const RENEWAL_COPILOT_RATE = 30;  // confirmed billed rate; matches /licensing and AI Usage & Credits
+const RENEWAL_COPILOT_RATE = 28;  // keep equal to COPILOT_UNIT_COST_ALIGNED in /licensing (changed 30 -> 28 on 2026-10-27)
 const RENEWAL_METHODS = {
   SPE_E3: { license: 'MICROSOFT 365 E3', kind: 'workloads',
     definition: 'Active = used 3-4 of Exchange, Teams, SharePoint and OneDrive in the period; Low = 1-2; Inactive = none. Source: Microsoft 365 usage reports (last-activity date per workload). Business rule, not a Microsoft-defined metric.' },
@@ -1659,7 +1670,7 @@ router.get('/renewal-planning', rbac.requirePage(PAGE_KEY, 'read'), async (req, 
         sku: s.sku, name: friendly(s.sku), purchased: Number(s.enabled), assigned: Number(s.consumed),
         contractQty: s.contractQty != null ? Number(s.contractQty) : null,
         unitMonthly: isCopilot ? RENEWAL_COPILOT_RATE : Number(s.unitMonthly),
-        unitSource: isCopilot ? 'confirmed billed rate ($30/seat)' : 'cost table (manually maintained)',
+        unitSource: isCopilot ? `billed rate ($${RENEWAL_COPILOT_RATE}/seat, same as Licensing & Cost)` : 'cost table (manually maintained)',
       };
       base.contractQtyDiffers = base.contractQty != null && base.contractQty !== base.purchased;
       const method = RENEWAL_METHODS[s.sku];

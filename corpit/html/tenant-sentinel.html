@@ -1456,9 +1456,9 @@ function renderInsight(kind){
         `${sp.totalSites} sites · ${tb} TB in use \u00b7 site data as of ${sp.seedAsOf||'unknown'} <small style="color:var(--ink-3)">(from SharePoint Governance \u2014 same live data, not a separate calculation)</small>`;
       const critHigh=sp.inactiveCritical+sp.inactiveHigh;
       document.getElementById('sharePointTiles').innerHTML=
-        `<div class="tile"><div class="n">${tb}<span style="font-size:12px;color:var(--ink-3)"> TB</span></div><div class="l" style="font-weight:600;color:var(--ink)">Storage in use</div><div class="l" style="margin-top:4px">across ${sp.totalSites} sites</div></div>`
-        +`<div class="tile"><div class="n" style="color:${critHigh>0?cssv('--high'):cssv('--pass')}">${critHigh}</div><div class="l" style="font-weight:600;color:var(--ink)">Sites inactive 1+ years</div><div class="l" style="margin-top:4px">${sp.inactiveCritical} never/2+ yrs, ${sp.inactiveHigh} 1-2 yrs</div></div>`
-        +`<div class="tile"><div class="n" style="color:${sp.extSharingOnCount>0?cssv('--med'):cssv('--pass')}">${sp.extSharingOnCount}</div><div class="l" style="font-weight:600;color:var(--ink)">Sites with external sharing on</div><div class="l" style="margin-top:4px">worth a periodic review</div></div>`;
+        `<div class="tile" style="cursor:pointer" title="Click for the site list" onclick="openSpDrawer('storage')"><div class="n">${tb}<span style="font-size:12px;color:var(--ink-3)"> TB</span></div><div class="l" style="font-weight:600;color:var(--ink)">Storage in use</div><div class="l" style="margin-top:4px">across ${sp.totalSites} sites · click for sites</div></div>`
+        +`<div class="tile" style="cursor:pointer" title="Click for the site list" onclick="openSpDrawer('inactive')"><div class="n" style="color:${critHigh>0?cssv('--high'):cssv('--pass')}">${critHigh}</div><div class="l" style="font-weight:600;color:var(--ink)">Sites inactive 1+ years</div><div class="l" style="margin-top:4px">${sp.inactiveCritical} never/2+ yrs, ${sp.inactiveHigh} 1-2 yrs · click for sites</div></div>`
+        +`<div class="tile" style="cursor:pointer" title="Click for the site list" onclick="openSpDrawer('ext')"><div class="n" style="color:${sp.extSharingOnCount>0?cssv('--med'):cssv('--pass')}">${sp.extSharingOnCount}</div><div class="l" style="font-weight:600;color:var(--ink)">Sites with external sharing on</div><div class="l" style="margin-top:4px">worth a periodic review · click for sites</div></div>`;
     }
     // savings opportunities (paid, idle)
     const over=(d.overProvisioned||[]).filter(s=>s.unassigned>0);
@@ -2432,6 +2432,36 @@ function openRenewalTotalsDrawer(){
     t.ok.map(s => { const p = s.periods[rpDays]; return rpStep(rpEsc(s.name), `${s.purchased} → ${p.recommended}`, `needed ${p.needed} · change ${rpSigned(p.change)} · ${rpMoney(p.monthlyImpact)}/mo`); }).join('') +
     (t.excluded.length ? `<h4 style="margin-top:16px">Not evaluated</h4>` + t.excluded.map(s => rpStep(rpEsc(s.name), `${s.purchased} seats`, rpEsc(s.reason))).join('') : '') +
     `<p style="color:var(--ink-3);font-size:11.5px;margin-top:12px">Change the period above to see how the recommendation moves. 90 days is the most conservative basis for an annual commitment.</p>`);
+}
+
+/* ---------- SharePoint tile drawers (Licensing & Cost) ----------
+ * Lists come from SharePoint Governance's own site data (same fetchAllData()
+ * call that feeds the tiles). Every site row opens the site in a new tab. */
+const SP_DRAWERS = {
+  storage:  { title: 'Storage in use, by site', key: 'topStorage', sub: 'Largest sites first · same data as the SharePoint Governance dashboard', note: 'Storage per site from Microsoft Graph. Totals match the SharePoint Governance dashboard.' },
+  inactive: { title: 'Sites inactive 1+ years', key: 'inactive',   sub: 'Longest inactive first · critical = never active or 2+ years, high = 1–2 years', note: 'Inactive sites keep their permissions and content. Candidates for a lifecycle review with the owner before archiving.' },
+  ext:      { title: 'Sites with external sharing on', key: 'extSharing', sub: 'Sorted by size · external sharing setting from the SharePoint Governance seed', note: 'External sharing is a site setting, not evidence of actual sharing. Review each with its owner; turn off where no external party needs access.' },
+};
+const spTier = (t) => ({never:'never active', critical:'2+ yrs', high:'1–2 yrs', medium:'6–12 mo', watch:'3–6 mo', active:'active'}[t] || t || '');
+function openSpDrawer(kind){
+  const d = window._licData, sp = d && d.sharePoint, cfg = SP_DRAWERS[kind]; if(!sp || !cfg) return;
+  const list = sp[cfg.key] || [];
+  const rows = list.map(s =>
+    `<div class="row" style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">` +
+    `<span style="font-size:13px;min-width:0"><a href="${rpEsc(s.url)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none">${rpEsc(s.name || s.url)}</a>` +
+    `<div style="font-size:11.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${rpEsc(s.url)}</div></span>` +
+    `<span class="mono" style="font-size:11.5px;color:var(--ink-3);white-space:nowrap;text-align:right">${s.gb >= 1 ? s.gb.toFixed(1) + ' GB' : Math.round(s.gb * 1024) + ' MB'}` +
+    `<div>${kind === 'storage' ? spTier(s.tier) : (s.last ? 'last active ' + s.last : 'never active')}${kind === 'inactive' && s.days ? ' · ' + s.days + 'd' : ''}</div></span></div>`).join('');
+  rpOpen(cfg.title, `${list.length} sites · ${cfg.sub}`,
+    `<p style="color:var(--ink-2);font-size:12.5px;margin:0 0 10px">${cfg.note} Click a site to open it.</p>` +
+    (list.length ? `<button class="btn" style="font-size:11px;margin-bottom:10px" onclick="exportSpList('${kind}')">⬇ Export CSV</button>` : '') +
+    (rows || '<div style="color:var(--ink-3);font-size:13px">None.</div>') +
+    (sp[cfg.key + 'Truncated'] ? `<div style="color:var(--ink-3);font-size:12px;margin-top:8px">Showing the largest ${list.length}; the full list is on the SharePoint Governance dashboard.</div>` : ''));
+}
+function exportSpList(kind){
+  const sp = window._licData && window._licData.sharePoint, cfg = SP_DRAWERS[kind]; if(!sp || !cfg) return;
+  csvDownloadRows(`sharepoint-${kind}.csv`, ['Site','URL','Storage GB','Tier','Last activity','Days inactive','External sharing'],
+    (sp[cfg.key] || []).map(s => [s.name || '', s.url, s.gb, s.tier || '', s.last || '', s.days ?? '', s.ext || '']));
 }
 
 function csvDownloadRows(filename, header, rows){
