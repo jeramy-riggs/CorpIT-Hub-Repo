@@ -142,7 +142,7 @@ async function identityLive(instances,{fetchImpl=fetch,getToken=()=>require('./e
    }else{
     if(!oktaOrigin||!oktaToken)return errors.push({provider:'Okta',id:x.id,error:'Okta API is not configured'});
     const a=await get('Okta','/api/v1/apps/'+encodeURIComponent(x.id));
-    results.push({...x,name:a.label||x.name,mode:a.signOnMode||null,enabled:a.status==='ACTIVE',owners:null});
+    results.push({...x,name:a.label||x.name,mode:a.signOnMode||null,enabled:a.status==='ACTIVE',owners:null,okta_name:a.name||null});
    }
   }catch(e){errors.push({provider:x.provider,id:x.id,error:e.code||(/Timeout|Abort/.test(e.name)?'timeout':'request failed')});}
  };
@@ -561,4 +561,4 @@ async function auditTrail(pool){
  const [rows]=await pool.query("SELECT a.id,a.actor,a.action,a.catalog_id,a.entity_id,a.before_json,a.after_json,a.created_at,c.app_name FROM ai_governance_audit a LEFT JOIN ai_catalog c ON c.id=a.catalog_id WHERE a.action LIKE 'use\\_case\\_%' ORDER BY a.id DESC LIMIT 300");
  return rows.map(r=>({...r,before_json:parse(r.before_json),after_json:parse(r.after_json),created_at:iso(r.created_at)}));
 }
-module.exports={run,scheduled,decide,candidateAction,view,evidenceRefs,auditTrail,summary,fieldState,intakeFacts,governanceFacts,identityFacts,rapid7Facts,identityLive,clean,fingerprint,AUTO,PROTECTED,REQUIRED,SUMMARY,SYSTEM};
+module.exports={FEDERATED,run,scheduled,decide,candidateAction,view,evidenceRefs,auditTrail,summary,fieldState,intakeFacts,governanceFacts,identityFacts,rapid7Facts,identityLive,clean,fingerprint,AUTO,PROTECTED,REQUIRED,SUMMARY,SYSTEM};
