@@ -883,6 +883,27 @@ function callTenantHealth(req, p, timeoutMs) {
   });
 }
 
+// The overview waits at most OVERVIEW_VENDOR_WAIT_MS per vendor. A slower probe keeps running and
+// its answer is remembered, so the next overview shows it; until then that vendor reads as its last
+// known state (if recent) or unknown. A slow vendor (Graph timing out on Intune) no longer holds up
+// the whole page.
+const OVERVIEW_VENDOR_WAIT_MS = 2500;
+const LAST_VENDOR_MAX_AGE_MS = 15 * 60 * 1000;
+const _lastVendor = {};
+function overviewVendorState(req, a) {
+  const full = callTenantHealth(req, a.path, 9000).then(function (r) {
+    const s = r.ok ? vendorState((r.body || {}).state) : 'unknown';
+    _lastVendor[a.key] = { state: s, at: Date.now() };
+    return s;
+  });
+  const wait = new Promise(function (resolve) { setTimeout(resolve, OVERVIEW_VENDOR_WAIT_MS, null); });
+  return Promise.race([full, wait]).then(function (s) {
+    if (s != null) return s;
+    const last = _lastVendor[a.key];
+    return last && Date.now() - last.at < LAST_VENDOR_MAX_AGE_MS ? last.state : 'unknown';
+  });
+}
+
 router.get('/apis', needRead, async function (req, res) {
   try {
     const metrics = apiMetrics ? apiMetrics.snapshot() : { windowMin: null, prefixes: {} };
@@ -1457,10 +1478,7 @@ router.get('/overview', needRead, async function (req, res) {
           internalTotal++;
           if (metrics.prefixes[p].requests > 0 && metrics.prefixes[p].errorRatePct >= errT.warn) degradedInternal++;
         });
-        const ext = await Promise.all(EXTERNAL_APIS.map(async function (a) {
-          const r = await callTenantHealth(req, a.path, 9000);
-          return r.ok ? vendorState((r.body || {}).state) : 'unknown';
-        }));
+        const ext = await Promise.all(EXTERNAL_APIS.map(function (a) { return overviewVendorState(req, a); }));
         return {
           internalActive: internalTotal, internalDegraded: degradedInternal,
           externalTotal: ext.length,

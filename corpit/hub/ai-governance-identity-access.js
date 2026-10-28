@@ -1,9 +1,13 @@
 'use strict';
 // Identity reads only. Rows are stored in a separate, permission-gated snapshot.
 const {target,oktaNext}=require('./ai-governance-access-transport');
+// Enterprise apps here are often named "SSO-<app>" or "<app>.ai"; try the bare app name when the full label matches nothing.
+const sourceMatch=require('./ai-governance-sources-routes').match;
+const bareName=name=>String(name||'').trim().replace(/^sso[\s_-]+/i,'').replace(/\.(ai|com|io|app|net)$/i,'').trim();
+function linkMatch(name,aliases,catalog){return sourceMatch(name,aliases,catalog)||(bareName(name)&&bareName(name)!==String(name).trim()?sourceMatch(bareName(name),aliases,catalog):null);}
 async function collect({catalog,runId,fetchImpl=fetch,getToken=()=>require('./entra-sync').getAccessToken(),oktaOrigin=process.env.OKTA_BASE_URL,oktaToken=process.env.OKTA_API_TOKEN,now=Date.now}){
  const started=now(),deadline=started+180000,maxRequests=150,maxRows=10000,checked_at=new Date(started).toISOString();let requests=0,token;
- const checks=[],users=new Map(),profiles=new Map(),groups=new Map(),instances=[],blocked=new Map(),match=require('./ai-governance-sources-routes').match;
+ const checks=[],users=new Map(),profiles=new Map(),groups=new Map(),instances=[],blocked=new Map(),match=linkMatch;
  async function read(provider,path,{single=false}={}){
   const rows=[],visited=new Set();let next=path,status=null,reason='complete',pages=0;
   while(next){

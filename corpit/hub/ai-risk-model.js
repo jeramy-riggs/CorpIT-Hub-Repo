@@ -27,9 +27,10 @@ function validate(body) {
   return out;
 }
 function assessment(app, now=new Date()) {
-  const p=parsed(app.risk_profile), account=parsed(app.corporate_account);
+  // sso_federated: enabled SAML / OIDC instances from the hourly SSO scan; they win over the account record.
+  const p=parsed(app.risk_profile), account=parsed(app.corporate_account), fed=app.sso_federated||[];
   const data={...p,name:app.app_name||'',what:app.business_purpose||'',cat:app.category||'',bowner:app.owner||'',vendor:app.vendor||'',
-    sso:account.sso_status==='configured'?'Yes':account.sso_status==='reported'?'Partial':account.sso_status==='not_applicable'?'N/A':''};
+    sso:fed.length?'Yes':account.sso_status==='configured'?'Yes':account.sso_status==='reported'?'Partial':account.sso_status==='not_applicable'?'N/A':''};
   const conditional=new Set();
   if (data.agentic==='Yes') conditional.add('agtools');
   if (data.client==='Yes') conditional.add('clients');
@@ -41,7 +42,7 @@ function assessment(app, now=new Date()) {
     const state=!v?'missing':unknown || (f.key==='sso'&&v==='Partial')?'partial':'available';
     const controlGap=(f.key==='siem'&&['No','Partial','Unknown'].includes(v))||(f.key==='sso'&&['No','Partial'].includes(v))||(f.key==='training'&&data.third==='Yes'&&['Unknown','Not prohibited'].includes(v));
     return {control_gap:controlGap,key:f.key,label:f.label,section:f.section,required:!!f.required||conditional.has(f.key),state,value:v,
-      source:baseKeys.has(f.key)?f.key==='sso'?'Corporate account record':'Application catalog':'Risk assessment'};
+      source:baseKeys.has(f.key)?f.key==='sso'?(fed.length?'Entra / Okta sign-on setup: '+fed.map(x=>x.provider+' “'+x.name+'” ('+x.mode+')').join('; '):'Corporate account record'):'Application catalog':'Risk assessment'};
   });
   const required=coverage.filter(f=>f.required), complete=required.filter(f=>f.state==='available').length;
   const triggers=[];
