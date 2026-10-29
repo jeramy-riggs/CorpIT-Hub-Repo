@@ -1,0 +1,300 @@
+/* Network Operations (network-health, network-switches, device-trace): Apple-style facelift. Presentation only; loads last, after noc-portal.css
+   and network-ops.css, and is scoped to those three body[data-op-page] values so no other governance page changes.
+   System type with size-specific tracking, neutral grey surfaces, hairline edges, capsule controls, an iOS segmented
+   control for the views and a translucent vitals strip over the banner edge. Status hues (--o-sig/--o-slow/--o-fault)
+   and the --chip-* pairs are data colours and are left as the shell defines them. Remove the <link> to undo. */
+
+/* ── Tokens. Light first; dark mirrors noc-portal.css's two dark selectors. ── */
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) {
+  --o-bg: #f5f5f7; --o-bg2: #fbfbfd; --o-panel: #fff; --o-panel2: #f5f5f7;
+  --o-line: #d2d2d7; --o-hair: #e8e8ed;
+  --o-ink: #1d1d1f; --o-dim: #6e6e73; --o-faint: #6e6e73; --o-off: #86868b;
+  --o-mint: #0066cc; --o-mint-bright: #0071e3; --o-mint-wash: #0066cc14; --o-btn-ink: #fff;
+  --o-live: #0066cc; --o-focus: #0071e3;
+  --o-shadow: 0 0 0 .5px #0000000f, 0 1px 2px #0000000a, 0 4px 14px -6px #00000014;
+  --np-elev-2: 0 0 0 .5px #00000014, 0 2px 6px #0000000d, 0 16px 36px -14px #00000029;
+  --ap-fill: #7676801f; --ap-fill-hover: #76768029;
+  --ap-glass: #ffffffc7; --ap-pill: #fff;
+  --ap-pill-shadow: 0 3px 8px #0000001f, 0 3px 1px #0000000a;
+  --ap-ease: cubic-bezier(.2, .8, .2, 1);
+  --n-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --ap-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --n-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --n-r: 16px;
+  -webkit-font-smoothing: antialiased;
+  font-family: var(--n-sans);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) {
+    --o-bg: #000; --o-bg2: #0d0d0f; --o-panel: #1c1c1e; --o-panel2: #2c2c2e;
+    --o-line: #38383a; --o-hair: #2c2c2e;
+    --o-ink: #f5f5f7; --o-dim: #aeaeb2; --o-faint: #98989d; --o-off: #8e8e93;
+    --o-mint: #2997ff; --o-mint-bright: #64b0ff; --o-mint-wash: #2997ff24; --o-btn-ink: #fff;
+    --o-live: #2997ff; --o-focus: #64b0ff;
+    --o-shadow: 0 0 0 .5px #ffffff14, 0 1px 2px #00000080;
+    --np-elev-2: 0 0 0 .5px #ffffff1f, 0 2px 6px #00000080, 0 18px 40px -16px #000000cc;
+    --ap-fill: #7676803d; --ap-fill-hover: #7676804d;
+    --ap-glass: #1c1c1ecc; --ap-pill: #636366;
+    --ap-pill-shadow: 0 3px 8px #0000004d, 0 3px 1px #0000001f;
+  }
+}
+:root[data-theme="dark"] body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) {
+  --o-bg: #000; --o-bg2: #0d0d0f; --o-panel: #1c1c1e; --o-panel2: #2c2c2e;
+  --o-line: #38383a; --o-hair: #2c2c2e;
+  --o-ink: #f5f5f7; --o-dim: #aeaeb2; --o-faint: #98989d; --o-off: #8e8e93;
+  --o-mint: #2997ff; --o-mint-bright: #64b0ff; --o-mint-wash: #2997ff24; --o-btn-ink: #fff;
+  --o-live: #2997ff; --o-focus: #64b0ff;
+  --o-shadow: 0 0 0 .5px #ffffff14, 0 1px 2px #00000080;
+  --np-elev-2: 0 0 0 .5px #ffffff1f, 0 2px 6px #00000080, 0 18px 40px -16px #000000cc;
+  --ap-fill: #7676803d; --ap-fill-hover: #7676804d;
+  --ap-glass: #1c1c1ecc; --ap-pill: #636366;
+  --ap-pill-shadow: 0 3px 8px #0000004d, 0 3px 1px #0000001f;
+}
+html:has(> body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"])) { background: var(--o-bg); }
+
+/* ── Chrome: rail and header stay dark; a neutral graphite instead of navy, glass controls on the banner. ── */
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nside { background: #1c1c1e; border-right-color: #2c2c2e; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nitem { border-radius: 9px; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nitem[aria-current="page"] { background: #ffffff1f; box-shadow: none; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .ntop .ncrumb h1 {
+  font-family: var(--ap-display); font-size: 34px; font-weight: 700; letter-spacing: -.022em; line-height: 1.08;
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .ncrumb .sub { font-size: 13px; font-weight: 500; letter-spacing: -.005em; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .ntop .nsearch input {
+  border-radius: 10px; border-color: transparent; background: #ffffff1f;
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .ntop .nsearch input:focus { background: #00000059; border-color: #64b0ff; box-shadow: 0 0 0 4px #2997ff40; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .ntop :is(.nbtn, .act .nbtn) {
+  border-radius: 999px; border-color: #ffffff2e; background: #ffffff1f; font-weight: 600;
+  -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Vitals: a translucent material riding the banner edge; the right-edge fade follows the same glass. */
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nvit {
+  border-color: transparent; border-radius: 18px; background: var(--ap-glass);
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nvit::after { background: linear-gradient(90deg, transparent, var(--ap-glass) 70%); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nv { border-right-color: var(--o-hair); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nv .k { font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--o-dim); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nv .v { font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
+
+/* ── Controls: iOS segmented views, filled capsule buttons, rounded selects. ── */
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nseg {
+  padding: 2px; gap: 0; border: 0; border-radius: 9px; background: var(--ap-fill);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nseg button {
+  padding: 5px 14px; border-radius: 7px; font-size: 13px; font-weight: 500; letter-spacing: -.005em; color: var(--o-ink);
+  transition: background-color 200ms var(--ap-ease), box-shadow 200ms var(--ap-ease), transform 120ms var(--ap-ease);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nseg button:is(.on, [aria-pressed="true"], [aria-selected="true"]) {
+  background: var(--ap-pill); color: var(--o-ink); font-weight: 600; box-shadow: var(--ap-pill-shadow);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nbody .nbtn {
+  height: 32px; padding: 0 14px; border-radius: 999px; border-color: transparent;
+  background: var(--ap-fill); color: var(--o-mint); font-size: 13px; font-weight: 600; letter-spacing: -.005em;
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nbody .nbtn.pri { background: var(--o-mint); color: var(--o-btn-ink); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nbody :is(.op-input, select, input[type="search"], input[type="text"]) {
+  border-radius: 9px; border-color: transparent; background-color: var(--ap-fill); color: var(--o-ink); font-size: 13px;
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nbody :is(.op-input, select, input):focus-visible {
+  outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--o-focus) 35%, transparent);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .ops-toolbar label { font-size: 13px; color: var(--o-dim); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) :is(.claim, .owner, .qex, .fbtn) { border-radius: 999px; }
+@media (hover: hover) {
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nseg button:not(.on):not([aria-pressed="true"]):not([aria-selected="true"]):hover { background: #ffffff38; }
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nbody .nbtn:not(.pri):hover { background: var(--ap-fill-hover); color: var(--o-mint); border-color: transparent; }
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nbody .nbtn.pri:hover { background: var(--o-mint-bright); }
+}
+
+/* ── Surfaces: larger radius, hairline edge in the shadow instead of a border, calm hierarchy. ── */
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nbody { padding-top: 24px; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .ngrid { gap: 14px; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) :is(.ncard, .nkpi, .u-card, .u-stat, .u-note) {
+  border-color: transparent; border-radius: var(--n-r);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nch { border-bottom-color: var(--o-hair); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nch h2 { font-family: var(--ap-display); font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) :is(h2, h3) { letter-spacing: -.015em; }
+
+/* KPIs: the side stripe becomes a status dot on the label; the number carries the weight. */
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi { padding: 14px 16px 15px; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi::before { display: none; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi .k {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; letter-spacing: -.005em; text-transform: none; color: var(--o-dim);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi:is(.good, .warn, .bad, .info) .k::before {
+  content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--o-off);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi:is(.good, .warn, .bad, .info) .k svg { display: none; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi.good .k::before { background: var(--o-sig); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi.warn .k::before { background: var(--o-slow); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi.bad .k::before { background: var(--o-fault); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi.info .k::before { background: var(--o-mint); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi .v {
+  margin-top: 4px; font-family: var(--ap-display); font-size: 30px; font-weight: 600; letter-spacing: -.025em;
+  line-height: 1.05; font-variant-numeric: tabular-nums;
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi .v small { font-size: 15px; font-weight: 500; letter-spacing: -.01em; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nkpi .s { font-size: 12px; font-weight: 400; line-height: 1.4; }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nmeter { height: 5px; background: var(--ap-fill); }
+
+/* Chips and tables: sentence case, capsule chips, quieter headers. */
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .sev {
+  font-family: var(--n-sans); font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none;
+  padding: 2px 9px; border-radius: 999px;
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) table.nt th {
+  font-size: 12px; font-weight: 600; letter-spacing: -.005em; text-transform: none; color: var(--o-dim);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) table.nt :is(td, th) { border-color: var(--o-hair); }
+
+/* Overview panels: the left accent bars become a status dot; site tiles are filled, not outlined. */
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) #ops-overview .overview-freshness {
+  align-items: center; border: 0; border-radius: 14px; background: var(--o-panel); box-shadow: var(--o-shadow);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) #ops-overview .overview-freshness b::before {
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%;
+  vertical-align: 1px; background: var(--o-sig);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) #ops-overview .overview-freshness.stale b::before { background: var(--o-slow); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) #ops-overview .overview-site {
+  border-color: transparent; border-radius: 12px; background: var(--o-panel2);
+  transition: background-color 200ms var(--ap-ease), transform 120ms var(--ap-ease);
+}
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) #ops-overview .overview-site:hover { border-color: transparent; background: var(--o-hair); }
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) #ops-overview .overview-site:active { transform: scale(.985); }
+
+/* ── Motion: press feedback on the press, eased like a critically damped spring. ── */
+body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) :is(.nbtn, .nburger, .nseg button, .claim, .owner, .qex, .nitem, button.nkpi) {
+  transition-timing-function: var(--ap-ease);
+}
+
+/* ── Accessibility: reduced motion, reduced transparency, more contrast. ── */
+@media (prefers-reduced-motion: reduce) {
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) :is(.nseg button, #ops-overview .overview-site) { transition: background-color 150ms ease; }
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) #ops-overview .overview-site:active { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) { --ap-glass: var(--o-panel); }
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) :is(.nvit, .ntop .nsearch input, .ntop .nbtn) { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .ntop :is(.nbtn, .nsearch input) { background: #2c2c2e; }
+}
+@media (prefers-contrast: more) {
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) { --ap-glass: var(--o-panel); --o-dim: var(--o-ink); }
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) :is(.ncard, .nkpi, .nvit, .nseg, .nbody .nbtn, .nbody .op-input, #ops-overview .overview-site, #ops-overview .overview-freshness) {
+    border: 1px solid var(--o-ink);
+  }
+}
+@media print {
+  body.u.cmd.noc:is([data-op-page="network-health"],[data-op-page="network-switches"],[data-op-page="device-trace"]) .nvit { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+
+/* BEGIN Network Health refinement — 2026-10-29 */
+/* Network Health overview refinement. Scoped to this DEV page only. */
+body.u.cmd.noc[data-op-page="network-health"] .ntop {
+  height: 208px;
+  min-height: 208px;
+}
+body.u.cmd.noc[data-op-page="network-health"] .ntop .ncrumb {
+  padding-top: 16px;
+  padding-bottom: 37px;
+}
+body.u.cmd.noc[data-op-page="network-health"] .nvit {
+  min-height: 52px;
+  margin-top: -27px;
+  box-shadow: 0 10px 28px -16px #00000045, 0 1px 2px #0000000d;
+}
+body.u.cmd.noc[data-op-page="network-health"] .nv .k {
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+body.u.cmd.noc[data-op-page="network-health"] .nv .v {
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Give the two triage figures a little more room without adding another row. */
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+}
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis > .c2 {
+  flex: 1 1 0;
+  min-width: 0;
+}
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis > .c2:first-child { flex-grow: 1.45; }
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis > .c2:nth-child(2) { flex-grow: 1.15; }
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis .nkpi {
+  height: 100%;
+  min-height: 133px;
+  padding: 15px 16px 14px;
+}
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis .nkpi.bad {
+  background: linear-gradient(155deg, color-mix(in srgb, var(--o-fault) 9%, var(--o-panel)), var(--o-panel) 64%);
+  box-shadow: inset 0 3px var(--o-fault), var(--o-shadow);
+}
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis .nkpi.warn {
+  background: linear-gradient(155deg, color-mix(in srgb, var(--o-slow) 7%, var(--o-panel)), var(--o-panel) 68%);
+  box-shadow: inset 0 3px var(--o-slow), var(--o-shadow);
+}
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis > .c2:first-child .v {
+  font-size: 40px;
+  letter-spacing: -.035em;
+}
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis > .c2:nth-child(2) .v { font-size: 35px; }
+body.u.cmd.noc[data-op-page="network-health"] #oh-kpis .nkpi .s { line-height: 1.35; }
+
+/* Make section labels read as navigation through a working dashboard. */
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-section-head {
+  margin-top: 25px;
+  margin-bottom: 10px;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-section-head h2 {
+  font-family: var(--ap-display);
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -.022em;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-section-head p {
+  font-size: 12px;
+  line-height: 1.4;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site {
+  padding: 14px 15px;
+  border: 1px solid transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--o-line) 58%, transparent);
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site-head strong { font-size: 14px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site-facts { font-size: 11.5px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site:hover {
+  background: color-mix(in srgb, var(--o-mint) 6%, var(--o-panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--o-mint) 28%, transparent);
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row {
+  min-height: 49px;
+  padding: 9px 8px;
+  border-radius: 8px;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row b { font-size: 12px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row small { font-size: 10.5px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row:hover {
+  background: color-mix(in srgb, var(--o-fault) 6%, var(--o-panel));
+}
+body.u.cmd.noc[data-op-page="network-health"] #oh-trend .nchart { height: 196px; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site:active { transform: none; }
+}
+@media (prefers-contrast: more) {
+  body.u.cmd.noc[data-op-page="network-health"] #oh-kpis .nkpi,
+  body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site { border: 1px solid var(--o-ink); }
+}
+
+/* END Network Health refinement — 2026-10-29 */

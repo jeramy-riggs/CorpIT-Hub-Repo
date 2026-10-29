@@ -132,6 +132,17 @@ def main():
         for f in as_completed({ex.submit(poll,ip):ip for ip in targets}):
             results.append(f.result())
 
+    # ARP and VLAN walks are network I/O. Do them before opening the write
+    # transaction so the hub's writes (watch, claim) are not locked out for
+    # the whole SNMP run.
+    arp_rows=[]
+    for core in SEEDS:
+        try: arp_rows.extend(list(collect_arp(core)))
+        except Exception as e: print(f"# arp {core}: {e}", file=sys.stderr)
+    reach_ips=[r["ip"] for r in results if r.get("reachable")]
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        vmap=dict(zip(reach_ips, ex.map(lambda i: collect_vlans(i), reach_ips)))
+
     os.makedirs(os.path.dirname(DBPATH), exist_ok=True)
     db=connect_durable(DBPATH); ensure_schema(db)
     now=int(time.time())
@@ -153,22 +164,16 @@ def main():
                    (r["ip"],now,r["if_up"],r["if_total"]))
     db.execute("DELETE FROM net_samples WHERE ts < ?", (now-7*86400,))  # keep 7d
     # ARP cache (IP<->MAC) from cores
-    for core in SEEDS:
-        try:
-            for ip,mac,c in collect_arp(core):
-                db.execute("INSERT INTO net_arp(ip,mac,core,ts) VALUES(?,?,?,?) "
-                           "ON CONFLICT(ip) DO UPDATE SET mac=excluded.mac,core=excluded.core,ts=excluded.ts",
-                           (ip,mac,c,now))
-                db.execute("INSERT INTO net_arp_seen(ip,mac,first_seen,last_seen) VALUES(?,?,?,?) "
-                           "ON CONFLICT(ip,mac) DO UPDATE SET last_seen=excluded.last_seen",
-                           (ip,mac,now,now))
-        except Exception as e: print(f"# arp {core}: {e}", file=sys.stderr)
+    for ip,mac,c in arp_rows:
+        db.execute("INSERT INTO net_arp(ip,mac,core,ts) VALUES(?,?,?,?) "
+                   "ON CONFLICT(ip) DO UPDATE SET mac=excluded.mac,core=excluded.core,ts=excluded.ts",
+                   (ip,mac,c,now))
+        db.execute("INSERT INTO net_arp_seen(ip,mac,first_seen,last_seen) VALUES(?,?,?,?) "
+                   "ON CONFLICT(ip,mac) DO UPDATE SET last_seen=excluded.last_seen",
+                   (ip,mac,now,now))
     db.execute("DELETE FROM net_arp WHERE ts < ?", (now-3600,))
     db.execute("DELETE FROM net_arp_seen WHERE last_seen < ?", (now-30*86400,))
-    # per-switch VLAN cache (reachable switches)
-    reach_ips=[r["ip"] for r in results if r.get("reachable")]
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        vmap=dict(zip(reach_ips, ex.map(lambda i: collect_vlans(i), reach_ips)))
+    # per-switch VLAN cache (reachable switches, walked above)
     for sip,vls in vmap.items():
         for vl in vls:
             db.execute("INSERT INTO net_vlans(switch_ip,vlan,ts) VALUES(?,?,?) "

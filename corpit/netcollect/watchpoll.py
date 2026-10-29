@@ -84,20 +84,40 @@ def sample_device(ref, db):
     ip = ref if re.match(r'^\d+\.\d+\.\d+\.\d+$', ref) else None
     mac = None if ip else ref.lower()
     if not ip and mac:
-        row = db.execute("SELECT ip FROM net_arp WHERE mac=?", (mac,)).fetchone()
+        row = db.execute("SELECT ip, ts FROM net_arp WHERE mac=?", (mac,)).fetchone()
         ip = row[0] if row else None
+        if row: d["arp_ts"] = row[1]
     if ip: d["reach"] = ping(ip); d["ip"] = ip
     if mac or ip:
         m = mac
         if not m and ip:
-            row = db.execute("SELECT mac FROM net_arp WHERE ip=?", (ip,)).fetchone()
+            row = db.execute("SELECT mac, ts FROM net_arp WHERE ip=?", (ip,)).fetchone()
             m = row[0] if row else None
+            if row: d["arp_ts"] = row[1]
         if m:
+            # access port first: a MAC is also learned on every uplink/port-channel it crosses
             row = db.execute(
-                "SELECT switch, port, vlan FROM net_cam WHERE mac=? ORDER BY rowid LIMIT 1", (m,)).fetchone()
-            if row: d["at"] = {"switch": row[0], "port": row[1], "vlan": row[2]}
+                "SELECT switch, port, vlan, ts FROM net_cam WHERE mac=? "
+                "ORDER BY (port LIKE 'Po%' OR port = '') , rowid LIMIT 1", (m,)).fetchone()
+            if row: d["at"] = {"switch": row[0], "port": row[1], "vlan": row[2], "ts": row[3]}
             d["mac"] = m
     return d
+
+SEEN_S = 2 * 3600   # healthscan rewrites net_cam hourly; netcollect refreshes ARP more often
+
+def reach_view(data, now):
+    """What diagnose_reach needs: ping result plus whether ARP/CAM still see the device."""
+    r = dict(data["reach"]); r["icmp"] = r.get("alive")
+    at, arp = data.get("at") or {}, data.get("arp_ts")
+    seen = []
+    if at.get("ts") and now - at["ts"] < SEEN_S:
+        seen.append("learned on %s %s at %s UTC" % (at.get("switch"), at.get("port"),
+                    time.strftime("%H:%M", time.gmtime(at["ts"]))))
+    if arp and now - arp < SEEN_S:
+        seen.append("in ARP at %s UTC" % time.strftime("%H:%M", time.gmtime(arp)))
+    r["present"] = bool(seen)
+    if seen: r["evidence"] = ", ".join(seen)
+    return r
 
 def diff_events(prev, cur, kind):
     """Only say something when something actually changed."""
@@ -157,7 +177,7 @@ def main():
             data["diag"] = diagnose_port(dict(port="", descr="", **{k: data.get(k) for k in
                 ("oper","admin","speed","in_err","out_err","crc","out_disc","duplex")}, mac_count=0))
         elif kind == "device":
-            data["diag"] = diagnose_reach(data.get("reach"))
+            data["diag"] = diagnose_reach(reach_view(data, now)) if data.get("reach") else None
         db.execute("INSERT OR REPLACE INTO net_watch_samples(watch_id,ts,data) VALUES(?,?,?)",
                    (wid, now, json.dumps(data)))
         for sev, k, msg in diff_events(prev, data, kind):

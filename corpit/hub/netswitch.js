@@ -22,6 +22,7 @@ const express = require('express');
 const path    = require('path');
 const Database = require('better-sqlite3');
 const offload  = require('./sqlite-offload');   // read-only SQLite off the event loop
+const traffic = require('./network-traffic');
 const { attachIssueActivity } = require('./netswitch-activity');
 const { execFile } = require('child_process');
 const mysql = require('mysql2/promise');
@@ -39,11 +40,11 @@ const LOCATE_PY = process.env.NET_LOCATE || '/opt/corpit-netcollect/locate.py';
 
 const DB_PATH = process.env.NET_DB || '/var/www/corpit-hub-api/data/netfleet.db';
 
-function openDbRW() {
+function openDbRW(opts) {
   // watch list + claims are the one thing the UI writes. Their tables are created by
   // migrate.js at deploy time (schema/migrations.js), never here (CHG-ARCH-18);
   // fileMustExist because an empty file created here would hold none of them.
-  const db = new Database(DB_PATH, { fileMustExist: true });
+  const db = new Database(DB_PATH, Object.assign({ fileMustExist: true }, opts));
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = FULL');
   if (db.pragma('synchronous', { simple: true }) !== 2) {
@@ -51,6 +52,21 @@ function openDbRW() {
     throw new Error('SQLite writer requires synchronous=FULL');
   }
   return db;
+}
+
+// The collectors (healthscan's net_cam rebuild, watchpoll) hold the write lock for
+// seconds at a time. better-sqlite3 waits for a lock synchronously, which stalls the
+// whole hub, so each try waits briefly and the retries sleep off the event loop.
+async function writeWithRetry(fn) {
+  for (let i = 0; ; i++) {
+    let db;
+    try { db = openDbRW({ timeout: 2000 }); return fn(db); }
+    catch (e) {
+      const busy = e.code === 'SQLITE_BUSY' || /database is locked/i.test(e.message || '');
+      if (!busy || i >= 5) throw e;
+    } finally { if (db) try { db.close(); } catch (_) {} }
+    await new Promise(r => setTimeout(r, 800));
+  }
 }
 
 function openDb() {
@@ -104,6 +120,17 @@ module.exports = function buildNetswitchRouter(deps) {
   const gateAdmin = deps && typeof deps.requirePage === 'function'
     ? deps.requirePage('network-diag', 'admin')
     : (req, res, next) => next();
+
+  // Same read gate as the Network Operations workspace. All three endpoints
+  // use existing read-only upstream credentials; none configure network gear.
+  router.get('/traffic/live', traffic.live);
+  router.get('/traffic/history', traffic.history);
+  router.get('/traffic/top-users', traffic.topUsers);
+  router.get('/traffic/access', traffic.access);
+  router.get('/traffic/resolve', traffic.resolve);
+  router.get('/traffic/user-sites', traffic.userSites);
+  router.get('/traffic/domain-users', traffic.domainUsers);
+  router.get('/traffic/pinned-users', traffic.pinnedUsers);
 
   // GET /api/netswitch/fleet — full inventory + collector meta
   router.get('/fleet', (req, res) => {
@@ -535,7 +562,7 @@ module.exports = function buildNetswitchRouter(deps) {
   });
 
   // POST /api/netswitch/watch  { kind, ref, label, meta }
-  router.post('/watch', gateAdmin, express.json(), (req, res) => {
+  router.post('/watch', gateAdmin, express.json(), async (req, res) => {
     const b = req.body || {};
     const kind = String(b.kind || '').toLowerCase();
     const ref  = String(b.ref || '').trim();
@@ -551,32 +578,30 @@ module.exports = function buildNetswitchRouter(deps) {
         detail: kind === 'port' ? 'port ref must be <switch-ip>:<ifindex>'
               : kind === 'device' ? 'device ref must be an IP or MAC'
               : 'ap ref must be a serial' });
-    let db;
     try {
-      db = openDbRW();
       const who = (req.user && (req.user.email || req.user.upn || req.user.name)) || 'unknown';
-      db.prepare(`INSERT INTO net_watch(kind,ref,label,meta,created_by,created_at,active)
-                  VALUES(?,?,?,?,?,?,1)
-                  ON CONFLICT(kind,ref) DO UPDATE SET active=1, label=excluded.label, meta=excluded.meta`)
-        .run(kind, ref, String(b.label || ref).slice(0, 160),
-             b.meta ? JSON.stringify(b.meta) : null, who, Math.floor(Date.now() / 1000));
-      const row = db.prepare('SELECT * FROM net_watch WHERE kind=? AND ref=?').get(kind, ref);
+      const row = await writeWithRetry(db => {
+        db.prepare(`INSERT INTO net_watch(kind,ref,label,meta,created_by,created_at,active)
+                    VALUES(?,?,?,?,?,?,1)
+                    ON CONFLICT(kind,ref) DO UPDATE SET active=1, label=excluded.label, meta=excluded.meta`)
+          .run(kind, ref, String(b.label || ref).slice(0, 160),
+               b.meta ? JSON.stringify(b.meta) : null, who, Math.floor(Date.now() / 1000));
+        return db.prepare('SELECT * FROM net_watch WHERE kind=? AND ref=?').get(kind, ref);
+      });
       res.json({ ok: true, item: row });
     } catch (e) {
       res.status(500).json({ ok: false, error: 'WRITE_FAILED', detail: e.message });
-    } finally { if (db) try { db.close(); } catch (_) {} }
+    }
   });
 
   // DELETE /api/netswitch/watch/:id — unpin (history is kept)
-  router.delete('/watch/:id', gateAdmin, (req, res) => {
-    let db;
+  router.delete('/watch/:id', gateAdmin, async (req, res) => {
     try {
-      db = openDbRW();
-      db.prepare('UPDATE net_watch SET active=0 WHERE id=?').run(req.params.id);
+      await writeWithRetry(db => db.prepare('UPDATE net_watch SET active=0 WHERE id=?').run(req.params.id));
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ ok: false, error: 'WRITE_FAILED', detail: e.message });
-    } finally { if (db) try { db.close(); } catch (_) {} }
+    }
   });
 
   // GET /api/netswitch/watch/:id/history?hours=72 — dense samples + events
@@ -722,7 +747,7 @@ module.exports = function buildNetswitchRouter(deps) {
         } : {
           severity: 'warn', scope: 'switch', shared: false,
           title: `${impacted.length} other ports on ${edge.switch} are faulting`,
-          detail: `This device's own port is clean, but neighbours on the same switch are not (mostly ${topKind}). ` +
+          detail: `This device's own port has no open finding, but neighbours on the same switch do (mostly ${topKind}). ` +
                   `Worth knowing if the complaint is intermittent or shared.`
         };
       } else if (samePort.length && impacted.some(i => String(i.ifindex) === String(edge.ifindex))) {

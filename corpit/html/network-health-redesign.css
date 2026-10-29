@@ -1,0 +1,342 @@
+/* Network Operations overview — desktop operations briefing. */
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) {
+  --nh-canvas: #f2f5f3;
+  --nh-panel: #ffffff;
+  --nh-soft: #f0f4f1;
+  --nh-ink: #172423;
+  --nh-muted: #61716b;
+  --nh-line: #dfe7e1;
+  --nh-forest: #122b2c;
+  --nh-forest-raised: #264044;
+  --nh-lime: #a9df68;
+  --nh-fault: #ff818d;
+  --nh-warning: #f3c57b;
+  --o-bg: var(--nh-canvas);
+  --o-mint: #287548;
+  --o-mint-bright: #1e663d;
+  --o-mint-wash: #2875481c;
+  --o-focus: #4b9c62;
+}
+
+/* A compact utility bar gives the working canvas back to the page. */
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ntop {
+  min-height: 66px;
+  height: 66px;
+  flex-wrap: nowrap;
+  border-bottom: 0;
+  background: #172026;
+  box-shadow: 0 1px 0 #ffffff20;
+}
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ntop::before,
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ntop::after,
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ntop .ncrumb {
+  display: none;
+}
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ntop .nsearch {
+  order: 1;
+  flex: 0 1 440px;
+  margin: 0 auto 0 0;
+}
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ntop .act {
+  order: 2;
+  margin: 0 10px 0 0;
+}
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ntop > .cwn-trigger { order: 3; }
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ntop .ittb { order: 4; }
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .nvit { display: none; }
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .nbody {
+  padding-top: 18px;
+  padding-bottom: 56px;
+  background: var(--nh-canvas);
+}
+
+/* Scope stays available while the operator scrolls through evidence. */
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ops-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  gap: 10px;
+  min-height: 55px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border: 1px solid #ffffffb8;
+  border-radius: 15px;
+  background: #ffffffdb;
+  box-shadow: 0 4px 18px #0b251512, 0 1px 2px #0b25150d;
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ops-toolbar label {
+  color: var(--nh-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ops-toolbar .op-input {
+  background: var(--nh-soft);
+  color: var(--nh-ink);
+}
+body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ops-context { display: none; }
+
+/* One visually decisive briefing, with the familiar CorpIT banner image kept as quiet context. */
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-briefing {
+  position: relative;
+  overflow: hidden;
+  padding: 30px 32px 32px;
+  border: 1px solid #ffffff1a;
+  border-radius: 24px;
+  color: #f5faf7;
+  background:
+    linear-gradient(100deg, #0e2629f7 0%, #132d30f2 57%, #112326cc 100%),
+    url('/ai-governance-portal-banner.webp?v=1') center 58% / cover,
+    var(--nh-forest);
+  box-shadow: 0 28px 58px -36px #071b1b92, 0 3px 9px #071b1b1a;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-briefing-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #ffffff2a;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-title-block h1 {
+  margin: 0;
+  color: #f7fbf9;
+  font: 700 43px/1.04 var(--ap-display);
+  letter-spacing: -.035em;
+  font-optical-sizing: auto;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-title-block p {
+  margin: 8px 0 0;
+  color: #d5e5dd;
+  font-size: 14px;
+  line-height: 1.4;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-freshness {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  flex: 0 0 310px;
+  min-height: 58px;
+  margin: 0;
+  padding: 11px 15px;
+  border: 1px solid #ffffff2d;
+  border-radius: 14px;
+  background: #092023c7;
+  box-shadow: none;
+  color: #c5d8d0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-freshness b {
+  color: #f7faf8;
+  font-size: 13px;
+  font-weight: 650;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-freshness b::before {
+  width: 8px;
+  height: 8px;
+  margin-right: 9px;
+  background: var(--nh-lime);
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-freshness.stale b::before { background: var(--nh-warning); }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-briefing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(310px, .9fr);
+  gap: 22px;
+  align-items: stretch;
+  margin-top: 23px;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-panel-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 17px;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-panel-heading h2 {
+  margin: 0;
+  font: 650 21px/1.2 var(--ap-display);
+  letter-spacing: -.024em;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-panel-heading > span { color: #b9d0c7; font-size: 12px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-attention-grid {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-attention-totals { padding-right: 22px; border-right: 1px solid #ffffff2b; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-critical-total,
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-warning-total {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #f7faf8;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-critical-total { display: flex; flex-direction: column; padding: 0; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-critical-total strong {
+  color: var(--nh-fault);
+  font: 700 82px/.86 var(--ap-display);
+  letter-spacing: -.06em;
+  font-variant-numeric: tabular-nums;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-critical-total span { margin-top: 8px; font-size: 15px; font-weight: 650; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-rising { margin: 8px 0 23px; color: #c6d8d0; font-size: 12px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-warning-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 16px 0 0;
+  border-top: 1px solid #ffffff2b;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-warning-total strong {
+  color: var(--nh-warning);
+  font-size: 26px;
+  letter-spacing: -.025em;
+  font-variant-numeric: tabular-nums;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-warning-total span { color: #e7efea; font-size: 13px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-warning-total i { margin-left: auto; color: #d6e5dc; font-size: 19px; font-style: normal; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-investigate {
+  min-width: 0;
+  padding: 4px 0 0;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-investigate-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-investigate-heading b { font-size: 13px; font-weight: 650; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-investigate-heading small { color: #b4cbc1; font-size: 11px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-list { margin: 0 0 12px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row {
+  min-height: 57px;
+  gap: 10px;
+  padding: 9px 8px;
+  border-bottom: 1px solid #ffffff24;
+  border-radius: 8px;
+  color: #f3f8f5;
+  transition: background-color 140ms ease, transform 100ms ease;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row b { font-size: 12px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row small { color: #b8cdc4; font-size: 10.5px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row:hover { background: #ffffff14; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row:active { transform: scale(.987); }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-attention-row .sev { background: #ff818d26; color: #ff9aa3; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-review {
+  background: #d7efdb;
+  color: #153b2b;
+  border: 0;
+  font-weight: 700;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-review:hover { background: #f0fff1; color: #153b2b; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-no-findings { color: #c8dad2; font-size: 13px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview :is(.nh-critical-total, .nh-warning-total, .overview-attention-row, .overview-review):focus-visible {
+  outline: 2px solid var(--nh-lime);
+  outline-offset: 3px;
+}
+
+/* Site evidence is a solid light layer, separate from the dark priority panel. */
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-site-panel {
+  min-width: 0;
+  align-self: start;
+  padding: 21px;
+  border-radius: 19px;
+  background: var(--nh-panel);
+  color: var(--nh-ink);
+  box-shadow: 0 9px 22px #021e191c;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-site-panel .nh-panel-heading { margin-bottom: 14px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-site-panel .nh-panel-heading > span { color: var(--nh-muted); }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site-list { gap: 10px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site {
+  padding: 13px 14px;
+  border: 1px solid var(--nh-line);
+  border-radius: 13px;
+  background: var(--nh-soft);
+  color: var(--nh-ink);
+  box-shadow: none;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site:hover {
+  background: color-mix(in srgb, var(--o-mint) 8%, var(--nh-soft));
+  border-color: color-mix(in srgb, var(--o-mint) 40%, var(--nh-line));
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site-head strong { font-size: 14px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site-facts { margin: 8px 0; color: var(--nh-muted); font-size: 11.5px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-site .nmeter { height: 4px; }
+
+/* Routine measurements use one quiet band after the briefing. */
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-fleet,
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-systems { margin-top: 30px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-section-heading { display: flex; justify-content: space-between; margin: 0 2px 13px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-section-heading h2 {
+  margin: 0;
+  color: var(--nh-ink);
+  font: 650 21px/1.2 var(--ap-display);
+  letter-spacing: -.024em;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nh-section-heading p { margin: 5px 0 0; color: var(--nh-muted); font-size: 12px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-kpis {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-kpis > .c3 { grid-column: span 3; min-width: 0; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-kpis .nkpi {
+  min-height: 139px;
+  height: 100%;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--nh-line);
+  border-radius: 17px;
+  background: var(--nh-panel);
+  box-shadow: 0 2px 8px #0b25150b;
+}
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-kpis .nkpi::before { display: none; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-kpis .nkpi .k { color: var(--nh-muted); font-size: 12px; font-weight: 600; letter-spacing: 0; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-kpis .nkpi .v { margin-top: 10px; color: var(--nh-ink); font-size: 34px; font-weight: 650; letter-spacing: -.035em; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-kpis .nkpi .v small { color: var(--nh-muted); font-size: 17px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-kpis .nkpi .s { color: var(--nh-muted); font-size: 12px; font-weight: 400; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-kpis .nkpi .nmeter { margin-top: 12px; height: 4px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview :is(.overview-systems, .overview-supporting) { margin-top: 14px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .ncard { border: 1px solid var(--nh-line); background: var(--nh-panel); box-shadow: 0 2px 8px #0b25150b; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nch { border-color: var(--nh-line); }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .nch h2 { font-size: 17px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-findings { margin-top: 24px; scroll-margin-top: 74px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview .overview-findings-summary { padding: 16px 20px; }
+body.u.cmd.noc[data-op-page="network-health"] #ops-overview #oh-trend .nchart { height: 190px; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) {
+    --nh-canvas: #0d1516; --nh-panel: #1d292a; --nh-soft: #263637;
+    --nh-ink: #f0f6f1; --nh-muted: #afc2b8; --nh-line: #3a4a47;
+    --o-mint: #89cf80; --o-mint-bright: #b1e4a5; --o-mint-wash: #89cf8026;
+  }
+}
+:root[data-theme="dark"] body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) {
+  --nh-canvas: #0d1516; --nh-panel: #1d292a; --nh-soft: #263637;
+  --nh-ink: #f0f6f1; --nh-muted: #afc2b8; --nh-line: #3a4a47;
+  --o-mint: #89cf80; --o-mint-bright: #b1e4a5; --o-mint-wash: #89cf8026;
+}
+:root[data-theme="dark"] body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ops-toolbar {
+  background: #1c292bdc;
+  border-color: #ffffff1e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ops-toolbar {
+    background: #1c292bdc;
+    border-color: #ffffff1e;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.u.cmd.noc[data-op-page="network-health"] #ops-overview :is(.overview-attention-row, .overview-site) { transition: background-color 150ms ease; }
+  body.u.cmd.noc[data-op-page="network-health"] #ops-overview :is(.overview-attention-row, .overview-site):active { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ops-toolbar { background: var(--nh-panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  body.u.cmd.noc[data-op-page="network-health"] #ops-overview :is(.nh-site-panel, .overview-site, #oh-kpis .nkpi, .ncard) { border: 2px solid var(--nh-ink); }
+  body.u.cmd.noc:has(#ops-tab-overview[aria-selected="true"]) .ops-toolbar { background: var(--nh-panel); border: 2px solid var(--nh-ink); }
+}

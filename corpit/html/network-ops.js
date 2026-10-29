@@ -2,17 +2,18 @@
 (function(){
 'use strict';
 const E=NOC.esc, AS=window.NetworkOpsAssets, entry={overview:'/network-health.html',switches:'/network-switches.html',investigate:'/device-trace.html'};
-const names={overview:'Overview',switches:'Switches',investigate:'Investigate'};
-let state=parse(location), initial=true, navigating=0, modules={}, chromeStates={}, cache=new Map(), inventory=null, claims=[], watches=[], templates,evidenceSnapshot=null, permissionKeys={overview:'network-diag',switches:'network-diag',investigate:'network-diag'}, returnView='overview', suppressClose=false, currentView=null;
-const initializing={},scrolls={}, generation={overview:0,switches:0,investigate:0};let revision=0,watchLoaded=false;
+const names={overview:'Overview',traffic:'Traffic',switches:'Switches',investigate:'Investigate'};
+let state=parse(location), initial=true, navigating=0, modules={}, chromeStates={}, cache=new Map(), inventory=null, claims=[], watches=[], templates,evidenceSnapshot=null, permissionKeys={overview:'network-diag',traffic:'network-diag',switches:'network-diag',investigate:'network-diag'}, returnView='overview', suppressClose=false, currentView=null;
+const initializing={},scrolls={}, generation={overview:0,traffic:0,switches:0,investigate:0};let revision=0,watchLoaded=false;
 function parse(loc){
- const p=new URLSearchParams(loc.search), aliases={health:'overview',fabric:'switches',trace:'investigate',overview:'overview',switches:'switches',investigate:'investigate'};
+ const p=new URLSearchParams(loc.search), aliases={health:'overview',fabric:'switches',trace:'investigate',overview:'overview',traffic:'traffic',switches:'switches',investigate:'investigate'};
  const fallback=loc.pathname==='/network-switches.html'?'switches':loc.pathname==='/device-trace.html'?'investigate':'overview';
  const section=loc.hash.slice(1), range=Number(p.get('range')||p.get('hours')||72);
- return {view:aliases[p.get('view')]||fallback,site:p.get('site')||'ALL',range:[24,48,72,120,168,720].includes(range)?range:72,q:p.get('q')||'',as:p.get('as')==='device'?'device':'',switch:p.get('switch')||'',port:p.get('port')||'',portName:p.get('portName')||'',portSearch:p.get('portSearch')||'',portCondition:['errors','devices','up','down','uplinks'].includes(p.get('portCondition'))?p.get('portCondition'):'all',panel:['port','switch'].includes(p.get('panel'))?p.get('panel'):(p.get('port')?'port':''),severity:['critical','warn','info'].includes(p.get('severity'))?p.get('severity'):'all',faultSearch:p.get('faultSearch')||'',condition:['offline','offstd','core'].includes(p.get('condition'))?p.get('condition'):'all',switchSearch:p.get('switchSearch')||'',section:({firewalls:'fw',firewall:'fw',wifi:'wifi',watch:'watch',fw:'fw'})[section]||'',from:aliases[p.get('from')]||'',originSwitch:p.get('originSwitch')||'',originPort:p.get('originPort')||'',originPortName:p.get('originPortName')||'',faultSort:p.get('faultSort')||'',faultDir:p.get('faultDir')==='descending'?'descending':'ascending',switchSort:p.get('switchSort')||'',switchDir:p.get('switchDir')==='descending'?'descending':'ascending'};
+ const view=aliases[p.get('view')]||fallback;
+ return {view,site:p.get('site')||(view==='traffic'?'SNA01':'ALL'),range:[24,48,72,120,168,720].includes(range)?range:72,q:p.get('q')||'',as:p.get('as')==='device'?'device':'',trafficWindow:['today','24h','7d'].includes(p.get('trafficWindow'))?p.get('trafficWindow'):'today',trafficFrom:p.get('trafficFrom')||'',trafficTo:p.get('trafficTo')||'',trafficIp:p.get('trafficIp')||'',trafficDest:p.get('trafficDest')||'',switch:p.get('switch')||'',port:p.get('port')||'',portName:p.get('portName')||'',portSearch:p.get('portSearch')||'',portCondition:['errors','devices','up','down','uplinks'].includes(p.get('portCondition'))?p.get('portCondition'):'all',panel:['port','switch'].includes(p.get('panel'))?p.get('panel'):(p.get('port')?'port':''),severity:['critical','warn','info'].includes(p.get('severity'))?p.get('severity'):'all',faultSearch:p.get('faultSearch')||'',condition:['offline','offstd','core'].includes(p.get('condition'))?p.get('condition'):'all',switchSearch:p.get('switchSearch')||'',section:({firewalls:'fw',firewall:'fw',wifi:'wifi',watch:'watch',fw:'fw'})[section]||'',from:aliases[p.get('from')]||'',originSwitch:p.get('originSwitch')||'',originPort:p.get('originPort')||'',originPortName:p.get('originPortName')||'',faultSort:p.get('faultSort')||'',faultDir:p.get('faultDir')==='descending'?'descending':'ascending',switchSort:p.get('switchSort')||'',switchDir:p.get('switchDir')==='descending'?'descending':'ascending'};
 }
 function stateURL(st,path=location.pathname){
- const u=new URL(path,location.origin),defs={site:'ALL',range:72,severity:'all',condition:'all',portCondition:'all',faultDir:'ascending',switchDir:'ascending'};
+ const u=new URL(path,location.origin),defs={site:'ALL',range:72,trafficWindow:'today',severity:'all',condition:'all',portCondition:'all',faultDir:'ascending',switchDir:'ascending'};
  Object.keys(st).forEach(k=>{if(k==='section')return;const v=st[k];if(v!==''&&v!=null&&v!==defs[k])u.searchParams.set(k,v);});
  if(st.section)u.hash=st.section;return u.pathname+u.search+u.hash;
 }
@@ -32,15 +33,15 @@ function scopeDevices(ds){return (ds||[]).filter(d=>state.site==='ALL'||d.site==
 function scopeIssues(rows,devices){const by=new Map((devices||inventory?.devices||[]).map(d=>[d.ip,d.site]));return (rows||[]).filter(i=>state.site==='ALL'||(i.site||by.get(i.switch_ip))===state.site);}
 function summarize(ds){const rows=scopeDevices(ds),up=rows.filter(d=>d.reachable).length;return {switches:rows.length,switches_up:up,switches_down:rows.length-up,ports_up:rows.reduce((n,d)=>n+(d.if_up||0),0),ports:rows.reduce((n,d)=>n+(d.if_total||0),0)};}
 function acceptInventory(d){inventory=d;syncSites();}
-function syncSites(){const el=document.getElementById('opsSite');if(!el)return;const sites=[...new Set((inventory?.devices||[]).map(d=>d.site).filter(Boolean))].sort();if(state.site!=='ALL'&&!sites.includes(state.site))sites.push(state.site);el.replaceChildren(...['ALL',...sites].map(site=>{const o=document.createElement('option');o.value=site;o.textContent=site==='ALL'?'All sites':site;return o;}));el.value=state.site;}
+function syncSites(){const el=document.getElementById('opsSite');if(!el)return;const sites=[...new Set((inventory?.devices||[]).map(d=>d.site).filter(Boolean))].sort();if(state.site!=='ALL'&&!sites.includes(state.site))sites.push(state.site);const choices=state.view==='traffic'?['SNA01','DFW02']:['ALL',...sites];el.replaceChildren(...choices.map(site=>{const o=document.createElement('option');o.value=site;o.textContent=site==='ALL'?'All sites':site==='SNA01'?'Irvine':site==='DFW02'?'Plano':site;return o;}));el.value=state.site;}
 function notify(s){document.getElementById('opsMessage').textContent=s;}
 function syncControls(){
- document.getElementById('opsRange').value=String(state.range);syncSites();
+ document.getElementById('opsRange').value=String(state.range);document.getElementById('opsRange').closest('label').hidden=state.view==='traffic';syncSites();
  document.querySelector('.ncrumb .sub').textContent=(state.site==='ALL'?'All sites':state.site)+' · '+names[state.view];
  document.title='Network Operations · '+names[state.view]+' — IT Command';
  document.querySelectorAll('[data-ops-view]').forEach(b=>{const on=b.dataset.opsView===state.view;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;b.classList.toggle('on',on);b.hidden=!can(b.dataset.opsView);});
- document.querySelectorAll('#nSide [data-nav]').forEach(a=>{const v={health:'overview',fabric:'switches',trace:'investigate'}[a.dataset.nav];if(v){a.querySelector('.lbl').textContent=names[v];a.setAttribute('aria-current',v===state.view?'page':'false');a.hidden=!can(v);}});
- document.getElementById('opsScopeNote').textContent=state.view==='overview'?(state.site==='ALL'?'Fleet overview':'Switches and faults: '+state.site+' · wireless, firewalls and trend: fleet'):state.view==='switches'?'Inventory scoped to '+(state.site==='ALL'?'all sites':state.site):'Lookups can resolve devices across sites'+(state.range>168?' · Wi-Fi history is limited to 7 days':'');
+ document.querySelectorAll('#nSide [data-nav]').forEach(a=>{const v={health:'overview',fabric:'switches',trace:'investigate'}[a.dataset.nav];if(v){a.querySelector('.lbl').textContent=names[v];a.setAttribute('aria-current',v===state.view||v==='overview'&&state.view==='traffic'?'page':'false');a.hidden=!can(v);}});
+ document.getElementById('opsScopeNote').textContent=state.view==='overview'?(state.site==='ALL'?'Fleet overview':'Switches and faults: '+state.site+' · wireless, firewalls and trend: fleet'):state.view==='traffic'?'One site · source freshness and scope shown for each layer':state.view==='switches'?'Inventory scoped to '+(state.site==='ALL'?'all sites':state.site):'Lookups can resolve devices across sites'+(state.range>168?' · Wi-Fi history is limited to 7 days':'');
  const back=document.getElementById('opsBack'),target=backTarget();back.hidden=!target||(state.view==='overview'&&!state.port);back.textContent='Back to '+(names[target]||'overview').toLowerCase();
  document.getElementById('opsSelected').textContent=[state.switch, state.portName].filter(Boolean).join(' · ');
 }
@@ -58,7 +59,7 @@ async function render({restoreScroll=null,focus=false}={}){
  const request=++navigating;const view=state.view;
  suppressClose=true;ITDrawer.close();suppressClose=false;
  closeSearch();document.getElementById('nQ').removeAttribute('aria-invalid');
- document.body.dataset.opPage={overview:'network-health',switches:'network-switches',investigate:'device-trace'}[view];
+ document.body.dataset.opPage={overview:'network-health',traffic:'network-health',switches:'network-switches',investigate:'device-trace'}[view];
  document.querySelectorAll('.ops-view').forEach(el=>el.hidden=el.id!=='ops-'+view);
  document.querySelectorAll('.ops-actions').forEach(el=>el.hidden=el.id!=='opsActions-'+view);
  syncControls();if(!can(view)){document.getElementById('ops-'+view).innerHTML='<div class="nempty"><b>This view is not available to your account</b>Your existing page permissions still apply.</div>';notify('Choose a view available to your account.');return;}
@@ -70,7 +71,7 @@ async function render({restoreScroll=null,focus=false}={}){
   if(view==='investigate'){if(modules[view].query?.()===state.q&&evidenceSnapshot?.seq===state.q)renderEvidence(evidenceSnapshot);else clearEvidence();}m.activate(state);restoreSort(view);currentView=view;const c=chromeStates[view];NOC.vitals(c.vitals);NOC.stamp(...c.stamp);syncControls();
   if(state.panel==='port'&&state.switch&&state.port){ITDrill.setHours(state.range);const d=inventory?.devices?.find(d=>d.ip===state.switch);await ITDrill.portDetail(state.switch,d?.name||state.switch,state.port,state.portName||'Port '+state.port);}
   else if(state.panel==='switch'&&state.switch){const d=inventory?.devices?.find(d=>d.ip===state.switch);await ITDrill.switchDetail(state.switch,d?.name||state.switch);}
-  if(request!==navigating)return;
+  if(request!==navigating){if(state.panel!=='port'&&state.panel!=='switch'){suppressClose=true;ITDrawer.close();suppressClose=false;}return;}
   if(state.section&&view==='overview')document.getElementById('oh-'+state.section)?.scrollIntoView({block:'center'});
   else if(restoreScroll!=null)window.scrollTo(0,restoreScroll);else window.scrollTo(0,scrolls[view]||0);
   if(focus&&!state.panel){root.tabIndex=-1;root.focus({preventScroll:true});}
@@ -84,6 +85,7 @@ async function navigate(patch,options={}){
  // Save the outgoing history entry before clearing its drawer or section.
  history.replaceState({networkOps:true,scroll:scrollY},'',stateURL(state));
  const next={...state,...patch};
+ if(next.view==='traffic'&&next.site==='ALL')next.site='SNA01';
  if(patch.view&&patch.view!==leaving){modules[leaving]?.deactivate();
   for(const key of ['panel','port','portName','section'])if(!Object.prototype.hasOwnProperty.call(patch,key))next[key]='';
   document.getElementById('opsEvidence').hidden=patch.view!=='investigate';
@@ -137,22 +139,31 @@ async function write(url,method,body){
  cache.delete('/api/netswitch/claims');return d;
 }
 function supportSummary(){
- const lines=['Network Operations support summary','Captured: '+new Date().toISOString(),'View: '+names[state.view],'Site: '+(state.site==='ALL'?'All sites':state.site),'History window: '+state.range/24+' days','Link: '+new URL(stateURL(state),location.origin).href];
+ const lines=['Network Operations support summary','Captured: '+new Date().toISOString(),'View: '+names[state.view],'Site: '+(state.site==='ALL'?'All sites':state.site),'History window: '+(state.view==='traffic'?(state.trafficFrom?state.trafficFrom+' to '+state.trafficTo:state.trafficWindow):state.range/24+' days'),'Link: '+new URL(stateURL(state),location.origin).href];
  const add=(label,el)=>{if(el&&!el.hidden){const text=el.innerText.trim();if(text)lines.push('',label+':',text);}};
  add('Loaded status',document.getElementById('nVit'));
  if(state.view==='overview'){lines.push('Fault filter: '+state.severity+(state.faultSearch?' / '+state.faultSearch:''));add('Fault totals',document.getElementById('oh-fFoot'));}
+ if(state.view==='traffic'){lines.push('Source IP: '+(state.trafficIp||'All'),'Destination IP: '+(state.trafficDest||'All'));add('WAN meters',document.querySelector('#ops-traffic .traffic-gauges'));add('Firewall destinations',document.getElementById('tr-dest'));add('Firewall sources',document.getElementById('tr-sources'));add('Observed proxy users',document.getElementById('tr-users'));add('Observed proxy domains',document.getElementById('tr-web'));add('Switch sample status',document.getElementById('tr-switches'));}
  if(state.view==='switches')add('Selected switch',document.getElementById('os-detail'));
  if(state.view==='investigate'){lines.push('Query: '+(state.q||'None'));add('Investigation context',document.getElementById('opsEvidence'));add('Result',document.getElementById('ot-out'));}
  const drawer=document.querySelector('.u-drawer[aria-hidden="false"]');if(drawer){add('Port / switch',document.getElementById('uDTitle'));add('Detail evidence',document.getElementById('uDBody'));}
  lines.push('','This summary reflects loaded evidence. Inventory and history may be delayed; a learned device does not establish user impact.');
  return lines.join('\n');
 }
-async function copySummary(){try{await navigator.clipboard.writeText(supportSummary());notify('Support summary copied with the current evidence, capture time and workspace link.');}catch{notify('Could not copy the support summary. Check clipboard access and try again.');}}
+// The message changes only once the write has resolved, and an older click can't overwrite
+// a newer one's message. A rejected write falls back to a selected textarea copy.
+let copySeq=0;
+async function clip(text,done,failed){const seq=++copySeq;notify('Copying…');let ok=false;
+ try{await navigator.clipboard.writeText(text);ok=true;}catch{const t=document.createElement('textarea');t.value=text;t.setAttribute('readonly','');t.style.cssText='position:fixed;top:-9999px';document.body.appendChild(t);t.select();try{ok=document.execCommand('copy');}catch{ok=false;}t.remove();}
+ if(seq===copySeq)notify(ok?done:failed);return ok;}
+async function copySummary(){let text;try{text=supportSummary();}catch(e){notify('Could not build the support summary: '+e.message);return;}
+ await clip(text,'Support summary copied ('+text.length.toLocaleString()+' characters) with the current evidence, capture time and workspace link.','Could not copy the support summary. Check clipboard access and try again.');}
 function safeJSON(s){try{return JSON.parse(s)}catch{return{}}}
-async function copy(){try{await navigator.clipboard.writeText(new URL(stateURL(state),location.origin).href);notify('Workspace link copied, including the current filters and selection.');}catch{notify('Could not copy automatically. Copy the address from your browser.');}}
+async function copy(){await clip(new URL(stateURL(state),location.origin).href,'Workspace link copied, including the current filters and selection.','Could not copy automatically. Copy the address from your browser.');}
 async function renderEvidence(ev){if(state.view!=='investigate'||state.q!==ev.seq)return;evidenceSnapshot=ev;const host=document.getElementById('opsEvidence');host.hidden=false;let html='<div class="nch"><h2>Investigation context</h2></div><div class="ncb"><p>'+E([ev.ip,ev.mac,ev.person?.displayName||ev.person?.name].filter(Boolean).join(' · ')||ev.query)+'</p>';
  if(ev.edge){const e=ev.edge;html+='<div class="op-tools"><button class="nbtn" data-ops-port-ip="'+E(e.switch_ip)+'" data-ops-ifx="'+E(e.ifindex||'')+'" data-ops-port-name="'+E(e.port)+'">Inspect '+E(e.switch)+' / '+E(e.port)+'</button>'+(can('switches')?'<button class="nbtn" data-ops-switch="'+E(e.switch_ip)+'">View switch</button>':'')+'</div><p>Switch attachment is observed evidence; a device learned on a port is not automatically an affected user.</p>';
  }else html+='<p>No switch attachment was resolved for this lookup.</p>';
+ if(ev.ip&&can('traffic'))html+='<button class="nbtn" data-ops-traffic-ip="'+E(ev.ip)+'">View traffic for '+E(ev.ip)+'</button>';
  if(state.originSwitch&&state.originPort){const d=inventory?.devices?.find(d=>d.ip===state.originSwitch);html+='<p>Opened from '+E(d?.name||state.originSwitch)+' / '+E(state.originPortName||state.originPort)+' in the last learned port inventory.</p><button class="nbtn" data-ops-port-ip="'+E(state.originSwitch)+'" data-ops-ifx="'+E(state.originPort)+'" data-ops-port-name="'+E(state.originPortName)+'">Inspect originating port</button>';}
 
  host.innerHTML=html+'</div>';
@@ -183,6 +194,7 @@ document.addEventListener('click',async e=>{
   if(view&&u.origin===location.origin){e.preventDefault();const incoming=parse(u),patch={view:incoming.view};for(const k of new URLSearchParams(u.search).keys())if(k in incoming)patch[k]=incoming[k];if(u.searchParams.has('hours'))patch.range=incoming.range;if(u.hash)patch.section=incoming.section;document.body.classList.remove('nav-open');document.getElementById('nBurger').setAttribute('aria-expanded','false');navigate(patch);return;}
  }
  const sw=e.target.closest('[data-ops-switch]');if(sw){const d=inventory?.devices?.find(d=>d.ip===sw.dataset.opsSwitch);navigate({view:'switches',switch:sw.dataset.opsSwitch,site:d?.site||state.site,condition:'all',switchSearch:'',panel:'',port:''});return;}
+ const traffic=e.target.closest('[data-ops-traffic-ip],[data-ops-traffic]');if(traffic){navigate({view:'traffic',site:state.site==='ALL'?'SNA01':state.site,trafficIp:traffic.dataset.opsTrafficIp||'',trafficDest:'',trafficFrom:'',trafficTo:''});return;}
  const faults=e.target.closest('[data-ops-faults]');if(faults){navigate({view:'overview',faultSearch:faults.dataset.opsFaults,severity:'all',panel:'',port:''});return;}
  const pt=e.target.closest('[data-ops-port-ip]');if(pt){let ifx=pt.dataset.opsIfx;if(!ifx){try{const d=await json('/api/netswitch/switch/'+encodeURIComponent(pt.dataset.opsPortIp));ifx=d.ports?.find(p=>p.port===pt.dataset.opsPortName)?.ifindex;}catch(err){notify(err.message);return;}}if(ifx)openPort(pt.dataset.opsPortIp,'',ifx,pt.dataset.opsPortName);else notify('The port identifier was not available in this snapshot.');return;}
  if(e.target.closest('[data-ops-summary]')){copySummary();return;}

@@ -165,7 +165,7 @@
     var Y=function(v){return PT+ih-(v/max)*ih;};
     var d='',ar='';
     vals.forEach(function(v,i){d+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1);});
-    ar='M'+X(0).toFixed(1)+' '+(PT+ih)+d.slice(1)+'L'+X(n-1).toFixed(1)+' '+(PT+ih)+'Z';
+    ar='M'+X(0).toFixed(1)+' '+(PT+ih)+'L'+d.slice(1)+'L'+X(n-1).toFixed(1)+' '+(PT+ih)+'Z';
     var cls=o.tone?' '+o.tone:'';
     var s='<svg class="nchart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" '+
       'role="img" aria-label="'+E(o.label||'trend')+'">';

@@ -236,12 +236,17 @@ def diagnose_reach(device=None, gateway=None):
                 cause="Nothing on that subnet is answering, so this is a VLAN, uplink, or routing problem — not the device.",
                 action="Check the uplink and SVI for that VLAN before touching the endpoint.",
                 evidence=["device no reply", "gateway %s no reply" % (gateway.get("ip") or "")])
+        # Name only the checks that ran: the watch poller pings but has no TCP probe,
+        # and present=None means ARP/CAM were not looked at.
+        ran = ["no ping reply"]
+        if "tcp" in device: ran.append("no TCP answer")
+        if device.get("present") is False: ran.append("not in ARP or the switch tables recently")
         return dict(key="device_down", severity="critical", confidence="medium",
             title="Device is not responding",
-            cause=("Nothing answers for this device - no ping, no TCP, and no recent ARP or switch "
-                   "activity. Most likely powered off or disconnected."),
+            cause=("Nothing answers for this device - %s. Most likely powered off or disconnected."
+                   % ", ".join(ran)),
             action="Check the switch port for link; if the port is up, the endpoint itself is down.",
-            evidence=["no ICMP", "no TCP response", "not seen in ARP or CAM recently"])
+            evidence=ran)
     if device and device.get("loss_pct", 0) > 0:
         return dict(key="loss", severity="warn", confidence="medium",
             title="Intermittent packet loss",

@@ -161,9 +161,9 @@ function verdict(loc,mer){
     return{l:'warn',t:nm+' was last seen on Wi-Fi',
       d:'Meraki lists it as <b>'+esc(mer.status)+'</b>'+(ls?'; last seen '+ls:'')+where+'.'};}
   var pIss=[],oIss=[];
-  if(h){if(h.in_err>0)pIss.push(h.in_err.toLocaleString()+' input errors');
-        if(h.out_err>0)pIss.push(h.out_err.toLocaleString()+' output errors');
-        if(h.crc>0)pIss.push(h.crc.toLocaleString()+' CRC errors');
+  if(h){if(h.in_err>0)pIss.push(h.in_err.toLocaleString()+(h.in_err==1?' input error':' input errors'));
+        if(h.out_err>0)pIss.push(h.out_err.toLocaleString()+(h.out_err==1?' output error':' output errors'));
+        if(h.crc>0)pIss.push(h.crc.toLocaleString()+(h.crc==1?' CRC error':' CRC errors'));
         if(h.duplex==='half')pIss.push('a half-duplex mismatch');}
   if(r&&r.gateway&&!r.gateway.alive)oIss.push('an unreachable gateway');
   var rssi=wl&&mer.signalQuality&&mer.signalQuality.rssi;
@@ -559,6 +559,45 @@ async function roamMap(mac, mountId){
   }
 }
 
+/* watch state for the traced device: an existing pin shows as Watching + Unwatch, and
+   the controls follow the server gate (POST/DELETE /watch need network-diag admin) */
+function canWatch(){var R=window.itRbac;return !R||!R.canAdmin||R.canAdmin('network-diag');}
+function findWatch(list,refs){
+  refs=refs.filter(Boolean).map(function(x){return String(x).toLowerCase();});
+  return (list||[]).find(function(w){return w.kind==='device'&&refs.indexOf(String(w.ref||'').toLowerCase())>=0;})||null;
+}
+var PIN_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.8V4h6v6.8l2 3.2H7z"/></svg>';
+function watchBox(ref,label,item){
+  if(item) return '<span class="u-btn pri" style="cursor:default">'+PIN_ICON+'Watching'+
+      (item.created_by&&item.created_by!=='unknown'?' · pinned by '+esc(item.created_by):'')+'</span>'+
+    (canWatch()?'<button class="u-btn" id="ot-unwatchBtn" data-id="'+esc(item.id)+'" style="margin-left:8px">Unwatch</button>'+
+      '<span class="txt-3" style="font-size:11.5px;margin-left:9px">sample history is kept</span>':'');
+  if(!canWatch()) return '<span class="txt-3" style="font-size:11.5px">Not on the watch list · adding devices needs Network Diagnostics admin</span>';
+  return '<button class="u-btn" id="ot-watchBtn" data-ref="'+esc(ref)+'" data-label="'+esc(label)+'">'+PIN_ICON+'Watch this device</button>'+
+    '<span class="txt-3" style="font-size:11.5px;margin-left:9px">samples every 5 min · kept 120 days</span>';
+}
+function bindWatch(box,meta){
+  var wb=box.querySelector('#ot-watchBtn'), ub=box.querySelector('#ot-unwatchBtn');
+  if(wb) wb.addEventListener('click',async function(){
+    wb.disabled=true;
+    try{
+      var j=await ctx.write('/api/netswitch/watch','POST',{kind:'device',ref:wb.dataset.ref,label:wb.dataset.label,meta:meta});
+      await ctx.watchChanged();
+      box.innerHTML=watchBox(wb.dataset.ref,wb.dataset.label,j.item);bindWatch(box,meta);
+      ctx.notify('Device added to the watch list.');
+    }catch(e){ wb.disabled=false; ctx.notify('Could not watch: '+e.message); }
+  });
+  if(ub) ub.addEventListener('click',async function(){
+    ub.disabled=true;
+    try{
+      await ctx.write('/api/netswitch/watch/'+encodeURIComponent(ub.dataset.id),'DELETE');
+      await ctx.watchChanged();
+      box.innerHTML=watchBox(box.dataset.ref,box.dataset.label,null);bindWatch(box,meta);
+      ctx.notify('Removed from the watch list. Its sample history is kept.');
+    }catch(e){ ub.disabled=false; ctx.notify('Could not unwatch: '+e.message); }
+  });
+}
+
 async function runNet(q,kind,ctx){
   ctx=ctx||{};
   var loc=ctx.loc||await jget('/api/netswitch/locate?q='+enc(q));
@@ -566,8 +605,9 @@ async function runNet(q,kind,ctx){
   var pr=await Promise.all([
     ip?jget('/api/netdiag/resolve?by=ip&q='+enc(ip)).catch(function(){return{ok:false};}):Promise.resolve(null),
     mac?jget('/api/meraki/client?mac='+enc(mac)).catch(function(){return null;}):Promise.resolve(null),
-    (mac||ip)?jget('/api/netswitch/correlate?'+(mac?'mac='+enc(mac):'ip='+enc(ip))).catch(function(){return null;}):Promise.resolve(null)]);
-  var resolve=pr[0], mer=pr[1], corr=pr[2], wifi=null;
+    (mac||ip)?jget('/api/netswitch/correlate?'+(mac?'mac='+enc(mac):'ip='+enc(ip))).catch(function(){return null;}):Promise.resolve(null),
+    window.NetworkOps.read('/api/netswitch/watch',{fresh:true}).catch(function(){return null;})]);
+  var resolve=pr[0], mer=pr[1], corr=pr[2], wifi=null, watching=pr[3]&&findWatch(pr[3].items,[mac,ip]);
   if(mer&&mer.found&&mac){try{wifi=await jget('/api/meraki/wifi-events?mac='+enc(mac)+'&hours=24');}catch(e){}}
   var person=personOf(resolve&&resolve.user360&&resolve.user360.identity), owner=null;
   if(!person&&host){try{var u=await jget('/api/user360/'+enc(host.split('.')[0]));
@@ -600,10 +640,8 @@ async function runNet(q,kind,ctx){
   var html='<div class="verdict '+v.l+' u-fade"><div class="vi">'+ic(vic)+'</div><div class="vm">'+
     '<h2>'+esc(v.t)+'</h2><div class="d">'+v.d+'</div>'+resolvedNote+
     (facts.length?'<div class="facts">'+facts.join('')+'</div>':'')+
-    (wref?'<div style="margin-top:12px"><button class="u-btn" id="ot-watchBtn" data-ref="'+esc(wref)+'" data-label="'+esc(wlabel)+'">'+
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+
-      '<path d="M12 17v5"/><path d="M9 10.8V4h6v6.8l2 3.2H7z"/></svg>Watch this device</button>'+
-      '<span class="txt-3" style="font-size:11.5px;margin-left:9px">samples every 5 min · kept 120 days</span></div>':'')+
+    (wref?'<div style="margin-top:12px" id="ot-watchBox" data-ref="'+esc(wref)+'" data-label="'+esc(wlabel)+'">'+
+      watchBox(wref,wlabel,watching)+'</div>':'')+
     '</div>'+
     (r?'<div class="live"><span class="u-dot '+(r.present!==false?'':'bad')+'"></span>'+
        (r.icmp?'live · '+r.rtt_ms+' ms':(r.present!==false?esc(r.evidence||'on the network'):'no response'))+'</div>':'')+
@@ -706,23 +744,8 @@ async function runNet(q,kind,ctx){
   out.innerHTML=html;
   workspace.evidence({query:q,ip:ip,mac:mac,edge:e,person:person,site:site,seq:workspace.state().q});
   if(mac) roamMap(mac,'ot-roamMount');
-  var wb=document.getElementById('ot-watchBtn');
-  if(wb) wb.addEventListener('click',async function(){
-    if(wb.dataset.done){workspace.navigate({view:'overview',section:'watch'});return;}
-    wb.disabled=true;
-    try{
-      var r=await fetch('/api/netswitch/watch',{method:'POST',credentials:'include',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({kind:'device',ref:wb.dataset.ref,label:wb.dataset.label,
-                             meta:{hostname:host||null,ip:ip||null,site:site||null}})});
-      var j=await r.json().catch(function(){return{ok:false};});
-      if(!r.ok||!j.ok) throw new Error(j.detail||'could not pin');
-      wb.classList.add('pri');
-      wb.innerHTML='Watching — see the Watch list';
-      wb.disabled=false;
-      wb.dataset.done='1';workspace.watchChanged();
-    }catch(e){ wb.disabled=false; wb.innerHTML='Could not watch: '+esc(e.message); }
-  });
+  var wbox=document.getElementById('ot-watchBox');
+  if(wbox) bindWatch(wbox,{hostname:host||null,ip:ip||null,site:site||null});
 }
 
 async function runId(q,seq){
