@@ -235,6 +235,8 @@ tr.drill:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .b-full{background:color-mix(in srgb,var(--pass) 16%,transparent);color:var(--pass)}
 .bar-row{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12.5px}
 .bar-row .barwrap{flex:1;height:12px;background:var(--line);border-radius:3px;overflow:hidden}
+#cpDeptCard .cp-ov{padding:2px 9px;font-size:10.5px;line-height:1.6;white-space:nowrap;color:var(--v-copilot);border-color:color-mix(in srgb,var(--v-copilot) 45%,transparent)}
+#cpDeptCard .cp-ov:hover{background:color-mix(in srgb,var(--v-copilot) 12%,transparent)}
 .bar-row .barwrap>span{display:block;height:100%;background:var(--accent);border-radius:3px}
 #periodLabel b{color:var(--ink)}
 #periodLabel{line-height:1.4}
@@ -1709,18 +1711,71 @@ function renderCopilotDeptTable(){
   CSVX.cpdept=[['Level',title],[title,'Assigned','Active (30d)','$ / month','Cost in period','% of cost'],...rows.map(r=>[r.name,r.n,r.a,r.n*rate,r.n*rate*n,Math.round(r.n/grand*1000)/10])];
   body.innerHTML=`<div class="tscroll" style="--tmax:360px"><table class="tbl-tight"><thead><tr><th>${title}</th><th class="num">Assigned</th><th class="num" title="Any Copilot activity in the 30 days ending the Graph snapshot date">Active (30d)</th><th class="num">$ / month</th><th class="num">Cost in period</th><th class="num">% of cost</th><th></th></tr></thead><tbody>
     ${rows.map(r=>level<2
-      ?`<tr class="drill" data-cpdrill="${escH(r.name)}"><td><b>${escH(r.name)}</b></td><td class="num mono">${r.n}</td><td class="num mono">${r.a}</td><td class="num mono">${usd0(r.n*rate)}</td><td class="num mono">${usd0(r.n*rate*n)}</td><td class="num mono">${(r.n/grand*100).toFixed(1)}%</td><td><span class="arrow">›</span></td></tr>`
-      :`<tr><td><b>${escH(r.name)}</b><div style="color:var(--ink-3);font-size:11px">${escH(r.email||'')}${r.last?' · last active '+escH(r.last):' · never active'}</div></td><td class="num mono">1</td><td class="num mono">${r.a}</td><td class="num mono">${usd0(rate)}</td><td class="num mono">${usd0(rate*n)}</td><td class="num mono">${(1/grand*100).toFixed(1)}%</td><td></td></tr>`).join('')||'<tr><td colspan="7" class="sub" style="padding:14px">No licence holders here.</td></tr>'}
+      ?`<tr class="drill" data-cpdrill="${escH(r.name)}"><td><b>${escH(r.name)}</b></td><td class="num mono">${r.n}</td><td class="num mono">${r.a}</td><td class="num mono">${usd0(r.n*rate)}</td><td class="num mono">${usd0(r.n*rate*n)}</td><td class="num mono">${(r.n/grand*100).toFixed(1)}%</td><td style="white-space:nowrap"><span class="chip cp-ov" data-cpov="${escH(r.name)}" title="Open the Overview details for this ${level?'manager':'department'} without leaving the table">⤢ Overview</span> <span class="arrow">›</span></td></tr>`
+      :`<tr><td><b>${escH(r.name)}</b><div style="color:var(--ink-3);font-size:11px">${escH(r.email||'')}${r.last?' · last active '+escH(r.last):' · never active'}</div></td><td class="num mono">1</td><td class="num mono">${r.a}</td><td class="num mono">${usd0(rate)}</td><td class="num mono">${usd0(rate*n)}</td><td class="num mono">${(1/grand*100).toFixed(1)}%</td><td><span class="chip cp-ov" data-cpov-email="${escH(r.email||'')}" title="Open the Overview details for this person">⤢ Overview</span></td></tr>`).join('')||'<tr><td colspan="7" class="sub" style="padding:14px">No licence holders here.</td></tr>'}
     </tbody><tfoot><tr><td>${level?'Subtotal':'All departments'}</td><td class="num mono">${sub}</td><td class="num mono">${subA}</td><td class="num mono">${usd0(sub*rate)}</td><td class="num mono">${usd0(sub*rate*n)}</td><td class="num mono">${(sub/grand*100).toFixed(1)}%</td><td></td></tr></tfoot></table></div>
     <div class="sub" style="margin-top:8px">${holders} licence holders from the Graph licence sync${assigned!==holders?' · the licence total reports '+assigned+' assigned, so '+Math.abs(assigned-holders)+' '+(assigned>holders?'are not yet mapped to a person':'holders exceed the reported count')+' — the tiles use '+assigned:''}.</div>`;
   body.querySelectorAll('[data-cpdrill]').forEach(tr=>{
-    const go=()=>{ if(!CP_DRILL.dept) CP_DRILL.dept=tr.dataset.cpdrill; else CP_DRILL.mgr=tr.dataset.cpdrill; renderCopilotDeptTable(); };
+    const go=(ev)=>{ if(ev&&ev.target&&ev.target.closest&&ev.target.closest('.cp-ov')) return; if(!CP_DRILL.dept) CP_DRILL.dept=tr.dataset.cpdrill; else CP_DRILL.mgr=tr.dataset.cpdrill; renderCopilotDeptTable(); };
     tr.addEventListener('click',go); tr.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } });
     tr.tabIndex=0;
   });
   document.getElementById('cpDeptCrumbs').querySelectorAll('[data-cpcrumb]').forEach(a=>a.addEventListener('click',()=>{ const v=a.dataset.cpcrumb; CP_DRILL.dept=v||null; CP_DRILL.mgr=null; renderCopilotDeptTable(); }));
+  // Overview drawer (2026-10-30): one chip for the current selection, one per row
+  const cpSel=level===2?{dept:CP_DRILL.dept,mgr:CP_DRILL.mgr}:level===1?{dept:CP_DRILL.dept}:{};
+  document.getElementById('cpDeptCrumbs').insertAdjacentHTML('beforeend',` <span class="chip cp-ov" data-cpov-here="1" title="Open the Overview details for the current selection" style="margin-left:8px">⤢ Overview: ${escH(level===2?CP_DRILL.mgr:level===1?CP_DRILL.dept:'all departments')}</span>`);
+  document.getElementById('cpDeptCrumbs').querySelector('[data-cpov-here]').addEventListener('click',()=>openCpDeptOverview(cpSel));
+  body.querySelectorAll('.cp-ov').forEach(ch=>ch.addEventListener('click',e=>{ e.stopPropagation();
+    if(ch.dataset.cpovEmail!=null) openCpDeptOverview({dept:CP_DRILL.dept,mgr:CP_DRILL.mgr,email:ch.dataset.cpovEmail});
+    else if(level===0) openCpDeptOverview({dept:ch.dataset.cpov});
+    else openCpDeptOverview({dept:CP_DRILL.dept,mgr:ch.dataset.cpov}); }));
 }
 
+
+/* Spend by Department — Copilot → Overview drawer (2026-10-30). Same information the
+   Overview tab's department drawer shows, for the selected department / manager / person.
+   Reads CP_USERS and CP_AS_OF (already loaded) — no fetch, no new data source. */
+function openCpDeptOverview(sel){
+  sel=sel||{};
+  const P=periodBounds(), rate=COPILOT_UNIT_COST, n=P.n, cutoff=cpCutoff();
+  let list=CP_USERS, title='All departments', crumbs='';
+  if(sel.dept){ list=list.filter(u=>(u.department||'—')===sel.dept); title=sel.dept; }
+  if(sel.mgr){ list=list.filter(u=>(u.manager||'—')===sel.mgr); crumbs=sel.dept+' › '; title=sel.mgr; }
+  if(sel.email){ list=list.filter(u=>u.email===sel.email); crumbs=sel.dept+' › '+sel.mgr+' › '; title=list[0]?(list[0].name||sel.email):sel.email; }
+  const members=[...list].sort((a,b)=>((b.active?1:0)-(a.active?1:0))||String(b.lastActive||'').localeCompare(String(a.lastActive||'')));
+  const active=members.filter(u=>u.active).length, cost=members.length*rate*n;
+  const appRows=CP_APPS.map(a=>({l:a.l,n:members.filter(u=>u.apps&&u.apps[a.k]&&u.apps[a.k]>=cutoff).length})).filter(r=>r.n).sort((a,b)=>b.n-a.n);
+  const mx=Math.max(...appRows.map(r=>r.n),1);
+  const tile=(v,l,c)=>`<div style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px"><div style="font-size:11px;color:var(--ink-3);margin-bottom:3px">${l}</div><div style="font-size:17px;font-weight:700;color:var(${c})">${v}</div></div>`;
+  const d=document.getElementById('drawer');
+  d.innerHTML=`
+    <div class="dh">
+      <span class="x" id="dx">✕</span>
+      <div style="font-size:11px;color:var(--ink-3);letter-spacing:.04em">${escH(crumbs)}SPEND BY DEPARTMENT — COPILOT</div>
+      <h2 style="margin-top:2px">${escH(title)}</h2>
+      <div style="color:var(--ink-3);font-size:12px;margin-top:2px">${active} active of ${members.length} assigned licence${members.length===1?'':'s'} · ${usd(cost)} licence cost in period (${members.length} × $${rate} × ${n} mo) · ${escH(P.short)}</div>
+    </div>
+    <div class="db">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
+        ${tile(members.length,'Assigned licences','--accent')}${tile(active,'Active last 30 days','--pass')}${tile(usd0(members.length*rate),'Monthly cost','--v-copilot')}${tile(usd0(cost),'Cost in period','--ink-2')}
+      </div>
+      ${appRows.length?`<h4 style="color:var(--v-copilot)">💼 APPS USED — LAST 30 DAYS</h4>
+      <div style="color:var(--ink-3);font-size:11.5px;margin-bottom:8px">people with any Copilot activity in the app · 30 days ending ${escH(CP_AS_OF||'today')}</div>
+      <div style="margin-bottom:18px">${appRows.map(r=>`<div class="bar-row"><span style="width:100px;flex:none">${escH(r.l)}</span><span class="barwrap"><span style="width:${(r.n/mx*100).toFixed(1)}%;background:var(--v-copilot)"></span></span><span class="mono" style="width:70px;text-align:right">${r.n} · ${Math.round(r.n/(members.length||1)*100)}%</span></div>`).join('')}</div>`:''}
+      <h4 style="color:var(--v-copilot)">💼 COPILOT — LAST 30 DAYS</h4>
+      <div style="color:var(--ink-3);font-size:11.5px;margin-bottom:8px">${active} active of ${members.length} assigned licences · same people and dates as the Overview tab</div>
+      <div class="affected" style="max-height:none">
+        ${members.map(u=>{ const used=u.apps?CP_APPS.filter(a=>u.apps[a.k]&&u.apps[a.k]>=cutoff):[];
+          return `<div class="a" style="display:block;padding:9px 12px">
+            <div style="display:flex;justify-content:space-between;gap:8px"><b>${escH(u.name||u.email)}</b><span style="color:${u.active?cssv('--pass'):cssv('--ink-3')};font-weight:700;font-size:12px">${u.active?'Active':'Idle'}</span></div>
+            <div style="font-size:11px;color:var(--ink-3);margin-top:2px">${escH(u.email||'')}${sel.mgr?'':' · manager: '+escH(u.manager||'—')} · ${u.lastActive?'last active: '+escH(u.lastActive):'never active'}</div>
+            ${used.length?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px">${used.map(a=>`<span style="font-size:10px;padding:2px 6px;border-radius:8px;background:color-mix(in srgb,var(--v-copilot) 16%,transparent);color:var(--v-copilot)" title="${a.l}: ${escH(u.apps[a.k])}">${a.l}</span>`).join('')}</div>`:`<div style="margin-top:5px;font-size:10.5px;color:var(--ink-3)">No app activity in last 30 days</div>`}
+          </div>`; }).join('')||'<div class="sub">No licence holders here.</div>'}
+      </div>
+    </div>`;
+  d.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+}
 
 function openCopilotDeptDrawer(idx){
   const entry=(window._copilotDepts||[])[idx]; if(!entry) return;
