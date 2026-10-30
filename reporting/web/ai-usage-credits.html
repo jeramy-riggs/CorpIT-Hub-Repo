@@ -2925,6 +2925,11 @@ function renderSessDepts(){
   $L('sessDeptCrumbs').querySelectorAll('[data-deptcrumb]').forEach(a=>a.addEventListener('click',()=>{ const v=a.dataset.deptcrumb; DEPT_DRILL.dept=v||null; DEPT_DRILL.mgr=null; renderSessDepts(); }));
 }
 
+/* License assigned (2026-10-30): the date Anthropic granted the seat, from /sessions
+   `licenseAssigned` (claude_member.added_at). Shown MM/DD/YYYY; "—" when unknown (departed
+   members drop out of the Members API, so their date is not retrievable — never guessed). */
+function licMDY(v){ if(!v) return '—'; const s=String(v).slice(0,10); return s.slice(5,7)+'/'+s.slice(8,10)+'/'+s.slice(0,4); }
+function licInPeriod(m,P){ return !!(m.licenseAssigned&&m.licenseAssigned>=P.from&&m.licenseAssigned<=P.to); }
 function renderSessMembers(){
   const d=SESS.data; if(!d) return;
   const P=periodBounds();
@@ -2933,7 +2938,8 @@ function renderSessMembers(){
     {k:'idle',l:'Idle ('+t.inactiveMembers+')'},
     {k:'increase',l:'Increase ('+(recs.increase||0)+')'},
     {k:'decrease',l:'Decrease ('+(recs.decrease||0)+')'},
-    {k:'reclaim',l:'Reclaim ('+(recs.reclaim||0)+')'}]
+    {k:'reclaim',l:'Reclaim ('+(recs.reclaim||0)+')'},
+    {k:'assigned',l:'Assigned in period ('+(d.members||[]).filter(m=>licInPeriod(m,P)).length+')'}]
     .concat(recs.departed?[{k:'departed',l:'Departed ('+recs.departed+')'}]:[]);
   $L('sessFilterBar').innerHTML=filters.map(f=>`<div class="chip ${SESS.filter===f.k?'on':''}" data-sess-filter="${f.k}"${REC_STYLE[f.k]?` title="${escH(REC_STYLE[f.k].t)}"`:''}>${f.l}</div>`).join('');
   $L('sessFilterBar').querySelectorAll('[data-sess-filter]').forEach(c=>{
@@ -2943,17 +2949,19 @@ function renderSessMembers(){
   if(SESS.filter==='active') rows=rows.filter(m=>m.active);
   else if(SESS.filter==='idle') rows=rows.filter(m=>!m.active);
   else if(['increase','decrease','reclaim','departed'].includes(SESS.filter)) rows=rows.filter(m=>m.recommendation===SESS.filter);
+  else if(SESS.filter==='assigned') rows=rows.filter(m=>licInPeriod(m,P));
   const q=SESS.search;
   if(q) rows=rows.filter(m=>((m.name||'')+' '+(m.email||'')+' '+(m.department||'')+' '+(m.manager||'')).toLowerCase().includes(q));
+  if(SESS.licSort) rows=rows.slice().sort((a,b)=>{ const x=a.licenseAssigned||'', y=b.licenseAssigned||''; if(x===y) return 0; if(!x) return 1; if(!y) return -1; return (x<y?-1:1)*(SESS.licSort==='asc'?1:-1); });
 
   const fin=SESS.view!=='detail';
   const cols=fin
-    ? [['Employee',''],['Department',''],['Manager',''],['Last active',''],
+    ? [['Employee',''],['Department',''],['Manager',''],['License assigned','Date the Claude seat was granted (Anthropic Members API) · click to sort'],['Last active',''],
        ['Usage $','Usage-based spend in the period'],['Seat $','Seat cost: $'+SEAT_COST+' per calendar month held in the period (0 once departed)'],['Total $','Seat + usage'],
        ['Monthly limit','Custom monthly usage limit where set, otherwise the org default'],
        ['Used %','Monthly run rate projected from the period, against the monthly limit'],
        ['Suggested','Own 3-month average, rounded up to $5'],['Action','Hover any status for its definition']]
-    : [['Employee',''],['Department',''],['Manager',''],['Last active',''],['Days','Days with any activity in the period'],
+    : [['Employee',''],['Department',''],['Manager',''],['License assigned','Date the Claude seat was granted (Anthropic Members API) · click to sort'],['Last active',''],['Days','Days with any activity in the period'],
        ['Sessions','Chats + code + cowork + office + design + science sessions'],
        ['Chats',''],['Msgs',''],['Cowork','Cowork sessions'],['CW msgs',''],['Code','Claude Code sessions'],
        ['Edits','File edits accepted'],['Projects','Projects created / used'],['Artifacts',''],['Web','Web searches'],
@@ -2965,7 +2973,10 @@ function renderSessMembers(){
        ['Suggested','3-month average, rounded up to $5'],
        ['Action','Hover any status for its definition']];
   $L('sessHead').innerHTML='<tr>'+cols.map(c=>`<th${c[1]?` title="${escH(c[1])}"`:''}>${c[0]}</th>`).join('')+'</tr>';
-  const tbl=$L('sessBody').closest('table'); if(tbl) tbl.style.minWidth=fin?'980px':'1800px';
+  const licTh=[...$L('sessHead').querySelectorAll('th')].find(th=>th.textContent==='License assigned');
+  if(licTh){ licTh.style.cursor='pointer'; licTh.innerHTML='License assigned '+(SESS.licSort==='desc'?'▼':SESS.licSort==='asc'?'▲':'<span style="opacity:.45">↕</span>');
+    licTh.addEventListener('click',()=>{ SESS.licSort=SESS.licSort==='desc'?'asc':SESS.licSort==='asc'?null:'desc'; renderSessMembers(); }); }
+  const tbl=$L('sessBody').closest('table'); if(tbl) tbl.style.minWidth=fin?'1100px':'1920px';
 
   $L('sessMemberSub').textContent=rows.length+' of '+t.members+' members · '+P.short+(SESS.filter!=='all'||q?' (filtered)':'')+' · header stays put while you scroll';
   const pill=(m)=>recPill(m.recommendation);
@@ -2977,6 +2988,7 @@ function renderSessMembers(){
         <div style="color:var(--ink-3);font-size:11px">${escH(m.email||'')}</div></td>
       <td style="font-size:11.5px">${escH(m.department||'—')}</td>
       <td style="font-size:11.5px">${escH(m.manager||'—')}</td>
+      <td class="mono" style="font-size:11.5px"${m.licenseAssigned?'':' title="Not available — no longer in the Members API"'}>${licMDY(m.licenseAssigned)}</td>
       <td class="mono" style="font-size:11.5px">${m.lastActive?escH(m.lastActive):'—'}</td>`;
     if(fin) return `<tr data-drill="member" data-arg="${escH(m.email||'')}" tabindex="0" role="button" title="Open member">${who}
       <td class="mono">${usd(m.spend)}</td>
@@ -3009,8 +3021,8 @@ function renderSessMembers(){
       <td class="mono">${m.suggestedLimit?usd0(m.suggestedLimit):'—'}${m.suggestedBelowPeak?' <span title="This suggestion is below their highest month in the window — it would have capped them" style="color:var(--high)">▲</span>':''}</td>
       <td>${pill(m)}</td>
     </tr>`;}).join('')||'<tr><td colspan="25" style="text-align:center;padding:24px;color:var(--ink-3)">No members match.</td></tr>';
-  CSVX.members=[['Employee','Email','Department','Manager','Last active','Active','Usage $','Seat $','Total $','Monthly limit','Limit source','Used %','Avg 3mo','Suggested','Action','Days active','Sessions','Tokens'],
-    ...rows.map(m=>[m.name,m.email,m.department||'',m.manager||'',m.lastActive||'',m.active?'yes':'no',Number(m.spend).toFixed(2),Number(m.seatCost).toFixed(2),Number(m.totalCost).toFixed(2),m.effectiveLimit||'',m.limitSource||'',m.utilisationPct==null?'':m.utilisationPct.toFixed(0),Number(m.avg3moSpend||0).toFixed(2),m.suggestedLimit||'',(REC_STYLE[m.recommendation]||{}).l||m.recommendation||'',m.daysActive||0,m.sessions||0,m.tokens||0])];
+  CSVX.members=[['Employee','Email','Department','Manager','License assigned','Last active','Active','Usage $','Seat $','Total $','Monthly limit','Limit source','Used %','Avg 3mo','Suggested','Action','Days active','Sessions','Tokens'],
+    ...rows.map(m=>[m.name,m.email,m.department||'',m.manager||'',m.licenseAssigned?licMDY(m.licenseAssigned):'',m.lastActive||'',m.active?'yes':'no',Number(m.spend).toFixed(2),Number(m.seatCost).toFixed(2),Number(m.totalCost).toFixed(2),m.effectiveLimit||'',m.limitSource||'',m.utilisationPct==null?'':m.utilisationPct.toFixed(0),Number(m.avg3moSpend||0).toFixed(2),m.suggestedLimit||'',(REC_STYLE[m.recommendation]||{}).l||m.recommendation||'',m.daysActive||0,m.sessions||0,m.tokens||0])];
 
   capRows('sessBody', 50, 'members');
   $L('sessNote').innerHTML=
