@@ -237,6 +237,8 @@ tr.drill:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .bar-row .barwrap{flex:1;height:12px;background:var(--line);border-radius:3px;overflow:hidden}
 #cpDeptCard .cp-ov{padding:2px 9px;font-size:10.5px;line-height:1.6;white-space:nowrap;color:var(--v-copilot);border-color:color-mix(in srgb,var(--v-copilot) 45%,transparent)}
 #cpDeptCard .cp-ov:hover{background:color-mix(in srgb,var(--v-copilot) 12%,transparent)}
+#sessDeptCard .cl-ov{padding:2px 9px;font-size:10.5px;line-height:1.6;white-space:nowrap;color:var(--v-claude);border-color:color-mix(in srgb,var(--v-claude) 45%,transparent)}
+#sessDeptCard .cl-ov:hover{background:color-mix(in srgb,var(--v-claude) 12%,transparent)}
 .bar-row .barwrap>span{display:block;height:100%;background:var(--accent);border-radius:3px}
 #periodLabel b{color:var(--ink)}
 #periodLabel{line-height:1.4}
@@ -2951,6 +2953,53 @@ async function renderExecBreakdown(){
    and token columns removed per the review; both still live in the tiles, the member
    table's Finance view and the Usage & tokens section). Every level is cut from the
    same /sessions member rows, so a manager subtotal always sums to its department. */
+/* Spend by Department (Claude) → "who uses what" drawer (2026-10-30). Reads the same
+   /sessions member rows the table is cut from — no fetch, no new data source. Product chips
+   are activity counts in the period (per-person spend is not split by product). */
+const CL_PRODS=[{k:'chats',l:'Chat',alt:'messages'},{k:'coworkSessions',l:'Cowork'},{k:'codeSessions',l:'Claude Code'},{k:'officeSessions',l:'Office agent'},{k:'designSessions',l:'Claude Design'},{k:'scienceSessions',l:'Science'},{k:'webSearches',l:'Web search'}];
+function clProdCount(m,p){ return Number(m[p.k])||(p.alt?Number(m[p.alt]):0)||0; }
+function openClDeptOverview(sel){
+  sel=sel||{}; const d=SESS.data; if(!d) return;
+  const P=periodBounds(); let list=d.members||[], title='All departments', crumbs='';
+  if(sel.dept){ list=list.filter(m=>(m.department||'Unassigned')===sel.dept); title=sel.dept; }
+  if(sel.mgr){ list=list.filter(m=>(m.manager||'Unassigned')===sel.mgr); crumbs=sel.dept+' › '; title=sel.mgr; }
+  const members=[...list].sort((a,b)=>(Number(b.spend)||0)-(Number(a.spend)||0));
+  const active=members.filter(m=>m.active).length;
+  const spend=members.reduce((s,m)=>s+(Number(m.spendRaw!=null?m.spendRaw:m.spend)||0),0);
+  const seats=members.reduce((s,m)=>s+(Number(m.seatCost)||0),0);
+  const prodRows=CL_PRODS.map(p=>({l:p.l,n:members.filter(m=>clProdCount(m,p)>0).length})).filter(r=>r.n).sort((a,b)=>b.n-a.n);
+  const mx=Math.max(...prodRows.map(r=>r.n),1);
+  const tile=(v,l,c)=>`<div style="background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px"><div style="font-size:11px;color:var(--ink-3);margin-bottom:3px">${l}</div><div style="font-size:17px;font-weight:700;color:var(${c})">${v}</div></div>`;
+  const dr=document.getElementById('drawer');
+  dr.innerHTML=`
+    <div class="dh">
+      <span class="x" id="dx">✕</span>
+      <div style="font-size:11px;color:var(--ink-3);letter-spacing:.04em">${escH(crumbs)}SPEND BY DEPARTMENT — CLAUDE</div>
+      <h2 style="margin-top:2px">${escH(title)}</h2>
+      <div style="color:var(--ink-3);font-size:12px;margin-top:2px">${active} active of ${members.length} member${members.length===1?'':'s'} · ${usd(spend)} usage spend · ${usd(seats)} seats · ${escH(P.short)}</div>
+    </div>
+    <div class="db">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
+        ${tile(members.length,'Members (seats)','--accent')}${tile(active,'Active in period','--pass')}${tile(usd(spend),'Usage spend','--v-claude')}${tile(usd(seats+spend),'Total (seats + usage)','--ink-2')}
+      </div>
+      <h4 style="color:var(--v-claude)">🧠 PRODUCTS USED — ${escH(String(P.short).toUpperCase())}</h4>
+      <div style="color:var(--ink-3);font-size:11.5px;margin-bottom:8px">people with any activity in the product in the period · activity, not spend (per-person spend is not split by product)</div>
+      <div style="margin-bottom:18px">${prodRows.map(r=>`<div class="bar-row"><span style="width:100px;flex:none">${escH(r.l)}</span><span class="barwrap"><span style="width:${(r.n/mx*100).toFixed(1)}%;background:var(--v-claude)"></span></span><span class="mono" style="width:70px;text-align:right">${r.n} · ${Math.round(r.n/(members.length||1)*100)}%</span></div>`).join('')||'<div class="sub">No activity in the period.</div>'}</div>
+      <h4 style="color:var(--v-claude)">🧠 CLAUDE — WHO USES WHAT</h4>
+      <div style="color:var(--ink-3);font-size:11.5px;margin-bottom:8px">${active} active of ${members.length} · sorted by usage spend · click a person for their full profile</div>
+      <div class="affected" style="max-height:none">
+        ${members.map(m=>{ const u=CL_PRODS.filter(p=>clProdCount(m,p)>0);
+          return `<div class="a" data-drill="member" data-arg="${escH(m.email||'')}" tabindex="0" role="button" title="Open member" style="display:block;padding:9px 12px">
+            <div style="display:flex;justify-content:space-between;gap:8px"><b>${escH(m.name||m.email||'—')}${m.departed?' <span style="font-size:10px;color:var(--ink-3)">departed</span>':''}</b><span class="mono" style="font-weight:700">${usd(m.spend)}</span></div>
+            <div style="font-size:11px;color:var(--ink-3);margin-top:2px">${escH(m.email||'')}${sel.mgr?'':' · manager: '+escH(m.manager||'—')} · ${m.lastActive?'last active: '+escH(m.lastActive):'no activity in period'} · <span style="color:${m.active?cssv('--pass'):cssv('--ink-3')};font-weight:700">${m.active?'Active':'Idle'}</span></div>
+            ${u.length?`<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px">${u.map(p=>`<span style="font-size:10px;padding:2px 6px;border-radius:8px;background:color-mix(in srgb,var(--v-claude) 16%,transparent);color:var(--v-claude)" title="${p.l}: ${clProdCount(m,p)} in the period">${p.l} · ${clProdCount(m,p)}</span>`).join('')}</div>`:`<div style="margin-top:5px;font-size:10.5px;color:var(--ink-3)">No activity in the period</div>`}
+          </div>`; }).join('')||'<div class="sub">No members here.</div>'}
+      </div>
+    </div>`;
+  dr.classList.add('show'); document.getElementById('scrim').classList.add('show');
+  document.getElementById('dx').onclick=closeDrawer;
+}
+
 function renderSessDepts(){
   const d=SESS.data; if(!d) return;
   const P=periodBounds(), members=d.members||[];
@@ -2968,16 +3017,22 @@ function renderSessDepts(){
   CSVX.dept=[['Level',title],[title,'Members','Active','Usage $','Avg / member','Avg / active','% of total'],...rows.map(r=>[r.name,r.n,r.a,r.spend.toFixed(2),(r.spend/(r.n||1)).toFixed(2),r.a?(r.spend/r.a).toFixed(2):'',(r.spend/grand*100).toFixed(1)]),[level?'Subtotal':'All departments',subN,subA,subS.toFixed(2),(subS/(subN||1)).toFixed(2),subA?(subS/subA).toFixed(2):'',(subS/grand*100).toFixed(1)]];
   $L('sessDeptHead').innerHTML=`<tr><th>${title}</th><th class="num">Members</th><th class="num" title="Members with any session, message, token or spend in the period">Active</th><th class="num" title="Usage-based Claude spend in the period (excludes seats)">Usage $</th><th class="num" title="Usage $ ÷ members">Avg / member</th><th class="num" title="Usage $ ÷ active members">Avg / active</th><th class="num" title="Share of total org usage-based spend in the period">% of total</th><th></th></tr>`;
   $L('sessDeptBody').innerHTML=rows.map(r=>level<2
-    ?`<tr class="drill" data-deptdrill="${escH(r.name)}" tabindex="0" role="button" title="Drill into ${escH(r.name)}"><td><b>${escH(r.name)}</b>${level===0?` <span class="chip" data-drill="deptDetail" data-arg="${escH(r.name)}" style="padding:1px 7px;font-size:10.5px;margin-left:6px" title="Department summary (seat cost, averages, every member)">summary</span>`:''}</td><td class="num mono">${r.n}</td><td class="num mono">${r.a}</td><td class="num mono">${usd(r.spend)}</td><td class="num mono">${usd(r.spend/(r.n||1))}</td><td class="num mono">${r.a?usd(r.spend/r.a):'—'}</td><td class="num mono">${(r.spend/grand*100).toFixed(1)}%</td><td><span class="arrow">›</span></td></tr>`
+    ?`<tr class="drill" data-deptdrill="${escH(r.name)}" tabindex="0" role="button" title="Drill into ${escH(r.name)}"><td><b>${escH(r.name)}</b>${level===0?` <span class="chip" data-drill="deptDetail" data-arg="${escH(r.name)}" style="padding:1px 7px;font-size:10.5px;margin-left:6px" title="Department summary (seat cost, averages, every member)">summary</span>`:''}</td><td class="num mono">${r.n}</td><td class="num mono">${r.a}</td><td class="num mono">${usd(r.spend)}</td><td class="num mono">${usd(r.spend/(r.n||1))}</td><td class="num mono">${r.a?usd(r.spend/r.a):'—'}</td><td class="num mono">${(r.spend/grand*100).toFixed(1)}%</td><td style="white-space:nowrap"><span class="chip cl-ov" data-clov="${escH(r.name)}" title="Who uses what in this ${level?'manager':'department'} — without leaving the table">⤢ Overview</span> <span class="arrow">›</span></td></tr>`
     :`<tr data-drill="member" data-arg="${escH(r.email||'')}" tabindex="0" role="button" title="Open member" style="cursor:pointer"><td><b>${escH(r.name)}</b>${r.departed?' <span style="font-size:10px;color:var(--ink-3)">departed</span>':''}<div style="color:var(--ink-3);font-size:11px">${escH(r.email||'')}</div></td><td class="num mono">1</td><td class="num mono">${r.a}</td><td class="num mono">${usd(r.spend)}</td><td class="num mono">${usd(r.spend)}</td><td class="num mono">${r.a?usd(r.spend):'—'}</td><td class="num mono">${(r.spend/grand*100).toFixed(1)}%</td><td></td></tr>`).join('')
     ||'<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--ink-3)">No members here.</td></tr>';
   $L('sessDeptFoot').innerHTML=`<tr><td><b>${level?'Subtotal':'All departments'}</b></td><td class="num mono">${subN}</td><td class="num mono">${subA}</td><td class="num mono"><b>${usd(subS)}</b></td><td class="num mono">${usd(subS/(subN||1))}</td><td class="num mono">${subA?usd(subS/subA):'—'}</td><td class="num mono">${(subS/grand*100).toFixed(1)}%</td><td></td></tr>`;
   $L('sessDeptBody').querySelectorAll('[data-deptdrill]').forEach(tr=>{
-    const go=(ev)=>{ if(ev&&ev.target&&ev.target.closest('[data-drill]')) return; if(!DEPT_DRILL.dept) DEPT_DRILL.dept=tr.dataset.deptdrill; else DEPT_DRILL.mgr=tr.dataset.deptdrill; renderSessDepts(); };
+    const go=(ev)=>{ if(ev&&ev.target&&ev.target.closest('[data-drill],.cl-ov')) return; if(!DEPT_DRILL.dept) DEPT_DRILL.dept=tr.dataset.deptdrill; else DEPT_DRILL.mgr=tr.dataset.deptdrill; renderSessDepts(); };
     tr.addEventListener('click',go);
     tr.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(e); } });
   });
   $L('sessDeptCrumbs').querySelectorAll('[data-deptcrumb]').forEach(a=>a.addEventListener('click',()=>{ const v=a.dataset.deptcrumb; DEPT_DRILL.dept=v||null; DEPT_DRILL.mgr=null; renderSessDepts(); }));
+  // "who uses what" drawer (2026-10-30): one chip for the current selection, one per dept/manager row
+  const clSel=level===2?{dept:DEPT_DRILL.dept,mgr:DEPT_DRILL.mgr}:level===1?{dept:DEPT_DRILL.dept}:{};
+  $L('sessDeptCrumbs').insertAdjacentHTML('beforeend',` <span class="chip cl-ov" data-clov-here="1" title="Who uses what in the current selection" style="margin-left:8px">⤢ Overview: ${escH(level===2?DEPT_DRILL.mgr:level===1?DEPT_DRILL.dept:'all departments')}</span>`);
+  $L('sessDeptCrumbs').querySelector('[data-clov-here]').addEventListener('click',()=>openClDeptOverview(clSel));
+  $L('sessDeptBody').querySelectorAll('.cl-ov').forEach(ch=>ch.addEventListener('click',e=>{ e.stopPropagation();
+    openClDeptOverview(level===0?{dept:ch.dataset.clov}:{dept:DEPT_DRILL.dept,mgr:ch.dataset.clov}); }));
 }
 
 /* License assigned (2026-10-30): the date Anthropic granted the seat, from /sessions
