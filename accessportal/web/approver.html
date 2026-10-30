@@ -447,6 +447,7 @@ console.log('[apv4-role-art] role artwork active.');
         <div id="apv4-page-manage-roles"  style="display:none"></div>
         <div id="apv4-page-notifications" style="display:none"></div>
         <div id="apv4-page-manage-access" style="display:none"></div>
+        <div id="apv4-page-site-usage"    style="display:none"></div>
       </div>
     </div>
   </div>
@@ -525,7 +526,7 @@ var TYPE_COLOR = {oca:[ART_G+'#0c2233,#0e4a6e)','#60a5fa'],aia:[ART_G+'#2d1b69,#
 var ART_DEFAULT=[ART_G+'#111827,#374151)','#d1d5db'];
 function artSq(gradAccent,inner,cls){var c=gradAccent||ART_DEFAULT;return '<div class="apv4-type-ic art '+(cls||'')+'" style="background:'+c[0]+';color:'+c[1]+'">'+inner+'</div>';}
 function typeIc(t,cls){return artSq(TYPE_COLOR[t],TYPE_ICON[t]||I('file'),cls);}
-var PAGES = ['dashboard','pending','all','completed','audit','manage-roles','notifications','manage-access'];
+var PAGES = ['dashboard','pending','all','completed','audit','manage-roles','notifications','manage-access','site-usage']; /* SITE-USAGE (2026-10-30) */
 
 var S = {
   me:null, roles:null, reqs:[], contacts:{}, fixed:{}, groups:null,
@@ -766,6 +767,7 @@ function buildSidebar(){
     h+='<div style="height:1px;background:#1f2937;margin:8px 0"></div><div class="apv4-sb-head">Administration</div>'
       +sbItem('manage-roles',I('layers'),'Manage Roles',unroutable||'','')
       +(access().is_superadmin?sbItem('manage-access',I('shield'),'Approval Access','',''):'')
+      +(access().is_superadmin?sbItem('site-usage',I('list'),'Site Usage','',''):'') /* SITE-USAGE (2026-10-30) */
       
       +sbItem('notifications',I('mail'),'Notification Emails',unroutable||'','');
   }
@@ -803,6 +805,7 @@ function render(){
   else if(p==='manage-roles')renderManageRoles();
   else if(p==='notifications')renderNotifications();
   else if(p==='manage-access')renderManageAccess();
+  else if(p==='site-usage')renderSiteUsage(); /* SITE-USAGE (2026-10-30) */
 }
 
 /* ── shared request renderers ─────────────────────────────────────────── */
@@ -938,7 +941,7 @@ function drawDrawer(){
     var st=a.status||'pending'; var cur=(r.status==='pending'&&i===r.current_step);
     var cls=st==='approved'?'done':st==='rejected'?'bad':st==='returned'?'bad':cur?'cur':'';
     var ic=st==='approved'?'✓':(st==='rejected'||st==='returned')?'✗':cur?'●':'○';
-    var txt=st==='approved'?'Approved':st==='rejected'?'Rejected':st==='returned'?'Returned':cur?'Awaiting review':'Pending';
+    var txt=st==='approved'?'Approved':st==='rejected'?(a.approver_role==='early-reject'?'Rejected early (InfoSec)':'Rejected'):st==='returned'?'Returned':cur?'Awaiting review':'Pending';
     var by=a.approver_name?(' · '+esc(a.approver_name)):''; var ts=a.decided_at?(' · '+fmtDT(a.decided_at)):'';
     return '<div class="apv4-wf-step">'+(i<r.workflow.length-1?'<div class="ln"></div>':'')+'<div class="apv4-wf-dot '+cls+'">'+ic+'</div><div class="apv4-wf-body"><b>'+esc(stepLabel(k))+'</b><span>'+txt+by+ts+'</span>'+(a.comments?'<i>“'+esc(a.comments)+'”</i>':'')+'</div></div>';
   }).join('');
@@ -966,9 +969,39 @@ function drawDrawer(){
     act.innerHTML='<div style="flex-basis:100%"><div class="apv4-field" style="margin:0"><label>Comment <span style="color:#9ca3af;font-weight:400">(required to reject or return)</span></label><textarea id="apv4-decide-note" placeholder="Reason, conditions, or notes for the requester…" style="min-height:56px"></textarea></div><div id="apv4-decide-err" class="apv4-err"></div></div>'
       +'<button class="apv4-btn ok" onclick="AP.decide(\'approve\')">✓ Approve</button><button class="apv4-btn no" onclick="AP.decide(\'reject\')">✗ Reject</button><button class="apv4-btn warn" onclick="AP.decide(\'return\')">↩ Return</button>'
       +(S.role==='admin'?'<button class="apv4-btn" style="margin-left:auto" onclick="AP.toggleEdit(true)">✎ Edit request</button>':'');
+  }else if(canRejectEarly(r)){ /* EARLY-REJECT (2026-10-29) */
+    act.innerHTML='<div style="flex-basis:100%"><div class="apv4-note warn" style="max-width:none;margin:0 0 8px">Waiting at <b>'+esc(currentStepLabel(r))+'</b>. You hold <b>Early reject — AI Use Case Intake</b>: you may reject this request now, before the remaining approvals. It closes the request and ends the approval process. It cannot approve.</div><div class="apv4-field" style="margin:0"><label>Reason <span style="color:#dc2626;font-weight:400">(required — sent to the requester and their manager)</span></label><textarea id="apv4-early-note" placeholder="Why this request is being rejected…" style="min-height:56px"></textarea></div><label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;margin-top:8px;cursor:pointer"><input type="checkbox" id="apv4-early-ok" style="margin-top:2px"> I understand this ends the approval process for this request.</label><div id="apv4-early-err" class="apv4-err"></div></div>'
+      +'<button class="apv4-btn no" onclick="AP.rejectEarly()">✗ Reject early</button>'
+      +(S.role==='admin'?'<button class="apv4-btn" style="margin-left:auto" onclick="AP.toggleEdit(true)">✎ Edit request</button>':'');
   }else{
     act.innerHTML='<div style="font-size:12.5px;color:#6b7280;flex:1">'+(r.status==='pending'?'Waiting at <b>'+esc(currentStepLabel(r))+'</b>'+(S.role==='admin'||S.role==='all'?' — you are not a department/step approver for that step.':' — no action for your step right now.'):'This request is <b>'+esc(r.status)+'</b>. No further action.')+'</div>'
       +(S.role==='admin'?'<button class="apv4-btn" onclick="AP.toggleEdit(true)">✎ Edit request</button>'+(r.status!=='pending'&&!r.archived_at?'<button class="apv4-btn warn" onclick="window.RMREOPEN&&RMREOPEN.open(\''+esc(r.id)+'\')">↺ Reopen to step</button>':''):'');
+  }
+}
+function canRejectEarly(r){ /* EARLY-REJECT (2026-10-29) — the server enforces the same rules */
+  if(!r||r.status!=='pending'||r.archived_at)return false;
+  if((((S.me||{}).early_reject_types)||[]).indexOf(r.type)<0)return false;
+  if(String((r.submitter||{}).email||'').toLowerCase()===String((S.me||{}).email||'').toLowerCase())return false;
+  return true;
+}
+async function rejectEarly(){ /* EARLY-REJECT (2026-10-29) */
+  var r=S.open; if(!r)return;
+  var note=(($('apv4-early-note')||{}).value||'').trim(), okBox=$('apv4-early-ok'), errEl=$('apv4-early-err');
+  if(errEl)errEl.textContent='';
+  if(!note){ if(errEl)errEl.textContent='A reason is required.'; return; }
+  if(!okBox||!okBox.checked){ if(errEl)errEl.textContent='Tick the box to confirm this ends the approval process.'; return; }
+  var btns=$('apv4-draw-actions').querySelectorAll('button'); btns.forEach(function(b){b.disabled=true;});
+  try{
+    await api('/api/portal/requests/'+encodeURIComponent(r.id)+'/decide',{method:'POST',body:{action:'reject_early',updated_at:r.updated_at,comments:note}});
+    toast('✓ '+r.id+' rejected early'); closeDrawer(); await loadRequests();
+  }catch(e){
+    if(e.status===409){
+      toast((e.message&&e.message!=='stale'?e.message:'This request changed since you loaded it')+' — refreshed',true);
+      await loadRequests(); var fresh=S.reqs.find(function(x){return x.id===r.id;});
+      if(fresh){ S.open=fresh; S.editing=false; drawDrawer(); } else closeDrawer();
+      return;
+    }
+    if(errEl)errEl.textContent=e.message; btns.forEach(function(b){b.disabled=false;});
   }
 }
 function canAdminAct(r){ return canAct(r); } // kept for callers: an administrator decides only where a grant covers the current step
@@ -1199,6 +1232,113 @@ async function loadAccess(){
   }catch(e){ S.aa.error=e; S.aa.loaded=false; }
   finally{ S.aa.loading=false; }
 }
+/* ── SITE-USAGE (2026-10-30): Administration → Site Usage, super-admins only ─────
+   Visits come from /api/portal/usage (server-side, super-admin only, read-only over
+   the existing 90-day visit log). The roster is everyone with approver access: person
+   policies plus direct members of AD groups that hold an approval policy, read from
+   the same Approval Access / directory APIs this page already uses. */
+var SU={loaded:false,loading:false,error:null,usage:null,roster:null,rosterNote:'',range:30,q:'',sort:{k:'v',dir:-1},open:null};
+function suStyle(){
+  if($('su-style'))return;
+  var s=document.createElement('style'); s.id='su-style';
+  s.textContent='.su-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}.su-tile{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px}.su-tile .k{font-size:12px;color:#6b7280;font-weight:700}.su-tile .v{font-size:26px;font-weight:800;margin-top:3px}.su-tile .h{font-size:11.5px;color:#6b7280;margin-top:3px}.su-tile.w{background:#fffbeb;border-color:#fcd34d}.su-ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.su-seg{display:inline-flex;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.su-seg button{border:0;background:#fff;padding:6px 12px;font-size:12.5px;font-weight:700;color:#4b5563;border-right:1px solid #e5e7eb;cursor:pointer}.su-seg button:last-child{border-right:0}.su-seg button.on{background:#147299;color:#fff}.su-q{border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px;font-size:13px;min-width:200px}.su-tbl th{cursor:pointer;white-space:nowrap}.su-tbl td.n,.su-tbl th.n{text-align:right}.su-tbl tr.r{cursor:pointer}.su-tbl tr.r:hover td{background:#f8fafc}.su-pl{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#334155;margin:1px 3px 1px 0}.su-st{font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;white-space:nowrap}.su-g{background:#edf5e6;color:#3d7924}.su-a{background:#fff7ed;color:#b45309}.su-r{background:#fef2f2;color:#b91c1c}.su-sp{display:inline-flex;align-items:flex-end;gap:2px;height:22px}.su-sp i{display:block;width:5px;background:#9cc9dc;border-radius:1px}.su-ov{position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:900}.su-dr{position:fixed;top:0;right:0;bottom:0;width:420px;max-width:100%;background:#fff;z-index:901;box-shadow:-12px 0 40px rgba(0,0,0,.18);display:flex;flex-direction:column}.su-dr-hd{padding:16px 18px;border-bottom:1px solid #eef1f3;display:flex;justify-content:space-between;gap:10px}.su-dr-bd{padding:14px 18px;overflow:auto;font-size:13px}.su-kv{display:grid;grid-template-columns:120px 1fr;gap:6px 10px;margin-bottom:14px}.su-kv div:nth-child(odd){color:#6b7280}.su-vl{border-left:2px solid #e5e7eb;margin-left:4px;padding-left:12px}.su-vl div{padding:4px 0}@media(max-width:1000px){.su-tiles{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.su-hide{display:none}.su-q{min-width:0;width:100%}}';
+  document.head.appendChild(s);
+}
+async function suLoad(){
+  SU.loading=true; SU.error=null;
+  try{
+    var u=await api('/api/portal/usage');
+    if(!S.aa||!S.aa.loaded){ try{ await loadAccess(); }catch(e){} }
+    if(!S.groups){ try{ await loadGroups(); }catch(e){} }
+    SU.usage=u; SU.roster=await suRoster(); SU.loaded=true;
+  }catch(e){ SU.error=e; }
+  finally{ SU.loading=false; }
+}
+async function suRoster(){
+  var R={}, note=[];
+  function add(email,name,tag){ email=String(email||'').trim().toLowerCase(); if(!email)return; var p=R[email]||(R[email]={email:email,name:'',tags:[]}); if(name&&!p.name)p.name=name; if(tag&&p.tags.indexOf(tag)<0)p.tags.push(tag); }
+  function stepsTag(p){ if(p.decide_scope==='all'||p.view_scope==='all')return 'All steps'; var s=(p.decide_steps&&p.decide_steps.length?p.decide_steps:p.view_steps)||[]; return s.map(stepLabel).join(', ')||'View only'; }
+  var pols=((S.aa&&S.aa.policies)||[]).filter(function(p){return p.enabled&&p.effect!=='block'&&!p.expired;});
+  pols.filter(function(p){return p.principal_type==='user';}).forEach(function(p){ add(p.principal_key,(p.name&&p.name.indexOf('@')<0)?p.name:'',stepsTag(p)); });
+  var groups=(S.groups||[]).filter(function(g){return g.ad_group_dn;}), want={};
+  pols.filter(function(p){return p.principal_type==='ad_group';}).forEach(function(p){ (p.principal_keys||String(p.principal_key||'').split(',')).forEach(function(k){ if(k)want[k]=stepsTag(p)+(k==='tier2'?' (Tier 2)':''); }); });
+  var keys=Object.keys(want).filter(function(k){return groups.some(function(g){return g.role_key===k;});});
+  var failed=0;
+  await Promise.all(keys.map(function(k){
+    return daApi('members?role='+encodeURIComponent(k)).then(function(m){ (m.members||[]).forEach(function(u){ if(u.enabled!==false)add(u.email,u.name,want[k]); }); }).catch(function(){ failed++; });
+  }));
+  if(!S.groups)note.push('AD group members could not be loaded — showing person policies and recorded visitors only.');
+  else if(failed)note.push(failed+' AD group'+(failed===1?'':'s')+' could not be read — some members may be missing.');
+  SU.rosterNote=note.join(' ');
+  return R;
+}
+function suPeople(){
+  var R=SU.roster||{}, U={};
+  ((SU.usage&&SU.usage.people)||[]).forEach(function(u){U[u.email]=u;});
+  var all={}; Object.keys(R).forEach(function(e){all[e]=1;}); Object.keys(U).forEach(function(e){all[e]=1;});
+  var now=Date.now();
+  return Object.keys(all).map(function(e){
+    var r=R[e]||{email:e,name:'',tags:['Visited — no current grant']}, u=U[e]||{visits_7:0,visits_30:0,visits_90:0,last:'',weekly:[],recent:[]};
+    var days=u.last?(now-new Date(u.last).getTime())/86400000:Infinity;
+    return {email:e,name:r.name||e,tags:r.tags,u:u,days:days};
+  });
+}
+function suStatus(p){ if(p.days===Infinity)return '<span class="su-st su-r">No visits (90 days)</span>'; if(p.days>30)return '<span class="su-st su-r">Inactive 30+ days</span>'; if(p.days>7)return '<span class="su-st su-a">Inactive 7+ days</span>'; return '<span class="su-st su-g">Active</span>'; }
+function suSpark(w){ var mx=Math.max(1,Math.max.apply(null,(w&&w.length?w:[0]))); return '<span class="su-sp" title="Visits per week, last 12 weeks">'+(w&&w.length?w:new Array(12).fill(0)).map(function(n){return '<i style="height:'+(n?Math.max(3,Math.round(n/mx*22)):1)+'px'+(n?'':';background:#e5e7eb')+'"></i>';}).join('')+'</span>'; }
+function suWhen(ts){ return ts?fmtDT(ts):'—'; }
+function suVisits(p){ var r=SU.range; return r===7?p.u.visits_7:r===30?p.u.visits_30:p.u.visits_90; }
+function renderSiteUsage(){
+  var el=$('apv4-page-site-usage'); if(!el)return; suStyle();
+  var head='<div style="margin-bottom:14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start"><div><h1 class="apv4-page-title">Site Usage</h1><div class="apv4-page-sub">How often people with approver access open the Approver Portal · counted by the server at sign-in · kept 90 days</div></div><span class="apv4-pill" style="background:#eef8fd;color:#0b5d80">🔒 Super-admins only</span></div>';
+  if(!access().is_superadmin){ el.innerHTML=head+pageError('Super-admin only','Site Usage can be viewed only by a portal super-admin.','su-error'); return; }
+  if(SU.error){ el.innerHTML=head+pageError(SU.error.status===403?'Super-admin only':'Could not load Site Usage',SU.error.message,'su-error')+'<div style="margin-top:12px"><button class="apv4-btn" onclick="AP.suReload()">Retry</button></div>'; return; }
+  if(!SU.loaded){ el.innerHTML=head+'<div class="apv4-card"><div class="apv4-empty" role="status">'+I('loader',16)+' Loading visits and approver list…</div></div>'; if(!SU.loading)suLoad().then(function(){ if(S.page==='site-usage')renderSiteUsage(); }); return; }
+  var all=suPeople(), q=SU.q, list=all.filter(function(p){ return !q||(p.name+' '+p.email+' '+p.tags.join(' ')).toLowerCase().indexOf(q)>-1; });
+  var k=SU.sort.k, d=SU.sort.dir;
+  list.sort(function(a,b){ if(k==='n')return d*a.name.localeCompare(b.name); if(k==='last')return d*((b.days===Infinity?1e9:b.days)-(a.days===Infinity?1e9:a.days)); return d*(suVisits(a)-suVisits(b)); });
+  var total=all.reduce(function(s,p){return s+suVisits(p);},0), active=all.filter(function(p){return suVisits(p)>0;}).length, idle=all.filter(function(p){return p.days>30;}).length;
+  var top=all.slice().sort(function(a,b){return suVisits(b)-suVisits(a);})[0];
+  var ar=function(x){return k===x?(d<0?' ▾':' ▴'):'';};
+  var lab={7:'7 days',30:'30 days',90:'90 days'}[SU.range];
+  var since=SU.usage&&SU.usage.log_starts;
+  el.innerHTML=head
+   +'<div class="su-tiles"><div class="su-tile"><div class="k">Visits · last '+lab+'</div><div class="v">'+total+'</div><div class="h">everyone listed below</div></div>'
+   +'<div class="su-tile"><div class="k">People who visited</div><div class="v">'+active+' <span style="font-size:14px;color:#6b7280">of '+all.length+'</span></div><div class="h">at least one visit in '+lab+'</div></div>'
+   +'<div class="su-tile w"><div class="k">No visit in 30+ days</div><div class="v">'+idle+'</div><div class="h">may hold access they no longer use</div></div>'
+   +'<div class="su-tile"><div class="k">Most active</div><div class="v" style="font-size:17px;margin-top:9px">'+esc(top&&suVisits(top)?top.name:'—')+'</div><div class="h">'+(top&&suVisits(top)?suVisits(top)+' visits':'no visits yet')+'</div></div></div>'
+   +(SU.rosterNote?'<div class="apv4-note warn" style="max-width:none;margin-bottom:12px">'+esc(SU.rosterNote)+'</div>':'')
+   +'<div class="apv4-card"><div class="apv4-card-hd"><div><b>People with approver access</b><span>Click a person for their recent visits</span></div><div class="su-ctrl">'
+   +'<div class="su-seg">'+[7,30,90].map(function(r){return '<button class="'+(SU.range===r?'on':'')+'" onclick="AP.suRange('+r+')">'+r+' days</button>';}).join('')+'</div>'
+   +'<input class="su-q" id="su-q" placeholder="Search name, email or team…" value="'+esc(SU.q)+'" oninput="AP.suSearch(this.value)">'
+   +'<button class="apv4-btn" onclick="AP.suExport()">⬇ Export CSV</button><button class="apv4-btn" onclick="AP.suReload()">↻ Refresh</button></div></div>'
+   +'<div style="overflow-x:auto"><table class="apv4-tbl su-tbl"><thead><tr><th onclick="AP.suSort(\'n\')">Person'+ar('n')+'</th><th class="su-hide">Access</th><th class="n" onclick="AP.suSort(\'v\')">Visits ('+lab+')'+ar('v')+'</th><th class="su-hide">Trend</th><th onclick="AP.suSort(\'last\')">Last visit'+ar('last')+'</th><th>Status</th></tr></thead><tbody>'
+   +list.map(function(p){ return '<tr class="r" onclick="AP.suOpen(\''+esc(p.email)+'\')"><td><b>'+esc(p.name)+'</b><div style="font-size:11.5px;color:#6b7280">'+esc(p.email)+'</div></td><td class="su-hide">'+p.tags.map(function(t){return '<span class="su-pl">'+esc(t)+'</span>';}).join('')+'</td><td class="n" style="font-weight:800;font-size:15px">'+suVisits(p)+'</td><td class="su-hide">'+suSpark(p.u.weekly)+'</td><td>'+suWhen(p.u.last)+'</td><td>'+suStatus(p)+'</td></tr>'; }).join('')
+   +(list.length?'':'<tr><td colspan="6" class="apv4-empty">No one matches that search.</td></tr>')
+   +'</tbody></table></div><div style="padding:10px 16px;font-size:11.5px;color:#6b7280">Showing '+list.length+' of '+all.length+' · repeat opens within '+((SU.usage&&SU.usage.gap_minutes)||30)+' minutes count as one visit'+(since?' · visit log begins '+esc(fmtDT(since)):'')+'</div></div>'
+   +(SU.open?suDrawer():'');
+  var qi=$('su-q'); if(qi&&SU._focus){ qi.focus(); qi.setSelectionRange(qi.value.length,qi.value.length); SU._focus=false; }
+}
+function suDrawer(){
+  var p=suPeople().filter(function(x){return x.email===SU.open;})[0]; if(!p)return '';
+  return '<div class="su-ov" onclick="AP.suClose()"></div><aside class="su-dr" role="dialog" aria-label="Visits"><div class="su-dr-hd"><div><div style="font-size:16px;font-weight:800">'+esc(p.name)+'</div><div style="font-size:12px;color:#6b7280">'+esc(p.email)+'</div></div><button class="apv4-btn" onclick="AP.suClose()" aria-label="Close">×</button></div><div class="su-dr-bd">'
+   +'<div class="su-kv"><div>Access</div><div>'+p.tags.map(function(t){return '<span class="su-pl">'+esc(t)+'</span>';}).join('')+'</div><div>Visits</div><div><b>'+p.u.visits_7+'</b> (7 days) · <b>'+p.u.visits_30+'</b> (30 days) · <b>'+p.u.visits_90+'</b> (90 days)</div><div>Last visit</div><div>'+suWhen(p.u.last)+'</div><div>Status</div><div>'+suStatus(p)+'</div></div>'
+   +'<div style="font-size:11.5px;font-weight:800;color:#6b7280;letter-spacing:.06em;margin-bottom:6px">RECENT VISITS</div>'
+   +((p.u.recent||[]).length?'<div class="su-vl">'+p.u.recent.map(function(t){return '<div><b>'+esc(fmtDT(t))+'</b> · Approver Portal</div>';}).join('')+'</div>':'<div class="apv4-note">No visits in the last 90 days. If this person no longer needs approver access, it can be removed in Approval Access.</div>')
+   +'<div class="apv4-note" style="margin-top:12px">Only visit times are kept — not what was viewed, clicked or typed.</div></div></aside>';
+}
+function suRange(r){ SU.range=r; renderSiteUsage(); }
+function suSearch(v){ SU.q=String(v||'').trim().toLowerCase(); SU._focus=true; renderSiteUsage(); }
+function suSort(k){ if(SU.sort.k===k)SU.sort.dir*=-1; else SU.sort={k:k,dir:k==='n'?1:-1}; renderSiteUsage(); }
+function suOpen(e){ SU.open=e; renderSiteUsage(); }
+function suClose(){ SU.open=null; renderSiteUsage(); }
+function suReload(){ SU.loaded=false; SU.error=null; SU.open=null; renderSiteUsage(); }
+function suExport(){
+  var rows=[['Name','Email','Access','Visits 7d','Visits 30d','Visits 90d','Last visit (UTC)','Status']];
+  suPeople().forEach(function(p){ rows.push([p.name,p.email,p.tags.join('; '),p.u.visits_7,p.u.visits_30,p.u.visits_90,p.u.last||'',p.days===Infinity?'No visits (90 days)':p.days>30?'Inactive 30+ days':p.days>7?'Inactive 7+ days':'Active']); });
+  var csv=rows.map(function(r){return r.map(function(c){c=String(c==null?'':c); if(/^[=+\-@]/.test(c))c="'"+c; return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}).join(',');}).join('\r\n');
+  var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='site-usage-'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},500);
+}
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&SU.open){ suClose(); } });
 function renderManageAccess(){
   var el=$('apv4-page-manage-access'); if(!el)return;
   var head='<div style="margin-bottom:14px"><h1 class="apv4-page-title aa-h1">Approval Access</h1><div class="apv4-page-sub" style="max-width:820px">'+esc(AA_INTRO)+'</div></div>';
@@ -1321,6 +1461,7 @@ function aaSync(e){ // reveal controls, keep decide ⊆ view, refresh the live p
   if(t&&t.checked&&t.id==='aa-decide-all'){ $('aa-view-all').checked=true; }
   var user=$('aa-ptype-user').checked;
   $('aa-effect-wrap').hidden=!user;
+  var cw=$('aa-caps-wrap'); if(cw)cw.hidden=!user||$('aa-effect').value==='block'; /* EARLY-REJECT (2026-10-29) */
   if(!user)$('aa-effect').value='allow';
   $('aa-type-list').hidden=$('aa-types-all').checked;
   $('aa-principal-group').hidden=user; $('aa-principal-user').hidden=!user;
@@ -1397,6 +1538,8 @@ function aaCollect(){ // returns {body, errs} — the same rules app.py enforces
   if(!$('aa-types-all').checked&&!out.request_types.length)errs.view='Choose at least one request type or select All request types.';
   out.effect=out.principal_type==='user'?$('aa-effect').value:'allow';
   out.reason=$('aa-reason').value.trim();
+  var ce=$('aa-cap-early-reject-aia'); /* EARLY-REJECT (2026-10-29) */
+  out.capabilities=(out.principal_type==='user'&&out.effect==='allow'&&ce&&ce.checked)?['early_reject:aia']:[];
   var ex=$('aa-expiry').value; out.expires_at=ex?new Date(ex).toISOString():null;
   if(out.effect==='block'){out.decide_scope='steps';out.decide_steps=[];}
   if(S.aa.editId!=null){var saved=aaPolicy(S.aa.editId);if(saved)out.expected_updated_at=saved.updated_at;}
@@ -1582,6 +1725,7 @@ function daPolicyFields(p){
   var types=S.aa.types||[],local='';
   if(p.expires_at){var d=new Date(p.expires_at);local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
   return '<fieldset class="aa-fs"><legend>Request types / resources</legend><label><input type="checkbox" id="aa-types-all"'+(!(p.request_types||[]).length?' checked':'')+'> All request types</label><div class="aa-checks" id="aa-type-list">'+types.map(function(t){return '<label><input type="checkbox" data-aa-type="'+esc(t.key)+'"'+((p.request_types||[]).indexOf(t.key)>-1?' checked':'')+'> '+esc(t.label)+'</label>';}).join('')+'</div></fieldset>'
+    +'<fieldset class="aa-fs" id="aa-caps-wrap"><legend>Extra permissions</legend><label><input type="checkbox" id="aa-cap-early-reject-aia"'+((p.capabilities||[]).indexOf('early_reject:aia')>-1?' checked':'')+'> Early reject — AI Use Case Intake</label><div class="hint">Lets this person reject an AI Use Case Intake at any step, including while it waits on the manager. Reject only — never approve. Individual “Grant selected access” policies only.</div></fieldset>' /* EARLY-REJECT (2026-10-29) */
     +'<div class="apv4-field" id="aa-effect-wrap"><label for="aa-effect">Person override</label><select id="aa-effect"><option value="allow"'+(p.effect!=='block'?' selected':'')+'>Grant selected access</option><option value="block"'+(p.effect==='block'?' selected':'')+'>Block selected teams and request types</option></select><div class="hint">A block takes precedence over AD, manual and manager grants. Super-admin oversight remains available.</div></div>'
     +'<div class="apv4-field"><label for="aa-expiry">Expiry (your local time, optional)</label><input id="aa-expiry" type="datetime-local" value="'+esc(local)+'"><div class="hint">Leave blank for ongoing access.</div></div>'
     +'<div class="apv4-field"><label for="aa-reason">Reason / approval reference</label><textarea id="aa-reason" maxlength="1000" rows="2">'+esc(p.reason||'')+'</textarea></div>';
@@ -1662,10 +1806,11 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&S.open)clos
 setInterval(function(){ if(S.role&&!S.open&&!S.editing&&['dashboard','pending','all','completed'].indexOf(S.page)>-1&&document.visibilityState==='visible')loadRequests(); },60000);
 
 /* ── public surface (inline handlers + external scripts) ───────────────── */
-window.AP={stepRename:stepRename,wfEdit:wfEdit,wfCancel:wfCancel,wfMove:wfMove,wfRemove:wfRemove,wfAdd:wfAdd,wfReset:wfReset,wfHidden:wfHidden,wfSave:wfSave,nav:nav,selectRole:selectRole,showRoles:showRoles,openReq:openReq,closeDrawer:closeDrawer,decide:decide,toggleEdit:toggleEdit,saveEdit:saveEdit,
+window.AP={stepRename:stepRename,wfEdit:wfEdit,wfCancel:wfCancel,wfMove:wfMove,wfRemove:wfRemove,wfAdd:wfAdd,wfReset:wfReset,wfHidden:wfHidden,wfSave:wfSave,nav:nav,selectRole:selectRole,showRoles:showRoles,openReq:openReq,closeDrawer:closeDrawer,decide:decide,rejectEarly:rejectEarly,toggleEdit:toggleEdit,saveEdit:saveEdit,
   setFilter:setFilter,refresh:refresh,saveRecipient:saveRecipient,nfOpen:nfOpen,nfClose:nfClose,nfTab:nfTab,nfSave:nfSave,signOut:signOut,
   daEntry:daEntry,daCheck:daCheck,daGrant:daGrant,daMembers:daMembers,daChange:daChange,daSearch:daSearch,daMap:daMap,daBlock:daBlock,
-  canAct:canAct,access:access,aaAdd:aaAdd,aaEdit:aaEdit,aaToggle:aaToggle,aaDelete:aaDelete,aaClose:aaClose,aaSave:aaSave,aaLookup:aaLookup,aaClearUser:aaClearUser,aaRetry:aaRetry};
+  canAct:canAct,access:access,aaAdd:aaAdd,aaEdit:aaEdit,aaToggle:aaToggle,aaDelete:aaDelete,aaClose:aaClose,aaSave:aaSave,aaLookup:aaLookup,aaClearUser:aaClearUser,aaRetry:aaRetry,
+  suRange:suRange,suSearch:suSearch,suSort:suSort,suOpen:suOpen,suClose:suClose,suReload:suReload,suExport:suExport}; /* SITE-USAGE (2026-10-30) */
 /* RM-HOOKS: read-only surface for external modules (state + formatting helpers; no new write paths) */
 window.APX={S:S,myReqs:myReqs,isMine:isMine,curStepKey:curStepKey,canAct:canAct,typeIc:typeIc,typeLabel:typeLabel,stepLabel:stepLabel,statusPill:statusPill,fmtDate:fmtDate,fmtDT:fmtDT,ago:ago,esc:esc,toast:toast,prettyNote:prettyNote,loadRequests:loadRequests,access:access,artSq:artSq,I:I,currentStepLabel:currentStepLabel};
 window.apv4Nav=nav; window.apv4ShowRoles=showRoles; window.apv4SelectRole=selectRole; window.apv4Logout=signOut; window.logoutApprover=signOut;
