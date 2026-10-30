@@ -1203,6 +1203,7 @@ def _migrate_department_access(conn):
         "request_types": "TEXT NOT NULL DEFAULT '[]'",
         "expires_at": "TEXT", "reason": "TEXT NOT NULL DEFAULT ''",
         "effect": "TEXT NOT NULL DEFAULT 'allow'",
+        "capabilities": "TEXT NOT NULL DEFAULT '[]'",   # EARLY-REJECT (2026-10-29): extra per-person permissions
     }.items():
         if name not in columns:
             conn.execute(f"ALTER TABLE approval_access_policies ADD COLUMN {name} {declaration}")
@@ -2207,6 +2208,60 @@ def notify_final_outcome(req: dict):
     if status in ("approved", "rejected", "returned"):
         _service_desk_outcome(req, status)
 
+def notify_early_reject(req: dict, actor: str, waiting: str, reason: str):
+    """EARLY-REJECT (2026-10-29). Own wording: the step the request was waiting at did
+    not make this decision. Recipients: requester, requester's manager, Service Desk."""
+    rt    = REQUEST_TYPES.get(req["type"], {})
+    label = rt.get("label", "")
+    icon  = type_art(req["type"])
+    raw   = req.get("submitter") or {}
+    subm  = _esc_map(raw)
+    who   = html.escape(actor or "")
+    wait  = html.escape(waiting or "")
+    why   = html.escape(reason or "")
+    table = f"""
+<table style="width:100%;border-collapse:collapse;border:1px solid #e3e7ea;border-radius:8px;overflow:hidden;font-size:13px">
+  <tr style="background:#f8fafb"><td style="padding:10px 14px;color:#5B6770;font-weight:600;width:40%">Request ID</td><td style="padding:10px 14px;font-family:ui-monospace,Menlo,monospace;color:#509E2F;font-weight:700">{req['id']}</td></tr>
+  <tr><td style="padding:10px 14px;color:#5B6770;font-weight:600">Request Type</td><td style="padding:10px 14px">{icon}&nbsp; {label}</td></tr>
+  <tr style="background:#f8fafb"><td style="padding:10px 14px;color:#5B6770;font-weight:600">Requester</td><td style="padding:10px 14px">{subm.get('name','')} &middot; {subm.get('dept','')}</td></tr>
+  <tr><td style="padding:10px 14px;color:#5B6770;font-weight:600">Rejected by</td><td style="padding:10px 14px">{who} (InfoSec)</td></tr>
+  <tr style="background:#f8fafb"><td style="padding:10px 14px;color:#5B6770;font-weight:600">Was waiting at</td><td style="padding:10px 14px">{wait}</td></tr>
+  <tr><td style="padding:10px 14px;color:#5B6770;font-weight:600">Reason</td><td style="padding:10px 14px">{why}</td></tr>
+</table>"""
+    banner = """
+<div style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#991b1b;font-weight:600">
+  ✗ Rejected by InfoSec before all approval steps were completed
+</div>"""
+    # 1. requester
+    if raw.get("email"):
+        body = banner + f"""
+<p style="font-size:15px;color:#1f2937">Hi <strong>{subm.get('name','')}</strong>,</p>
+<p style="font-size:14px;color:#5B6770;line-height:1.6;margin:12px 0">Your <strong>{label}</strong> request <strong>{req['id']}</strong> has been rejected by InfoSec while it was waiting at the <strong>{wait}</strong> step. The approval process for this request has ended.</p>
+{table}
+<p style="font-size:13px;color:#5B6770;margin-top:14px">{email_text("email.rejected.closing", id=req["id"], type=label, step=waiting)}</p>"""
+        mail_and_audit(req["id"], raw.get("email"), f"Denied — your {label} request",
+                       _email_html_wrapper("❌", "Request Denied", body, req["id"]),
+                       "Requester notice — rejected early")
+    # 2. the requester's manager (only a valid address different from the requester's)
+    mgr = request_manager_email(req)
+    if mgr:
+        body = banner + f"""
+<p style="font-size:15px;color:#1f2937">Hi <strong>{subm.get('manager_name','') or 'there'}</strong>,</p>
+<p style="font-size:14px;color:#5B6770;line-height:1.6;margin:12px 0">A <strong>{label}</strong> request from <strong>{subm.get('name','')}</strong> that was waiting at the <strong>{wait}</strong> step was rejected early by InfoSec. <strong>No action is needed from you</strong> — the request is closed and can no longer be approved.</p>
+{table}"""
+        mail_and_audit(req["id"], mgr, f"[Rejected early] {label} — {req['id']}",
+                       _email_html_wrapper(icon, "Request rejected early", body, req["id"]),
+                       "Manager notice — rejected early")
+    # 3. Service Desk record copy (same address the existing outcome notice uses)
+    desk = (get_smtp().get("helpdesk") or "").strip()
+    if desk:
+        body = banner + f"""
+<p style="font-size:14px;color:#1f2937;margin-bottom:16px">The following request was <strong>rejected early</strong> by InfoSec. No fulfilment action is required — this notice is for the record.</p>
+{table}"""
+        mail_and_audit(req["id"], desk, f"[Rejected] {label} — {req['id']}",
+                       _email_html_wrapper(icon, "Request Rejected", body, req["id"]),
+                       "Service Desk notice — rejected early")
+
 # ── REQUEST HELPERS ───────────────────────────────────────────────────────────
 
 def _build_request_dict(row, approvals=None) -> dict:
@@ -2971,6 +3026,11 @@ def _policy_dict(row) -> dict:
     p["enabled"]      = bool(p.get("enabled"))
     p["request_types"] = json.loads(p.get("request_types") or "[]")
     p["effect"] = p.get("effect") or "allow"
+    try:                                              # EARLY-REJECT (2026-10-29)
+        caps = json.loads(p.get("capabilities") or "[]")
+    except (TypeError, ValueError):
+        caps = []
+    p["capabilities"] = [c for c in caps if c in POLICY_CAPABILITIES] if isinstance(caps, list) else []
     p["expires_at"] = p.get("expires_at") or None
     p["reason"] = p.get("reason") or ""
     p["expired"] = bool(p["expires_at"] and p["expires_at"] <= now_iso())
@@ -3037,7 +3097,30 @@ def effective_access(session: dict, conn=None, request_type=None) -> dict:
 POLICY_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 POLICY_FIELDS = ("name", "principal_type", "principal_key",
                  "view_scope", "view_steps", "decide_scope", "decide_steps", "enabled",
-                 "request_types", "expires_at", "reason", "effect")
+                 "request_types", "expires_at", "reason", "effect", "capabilities")
+
+# EARLY-REJECT (2026-10-29): extra permissions a super-admin may tick on ONE person's
+# "Grant selected access" policy. Never on AD-group policies, never on blocks.
+POLICY_CAPABILITIES = {"early_reject:aia": "Early reject — AI Use Case Intake"}
+EARLY_REJECT_TYPES = ("aia",)
+
+def held_capabilities(session: dict, conn=None) -> list:
+    """The extra permissions on this person's own enabled, unexpired, allow policy."""
+    email = ((session or {}).get("email") or "").strip().lower()
+    if not email:
+        return []
+    row = (conn or db()).execute(
+        "SELECT * FROM approval_access_policies WHERE principal_type='user' AND principal_key=? AND enabled=1",
+        (email,)).fetchone()
+    if not row:
+        return []
+    p = _policy_dict(row)
+    if p["expired"] or p["effect"] != "allow":
+        return []
+    return list(p["capabilities"])
+
+def can_early_reject(session: dict, request_type: str) -> bool:
+    return request_type in EARLY_REJECT_TYPES and f"early_reject:{request_type}" in held_capabilities(session)
 
 def _clean_steps(raw, field: str) -> tuple:
     """(steps, error): keys ⊆ STEP_LABELS, de-duplicated, STEP_LABELS order."""
@@ -3134,7 +3217,14 @@ def _validate_policy(data: dict) -> tuple:
     reason = str(data.get("reason") or "").strip()
     if len(reason) > 1000:
         return None, "reason must be at most 1000 characters"
+    caps = data.get("capabilities") or []           # EARLY-REJECT (2026-10-29)
+    if not isinstance(caps, list) or any(c not in POLICY_CAPABILITIES for c in caps):
+        return None, "capabilities must contain known permission keys"
+    caps = sorted(set(caps))
+    if caps and (ptype != "user" or effect != "allow"):
+        return None, "Extra permissions can be granted only on one person's 'Grant selected access' policy"
     return {"request_types": sorted(set(types)), "expires_at": expiry, "reason": reason, "effect": effect,
+            "capabilities": caps,
             "name": name, "principal_type": ptype, "principal_key": pkey,
             "view_scope": vscope, "view_steps": vsteps,
             "decide_scope": dscope, "decide_steps": dsteps,
@@ -3658,6 +3748,7 @@ def _rate_limited(ip: str, bucket: str = "submit",
 # events (counted) rather than slowing anything down.
 JOURNEY_DB_PATH     = DB_PATH.parent / "journey.db"
 JOURNEY_KEEP_DAYS   = 90                       # fixed retention (decided 2026-10-08)
+SITE_USAGE_GAP_MIN  = 30                       # SITE-USAGE (2026-10-30): one visit per 30 quiet minutes
 JOURNEY_MAX_BYTES   = 1024 * 1024 * 1024       # stop writing past 1 GiB of live pages
 JOURNEY_QUEUE_MAX   = 20000
 JOURNEY_POST_EVENTS = 40                       # events accepted per page POST
@@ -4156,6 +4247,8 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
                 return self._save_settings(session)
             if method == "POST" and path == "/api/portal/settings/test-email":
                 return self._test_email(session)
+            if method == "GET"  and path == "/api/portal/usage":      # SITE-USAGE (2026-10-30)
+                return self._site_usage(session)
             # Approval Access policies — super-admin only (checked in each handler)
             if method == "GET"  and path == "/api/portal/approval-access":
                 return self._list_policies(session)
@@ -4451,6 +4544,8 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
             "manager_of_requests": list(acc["manager_of_requests"]),
             # ACK-TEAM: how many acknowledgment records name this person as manager
             "team_ack_count": ack_team_count(session.get("email", "")),
+            # EARLY-REJECT (2026-10-29): request types this person may reject before their step
+            "early_reject_types": [t for t in EARLY_REJECT_TYPES if can_early_reject(session, t)],
             "all_steps": list(STEP_LABELS.keys()),
             "step_labels": {k: step_label(k) for k in STEP_LABELS},
             "approval_access": {**acc, "resources": {t: effective_access(session, request_type=t) for t in REQUEST_TYPES}},
@@ -5026,6 +5121,8 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
         comments    = body.get("comments", "")
         signature   = body.get("signature", "")
 
+        if action == "reject_early":                       # EARLY-REJECT (2026-10-29)
+            return self._reject_early(req_id, session, body)
         if action not in ("approve", "reject", "return"):
             return err(self, 400, "action must be 'approve', 'reject', or 'return'")
         if action in ("reject", "return") and not comments:
@@ -5073,6 +5170,63 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
         # every other submission and decision.
         _notify_after_decision(result, action, cur_idx)
         inventory_on_request_approved(result)   # AI INVENTORY: row appears once an AIA request is approved
+        ok(self, result)
+
+
+    def _reject_early(self, req_id: str, session: dict, body: dict):
+        """EARLY-REJECT (2026-10-29). A person holding early_reject:<type> may REJECT an open
+        request of that type at whatever step it is waiting at — including Dept. Manager.
+        Reject only: never approve, return, skip or advance. Not their own request. Reason
+        required. The waiting step is closed and the decision is audited as an early reject."""
+        reason     = str(body.get("comments") or "").strip()
+        posted_upd = body.get("updated_at")
+        if not reason:
+            return err(self, 400, "A reason is required to reject early")
+        if len(reason) > 4000:
+            return err(self, 400, "The reason must be at most 4000 characters")
+        actor_email = (session.get("email") or "").strip().lower()
+        with write_lock:
+            row = db().execute("SELECT * FROM requests WHERE id=?", (req_id.upper(),)).fetchone()
+            if not row:
+                return err(self, 404, f"No request found with ID {req_id}")
+            req = dict(row)
+            vis = visible_request_ids(session)
+            if vis is not None and req["id"] not in vis:
+                return err(self, 403, "This request is not in a workflow step you hold.")
+            if not can_early_reject(session, req["type"]):
+                return err(self, 403, "You do not hold the early-reject permission for this request type.")
+            if req["status"] != "pending":
+                return err(self, 409, f"Request {req['id']} is {req['status']} and cannot be rejected")
+            if req.get("archived_at"):
+                return err(self, 409, f"Request {req['id']} is archived — un-archive it first")
+            workflow = json.loads(req["workflow"])
+            cur_idx  = req["current_step"]
+            if cur_idx >= len(workflow):
+                return err(self, 409, "Request has no pending step")
+            subm = json.loads(req["submitter"]) if isinstance(req["submitter"], str) else (req["submitter"] or {})
+            if actor_email and (subm.get("email") or "").strip().lower() == actor_email:
+                return err(self, 403, "You cannot reject your own request.")
+            if posted_upd is not None and str(posted_upd) != (req.get("updated_at") or ""):
+                return respond(self, 409, {"ok": False, "error": "stale",
+                                           "message": "This request changed since you loaded it"})
+            step_key = workflow[cur_idx]
+            waiting  = step_label(step_key)
+            name     = session.get("name") or actor_email or "Unknown"
+            ts       = now_iso()
+            db().execute(
+                """UPDATE approvals
+                   SET status='rejected',approver_name=?,approver_role='early-reject',comments=?,signature='',decided_at=?
+                   WHERE request_id=? AND step=?""",
+                (name, reason, ts, req["id"], cur_idx))
+            db().execute("UPDATE requests SET status='rejected',updated_at=? WHERE id=?", (ts, req["id"]))
+            db().execute(
+                """INSERT INTO audit_log(request_id,event,actor,role,note,created_at) VALUES(?,?,?,?,?,?)""",
+                (req["id"], f"Rejected early — while waiting at {waiting}", name, "early-reject",
+                 reason + (f" [{actor_email}]" if actor_email else "") + f" [grant: early_reject:{req['type']}]", ts))
+            db().commit()
+            result = _build_request_dict(db().execute("SELECT * FROM requests WHERE id=?", (req["id"],)).fetchone())
+        # Mail after the lock is released, as in _decide.
+        notify_early_reject(result, name, waiting, reason)
         ok(self, result)
 
 
@@ -6735,6 +6889,75 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
         admitted = any(a["view_steps"] or a["manager_of_requests"] for a in resources.values())
         ok(self, {"admitted": bool(admitted), "blocked": acc["blocked"], "access": acc, "resources": resources})
 
+    def _site_usage(self, session: dict):
+        """SITE-USAGE (2026-10-30). Approver Portal visits per person, from the existing
+        journey log (read-only). A visit = a successful /api/portal/auth/me; calls by the
+        same person less than SITE_USAGE_GAP_MIN minutes apart are one visit."""
+        if not is_superadmin(session):
+            return err(self, 403, "super-admin only")
+        gap_s  = SITE_USAGE_GAP_MIN * 60
+        now_ms = time.time() * 1000
+        since  = _j_ts(now_ms - JOURNEY_KEEP_DAYS * 86400000)
+        rows   = []
+        try:
+            conn = sqlite3.connect(f"file:{JOURNEY_DB_PATH}?mode=ro", uri=True, timeout=10)
+            try:
+                rows = conn.execute(
+                    """SELECT email, ts, data FROM journey_events
+                       WHERE ts >= ? AND origin = 'server' AND event = 'http_request'
+                         AND email <> '' AND data LIKE '%/api/portal/auth/me%'
+                       ORDER BY email, ts""", (since,)).fetchall()
+                first = conn.execute("SELECT MIN(ts) FROM journey_events").fetchone()[0] or ""
+            finally:
+                conn.close()
+        except sqlite3.Error as e:
+            return err(self, 503, f"Visit log unavailable: {e}")
+
+        def ms(ts):
+            try:
+                return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc).timestamp() * 1000
+            except (TypeError, ValueError):
+                return None
+
+        visits = {}
+        last_seen = {}
+        for email, ts, data in rows:
+            try:
+                d = json.loads(data or "{}")
+            except ValueError:
+                continue
+            if d.get("path") != "/api/portal/auth/me" or d.get("status") != 200:
+                continue
+            t = ms(ts)
+            if t is None:
+                continue
+            prev = last_seen.get(email)
+            if prev is None or (t - prev) / 1000 > gap_s:
+                visits.setdefault(email, []).append(t)
+            last_seen[email] = t
+
+        people = []
+        for email, starts in visits.items():
+            age = [(now_ms - t) / 86400000 for t in starts]
+            weekly = [0] * 12
+            for a in age:
+                w = int(a // 7)
+                if 0 <= w < 12:
+                    weekly[11 - w] += 1
+            people.append({
+                "email": email,
+                "visits_7":  sum(1 for a in age if a <= 7),
+                "visits_30": sum(1 for a in age if a <= 30),
+                "visits_90": len(starts),
+                "last": _j_ts(starts[-1]),
+                "weekly": weekly,                                   # oldest → newest
+                "recent": [_j_ts(t) for t in reversed(starts[-10:])],
+            })
+        people.sort(key=lambda p: p["email"])
+        ok(self, {"people": people, "window_days": JOURNEY_KEEP_DAYS, "gap_minutes": SITE_USAGE_GAP_MIN,
+                  "log_starts": first, "generated_at": _j_ts(now_ms)})
+
+
     def _list_policies(self, session: dict):
         if not is_superadmin(session):
             return err(self, 403, "super-admin only")
@@ -6781,8 +7004,9 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
                 return respond(self, 409, {"ok": False, "id": None,
                                            "error": "a policy for this principal already exists"})
             new_id = cur.lastrowid
-            db().execute("UPDATE approval_access_policies SET request_types=?,expires_at=?,reason=?,effect=? WHERE id=?",
-                         (json.dumps(clean["request_types"]), clean["expires_at"], clean["reason"], clean["effect"], new_id))
+            db().execute("UPDATE approval_access_policies SET request_types=?,expires_at=?,reason=?,effect=?,capabilities=? WHERE id=?",
+                         (json.dumps(clean["request_types"]), clean["expires_at"], clean["reason"], clean["effect"],
+                          json.dumps(clean["capabilities"]), new_id))
             db().commit()
         p = _policy_dict(db().execute(
             "SELECT * FROM approval_access_policies WHERE id=?", (new_id,)).fetchone())
@@ -6838,8 +7062,9 @@ class PortalHandler(http.server.BaseHTTPRequestHandler):
                  clean["view_scope"], json.dumps(clean["view_steps"]),
                  clean["decide_scope"], json.dumps(clean["decide_steps"]),
                  1 if clean["enabled"] else 0, ts, actor, pid))
-            db().execute("UPDATE approval_access_policies SET request_types=?,expires_at=?,reason=?,effect=? WHERE id=?",
-                         (json.dumps(clean["request_types"]), clean["expires_at"], clean["reason"], clean["effect"], pid))
+            db().execute("UPDATE approval_access_policies SET request_types=?,expires_at=?,reason=?,effect=?,capabilities=? WHERE id=?",
+                         (json.dumps(clean["request_types"]), clean["expires_at"], clean["reason"], clean["effect"],
+                          json.dumps(clean["capabilities"]), pid))
             db().commit()
         after = _policy_dict(db().execute(
             "SELECT * FROM approval_access_policies WHERE id=?", (pid,)).fetchone())
