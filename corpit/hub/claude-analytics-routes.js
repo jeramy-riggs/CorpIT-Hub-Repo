@@ -1536,4 +1536,66 @@ router.get('/rollup/coverage', read, async (req, res) => {
   }
 });
 
+/* ===================== SITE ACTIVITY (2026-10-30) =====================================
+ * Who opened the AI Usage & Credits page, and when. The page POSTs one row per load; the
+ * Manage access drawer (administrators only) reads the roll-up. Append-only table, created
+ * on first use. Nothing else reads it; no existing route or table is touched. */
+const PV_PAGE = PAGE_KEY;
+const PV_TABLE_SQL = `CREATE TABLE IF NOT EXISTS ai_page_view (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  page         VARCHAR(64)  NOT NULL,
+  email        VARCHAR(255) NOT NULL,
+  display_name VARCHAR(255) NULL,
+  viewed_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  period       VARCHAR(48)  NULL,
+  KEY ix_pv_page_time (page, viewed_at),
+  KEY ix_pv_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`;
+let pvReady = null;
+function pvEnsure() {
+  if (!pvReady) pvReady = q(PV_TABLE_SQL).then(() => true).catch((e) => { pvReady = null; throw e; });
+  return pvReady;
+}
+
+/* POST /page-view — one row per page load. 204 on success; never blocks the page. */
+router.post('/page-view', read, async (req, res) => {
+  try {
+    const email = req.user && req.user.email ? String(req.user.email).toLowerCase() : null;
+    if (!email) return res.status(401).json({ error: 'no user' });
+    await pvEnsure();
+    const period = req.body && req.body.period ? String(req.body.period).slice(0, 48) : null;
+    await q(`INSERT INTO ai_page_view (page, email, display_name, period) VALUES (?,?,?,?)`,
+            [PV_PAGE, email, (req.user.displayName || null), period]);
+    res.status(204).end();
+  } catch (e) { console.error('[claude-analytics/page-view]', e.message); res.status(500).json({ error: 'page-view failed' }); }
+});
+
+/* GET /page-views?days=30 — administrators of this page only. */
+const pvAdmin = rbac.requirePage(PV_PAGE, 'admin');
+router.get('/page-views', pvAdmin, async (req, res) => {
+  try {
+    const days = clampDays(req.query.days, 30);
+    await pvEnsure();
+    const win = `page = ? AND viewed_at >= DATE_SUB(NOW(), INTERVAL ? DAY)`;
+    const [byUser, byDay, [tot], [first]] = await Promise.all([
+      q(`SELECT email, MAX(display_name) AS name, COUNT(*) AS views,
+                DATE_FORMAT(MAX(viewed_at), '%Y-%m-%d %H:%i') AS lastAt,
+                DATE_FORMAT(MIN(viewed_at), '%Y-%m-%d') AS firstAt
+           FROM ai_page_view WHERE ${win} GROUP BY email ORDER BY views DESC, lastAt DESC`, [PV_PAGE, days]),
+      q(`SELECT DATE_FORMAT(viewed_at, '%Y-%m-%d') AS day, COUNT(*) AS views, COUNT(DISTINCT email) AS people
+           FROM ai_page_view WHERE ${win} GROUP BY day ORDER BY day`, [PV_PAGE, days]),
+      q(`SELECT COUNT(*) AS views, COUNT(DISTINCT email) AS people FROM ai_page_view WHERE ${win}`, [PV_PAGE, days]),
+      q(`SELECT DATE_FORMAT(MIN(viewed_at), '%Y-%m-%d') AS since FROM ai_page_view WHERE page = ?`, [PV_PAGE]),
+    ]);
+    res.json({
+      days,
+      generatedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      trackingSince: first ? first.since : null,
+      totals: { views: Number(tot.views) || 0, people: Number(tot.people) || 0 },
+      byUser: byUser.map((r) => ({ email: r.email, name: r.name || r.email, views: Number(r.views) || 0, lastAt: r.lastAt, firstAt: r.firstAt })),
+      byDay: byDay.map((r) => ({ day: r.day, views: Number(r.views) || 0, people: Number(r.people) || 0 })),
+    });
+  } catch (e) { console.error('[claude-analytics/page-views]', e.message); res.status(500).json({ error: 'page-views failed' }); }
+});
+
 module.exports = router;
