@@ -284,6 +284,7 @@ input:focus,select:focus,textarea:focus{outline-color:var(--accent)!important;bo
     <a class="nav-item" href="#decide">✅ Making a Decision</a>
     <a class="nav-item nav-sub" href="#decide-approve">Approve</a>
     <a class="nav-item nav-sub" href="#decide-reject">Reject</a>
+    <a class="nav-item nav-sub" href="#decide-reject-early">Reject early (AI Use Case Intake)</a>
     <a class="nav-item nav-sub" href="#decide-return">Return</a>
     <a class="nav-item" href="#audit">📜 Audit Trail</a>
     <a class="nav-item" href="#ack-team">🛡️ AI Policy Acknowledgments (Managers)</a>
@@ -580,6 +581,15 @@ input:focus,select:focus,textarea:focus{outline-color:var(--accent)!important;bo
       <div class="step-header"><div class="step-num">✗</div><h3>Reject</h3><span class="step-tag">closes the request</span></div>
       <div class="step-body">
         <p style="font-size:13px;color:var(--text-muted)">Use it when the answer is no and no rewrite would change it. The request closes immediately &mdash; remaining steps are not consulted &mdash; and the requester is emailed with your step, your comment and the request ID to reference if they submit again.</p>
+      </div>
+    </div>
+
+    <!-- EARLY-REJECT (2026-10-29) -->
+    <div class="step-card" id="decide-reject-early">
+      <div class="step-header"><div class="step-num">✗</div><h3>Reject early &mdash; AI Use Case Intake</h3><span class="step-tag">named people only</span></div>
+      <div class="step-body">
+        <p style="font-size:13px;color:var(--text-muted)">People granted <strong>Early reject &mdash; AI Use Case Intake</strong> in Approval Access see a <strong>Reject early</strong> button on any AI Use Case Intake that is still in progress &mdash; at any step, including while it waits on the Dept. Manager. It rejects only: it cannot approve, return or move a request forward. A reason is required, and you confirm that it ends the approval process.</p>
+        <p style="font-size:13px;color:var(--text-muted)">The request closes as <strong>Rejected</strong>; the step it was waiting at shows <em>Rejected early (InfoSec)</em> and the history records who, when and why. The requester, the requester&rsquo;s manager and the Service Desk are emailed. Nobody can early-reject their own request, and other request types and AI Policy acknowledgments are not affected. An administrator can still reopen a request rejected by mistake.</p>
       </div>
     </div>
 
