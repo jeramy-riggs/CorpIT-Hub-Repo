@@ -768,6 +768,11 @@ router.get('/sessions', read, async (req, res) => {
       : `SELECT email FROM ai_usage_member
                WHERE platform='claude' AND email IS NOT NULL
                  AND month=(SELECT MAX(month) FROM ai_usage_member WHERE platform='claude')`;
+    // License assigned (2026-10-30): claude_member.added_at = the date Anthropic granted the
+    // seat. Read-only, additive; a member no longer in claude_member reads NULL (never guessed).
+    const licSql = rosterRows.length > 0
+      ? `SELECT email, MIN(added_at) added_at FROM claude_member WHERE email IS NOT NULL GROUP BY email`
+      : `SELECT NULL AS email, NULL AS added_at`;
 
     const rows = await q(
       `SELECT r.email,
@@ -779,6 +784,7 @@ router.get('/sessions', read, async (req, res) => {
               lim.custom_limit                          AS customLimit,
               lim.group_limit                           AS groupLimit,
               (ros.email IS NOT NULL)                   AS onRoster,
+              lic.added_at                              AS licenseAddedAt,
               c.departed                                AS departedFlag,
               -- session / activity split
               a.lastActive, a.daysActive, a.chats, a.messages,
@@ -842,6 +848,7 @@ router.get('/sessions', read, async (req, res) => {
                        AND month=(SELECT MAX(month) FROM ai_usage_member WHERE platform='claude')
          ) lim ON lim.email = r.email
          LEFT JOIN (${rosterSql}) ros ON ros.email = r.email
+         LEFT JOIN (${licSql}) lic ON lic.email = r.email
         ORDER BY c.spend DESC, t.tokens DESC, r.email`);
 
     /* Suggested limit = the member's average monthly spend over the last 3 COMPLETE
@@ -935,6 +942,7 @@ router.get('/sessions', read, async (req, res) => {
         matched: !!r.matched,
         accountEnabled: r.accountEnabled == null ? null : !!r.accountEnabled,
         lastActive: d10(r.lastActive),
+        licenseAssigned: d10(r.licenseAddedAt),
         daysActive: N(r.daysActive),
         // session breakdown
         sessions,
